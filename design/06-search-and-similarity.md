@@ -195,8 +195,8 @@ current sort column.
 
 ### FR-097.1 Index Coverage
 The quick navigation index must represent the entire result set, not only the
-currently loaded/visible window. It must be obtainable from the server even if
-the client only has a small subset of rows loaded.
+currently loaded/visible window. It must be obtainable from the local data
+service (main process) even if the UI only has a small subset of rows loaded.
 
 ### FR-097.2 Ordering of Index Keys
 The index key ordering must be:
@@ -219,7 +219,7 @@ The index must update whenever:
 - the sort direction changes
 - filters change
 
-The index must remain consistent with the server’s authoritative ordering.
+The index must remain consistent with the data service’s authoritative ordering.
 
 ---
 

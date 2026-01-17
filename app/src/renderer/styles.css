@@ -1,0 +1,33 @@
+:root {
+  color-scheme: light;
+  font-family: "Avenir", "Gill Sans", "Trebuchet MS", sans-serif;
+  background: radial-gradient(circle at top, #f9f5ef 0%, #efe6db 55%, #e3d6c6 100%);
+  color: #2c2721;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.shell {
+  text-align: center;
+  padding: 3rem 2.5rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 20px;
+  box-shadow: 0 18px 45px rgba(72, 56, 41, 0.2);
+}
+
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2.4rem;
+  letter-spacing: 0.03em;
+}
+
+#status {
+  margin: 0;
+  font-size: 1.05rem;
+  opacity: 0.75;
+}

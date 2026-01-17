@@ -20,7 +20,7 @@ This is not a general-purpose music player.
 ## Core Domain Concepts
 
 ### Track
-A Track is a single audio file stored on removable media (typically USB).
+A Track is a single audio file stored in a library root (USB volume or local folder).
 
 Tracks:
 - Are immutable on disk (NFR-001)

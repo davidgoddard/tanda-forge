@@ -4,15 +4,17 @@
 
 ## FR-001 — Music Library Discovery
 
-### FR-001.1 USB Scanning
-- The system scans mounted USB storage for audio files.
+### FR-001.1 Library Root Scanning
+- The system scans configured library roots for audio files.
+- Library roots may be mounted USB volumes or user-selected local folders.
+- The system detects mounts/unmounts for removable media and flags missing roots.
 - Added, removed, and changed files are detected incrementally where possible.
 - File identity must be stable across rescans (e.g. path + content hash).
 
 ### FR-001.2 Background Analysis (Per Track)
 During discovery or re-analysis, the system performs background tasks:
 
-- Extract metadata using FFmpeg/ffprobe (ID3, etc.).
+- Extract metadata using bundled FFmpeg/ffprobe (ID3, etc.).
 - Detect leading and trailing silence to determine:
   - Start offset
   - End trim
