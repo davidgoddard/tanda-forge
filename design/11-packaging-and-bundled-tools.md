@@ -11,6 +11,8 @@
 - Binaries are placed under `app/resources/ffmpeg/<platform>/`.
 - The main process resolves the correct binary at runtime.
 - Licensing requirements are documented and included in the app bundle.
+- Packaged builds resolve binaries from `process.resourcesPath/ffmpeg/<platform>/`.
+- Use `scripts/fetch-ffmpeg.sh` to download binaries for macOS, Windows, and Linux.
 
 ## Update Policy
 

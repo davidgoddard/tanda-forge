@@ -8,8 +8,73 @@
   </head>
   <body>
     <main class="shell">
-      <h1>Tanda Player 2</h1>
+      <header class="topbar">
+        <h1>Tanda Player 2</h1>
+        <button id="theme-toggle" class="icon-button" aria-label="Toggle theme">
+          <span class="sr-only">Toggle theme</span>
+        </button>
+      </header>
+      <section class="banner" id="root-banner">
+        <div class="banner-text" id="root-banner-text"></div>
+        <button id="open-settings">Open Settings</button>
+      </section>
+      <section class="controls">
+        <button id="settings">Settings</button>
+      </section>
+      <section class="progress">
+        <div class="progress-label" id="progress-label">Idle</div>
+        <progress id="scan-progress" value="0" max="1"></progress>
+      </section>
       <p id="status">Starting...</p>
+      <section class="list">
+        <nav class="jump-index" id="jump-index"></nav>
+        <div class="list-header">
+          <button data-sort="title">Title</button>
+          <button data-sort="artist">Artist</button>
+          <button data-sort="album">Album</button>
+          <button data-sort="year">Year</button>
+          <button data-sort="duration">Duration</button>
+          <button data-sort="start">Start</button>
+          <button data-sort="end">End Trim</button>
+          <span>Status</span>
+        </div>
+        <div class="list-body">
+          <div id="track-list" class="list-rows"></div>
+        </div>
+      </section>
+      <section class="settings-panel" id="settings-panel" aria-hidden="true">
+        <header>
+          <h2>Settings</h2>
+          <button id="close-settings">Close</button>
+        </header>
+        <nav class="settings-tabs">
+          <button data-tab="library" class="active">Library</button>
+          <button data-tab="diagnostics">Diagnostics</button>
+          <button data-tab="system">System</button>
+        </nav>
+        <div class="settings-content">
+          <div class="settings-tab active" data-tab="library">
+            <h3>Library Roots</h3>
+            <p>Configure music and cortina folders used for scanning.</p>
+            <div class="settings-actions">
+              <button id="add-music">Add Music Folder</button>
+              <button id="add-cortina">Add Cortina Folder</button>
+              <button id="scan-settings">Scan Library</button>
+            </div>
+            <div id="root-list" class="root-list"></div>
+          </div>
+          <div class="settings-tab" data-tab="diagnostics">
+            <h3>Scan Issues</h3>
+            <p>Recent scan problems and files that need attention.</p>
+            <ul id="error-list" class="error-list"></ul>
+          </div>
+          <div class="settings-tab" data-tab="system">
+            <h3>System</h3>
+            <p>Resetting will remove all local library data and playlists.</p>
+            <button id="reset-db" class="danger">Erase Database</button>
+          </div>
+        </div>
+      </section>
     </main>
     <script src="renderer.js"></script>
   </body>

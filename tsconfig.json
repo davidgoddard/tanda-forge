@@ -8,6 +8,7 @@
     "strict": true,
     "esModuleInterop": true,
     "moduleResolution": "node",
+    "skipLibCheck": true,
     "types": ["node", "electron"]
   },
   "include": ["app/src/**/*"]

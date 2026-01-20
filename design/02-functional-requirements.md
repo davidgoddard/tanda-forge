@@ -15,6 +15,7 @@
 During discovery or re-analysis, the system performs background tasks:
 
 - Extract metadata using bundled FFmpeg/ffprobe (ID3, etc.).
+- Capture UTF-8 filenames and normalize tags (title, artist, album, year).
 - Detect leading and trailing silence to determine:
   - Start offset
   - End trim
@@ -25,6 +26,13 @@ Analysis:
 - Must not block the UI (NFR-002).
 - Must be resumable and repeatable.
 - Must persist results for reuse at runtime (NFR-003).
+
+### FR-001.3 Progress and Resume
+- Scanning must report progress continuously (current, total, current file).
+- If scanning is interrupted, the next scan resumes by skipping unchanged files.
+- The UI must surface errors encountered during scanning and analysis.
+- Missing tracks are removed from the database on scan completion.
+- Tandas and playlists that reference missing tracks are marked invalid.
 
 ---
 
@@ -133,7 +141,7 @@ These tools are advisory and must not interrupt primary workflows.
 ## FR-030 — Cortina Handling
 
 ### FR-030.1 Cortina Sources
-- Cortinas are loaded from a designated folder on USB media.
+- Cortinas are loaded from designated library roots (USB or local folders).
 - Subfolders represent cortina groups.
 - All cortina tracks are searchable at runtime.
 

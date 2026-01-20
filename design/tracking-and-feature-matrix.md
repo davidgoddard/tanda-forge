@@ -24,13 +24,17 @@ and implementation status to prevent drift.
 
 | FR ID | Description | Spec’d | Implemented |
 |------|------------|:------:|:-----------:|
-| FR-001 | Library discovery & analysis | ✅ | ⬜ |
-| FR-002 | Loudness normalization | ✅ | ⬜ |
-| FR-011 | Tanda management | ✅ | ⬜ |
-| FR-020 | Playlist structure | ✅ | ⬜ |
-| FR-030 | Cortinas | ✅ | ⬜ |
-| FR-040 | Gaps & overlaps | ✅ | ⬜ |
-| FR-050 | Playback state machine | ✅ | ⬜ |
+| FR-001.1 | Library root scanning | Yes | Partial |
+| FR-001.2 | Background analysis | Yes | Partial |
+| FR-001.3 | Progress + resume + deletion handling | Yes | Partial |
+| FR-002 | Loudness normalization | Yes | Partial |
+| FR-011 | Tanda management | Yes | No |
+| FR-020 | Playlist structure | Yes | No |
+| FR-030 | Cortina handling | Yes | Partial |
+| FR-040 | Gaps & overlaps | Yes | No |
+| FR-050 | Playback state machine | Yes | No |
+| FR-096 | Incremental loading + virtualization | Yes | Partial |
+| FR-097 | Jump index + jumping | Yes | Partial |
 
 ---
 

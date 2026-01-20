@@ -4,6 +4,8 @@
 
 - All new code must include unit tests where feasible.
 - Design documents must reflect current requirements and code behavior.
+- Runtime behavior must be defensive: expect failures, handle them gracefully,
+  and keep the user informed about errors and knock-on effects.
 - If a change would introduce ambiguity, stop and ask for clarification.
 
 ## Documentation Discipline

@@ -15,3 +15,9 @@ pnpm-debug.log*
 
 app/resources/ffmpeg/*
 !app/resources/ffmpeg/README.md
+!app/resources/ffmpeg/darwin/ffmpeg
+!app/resources/ffmpeg/darwin/ffprobe
+!app/resources/ffmpeg/win32/ffmpeg.exe
+!app/resources/ffmpeg/win32/ffprobe.exe
+!app/resources/ffmpeg/linux/ffmpeg
+!app/resources/ffmpeg/linux/ffprobe

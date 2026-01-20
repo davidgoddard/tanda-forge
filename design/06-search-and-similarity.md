@@ -170,6 +170,8 @@ Requirements:
 - Results must be retrievable incrementally (paged, cursor-based, or streamed).
 - The UI must render results using virtualization (windowing) to keep the DOM small.
 - Scrolling must remain smooth on phones, tablets, and desktops.
+  The renderer must lazily render rows and never mount the full list at once.
+- Incremental loading must work in both directions when jumping.
 
 The UI must not require loading all rows into memory at once.
 
@@ -207,6 +209,8 @@ The index key ordering must be:
 ### FR-097.3 Jump Behavior
 Clicking an index key jumps to the first result row whose normalized sort key
 begins with that prefix.
+
+The index is rendered as a horizontal bar above the result list.
 
 After jumping:
 - The UI must allow normal scrolling in both directions across adjacent prefixes.

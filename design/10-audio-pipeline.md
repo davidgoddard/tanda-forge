@@ -13,6 +13,9 @@ modified on disk.
   - Leading/trailing silence offsets
 - Store results in SQLite for reuse at playback time.
 
+Loudness analysis uses `loudnorm` with a target integrated loudness of -16 LUFS
+and stores both the measured loudness and gain offset.
+
 ## Playback Pipeline
 
 - Playback engine schedules tracks with gaps or overlaps per playlist rules.

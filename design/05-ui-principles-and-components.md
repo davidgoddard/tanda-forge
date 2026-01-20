@@ -31,6 +31,7 @@ In Performance Mode:
 - No action may immediately change playback unless triggered via dedicated controls.
 - Clicking or tapping content (tracks, tandas) must not start playback.
 - Destructive or disruptive actions must be disabled or gated.
+  Any allowed destructive action must present a clear warning and confirmation.
 
 In Preparation Mode:
 - Speed and exploration are prioritized.
@@ -48,6 +49,11 @@ The UI must use a consistent visual grammar:
 - Playback state is never ambiguous
 
 Icons, colors, and layout must convey meaning before text.
+
+The UI must support both light and dark themes with a single-toggle control
+available from the main screen.
+
+All text and controls must meet WCAG AA contrast requirements in both themes.
 
 ---
 
@@ -99,6 +105,21 @@ The UI is a control and observation surface, not a prerequisite for operation.
 The following components are mandatory and reusable across the system.
 
 ---
+
+## UI-009 — Settings Panel
+
+Settings are grouped into tabs (Library, System, etc.) and are accessible from
+the main screen without leaving the playback context.
+
+Rules:
+- Missing library roots trigger a visible banner with a shortcut to Settings.
+- Destructive settings (e.g. database reset) require explicit confirmation.
+- Diagnostic information (scan issues) lives in a Diagnostics tab.
+
+### UI-010 — Jump Index Bar
+
+- The jump index is presented as a horizontal bar above long lists.
+- It reflects the active sort column and updates when sort changes.
 
 ## UI-010 — Track Row Component
 

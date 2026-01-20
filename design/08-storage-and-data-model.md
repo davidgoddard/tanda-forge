@@ -29,6 +29,9 @@ Fields:
 - `path` (absolute path)
 - `label` (user-friendly name)
 - `last_seen_at` (timestamp)
+- `last_scan_started_at`
+- `last_scan_completed_at`
+- `last_scan_error`
 
 ### Track
 
@@ -38,11 +41,15 @@ Fields:
 - `id` (UUID)
 - `root_id` (FK to library_root)
 - `relative_path` (path within the root)
+- `file_size` (bytes)
+- `file_mtime_ms` (last modified time, ms)
 - `file_hash` (content hash; stable across moves)
 - `duration_ms` (from analysis)
 - `start_offset_ms`
 - `end_trim_ms`
 - `loudness_db`
+- `gain_db`
+- `last_scanned_at`
 - `created_at`, `updated_at`
 
 ### Metadata
@@ -68,6 +75,7 @@ Fields:
 - `style_id` (FK to style)
 - `instrumental` (bool)
 - `rating` (optional)
+- `invalid` (bool)
 - `notes`
 - `created_at`, `updated_at`
 
@@ -92,6 +100,7 @@ Fields:
 - `auto_dj_cortina_duration_s`
 - `start_time_s` (seconds from midnight)
 - `end_time_s` (seconds from midnight)
+- `invalid` (bool)
 - `created_at`, `updated_at`
 
 ### Playlist Item
@@ -118,9 +127,12 @@ Fields:
 ## Scanning and Integrity Rules
 
 - Track identity is `root_id + relative_path + file_hash`.
-- `file_hash` is computed once per file and stored.
+- `file_hash` is computed when a file changes and stored.
 - Missing roots set `last_seen_at` and mark tracks as unavailable.
 - Deleting a track in the filesystem does not delete historical usage records.
+- Resume logic uses `file_size` and `file_mtime_ms` to skip unchanged files.
+- Missing tracks are removed from the database, and dependent tandas/playlists
+  are marked invalid.
 
 ## Migrations
 
