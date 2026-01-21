@@ -208,6 +208,7 @@ button.danger:hover {
   text-align: left;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .column {
@@ -224,6 +225,7 @@ button.danger:hover {
   flex-direction: column;
   gap: 0.8rem;
   min-height: 0;
+  overflow: hidden;
 }
 
 body.theme-dark .panel {
@@ -332,7 +334,7 @@ body.theme-dark .panel {
 
 .search-header {
   display: grid;
-  grid-template-columns: 130px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.4fr) 0.5fr;
+  grid-template-columns: 110px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.4fr) 0.5fr;
   gap: 0.5rem;
   font-size: 0.85rem;
   text-transform: uppercase;
@@ -364,12 +366,18 @@ body.theme-dark .panel {
 }
 
 .action-button {
-  border-radius: 999px;
-  padding: 0.25rem 0.6rem;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
   border: 1px solid var(--border);
   background: var(--accent-soft);
   color: var(--text);
+  display: grid;
+  place-items: center;
 }
 
 .action-button:hover {
@@ -401,8 +409,10 @@ body.theme-dark .panel {
 
 .list-body {
   flex: 1;
-  overflow: auto;
+  overflow-y: auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .result-count {
@@ -413,15 +423,18 @@ body.theme-dark .panel {
 .list-rows {
   display: none;
   gap: 0.3rem;
+  min-height: 120px;
 }
 
 .list-rows.active {
   display: grid;
+  flex: 1;
+  align-content: start;
 }
 
 .list-row {
   display: grid;
-  grid-template-columns: 130px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.4fr) 0.5fr;
+  grid-template-columns: 110px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.4fr) 0.5fr;
   gap: 0.5rem;
   padding: 0.4rem 0.3rem;
   border-bottom: 1px solid var(--border);

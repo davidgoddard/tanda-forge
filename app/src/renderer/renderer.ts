@@ -37,6 +37,7 @@ const searchSortButtons = Array.from(
 const clipTracksEl = document.querySelector<HTMLDivElement>("#clip-tracks");
 const clipTandasEl = document.querySelector<HTMLDivElement>("#clip-tandas");
 const playlistListEl = document.querySelector<HTMLDivElement>("#playlist-list");
+const clipListBody = clipTracksEl?.closest(".list-body") ?? null;
 const searchTabButtons = Array.from(
   document.querySelectorAll<HTMLButtonElement>(".panel .tab-bar button[data-tab]"),
 );
@@ -70,6 +71,8 @@ type TrackRow = {
   album: string;
   year: string;
   duration_ms: number;
+  start_offset_ms: number;
+  end_trim_ms: number;
   gain_db: number | null;
   tag_error: string;
   analysis_error: string;
@@ -181,6 +184,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingHeadphone: "Headphones",
     nowPlayingUnknown: "Unknown track",
     nowPlayingTime: "{current} / {duration}",
+    actionAddClipboardShort: "C",
+    actionAddPlaylistShort: "P",
     footerPlaceholder: "Footer area",
     colTitle: "Title",
     colArtist: "Artist",
@@ -283,6 +288,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingHeadphone: "Auriculares",
     nowPlayingUnknown: "Pista desconocida",
     nowPlayingTime: "{current} / {duration}",
+    actionAddClipboardShort: "C",
+    actionAddPlaylistShort: "P",
     footerPlaceholder: "Area del pie",
     colTitle: "Titulo",
     colArtist: "Artista",
@@ -385,6 +392,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingHeadphone: "Casque",
     nowPlayingUnknown: "Piste inconnue",
     nowPlayingTime: "{current} / {duration}",
+    actionAddClipboardShort: "C",
+    actionAddPlaylistShort: "P",
     footerPlaceholder: "Zone de pied",
     colTitle: "Titre",
     colArtist: "Artiste",
@@ -487,6 +496,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingHeadphone: "Kopfhorer",
     nowPlayingUnknown: "Unbekannter Track",
     nowPlayingTime: "{current} / {duration}",
+    actionAddClipboardShort: "Z",
+    actionAddPlaylistShort: "P",
     footerPlaceholder: "Fussbereich",
     colTitle: "Titel",
     colArtist: "Artist",
@@ -589,6 +600,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingHeadphone: "Fones",
     nowPlayingUnknown: "Faixa desconhecida",
     nowPlayingTime: "{current} / {duration}",
+    actionAddClipboardShort: "C",
+    actionAddPlaylistShort: "P",
     footerPlaceholder: "Area do rodape",
     colTitle: "Titulo",
     colArtist: "Artista",
@@ -772,9 +785,27 @@ const updateNowPlayingDisplay = () => {
 
   const { channel, state } = active;
   const track = state.track;
-  const durationSeconds = Number.isFinite(state.active?.duration)
+  const startOffsetMs = track?.start_offset_ms ?? 0;
+  const endTrimMs = track?.end_trim_ms ?? 0;
+  const baseDurationMs = track?.duration_ms ?? 0;
+  const effectiveDurationMs =
+    baseDurationMs > 0
+      ? Math.max(0, baseDurationMs - startOffsetMs - endTrimMs)
+      : 0;
+  const audioDurationSeconds = Number.isFinite(state.active?.duration)
     ? state.active?.duration ?? 0
-    : (track?.duration_ms ?? 0) / 1000;
+    : 0;
+  const fallbackDurationSeconds = effectiveDurationMs
+    ? effectiveDurationMs / 1000
+    : audioDurationSeconds;
+  const currentSeconds = Math.max(
+    0,
+    (state.active?.currentTime ?? 0) - startOffsetMs / 1000,
+  );
+  const clampedCurrent = Math.min(
+    currentSeconds,
+    fallbackDurationSeconds || currentSeconds,
+  );
 
   nowPlayingTrack.textContent = buildTrackLabel(track);
   nowPlayingSource.textContent =
@@ -782,8 +813,8 @@ const updateNowPlayingDisplay = () => {
       ? t("nowPlayingHeadphone")
       : t("nowPlayingMain");
   nowPlayingTime.textContent = t("nowPlayingTime", {
-    current: formatTime(state.active?.currentTime ?? 0),
-    duration: formatTime(durationSeconds),
+    current: formatTime(clampedCurrent),
+    duration: formatTime(fallbackDurationSeconds),
   });
 };
 
@@ -987,12 +1018,16 @@ const setStatus = (message: string) => {
   }
 };
 
-const buildActionButton = (labelKey: string, action: string) => {
+const buildActionButton = (
+  labelKey: string,
+  shortKey: string,
+  action: string,
+) => {
   const button = document.createElement("button");
   button.className = "action-button";
   button.dataset.action = action;
   const label = t(labelKey);
-  button.textContent = label;
+  button.textContent = t(shortKey);
   button.setAttribute("aria-label", label);
   button.title = label;
   return button;
@@ -1043,8 +1078,20 @@ const renderTrackRow = (
     actions.appendChild(buildHeadphoneButton());
   }
   if (context === "search") {
-    actions.appendChild(buildActionButton("actionAddClipboard", "add-clip"));
-    actions.appendChild(buildActionButton("actionAddPlaylist", "add-playlist"));
+    actions.appendChild(
+      buildActionButton(
+        "actionAddClipboard",
+        "actionAddClipboardShort",
+        "add-clip",
+      ),
+    );
+    actions.appendChild(
+      buildActionButton(
+        "actionAddPlaylist",
+        "actionAddPlaylistShort",
+        "add-playlist",
+      ),
+    );
   }
   const title = document.createElement("span");
   title.textContent = track.title;
@@ -1801,6 +1848,12 @@ const init = async () => {
     event.preventDefault();
   });
   clipTracksEl?.addEventListener("drop", (event) => {
+    handleDropToClipboard(event);
+  });
+  clipListBody?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+  });
+  clipListBody?.addEventListener("drop", (event) => {
     handleDropToClipboard(event);
   });
 

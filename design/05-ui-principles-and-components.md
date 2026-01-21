@@ -136,6 +136,7 @@ Must display:
 - Year (if available)
 - Headphone preview icon (FR-061)
 - Action controls for adding to clipboard/playlist in search results
+- Action controls use compact, language-aware glyphs/letters with tooltips.
 
 Optional indicators:
 - BPM
