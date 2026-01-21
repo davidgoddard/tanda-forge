@@ -25,6 +25,13 @@ Lighting, Network, etc.).
 
 - Destructive actions (e.g. Erase Database) require a confirmation dialog.
 - The dialog explains the consequences and cannot be bypassed.
+- Users can select their preferred UI language.
+- Users assign output devices for main and headphone playback.
+- Output selection persists across sessions and degrades gracefully if devices
+  are missing.
+- Headphone output is disabled if it matches the main output or no secondary
+  device is present.
+- Output changes update the main UI immediately (headphone controls shown/hidden).
 
 ## Diagnostics
 

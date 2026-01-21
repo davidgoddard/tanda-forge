@@ -24,6 +24,17 @@ const api: AppApi = {
     ipcRenderer.invoke("tracks:jumpToPrefix", params),
   getJumpIndex: async (params) =>
     ipcRenderer.invoke("tracks:getJumpIndex", params),
+  searchTracks: async (params) => ipcRenderer.invoke("tracks:search", params),
+  searchTrackCount: async (params) =>
+    ipcRenderer.invoke("tracks:searchCount", params),
+  searchJumpIndex: async (params) =>
+    ipcRenderer.invoke("tracks:searchJumpIndex", params),
+  searchJumpToPrefix: async (params) =>
+    ipcRenderer.invoke("tracks:searchJumpToPrefix", params),
+  getTrackStyles: async () => ipcRenderer.invoke("tracks:getStyles"),
+  closeApp: async () => ipcRenderer.invoke("app:close"),
+  logClientError: async (params) =>
+    ipcRenderer.invoke("app:logClientError", params),
 };
 
 contextBridge.exposeInMainWorld("tanda", api);

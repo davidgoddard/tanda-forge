@@ -20,6 +20,8 @@ export type TrackRow = {
   start_offset_ms: number;
   end_trim_ms: number;
   analysis_json: string;
+  loudness_db: number | null;
+  gain_db: number | null;
   tag_error: string;
   analysis_error: string;
 };
@@ -53,6 +55,15 @@ export type JumpRequest = {
   sortDir?: string;
 };
 
+export type TrackSearchRequest = {
+  query: string;
+  styles: string[];
+  limit?: number;
+  offset?: number;
+  sortBy?: string;
+  sortDir?: string;
+};
+
 export type AppApi = {
   ping: () => Promise<string>;
   pickRoot: (kind: "music" | "cortina") => Promise<string | null>;
@@ -65,6 +76,19 @@ export type AppApi = {
   listTrackPage: (params: TrackPageRequest) => Promise<TrackRow[]>;
   jumpToPrefix: (params: JumpRequest) => Promise<{ offset: number }>;
   getJumpIndex: (params: { sortBy?: string }) => Promise<string[]>;
+  searchTracks: (params: TrackSearchRequest) => Promise<TrackRow[]>;
+  searchTrackCount: (params: { query: string; styles: string[] }) => Promise<number>;
+  searchJumpIndex: (params: { query: string; styles: string[]; sortBy?: string }) => Promise<string[]>;
+  searchJumpToPrefix: (params: {
+    query: string;
+    styles: string[];
+    prefix: string;
+    sortBy?: string;
+    sortDir?: string;
+  }) => Promise<{ offset: number }>;
+  getTrackStyles: () => Promise<string[]>;
+  closeApp: () => Promise<void>;
+  logClientError: (params: { message: string; stack?: string }) => Promise<void>;
 };
 
 declare global {

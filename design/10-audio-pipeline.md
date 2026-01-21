@@ -21,6 +21,12 @@ and stores both the measured loudness and gain offset.
 - Playback engine schedules tracks with gaps or overlaps per playlist rules.
 - Gain is applied at playback time based on stored loudness.
 - Cortinas use a separate level and fade policy.
+- Preview playback (headphones) is independent of main output.
+
+## Output Routing
+
+- Users assign audio outputs for main and headphone channels in Settings.
+- If only one output is available, it is used as main and headphones are hidden.
 
 ## Timing Rules
 

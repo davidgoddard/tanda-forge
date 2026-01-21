@@ -2,76 +2,234 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tanda Player 2</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="shell">
-      <header class="topbar">
-        <h1>Tanda Player 2</h1>
-        <button id="theme-toggle" class="icon-button" aria-label="Toggle theme">
-          <span class="sr-only">Toggle theme</span>
-        </button>
+      <header class="app-header">
+        <div class="topbar">
+        <div class="mode-control">
+          <label for="mode-select" data-i18n="modeLabel">Mode</label>
+          <select id="mode-select">
+            <option value="prep" data-i18n="modePrep">Preparation</option>
+            <option value="live" data-i18n="modeLive">Live</option>
+          </select>
+        </div>
+        <h1 data-i18n="appTitle">Tanda Player 2</h1>
+        <div class="top-actions">
+          <button
+            id="theme-toggle"
+            class="icon-button"
+            data-i18n-attr="aria-label"
+            data-i18n="toggleTheme"
+            aria-label="Toggle theme"
+            title="Toggle theme"
+          >
+            <span class="sr-only" data-i18n="toggleTheme">Toggle theme</span>
+          </button>
+          <button
+            id="close-app"
+            class="icon-button close-button"
+            data-i18n-attr="aria-label"
+            data-i18n="closeApp"
+            aria-label="Close app"
+            title="Close app"
+          >
+            <span class="sr-only" data-i18n="closeApp">Close app</span>
+          </button>
+        </div>
+        </div>
       </header>
+      <section class="now-playing" aria-live="polite">
+        <div class="now-playing-label" data-i18n="nowPlayingLabel">
+          Now playing
+        </div>
+        <div class="now-playing-info">
+          <div id="now-playing-track" class="now-playing-track" data-i18n="nowPlayingIdle">
+            Idle
+          </div>
+          <div class="now-playing-meta">
+            <span id="now-playing-source" data-i18n="nowPlayingMain">Main</span>
+            <span id="now-playing-time">0:00 / 0:00</span>
+          </div>
+        </div>
+      </section>
       <section class="banner" id="root-banner">
         <div class="banner-text" id="root-banner-text"></div>
-        <button id="open-settings">Open Settings</button>
+        <button id="open-settings" data-i18n="openSettings">Open Settings</button>
       </section>
       <section class="controls">
-        <button id="settings">Settings</button>
+        <button id="settings" data-i18n="settings">Settings</button>
       </section>
       <section class="progress">
-        <div class="progress-label" id="progress-label">Idle</div>
+        <div class="progress-label" id="progress-label" data-i18n="idle">
+          Idle
+        </div>
         <progress id="scan-progress" value="0" max="1"></progress>
       </section>
-      <p id="status">Starting...</p>
-      <section class="list">
-        <nav class="jump-index" id="jump-index"></nav>
-        <div class="list-header">
-          <button data-sort="title">Title</button>
-          <button data-sort="artist">Artist</button>
-          <button data-sort="album">Album</button>
-          <button data-sort="year">Year</button>
-          <button data-sort="duration">Duration</button>
-          <button data-sort="start">Start</button>
-          <button data-sort="end">End Trim</button>
-          <span>Status</span>
+      <section class="alert-banner" id="alert-banner" aria-live="polite"></section>
+      <p id="status" data-i18n="starting">Starting...</p>
+      <section class="workspace">
+        <div class="column">
+          <div class="panel">
+            <h2 data-i18n="searchTitle">Search</h2>
+            <div class="search-row">
+              <input
+                id="search-input"
+                type="search"
+                data-i18n-attr="placeholder"
+                data-i18n="searchPlaceholder"
+                placeholder="Search tracks or tandas"
+              />
+              <button
+                id="search-button"
+                class="icon-button search-button"
+                data-i18n-attr="aria-label"
+                data-i18n="searchButton"
+                aria-label="Search"
+                title="Search"
+              >
+                <span class="sr-only" data-i18n="searchButton">Search</span>
+              </button>
+            </div>
+            <div class="style-filter">
+              <span data-i18n="styleLabel">Styles</span>
+              <div id="style-options" class="style-options"></div>
+            </div>
+            <div class="tab-bar">
+              <button data-tab="search-tracks" class="active" data-i18n="tabTracks">
+                Tracks
+              </button>
+              <button data-tab="search-tandas" data-i18n="tabTandas">
+                Tandas
+              </button>
+            </div>
+            <div class="result-count" id="search-count" data-i18n="searchResultsCount">
+              Results: 0
+            </div>
+            <nav class="jump-index" id="search-jump-index"></nav>
+            <div class="search-header">
+              <span class="actions-label" data-i18n="colActions">Actions</span>
+              <button data-sort="title" data-i18n="colTitle">Title</button>
+              <button data-sort="artist" data-i18n="colArtist">Artist</button>
+              <button data-sort="album" data-i18n="colAlbum">Album</button>
+              <button data-sort="year" data-i18n="colYear">Year</button>
+            </div>
+            <div class="list-body" id="search-list-body">
+              <div id="search-tracks" class="list-rows active"></div>
+              <div id="search-tandas" class="list-rows" data-i18n="tandasEmpty">
+                Tandas coming soon.
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="list-body">
-          <div id="track-list" class="list-rows"></div>
+        <div class="column">
+          <div class="panel">
+            <h2 data-i18n="clipboardTitle">Clipboard</h2>
+            <div class="tab-bar">
+              <button data-tab="clip-tracks" class="active" data-i18n="tabTracks">
+                Tracks
+              </button>
+              <button data-tab="clip-tandas" data-i18n="tabTandas">
+                Tandas
+              </button>
+            </div>
+            <div class="list-body">
+              <div id="clip-tracks" class="list-rows active"></div>
+              <div id="clip-tandas" class="list-rows" data-i18n="tandasEmpty">
+                Tandas coming soon.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="column">
+          <div class="panel">
+            <h2 data-i18n="playlistTitle">Playlist</h2>
+            <div id="playlist-list" class="list-rows"></div>
+            <div class="playlist-hint" data-i18n="playlistHint">
+              Click a clipboard item, then click a playlist slot to swap.
+            </div>
+          </div>
         </div>
       </section>
+      <footer class="app-footer" data-i18n="footerPlaceholder">
+        Footer area
+      </footer>
       <section class="settings-panel" id="settings-panel" aria-hidden="true">
         <header>
-          <h2>Settings</h2>
-          <button id="close-settings">Close</button>
+          <h2 data-i18n="settings">Settings</h2>
+          <button id="close-settings" data-i18n="close">Close</button>
         </header>
         <nav class="settings-tabs">
-          <button data-tab="library" class="active">Library</button>
-          <button data-tab="diagnostics">Diagnostics</button>
-          <button data-tab="system">System</button>
+          <button data-tab="library" class="active" data-i18n="tabLibrary">
+            Library
+          </button>
+          <button data-tab="diagnostics" data-i18n="tabDiagnostics">
+            Diagnostics
+          </button>
+          <button data-tab="system" data-i18n="tabSystem">System</button>
         </nav>
         <div class="settings-content">
           <div class="settings-tab active" data-tab="library">
-            <h3>Library Roots</h3>
-            <p>Configure music and cortina folders used for scanning.</p>
+            <h3 data-i18n="libraryRoots">Library Roots</h3>
+            <p data-i18n="libraryRootsHelp">
+              Configure music and cortina folders used for scanning.
+            </p>
             <div class="settings-actions">
-              <button id="add-music">Add Music Folder</button>
-              <button id="add-cortina">Add Cortina Folder</button>
-              <button id="scan-settings">Scan Library</button>
+              <button id="add-music" data-i18n="addMusicFolder">
+                Add Music Folder
+              </button>
+              <button id="add-cortina" data-i18n="addCortinaFolder">
+                Add Cortina Folder
+              </button>
+              <button id="scan-settings" data-i18n="scanLibrary">
+                Scan Library
+              </button>
             </div>
             <div id="root-list" class="root-list"></div>
           </div>
-          <div class="settings-tab" data-tab="diagnostics">
-            <h3>Scan Issues</h3>
-            <p>Recent scan problems and files that need attention.</p>
-            <ul id="error-list" class="error-list"></ul>
-          </div>
           <div class="settings-tab" data-tab="system">
-            <h3>System</h3>
-            <p>Resetting will remove all local library data and playlists.</p>
-            <button id="reset-db" class="danger">Erase Database</button>
+            <h3 data-i18n="system">System</h3>
+            <div class="settings-field">
+              <label for="main-output-select" data-i18n="mainOutput">
+                Main Output
+              </label>
+              <select id="main-output-select"></select>
+            </div>
+            <div class="settings-field">
+              <label
+                for="headphone-output-select"
+                data-i18n="headphoneOutput"
+              >
+                Headphones Output
+              </label>
+              <select id="headphone-output-select"></select>
+            </div>
+            <div class="settings-field">
+              <label for="language-select" data-i18n="language">
+                Language
+              </label>
+              <select id="language-select"></select>
+            </div>
+            <p data-i18n="languageHelp">
+              Language selection affects UI labels and formatting.
+            </p>
+            <button id="reset-db" class="danger" data-i18n="eraseDatabase">
+              Erase Database
+            </button>
+          </div>
+          <div class="settings-tab" data-tab="diagnostics">
+            <h3 data-i18n="scanIssues">Scan Issues</h3>
+            <p data-i18n="scanIssuesHelp">
+              Recent scan problems and files that need attention.
+            </p>
+            <ul id="error-list" class="error-list"></ul>
           </div>
         </div>
       </section>

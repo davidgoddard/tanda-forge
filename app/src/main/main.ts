@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import fs from "fs";
+import os from "os";
 import { randomUUID } from "crypto";
 import path from "path";
 import { initDb, getDb, resetDb } from "./db";
@@ -12,11 +13,13 @@ import {
   normalizeSortColumn,
   normalizeSortDirection,
 } from "./library/query";
+import { buildSearchWhere } from "./library/search";
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    fullscreen: true,
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),
       contextIsolation: true,
@@ -129,7 +132,7 @@ const registerIpc = () => {
         .prepare(
           `select id, full_path, relative_path, title, artist, album, album_artist,
             year, genre, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
-            tag_error, analysis_error
+            loudness_db, gain_db, tag_error, analysis_error
            from tracks
            order by ${sortSql} ${sortDir}, id ${sortDir}
            limit ? offset ?`,
@@ -137,6 +140,145 @@ const registerIpc = () => {
         .all(limit, offset);
     },
   );
+
+  ipcMain.handle(
+    "tracks:search",
+    async (
+      _event,
+      params: {
+        query: string;
+        styles: string[];
+        limit?: number;
+        offset?: number;
+        sortBy?: string;
+        sortDir?: string;
+      },
+    ) => {
+      const db = getDb();
+      const query = params.query?.trim() ?? "";
+      const limit = Math.min(500, Math.max(1, params.limit ?? 200));
+      const offset = Math.max(0, params.offset ?? 0);
+      const sortBy = normalizeSortColumn(params.sortBy);
+      const sortDir = normalizeSortDirection(params.sortDir);
+      const { whereSql, values } = buildSearchWhere({
+        query,
+        styles: params.styles ?? [],
+      });
+      const sortSql = getSortSql(sortBy);
+
+      return db
+        .prepare(
+          `select id, full_path, relative_path, title, artist, album, album_artist,
+            year, genre, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+            loudness_db, gain_db, tag_error, analysis_error
+           from tracks
+           ${whereSql}
+           order by ${sortSql} ${sortDir}, id ${sortDir}
+           limit ? offset ?`,
+        )
+        .all(...values, limit, offset);
+    },
+  );
+
+  ipcMain.handle(
+    "tracks:searchCount",
+    async (_event, params: { query: string; styles: string[] }) => {
+      const db = getDb();
+      const { whereSql, values } = buildSearchWhere({
+        query: params.query ?? "",
+        styles: params.styles ?? [],
+      });
+      const row = db
+        .prepare(`select count(*) as count from tracks ${whereSql}`)
+        .get(...values) as { count: number };
+      return row.count;
+    },
+  );
+
+  ipcMain.handle(
+    "tracks:searchJumpIndex",
+    async (
+      _event,
+      params: { query: string; styles: string[]; sortBy?: string },
+    ) => {
+      const db = getDb();
+      const sortBy = normalizeSortColumn(params.sortBy);
+      const keySql = getSortKeySql(sortBy);
+      const { whereSql, values } = buildSearchWhere({
+        query: params.query ?? "",
+        styles: params.styles ?? [],
+      });
+      const filterSql = whereSql
+        ? `${whereSql} and ${keySql} != ''`
+        : `where ${keySql} != ''`;
+      const prefixes = db
+        .prepare(
+          `select distinct substr(${keySql}, 1, 1) as prefix from tracks ${filterSql}`,
+        )
+        .all(...values)
+        .map((row) => (row as { prefix: string }).prefix);
+      return buildJumpIndex(prefixes);
+    },
+  );
+
+  ipcMain.handle(
+    "tracks:searchJumpToPrefix",
+    async (
+      _event,
+      params: {
+        query: string;
+        styles: string[];
+        prefix: string;
+        sortBy?: string;
+        sortDir?: string;
+      },
+    ) => {
+      const db = getDb();
+      const sortBy = normalizeSortColumn(params.sortBy);
+      const sortDir = normalizeSortDirection(params.sortDir);
+      const keySql = getSortKeySql(sortBy);
+      const prefix = params.prefix.toUpperCase();
+      const { whereSql, values } = buildSearchWhere({
+        query: params.query ?? "",
+        styles: params.styles ?? [],
+      });
+      let whereClause = "key like ?";
+      let matchValue = `${prefix}%`;
+      if (prefix === "0-9") {
+        whereClause = "key glob '[0-9]*'";
+      } else if (prefix === "#") {
+        whereClause = "key glob '[^A-Z0-9]*'";
+      }
+
+      const row = db
+        .prepare(
+          `select offset from (
+            select row_number() over (order by ${keySql} ${sortDir}, id ${sortDir}) - 1 as offset,
+                   ${keySql} as key
+            from tracks
+            ${whereSql}
+          ) where ${whereClause}
+          limit 1`,
+        )
+        .get(
+          ...(prefix === "0-9" || prefix === "#"
+            ? values
+            : [...values, matchValue]),
+        ) as { offset: number } | undefined;
+
+      return { offset: row?.offset ?? 0 };
+    },
+  );
+
+  ipcMain.handle("tracks:getStyles", async () => {
+    const db = getDb();
+    const rows = db
+      .prepare(
+        "select distinct genre from tracks where genre is not null and genre != '' order by genre",
+      )
+      .all() as { genre: string }[];
+    return rows.map((row) => row.genre);
+  });
 
   ipcMain.handle(
     "tracks:jumpToPrefix",
@@ -218,6 +360,29 @@ const registerIpc = () => {
     resetDb();
     return { ok: true };
   });
+
+  ipcMain.handle("app:close", async () => {
+    const window = BrowserWindow.getFocusedWindow();
+    if (window) {
+      window.close();
+    } else {
+      app.quit();
+    }
+  });
+
+  ipcMain.handle(
+    "app:logClientError",
+    async (_event, params: { message: string; stack?: string }) => {
+      const logDir = app.getPath("userData");
+      const logPath = path.join(logDir, "renderer-errors.log");
+      const entry = [
+        new Date().toISOString(),
+        params.message,
+        params.stack ?? "",
+      ].join(os.EOL);
+      fs.appendFileSync(logPath, `${entry}${os.EOL}`);
+    },
+  );
 };
 
 app.whenReady().then(() => {

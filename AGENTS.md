@@ -6,6 +6,8 @@
 - Design documents must reflect current requirements and code behavior.
 - Runtime behavior must be defensive: expect failures, handle them gracefully,
   and keep the user informed about errors and knock-on effects.
+- All UI strings must be sourced from a language map (i18n), except for user
+  data and tag-derived metadata.
 - If a change would introduce ambiguity, stop and ask for clarification.
 
 ## Documentation Discipline

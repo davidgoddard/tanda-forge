@@ -192,6 +192,20 @@ Logs are part of the recovery story, not developer-only artifacts.
 
 ---
 
+## NFR-021 — Renderer Security
+
+- The renderer must use a restrictive Content Security Policy (CSP).
+- CSP must disallow `unsafe-eval` and inline scripts.
+
+---
+
+## NFR-022 — Client Error Reporting
+
+- Renderer errors and unhandled promise rejections must be surfaced to the user.
+- Errors must be logged locally for diagnostics.
+
+---
+
 ## FR-088 — System Integration Strategy
 
 - The application must be startable as a system service.

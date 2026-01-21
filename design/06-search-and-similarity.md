@@ -29,6 +29,10 @@ This includes:
 
 No lossy fallback encodings are permitted.
 
+UI language selection must not limit storage or display of multilingual text.
+All UI labels are sourced from a language map; user data and tags are not
+translated.
+
 ---
 
 ## FR-090 — Search Scope and Types
@@ -174,6 +178,10 @@ Requirements:
 - Incremental loading must work in both directions when jumping.
 
 The UI must not require loading all rows into memory at once.
+
+Current implementation note (planned):
+- Bidirectional paging with lazy loading is implemented.
+- DOM windowing/virtualization is still planned and not yet implemented.
 
 ### FR-096.1 Bidirectional Scrolling
 The UI must allow users to scroll forward and backward through the result set,

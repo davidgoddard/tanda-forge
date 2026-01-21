@@ -22,19 +22,19 @@ and implementation status to prevent drift.
 
 ## Functional Requirement Coverage
 
-| FR ID | Description | Spec’d | Implemented |
-|------|------------|:------:|:-----------:|
-| FR-001.1 | Library root scanning | Yes | Partial |
-| FR-001.2 | Background analysis | Yes | Partial |
-| FR-001.3 | Progress + resume + deletion handling | Yes | Partial |
-| FR-002 | Loudness normalization | Yes | Partial |
-| FR-011 | Tanda management | Yes | No |
-| FR-020 | Playlist structure | Yes | No |
-| FR-030 | Cortina handling | Yes | Partial |
-| FR-040 | Gaps & overlaps | Yes | No |
-| FR-050 | Playback state machine | Yes | No |
-| FR-096 | Incremental loading + virtualization | Yes | Partial |
-| FR-097 | Jump index + jumping | Yes | Partial |
+| FR ID | Description | Spec’d | Implemented | Notes |
+|------|------------|:------:|:-----------:|------|
+| FR-001.1 | Library root scanning | Yes | Partial | Done: recursive scan, root availability, deletions. Missing: mount/unmount tracking, `last_seen_at`, root change events. |
+| FR-001.2 | Background analysis | Yes | Partial | Done: tags, silence offsets, loudness (loudnorm). Missing: batch queue persistence, retry policy, analysis scheduling. |
+| FR-001.3 | Progress + resume + deletion handling | Yes | Partial | Done: progress, skip unchanged, deletion cleanup. Missing: resumable job state across app restarts. |
+| FR-002 | Loudness normalization | Yes | Partial | Done: store loudness/gain and apply to preview/main. Missing: configurable reference loudness, cortina level handling. |
+| FR-011 | Tanda management | Yes | No | Missing: data model UI, edit/create flows. |
+| FR-020 | Playlist structure | Yes | No | Missing: playlist UI, rule-based generation, persistence. |
+| FR-030 | Cortina handling | Yes | Partial | Done: separate cortina roots. Missing: grouping, search, playback rules, volume override. |
+| FR-040 | Gaps & overlaps | Yes | No | Missing: timing rules and playback scheduling. |
+| FR-050 | Playback state machine | Yes | No | Missing: deterministic engine + state visibility. |
+| FR-096 | Incremental loading + virtualization | Yes | Partial | Done: lazy paging + bidirectional scroll. Missing: DOM windowing/virtualization. |
+| FR-097 | Jump index + jumping | Yes | Partial | Done: index + jump with filtered search support. Missing: tanda jump index. |
 
 ---
 

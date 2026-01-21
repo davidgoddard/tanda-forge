@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc && node scripts/copy-renderer-assets.js",
     "start": "electron .",
+    "preflight": "npm run test && npm run build",
     "test": "vitest run"
   },
   "dependencies": {

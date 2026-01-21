@@ -28,6 +28,9 @@ For each track:
 - Gain adjustment is applied at runtime.
 - No fades are applied unless overlap rules require them (FR-040).
 
+Preview playback (headphones) is independent of playlist playback and does not
+change the main output state.
+
 ---
 
 ## FR-053 — Cortina Playback

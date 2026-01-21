@@ -22,6 +22,7 @@ The system operates in explicit modes (FR-060):
 - Mode changes must be explicit.
 - UI affordances must change with mode.
 - Unsafe actions must be impossible in Performance Mode, not merely discouraged.
+  Track click actions are disabled in Live mode except for headphone preview.
 
 ---
 
@@ -54,6 +55,8 @@ The UI must support both light and dark themes with a single-toggle control
 available from the main screen.
 
 All text and controls must meet WCAG AA contrast requirements in both themes.
+
+The main screen defaults to fullscreen for live use.
 
 ---
 
@@ -120,6 +123,8 @@ Rules:
 
 - The jump index is presented as a horizontal bar above long lists.
 - It reflects the active sort column and updates when sort changes.
+- Jumping loads the list near that prefix and supports scrolling upward/downward
+  with lazy paging.
 
 ## UI-010 — Track Row Component
 
@@ -128,11 +133,11 @@ Represents a single track.
 Must display:
 - Track title
 - Orchestra / artist
-- Duration (effective musical duration)
+- Year (if available)
 - Headphone preview icon (FR-061)
+- Action controls for adding to clipboard/playlist in search results
 
 Optional indicators:
-- Year
 - BPM
 - Rating
 - Similarity glyphs (see UI-030)
@@ -140,6 +145,36 @@ Optional indicators:
 Behavior:
 - In Preparation Mode: clicking plays preview.
 - In Performance Mode: clicking selects only.
+- Headphone icon toggles preview playback regardless of mode, when available.
+- Headphone icon is hidden when no secondary output is configured.
+- Search list rows are draggable into clipboard or playlist.
+
+---
+
+## UI-014 — Three-Column Workspace
+
+The main workspace uses three columns:
+- Left: search input, style filters, and results (tabs for tracks/tandas).
+- Middle: clipboard/scratch pad with track/tanda tabs.
+- Right: playlist view with a trailing empty slot.
+
+Interactions:
+- Search results provide add buttons and drag-and-drop into clipboard/playlist.
+- Clicking a clipboard item then a playlist slot swaps the two.
+- Clicking a track row plays it (Preparation mode only).
+- Search includes a submit control and displays result counts.
+- Track/tanda tabs stretch to fill the column width.
+- Workspace fills the available screen space between a slim header and footer.
+
+## UI-015 — Now Playing Strip
+
+The main screen includes a horizontal strip directly below the header that
+summarizes the currently playing track.
+
+Requirements:
+- Shows artist and title.
+- Shows elapsed time and total duration.
+- Headphone playback overrides the main output display while active.
 
 ---
 

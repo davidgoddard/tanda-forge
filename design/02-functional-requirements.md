@@ -49,6 +49,7 @@ Analysis:
 - A configurable reference loudness is used.
 - Cortinas have their own configurable playback level.
 - DJs may adjust overall playback levels without recomputing analysis.
+- Gain is applied during preview playback and main output playback.
 
 ---
 
