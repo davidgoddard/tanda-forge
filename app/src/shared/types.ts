@@ -26,6 +26,28 @@ export type TrackRow = {
   analysis_error: string;
 };
 
+export type TandaDetail = {
+  id: string;
+  name: string;
+  styles: string[];
+  rating: number;
+  instrumental: boolean;
+  total_duration_ms: number;
+  slot_count: number;
+  track_slots: (string | null)[];
+  tracks: TrackRow[];
+};
+
+export type TandaSearchRow = {
+  id: string;
+  name: string;
+  styles: string[];
+  rating: number;
+  instrumental: boolean;
+  total_duration_ms: number;
+  track_count: number;
+};
+
 export type ScanSummary = {
   scanned: number;
   added: number;
@@ -87,6 +109,21 @@ export type AppApi = {
     sortDir?: string;
   }) => Promise<{ offset: number }>;
   getTrackStyles: () => Promise<string[]>;
+  listTandas: () => Promise<TandaDetail[]>;
+  saveTanda: (payload: {
+    id: string;
+    name: string;
+    styles: string[];
+    rating: number;
+    instrumental: boolean;
+    total_duration_ms: number;
+    track_slots: (string | null)[];
+  }) => Promise<TandaDetail>;
+  deleteTanda: (id: string) => Promise<{ ok: boolean }>;
+  searchTandas: (params: {
+    query: string;
+    styles: string[];
+  }) => Promise<TandaSearchRow[]>;
   closeApp: () => Promise<void>;
   logClientError: (params: { message: string; stack?: string }) => Promise<void>;
 };

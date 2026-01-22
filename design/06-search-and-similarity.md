@@ -45,6 +45,10 @@ Search must support:
 UI presentation:
 - Results are presented in separate tabs (or equivalent grouping) for Tracks and Tandas.
 
+Current implementation note:
+- Track search is paged with bidirectional loading.
+- Tanda search returns full matching rows without pagination.
+
 ### FR-090.2 Field Coverage
 Search applies to all searchable fields including:
 - Standard fields (title, artist/orchestra, year, BPM, etc.)
@@ -57,6 +61,10 @@ Tanda search applies to:
 - Rating
 - Instrumental flag
 - Any track metadata for tracks within the tanda
+
+Current implementation note:
+- Tanda search matches name, styles, and track metadata via SQL `LIKE`.
+- Rating/instrumental filtering is not yet implemented.
 
 Numeric fields (e.g. BPM, year) may be searchable both:
 - as text (simple)

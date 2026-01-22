@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/main/main.js",
   "scripts": {
-    "build": "tsc && node scripts/copy-renderer-assets.js",
+    "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && node scripts/copy-renderer-assets.js",
     "start": "electron .",
     "preflight": "npm run test && npm run build",
     "test": "vitest run"

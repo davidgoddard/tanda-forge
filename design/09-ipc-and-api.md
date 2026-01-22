@@ -15,46 +15,38 @@
 
 ### Library
 
-- `library.listRoots(): LibraryRoot[]`
-- `library.addRoot(path, kind): LibraryRoot`
-- `library.removeRoot(id): void`
-- `library.scan(id): ScanSummary`
-- `library.onScanProgress(callback): void`
+- `library:pickRoot(kind): string | null`
+- `library:addRoot(kind, path): LibraryRoot`
+- `library:listRoots(): LibraryRoot[]`
+- `library:scanAll(): ScanSummary`
+- `library:listTracks(): TrackRow[]`
+- `library:scanProgress` (event stream)
 
 ### Tracks
 
-- `tracks.search(query, filters, paging): Track[]`
-- `tracks.get(id): TrackDetail`
-- `tracks.updateMetadata(id, patch): void`
+- `tracks:listPage(params): TrackRow[]`
+- `tracks:jumpToPrefix(params): { offset: number }`
+- `tracks:getJumpIndex(params): string[]`
+- `tracks:search(params): TrackRow[]`
+- `tracks:searchCount(params): number`
+- `tracks:searchJumpIndex(params): string[]`
+- `tracks:searchJumpToPrefix(params): { offset: number }`
+- `tracks:getStyles(): string[]`
 
 ### Tandas
 
-- `tandas.list(): Tanda[]`
-- `tandas.get(id): TandaDetail`
-- `tandas.create(payload): Tanda`
-- `tandas.update(id, patch): void`
-- `tandas.delete(id): void`
+- `tandas:list(): TandaDetail[]`
+- `tandas:save(payload): TandaDetail`
+- `tandas:delete(id): { ok: boolean }`
+- `tandas:search(params): TandaSearchRow[]`
 
-### Playlists
+### App
 
-- `playlists.list(): Playlist[]`
-- `playlists.get(id): PlaylistDetail`
-- `playlists.create(payload): Playlist`
-- `playlists.update(id, patch): void`
-- `playlists.delete(id): void`
-
-### Playback
-
-- `playback.getState(): PlaybackState`
-- `playback.play(itemId): void`
-- `playback.pause(): void`
-- `playback.stop(): void`
-- `playback.next(): void`
-- `playback.prev(): void`
-- `playback.onStateChanged(callback): void`
-- `playback.onPosition(callback): void`
+- `app:resetDatabase(): { ok: boolean }`
+- `app:close(): void`
+- `app:logClientError(payload): void`
 
 ## Versioning
 
-- IPC contracts are versioned in `app/src/shared/types.ts`.
-- Breaking changes must increment a `contractVersion` constant.
+- IPC contracts are defined in `app/src/shared/types.ts`.
+- Breaking changes require updating all renderer and main-process handlers.

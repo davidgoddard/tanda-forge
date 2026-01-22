@@ -1,3 +1,10 @@
+import {
+  deriveInstrumental,
+  effectiveDurationMs,
+  sumEffectiveDurationMs,
+  summarizeTandaTracks,
+} from "../shared/tanda-utils.js";
+
 const statusEl = document.querySelector<HTMLParagraphElement>("#status");
 const addMusicBtn = document.querySelector<HTMLButtonElement>("#add-music");
 const addCortinaBtn = document.querySelector<HTMLButtonElement>("#add-cortina");
@@ -27,6 +34,10 @@ const searchInput = document.querySelector<HTMLInputElement>("#search-input");
 const styleOptions = document.querySelector<HTMLDivElement>("#style-options");
 const searchTracksEl = document.querySelector<HTMLDivElement>("#search-tracks");
 const searchTandasEl = document.querySelector<HTMLDivElement>("#search-tandas");
+const searchTrackHeader =
+  document.querySelector<HTMLDivElement>("#search-track-header");
+const searchTandaHeader =
+  document.querySelector<HTMLDivElement>("#search-tanda-header");
 const searchListBody =
   document.querySelector<HTMLDivElement>("#search-list-body");
 const searchJumpIndex =
@@ -37,10 +48,12 @@ const searchSortButtons = Array.from(
 const clipTracksEl = document.querySelector<HTMLDivElement>("#clip-tracks");
 const clipTandasEl = document.querySelector<HTMLDivElement>("#clip-tandas");
 const playlistListEl = document.querySelector<HTMLDivElement>("#playlist-list");
+const tandaListEl = document.querySelector<HTMLDivElement>("#tanda-list");
+const addTandaBtn = document.querySelector<HTMLButtonElement>("#add-tanda");
 const clipListBody = clipTracksEl?.closest(".list-body") ?? null;
 const clipPanel = clipTracksEl?.closest(".panel") ?? null;
 const playlistPanel = playlistListEl?.closest(".panel") ?? null;
-const searchTabButtons = Array.from(
+const panelTabButtons = Array.from(
   document.querySelectorAll<HTMLButtonElement>(".panel .tab-bar button[data-tab]"),
 );
 const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle");
@@ -52,6 +65,8 @@ const mainOutputSelect =
   document.querySelector<HTMLSelectElement>("#main-output-select");
 const headphoneOutputSelect =
   document.querySelector<HTMLSelectElement>("#headphone-output-select");
+const tandaSizeInput =
+  document.querySelector<HTMLInputElement>("#tanda-size-input");
 const searchButton = document.querySelector<HTMLButtonElement>("#search-button");
 const searchCount = document.querySelector<HTMLDivElement>("#search-count");
 const alertBanner = document.querySelector<HTMLDivElement>("#alert-banner");
@@ -72,12 +87,36 @@ type TrackRow = {
   artist: string;
   album: string;
   year: string;
+  genre: string;
   duration_ms: number;
   start_offset_ms: number;
   end_trim_ms: number;
+  instrumental?: boolean | null;
   gain_db: number | null;
   tag_error: string;
   analysis_error: string;
+};
+
+type TandaDetail = {
+  id: string;
+  name: string;
+  styles: string[];
+  rating: number;
+  instrumental: boolean;
+  total_duration_ms: number;
+  slot_count: number;
+  track_slots: (string | null)[];
+  tracks: TrackRow[];
+};
+
+type TandaSearchRow = {
+  id: string;
+  name: string;
+  styles: string[];
+  rating: number;
+  instrumental: boolean;
+  total_duration_ms: number;
+  track_count: number;
 };
 
 const SEARCH_PAGE_SIZE = 120;
@@ -130,9 +169,31 @@ let searchState: SearchState = {
   isLoading: false,
 };
 let clipboardTracks: TrackRow[] = [];
-let playlistTracks: (TrackRow | null)[] = [null];
+type PlaylistItem =
+  | { kind: "track"; track: TrackRow }
+  | { kind: "tanda"; tanda: TandaDraft };
+let playlistItems: (PlaylistItem | null)[] = [null];
 let selectedClipboardIndex: number | null = null;
 let selectedStyles: string[] = [];
+let availableStyles: string[] = [];
+
+type TandaDraft = {
+  id: string;
+  name: string;
+  styles: string[];
+  rating: number;
+  trackSlots: (string | null)[];
+};
+
+let tandaDrafts: TandaDraft[] = [];
+let selectedTandaId: string | null = null;
+let clipboardTandas: TandaDraft[] = [];
+let tandaSearchResults: TandaSearchRow[] = [];
+
+type RightPanelTab = "playlist-tab" | "tanda-designer-tab";
+let activeRightTab: RightPanelTab = "playlist-tab";
+type SearchTab = "search-tracks" | "search-tandas";
+let activeSearchTab: SearchTab = "search-tracks";
 
 type OutputMode = "prep" | "live";
 let appMode: OutputMode = "prep";
@@ -150,6 +211,8 @@ const playback: Record<OutputChannel, PlaybackState> = {
   headphone: {},
 };
 
+const trackCache = new Map<string, TrackRow>();
+
 type LanguageKey = "en" | "es" | "fr" | "de" | "pt";
 
 const translations: Record<LanguageKey, Record<string, string>> = {
@@ -163,6 +226,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     styleAll: "All",
     tabTracks: "Tracks",
     tabTandas: "Tandas",
+    tabPlaylist: "Playlist",
+    tabTandaDesigner: "Tanda Designer",
     clipboardTitle: "Clipboard",
     playlistTitle: "Playlist",
     playlistHint: "Click a clipboard item, then click a playlist slot to swap.",
@@ -187,8 +252,15 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingUnknown: "Unknown track",
     nowPlayingTime: "{current} / {duration}",
     actionAddClipboardShort: "C",
+    actionAddTandaShort: "T",
+    actionRemoveClipboard: "Remove from clipboard",
+    actionRemoveClipboardShort: "R",
+    actionAddPlaylist: "Add to playlist",
     actionAddPlaylistShort: "P",
+    actionToggleTanda: "Toggle details",
+    actionToggleTandaShort: "E",
     footerPlaceholder: "Footer area",
+    colTrack: "Track",
     colTitle: "Title",
     colArtist: "Artist",
     colAlbum: "Album",
@@ -198,7 +270,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     colStart: "Start",
     colEndTrim: "End Trim",
     actionAddClipboard: "Add to clipboard",
-    actionAddPlaylist: "Add to playlist",
+    actionAddTanda: "Add to tanda",
     colStatus: "Status",
     tabLibrary: "Library",
     tabDiagnostics: "Diagnostics",
@@ -213,6 +285,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     headphoneOutput: "Headphones Output",
     language: "Language",
     languageHelp: "Language selection affects UI labels and formatting.",
+    defaultTandaSize: "Default tanda size",
     scanIssues: "Scan Issues",
     scanIssuesHelp: "Recent scan problems and files that need attention.",
     scanIssuesMore: "...and {count} more",
@@ -240,6 +313,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "No music folders configured. Add a music folder in Settings to begin scanning.",
     statusMissingRoots:
       "Some library folders are unavailable. Connect the drive or update Settings.",
+    statusTandaSaved: "Tanda saved.",
+    statusTandaDeleted: "Tanda deleted.",
+    statusNoTandaSelected: "Select a tanda to add tracks.",
     outputSelectionFailed: "Output selection failed.",
     outputSelectionFailedDetail: "Output selection failed: {message}",
     playbackFailed: "Playback failed.",
@@ -247,6 +323,33 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     outputDefault: "Default Output",
     outputSelectHeadphones: "Select headphones output",
     outputNoSecondary: "No secondary output available",
+    addTanda: "Add Tanda",
+    tandaNameLabel: "Tanda name",
+    tandaStylesLabel: "Styles",
+    tandaRatingLabel: "Rating",
+    tandaInstrumentalLabel: "Instrumental",
+    tandaInstrumentalYes: "Yes",
+    tandaInstrumentalNo: "No",
+    tandaDurationLabel: "Duration",
+    tandaTrackCountLabel: "Tracks",
+    tandaAnyStyle: "Any",
+    tandaPlaceholder: "Empty slot",
+    tandaUnknownArtist: "Unknown artist",
+    tandaUnknownYear: "Unknown year",
+    tandaNonInstrumental: "Not instrumental",
+    tandaSave: "Save tanda",
+    tandaDelete: "Delete tanda",
+    tandaAddSlot: "Add slot",
+    tandaToClipboard: "Send to clipboard",
+    tandaRemoveTrack: "Send to clipboard",
+    tandaMoveUp: "Move up",
+    tandaMoveDown: "Move down",
+    tandaRemoveTrackShort: "C",
+    tandaMoveUpShort: "^",
+    tandaMoveDownShort: "v",
+    confirmTandaTooSmall:
+      "This tanda has {count} tracks (min {min}). Save anyway?",
+    confirmDeleteTanda: "Delete this tanda?",
     rootAvailable: "Available",
     rootMissing: "Missing",
     rootMusic: "Music",
@@ -267,6 +370,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     styleAll: "Todos",
     tabTracks: "Temas",
     tabTandas: "Tandas",
+    tabPlaylist: "Playlist",
+    tabTandaDesigner: "Disenador de tandas",
     clipboardTitle: "Portapapeles",
     playlistTitle: "Lista",
     playlistHint: "Selecciona del portapapeles y luego un espacio en la lista.",
@@ -291,8 +396,15 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingUnknown: "Pista desconocida",
     nowPlayingTime: "{current} / {duration}",
     actionAddClipboardShort: "C",
+    actionAddTandaShort: "T",
+    actionRemoveClipboard: "Quitar del portapapeles",
+    actionRemoveClipboardShort: "R",
+    actionAddPlaylist: "Agregar a la lista",
     actionAddPlaylistShort: "P",
+    actionToggleTanda: "Ver detalles",
+    actionToggleTandaShort: "E",
     footerPlaceholder: "Area del pie",
+    colTrack: "Tema",
     colTitle: "Titulo",
     colArtist: "Artista",
     colAlbum: "Album",
@@ -302,7 +414,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     colStart: "Inicio",
     colEndTrim: "Fin",
     actionAddClipboard: "Agregar al portapapeles",
-    actionAddPlaylist: "Agregar a la lista",
+    actionAddTanda: "Agregar a tanda",
     colStatus: "Estado",
     tabLibrary: "Biblioteca",
     tabDiagnostics: "Diagnostico",
@@ -317,6 +429,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     headphoneOutput: "Salida de auriculares",
     language: "Idioma",
     languageHelp: "El idioma afecta etiquetas y formato.",
+    defaultTandaSize: "Tamano de tanda",
     scanIssues: "Problemas de escaneo",
     scanIssuesHelp: "Problemas recientes y archivos pendientes.",
     scanIssuesMore: "...y {count} mas",
@@ -344,6 +457,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "No hay carpetas de musica configuradas. Agrega una carpeta en Ajustes.",
     statusMissingRoots:
       "Algunas carpetas no estan disponibles. Conecta la unidad o actualiza Ajustes.",
+    statusTandaSaved: "Tanda guardada.",
+    statusTandaDeleted: "Tanda eliminada.",
+    statusNoTandaSelected: "Selecciona una tanda para agregar temas.",
     outputSelectionFailed: "Fallo al seleccionar salida.",
     outputSelectionFailedDetail: "Fallo al seleccionar salida: {message}",
     playbackFailed: "Fallo de reproduccion.",
@@ -351,6 +467,33 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     outputDefault: "Salida predeterminada",
     outputSelectHeadphones: "Seleccionar salida de auriculares",
     outputNoSecondary: "No hay salida secundaria",
+    addTanda: "Agregar tanda",
+    tandaNameLabel: "Nombre de tanda",
+    tandaStylesLabel: "Estilos",
+    tandaRatingLabel: "Valoracion",
+    tandaInstrumentalLabel: "Instrumental",
+    tandaInstrumentalYes: "Si",
+    tandaInstrumentalNo: "No",
+    tandaDurationLabel: "Duracion",
+    tandaTrackCountLabel: "Temas",
+    tandaAnyStyle: "Cualquiera",
+    tandaPlaceholder: "Espacio vacio",
+    tandaUnknownArtist: "Artista desconocido",
+    tandaUnknownYear: "Ano desconocido",
+    tandaNonInstrumental: "No instrumental",
+    tandaSave: "Guardar tanda",
+    tandaDelete: "Borrar tanda",
+    tandaAddSlot: "Agregar espacio",
+    tandaToClipboard: "Enviar al portapapeles",
+    tandaRemoveTrack: "Enviar al portapapeles",
+    tandaMoveUp: "Subir",
+    tandaMoveDown: "Bajar",
+    tandaRemoveTrackShort: "C",
+    tandaMoveUpShort: "^",
+    tandaMoveDownShort: "v",
+    confirmTandaTooSmall:
+      "Esta tanda tiene {count} temas (min {min}). Guardar igual?",
+    confirmDeleteTanda: "Borrar esta tanda?",
     rootAvailable: "Disponible",
     rootMissing: "No disponible",
     rootMusic: "Musica",
@@ -371,6 +514,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     styleAll: "Tous",
     tabTracks: "Pistes",
     tabTandas: "Tandas",
+    tabPlaylist: "Playlist",
+    tabTandaDesigner: "Concepteur de tandas",
     clipboardTitle: "Presse-papiers",
     playlistTitle: "Playlist",
     playlistHint: "Cliquez un element puis une case de playlist.",
@@ -395,8 +540,15 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingUnknown: "Piste inconnue",
     nowPlayingTime: "{current} / {duration}",
     actionAddClipboardShort: "C",
+    actionAddTandaShort: "T",
+    actionRemoveClipboard: "Retirer du presse-papiers",
+    actionRemoveClipboardShort: "R",
+    actionAddPlaylist: "Ajouter a la playlist",
     actionAddPlaylistShort: "P",
+    actionToggleTanda: "Afficher les details",
+    actionToggleTandaShort: "E",
     footerPlaceholder: "Zone de pied",
+    colTrack: "Piste",
     colTitle: "Titre",
     colArtist: "Artiste",
     colAlbum: "Album",
@@ -406,7 +558,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     colStart: "Debut",
     colEndTrim: "Fin",
     actionAddClipboard: "Ajouter au presse-papiers",
-    actionAddPlaylist: "Ajouter a la playlist",
+    actionAddTanda: "Ajouter a la tanda",
     colStatus: "Statut",
     tabLibrary: "Bibliotheque",
     tabDiagnostics: "Diagnostic",
@@ -421,6 +573,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     headphoneOutput: "Sortie casque",
     language: "Langue",
     languageHelp: "La langue affecte les libelles et le format.",
+    defaultTandaSize: "Taille de tanda",
     scanIssues: "Problemes de scan",
     scanIssuesHelp: "Problemes recents et fichiers a traiter.",
     scanIssuesMore: "...et {count} de plus",
@@ -448,6 +601,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "Aucun dossier musique. Ajoutez un dossier dans Reglages.",
     statusMissingRoots:
       "Certains dossiers sont indisponibles. Connectez le disque.",
+    statusTandaSaved: "Tanda enregistree.",
+    statusTandaDeleted: "Tanda supprimee.",
+    statusNoTandaSelected: "Selectionnez une tanda pour ajouter des pistes.",
     outputSelectionFailed: "Selection de sortie impossible.",
     outputSelectionFailedDetail: "Selection de sortie impossible: {message}",
     playbackFailed: "Lecture impossible.",
@@ -455,6 +611,33 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     outputDefault: "Sortie par defaut",
     outputSelectHeadphones: "Selectionner sortie casque",
     outputNoSecondary: "Pas de sortie secondaire",
+    addTanda: "Ajouter tanda",
+    tandaNameLabel: "Nom de tanda",
+    tandaStylesLabel: "Styles",
+    tandaRatingLabel: "Note",
+    tandaInstrumentalLabel: "Instrumental",
+    tandaInstrumentalYes: "Oui",
+    tandaInstrumentalNo: "Non",
+    tandaDurationLabel: "Duree",
+    tandaTrackCountLabel: "Pistes",
+    tandaAnyStyle: "Tout",
+    tandaPlaceholder: "Emplacement vide",
+    tandaUnknownArtist: "Artiste inconnu",
+    tandaUnknownYear: "Annee inconnue",
+    tandaNonInstrumental: "Non instrumental",
+    tandaSave: "Enregistrer la tanda",
+    tandaDelete: "Supprimer la tanda",
+    tandaAddSlot: "Ajouter un slot",
+    tandaToClipboard: "Envoyer au presse-papiers",
+    tandaRemoveTrack: "Envoyer au presse-papiers",
+    tandaMoveUp: "Monter",
+    tandaMoveDown: "Descendre",
+    tandaRemoveTrackShort: "C",
+    tandaMoveUpShort: "^",
+    tandaMoveDownShort: "v",
+    confirmTandaTooSmall:
+      "Cette tanda a {count} pistes (min {min}). Enregistrer quand meme?",
+    confirmDeleteTanda: "Supprimer cette tanda?",
     rootAvailable: "Disponible",
     rootMissing: "Indisponible",
     rootMusic: "Musique",
@@ -475,6 +658,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     styleAll: "Alle",
     tabTracks: "Titel",
     tabTandas: "Tandas",
+    tabPlaylist: "Playlist",
+    tabTandaDesigner: "Tanda-Designer",
     clipboardTitle: "Zwischenablage",
     playlistTitle: "Playlist",
     playlistHint: "Zwischenablage auswahlen, dann Playlist-Slot anklicken.",
@@ -499,8 +684,15 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingUnknown: "Unbekannter Track",
     nowPlayingTime: "{current} / {duration}",
     actionAddClipboardShort: "Z",
+    actionAddTandaShort: "T",
+    actionRemoveClipboard: "Aus Zwischenablage entfernen",
+    actionRemoveClipboardShort: "R",
+    actionAddPlaylist: "Zur Playlist hinzufugen",
     actionAddPlaylistShort: "P",
+    actionToggleTanda: "Details umschalten",
+    actionToggleTandaShort: "E",
     footerPlaceholder: "Fussbereich",
+    colTrack: "Titel",
     colTitle: "Titel",
     colArtist: "Artist",
     colAlbum: "Album",
@@ -510,7 +702,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     colStart: "Start",
     colEndTrim: "Ende",
     actionAddClipboard: "Zur Zwischenablage",
-    actionAddPlaylist: "Zur Playlist",
+    actionAddTanda: "Zur Tanda",
     colStatus: "Status",
     tabLibrary: "Bibliothek",
     tabDiagnostics: "Diagnose",
@@ -525,6 +717,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     headphoneOutput: "Kopfhorer",
     language: "Sprache",
     languageHelp: "Sprache beeinflusst Labels und Format.",
+    defaultTandaSize: "Tanda-Grosse",
     scanIssues: "Scan-Probleme",
     scanIssuesHelp: "Aktuelle Probleme und Dateien.",
     scanIssuesMore: "...und {count} weitere",
@@ -552,6 +745,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "Keine Musikordner konfiguriert. Bitte in Einstellungen hinzufugen.",
     statusMissingRoots:
       "Einige Ordner sind nicht verfugbar. Laufwerk verbinden.",
+    statusTandaSaved: "Tanda gespeichert.",
+    statusTandaDeleted: "Tanda geloscht.",
+    statusNoTandaSelected: "Bitte eine Tanda auswahlen.",
     outputSelectionFailed: "Auswahl fehlgeschlagen.",
     outputSelectionFailedDetail: "Auswahl fehlgeschlagen: {message}",
     playbackFailed: "Wiedergabe fehlgeschlagen.",
@@ -559,6 +755,33 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     outputDefault: "Standardausgang",
     outputSelectHeadphones: "Kopfhorerausgang wahlen",
     outputNoSecondary: "Keine zweite Ausgabe",
+    addTanda: "Tanda hinzufugen",
+    tandaNameLabel: "Tanda-Name",
+    tandaStylesLabel: "Stile",
+    tandaRatingLabel: "Bewertung",
+    tandaInstrumentalLabel: "Instrumental",
+    tandaInstrumentalYes: "Ja",
+    tandaInstrumentalNo: "Nein",
+    tandaDurationLabel: "Dauer",
+    tandaTrackCountLabel: "Titel",
+    tandaAnyStyle: "Alle",
+    tandaPlaceholder: "Leerer Slot",
+    tandaUnknownArtist: "Unbekannter Artist",
+    tandaUnknownYear: "Unbekanntes Jahr",
+    tandaNonInstrumental: "Nicht instrumental",
+    tandaSave: "Tanda speichern",
+    tandaDelete: "Tanda loschen",
+    tandaAddSlot: "Slot hinzufugen",
+    tandaToClipboard: "Zur Zwischenablage",
+    tandaRemoveTrack: "Zur Zwischenablage",
+    tandaMoveUp: "Nach oben",
+    tandaMoveDown: "Nach unten",
+    tandaRemoveTrackShort: "C",
+    tandaMoveUpShort: "^",
+    tandaMoveDownShort: "v",
+    confirmTandaTooSmall:
+      "Diese Tanda hat {count} Titel (min {min}). Trotzdem speichern?",
+    confirmDeleteTanda: "Tanda loschen?",
     rootAvailable: "Verfugbar",
     rootMissing: "Fehlt",
     rootMusic: "Musik",
@@ -579,6 +802,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     styleAll: "Todos",
     tabTracks: "Faixas",
     tabTandas: "Tandas",
+    tabPlaylist: "Playlist",
+    tabTandaDesigner: "Designer de tandas",
     clipboardTitle: "Area de transferencia",
     playlistTitle: "Playlist",
     playlistHint: "Clique no item e depois no slot da playlist.",
@@ -603,8 +828,15 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingUnknown: "Faixa desconhecida",
     nowPlayingTime: "{current} / {duration}",
     actionAddClipboardShort: "C",
+    actionAddTandaShort: "T",
+    actionRemoveClipboard: "Remover do bloco",
+    actionRemoveClipboardShort: "R",
+    actionAddPlaylist: "Adicionar a playlist",
     actionAddPlaylistShort: "P",
+    actionToggleTanda: "Ver detalhes",
+    actionToggleTandaShort: "E",
     footerPlaceholder: "Area do rodape",
+    colTrack: "Faixa",
     colTitle: "Titulo",
     colArtist: "Artista",
     colAlbum: "Album",
@@ -614,7 +846,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     colStart: "Inicio",
     colEndTrim: "Fim",
     actionAddClipboard: "Adicionar ao bloco",
-    actionAddPlaylist: "Adicionar a playlist",
+    actionAddTanda: "Adicionar a tanda",
     colStatus: "Status",
     tabLibrary: "Biblioteca",
     tabDiagnostics: "Diagnostico",
@@ -629,6 +861,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     headphoneOutput: "Saida de fone",
     language: "Idioma",
     languageHelp: "Idioma afeta rotulos e formato.",
+    defaultTandaSize: "Tamanho da tanda",
     scanIssues: "Problemas de scan",
     scanIssuesHelp: "Problemas recentes e arquivos pendentes.",
     scanIssuesMore: "...e mais {count}",
@@ -656,6 +889,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "Nenhuma pasta de musica configurada. Adicione uma pasta em Ajustes.",
     statusMissingRoots:
       "Algumas pastas nao estao disponiveis. Conecte a unidade.",
+    statusTandaSaved: "Tanda salva.",
+    statusTandaDeleted: "Tanda apagada.",
+    statusNoTandaSelected: "Selecione uma tanda para adicionar faixas.",
     outputSelectionFailed: "Falha ao selecionar saida.",
     outputSelectionFailedDetail: "Falha ao selecionar saida: {message}",
     playbackFailed: "Falha na reproducao.",
@@ -663,6 +899,33 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     outputDefault: "Saida padrao",
     outputSelectHeadphones: "Selecionar saida de fone",
     outputNoSecondary: "Sem saida secundaria",
+    addTanda: "Adicionar tanda",
+    tandaNameLabel: "Nome da tanda",
+    tandaStylesLabel: "Estilos",
+    tandaRatingLabel: "Nota",
+    tandaInstrumentalLabel: "Instrumental",
+    tandaInstrumentalYes: "Sim",
+    tandaInstrumentalNo: "Nao",
+    tandaDurationLabel: "Duracao",
+    tandaTrackCountLabel: "Faixas",
+    tandaAnyStyle: "Qualquer",
+    tandaPlaceholder: "Espaco vazio",
+    tandaUnknownArtist: "Artista desconhecido",
+    tandaUnknownYear: "Ano desconhecido",
+    tandaNonInstrumental: "Nao instrumental",
+    tandaSave: "Salvar tanda",
+    tandaDelete: "Excluir tanda",
+    tandaAddSlot: "Adicionar slot",
+    tandaToClipboard: "Enviar ao bloco",
+    tandaRemoveTrack: "Enviar ao bloco",
+    tandaMoveUp: "Subir",
+    tandaMoveDown: "Descer",
+    tandaRemoveTrackShort: "C",
+    tandaMoveUpShort: "^",
+    tandaMoveDownShort: "v",
+    confirmTandaTooSmall:
+      "Esta tanda tem {count} faixas (min {min}). Salvar mesmo assim?",
+    confirmDeleteTanda: "Excluir esta tanda?",
     rootAvailable: "Disponivel",
     rootMissing: "Indisponivel",
     rootMusic: "Musica",
@@ -726,6 +989,7 @@ const applyTranslations = () => {
   renderLanguageOptions();
   updateSortButtons();
   updateNowPlayingDisplay();
+  renderTandaDesigner();
 };
 
 const gainForTrack = (gainDb: number | null | undefined) => {
@@ -820,6 +1084,166 @@ const updateNowPlayingDisplay = () => {
     duration: formatTime(fallbackDurationSeconds),
   });
   updatePlayingIndicators();
+};
+
+const handleTandaAction = async (event: Event) => {
+  const target = event.target as HTMLElement;
+  const button = target.closest<HTMLButtonElement>("button[data-action]");
+  if (!button) {
+    return;
+  }
+  const action = button.dataset.action;
+  const tandaId =
+    button.dataset.tandaId ??
+    target.closest<HTMLElement>(".tanda-card")?.dataset.tandaId ??
+    target.closest<HTMLElement>(".tanda-track-row")?.dataset.tandaId;
+  if (!action || !tandaId) {
+    return;
+  }
+  const tanda = tandaDrafts.find((item) => item.id === tandaId);
+  if (!tanda) {
+    return;
+  }
+  if (action === "tanda-add-slot") {
+    tanda.trackSlots.push(null);
+    renderTandaDesigner();
+    return;
+  }
+  if (action === "tanda-save") {
+    if (!window.tanda) {
+      return;
+    }
+    const minSize = getDefaultTandaSize();
+    const cleanedSlots = tanda.trackSlots.filter(
+      (trackId) => trackId !== null,
+    );
+    if (cleanedSlots.length < minSize) {
+      const confirmed = window.confirm(
+        t("confirmTandaTooSmall", {
+          count: cleanedSlots.length,
+          min: minSize,
+        }),
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    tanda.trackSlots = cleanedSlots;
+    const totalDurationMs = sumEffectiveDurationMs(
+      tanda.trackSlots.map((trackId) =>
+        trackId ? trackCache.get(trackId) ?? null : null,
+      ),
+    );
+    const instrumental = deriveInstrumental(
+      tanda.trackSlots.map((trackId) =>
+        trackId ? trackCache.get(trackId) ?? null : null,
+      ),
+    );
+    const saved = await window.tanda.saveTanda({
+      id: tanda.id,
+      name: tanda.name,
+      styles: tanda.styles,
+      rating: tanda.rating,
+      instrumental,
+      total_duration_ms: totalDurationMs,
+      track_slots: tanda.trackSlots,
+    });
+    tandaDrafts = tandaDrafts.map((item) =>
+      item.id === tanda.id ? { ...item, ...saved } : item,
+    );
+    saved.tracks.forEach((track) => trackCache.set(track.id, track));
+    setStatus(t("statusTandaSaved"));
+    renderTandaDesigner();
+    await refreshSearch();
+    return;
+  }
+  if (action === "tanda-delete") {
+    const confirmed = window.confirm(t("confirmDeleteTanda"));
+    if (!confirmed) {
+      return;
+    }
+    if (window.tanda) {
+      await window.tanda.deleteTanda(tandaId);
+    }
+    tandaDrafts = tandaDrafts.filter((item) => item.id !== tandaId);
+    if (selectedTandaId === tandaId) {
+      selectedTandaId = tandaDrafts[0]?.id ?? null;
+    }
+    setStatus(t("statusTandaDeleted"));
+    renderTandaDesigner();
+    renderClipboard();
+    await refreshSearch();
+    return;
+  }
+  if (action === "tanda-clip") {
+    clipboardTandas = [...clipboardTandas, cloneTanda(tanda)];
+    renderClipboard();
+    return;
+  }
+  const slotIndexRaw = target.closest<HTMLElement>(".tanda-track-row")
+    ?.dataset.slotIndex;
+  const slotIndex = slotIndexRaw ? Number.parseInt(slotIndexRaw, 10) : -1;
+  if (slotIndex < 0) {
+    return;
+  }
+  if (action === "tanda-up" && slotIndex > 0) {
+    [tanda.trackSlots[slotIndex - 1], tanda.trackSlots[slotIndex]] = [
+      tanda.trackSlots[slotIndex],
+      tanda.trackSlots[slotIndex - 1],
+    ];
+    renderTandaDesigner();
+    return;
+  }
+  if (action === "tanda-down" && slotIndex < tanda.trackSlots.length - 1) {
+    [tanda.trackSlots[slotIndex + 1], tanda.trackSlots[slotIndex]] = [
+      tanda.trackSlots[slotIndex],
+      tanda.trackSlots[slotIndex + 1],
+    ];
+    renderTandaDesigner();
+    return;
+  }
+  if (action === "tanda-remove") {
+    const trackId = tanda.trackSlots[slotIndex];
+    if (trackId) {
+      const track = trackCache.get(trackId);
+      if (track) {
+        addTrackToClipboard(track);
+      }
+    }
+    tanda.trackSlots[slotIndex] = null;
+    renderTandaDesigner();
+  }
+};
+
+const loadTandaDrafts = async () => {
+  if (!window.tanda) {
+    return;
+  }
+  try {
+    const tandas = await window.tanda.listTandas();
+    if (tandas.length > 0) {
+      tandaDrafts = tandas.map((tanda) => ({
+        id: tanda.id,
+        name: tanda.name ?? "",
+        styles: Array.isArray(tanda.styles) ? tanda.styles : [],
+        rating: Number.isFinite(tanda.rating) ? tanda.rating : 0,
+        trackSlots:
+          Array.isArray(tanda.track_slots) && tanda.track_slots.length > 0
+            ? tanda.track_slots
+            : Array.from({ length: getDefaultTandaSize() }, () => null),
+      }));
+      tandas.forEach((tanda) => {
+        tanda.tracks.forEach((track) => trackCache.set(track.id, track));
+      });
+      selectedTandaId = tandaDrafts[0].id;
+      return;
+    }
+  } catch {
+    // ignore load errors, fall back to empty tanda
+  }
+  const draft = createEmptyTanda();
+  tandaDrafts = [draft];
+  selectedTandaId = draft.id;
 };
 
 const updatePlayingIndicators = () => {
@@ -1090,7 +1514,7 @@ const renderTrackRow = (
   const headphoneClass =
     isPlaying && active?.channel === "headphone" ? "playing-headphone" : "";
   row.className = (
-    `list-row ${isSelected ? "selected" : ""} ${playingClass} ${headphoneClass}`
+    `list-row track-row ${isSelected ? "selected" : ""} ${playingClass} ${headphoneClass}`
   ).trim();
   row.dataset.trackId = track.id;
   row.dataset.filePath = track.full_path;
@@ -1114,27 +1538,44 @@ const renderTrackRow = (
     );
     actions.appendChild(
       buildActionButton(
-        "actionAddPlaylist",
-        "actionAddPlaylistShort",
-        "add-playlist",
+        "actionAddTanda",
+        "actionAddTandaShort",
+        "add-tanda",
       ),
     );
   }
-  const title = document.createElement("span");
-  title.textContent = track.title;
-  title.title = track.title;
-  const artist = document.createElement("span");
-  artist.className = "meta";
-  artist.textContent = track.artist;
-  artist.title = track.artist;
-  const album = document.createElement("span");
-  album.className = "meta";
-  album.textContent = track.album;
-  album.title = track.album;
-  const year = document.createElement("span");
-  year.className = "meta";
-  year.textContent = track.year;
-  row.append(actions, title, artist, album, year);
+  if (context === "clipboard") {
+    actions.appendChild(
+      buildActionButton(
+        "actionAddTanda",
+        "actionAddTandaShort",
+        "add-tanda",
+      ),
+    );
+    actions.appendChild(
+      buildActionButton(
+        "actionRemoveClipboard",
+        "actionRemoveClipboardShort",
+        "remove-clip",
+      ),
+    );
+  }
+  const details = document.createElement("div");
+  details.className = "track-details";
+  const primary = document.createElement("div");
+  primary.className = "track-primary";
+  const artist = track.artist ? ` — ${track.artist}` : "";
+  primary.textContent = `${track.title}${artist}`;
+  primary.title = primary.textContent;
+  const secondary = document.createElement("div");
+  secondary.className = "track-secondary";
+  const secondaryParts = [track.year, track.album, track.genre].filter(
+    (value) => value && value.trim().length > 0,
+  );
+  secondary.textContent = secondaryParts.join(" · ");
+  secondary.title = secondary.textContent;
+  details.append(primary, secondary);
+  row.append(actions, details);
   attachRowDrag(row, track, context);
   return row;
 };
@@ -1147,30 +1588,206 @@ const renderSearchResults = () => {
   searchState.items.forEach((track) => {
     searchTracksEl.appendChild(renderTrackRow(track, "search"));
   });
+  updateTabCount(searchTracksEl.closest(".panel"), "search-tracks", searchState.total);
+};
+
+const updateTabCount = (
+  panel: Element | null,
+  tabId: string,
+  count: number,
+) => {
+  if (!panel) {
+    return;
+  }
+  const button = panel.querySelector<HTMLButtonElement>(
+    `.tab-bar button[data-tab="${tabId}"]`,
+  );
+  if (!button) {
+    return;
+  }
+  const labelKey = button.dataset.i18n;
+  const baseLabel = labelKey ? t(labelKey) : button.textContent ?? "";
+  button.textContent = `${baseLabel} (${count})`;
+};
+
+const getPlaylistCount = () =>
+  playlistItems.filter((item) => item !== null).length;
+
+const buildTandaSummaryText = (tanda: TandaDraft, fallbackName?: string) => {
+  const name = tanda.name || fallbackName || t("tandaPlaceholder");
+  const tracks = tanda.trackSlots.map((trackId) =>
+    trackId ? trackCache.get(trackId) ?? null : null,
+  );
+  const summary = summarizeTandaTracks(tracks);
+  const artistLabel =
+    summary.artists.length > 0
+      ? summary.artists.map((artist) => `${artist.name}(${artist.count})`).join(", ")
+      : t("tandaUnknownArtist");
+  const yearLabel =
+    summary.years.length > 0 ? summary.years.join(",") : t("tandaUnknownYear");
+  const instrumentalLabel = summary.instrumental
+    ? t("tandaInstrumentalLabel")
+    : t("tandaNonInstrumental");
+  return `${name} - ${artistLabel} - ${instrumentalLabel} - ${yearLabel}`;
+};
+
+const buildTandaDetailLines = (tanda: TandaDraft) => {
+  const tracks = tanda.trackSlots
+    .map((trackId) => (trackId ? trackCache.get(trackId) ?? null : null))
+    .filter(Boolean) as TrackRow[];
+  if (tracks.length === 0) {
+    return [t("tandaPlaceholder")];
+  }
+  return tracks.map((track) => {
+    const year = track.year?.trim() || t("tandaUnknownYear");
+    return `${buildTrackLabel(track)} (${year})`;
+  });
+};
+
+const renderTandaRow = (
+  tanda: TandaDraft,
+  context: "search" | "clipboard" | "playlist",
+  nameOverride?: string,
+) => {
+  const row = document.createElement("div");
+  row.className = "list-row tanda-row";
+  row.dataset.tandaId = tanda.id;
+  row.dataset.context = context;
+  row.setAttribute("aria-expanded", "false");
+  const actions = document.createElement("div");
+  actions.className = "row-actions";
+  actions.appendChild(
+    buildActionButton(
+      "actionToggleTanda",
+      "actionToggleTandaShort",
+      "tanda-toggle",
+    ),
+  );
+  if (context === "search") {
+    actions.appendChild(
+      buildActionButton(
+        "actionAddClipboard",
+        "actionAddClipboardShort",
+        "add-clip-tanda",
+      ),
+    );
+  }
+  if (context === "clipboard") {
+    actions.appendChild(
+      buildActionButton(
+        "actionAddPlaylist",
+        "actionAddPlaylistShort",
+        "add-playlist-tanda",
+      ),
+    );
+  }
+  const summary = document.createElement("div");
+  summary.className = "tanda-summary";
+  summary.textContent = buildTandaSummaryText(tanda, nameOverride);
+  summary.title = summary.textContent ?? "";
+  const details = document.createElement("div");
+  details.className = "tanda-details";
+  buildTandaDetailLines(tanda).forEach((line) => {
+    const lineEl = document.createElement("div");
+    lineEl.className = "tanda-detail-line";
+    lineEl.textContent = line;
+    details.appendChild(lineEl);
+  });
+  row.append(actions, summary, details);
+  return row;
+};
+
+const toggleTandaRow = (row: HTMLElement) => {
+  const expanded = row.classList.toggle("expanded");
+  row.setAttribute("aria-expanded", expanded ? "true" : "false");
+};
+
+const renderTandaSearchResults = () => {
+  if (!searchTandasEl) {
+    return;
+  }
+  searchTandasEl.innerHTML = "";
+  if (tandaSearchResults.length === 0) {
+    searchTandasEl.textContent = t("tandasEmpty");
+    updateTabCount(searchTandasEl.closest(".panel"), "search-tandas", 0);
+    return;
+  }
+  tandaSearchResults.forEach((tanda) => {
+    const draft =
+      tandaDrafts.find((item) => item.id === tanda.id) ??
+      ({
+        id: tanda.id,
+        name: tanda.name,
+        styles: tanda.styles,
+        rating: tanda.rating,
+        trackSlots: [],
+      } as TandaDraft);
+    searchTandasEl.appendChild(renderTandaRow(draft, "search", tanda.name));
+  });
+  updateTabCount(
+    searchTandasEl.closest(".panel"),
+    "search-tandas",
+    tandaSearchResults.length,
+  );
+};
+
+const loadTandaSearchResults = async () => {
+  if (!window.tanda) {
+    return;
+  }
+  const rows = await window.tanda.searchTandas(getSearchParams());
+  tandaSearchResults = rows;
+  renderTandaSearchResults();
+  updateSearchCountDisplay();
 };
 
 const renderClipboard = () => {
   if (!clipTracksEl) {
     return;
   }
+  const forcedStyles = getActiveStyleFilter();
   clipTracksEl.innerHTML = "";
-  clipboardTracks.forEach((track, index) => {
+  const selectedId =
+    selectedClipboardIndex !== null
+      ? clipboardTracks[selectedClipboardIndex]?.id ?? null
+      : null;
+  const filteredTracks =
+    forcedStyles.length > 0
+      ? clipboardTracks.filter((track) => forcedStyles.includes(track.genre))
+      : clipboardTracks;
+  filteredTracks.forEach((track, index) => {
     clipTracksEl.appendChild(
-      renderTrackRow(track, "clipboard", selectedClipboardIndex === index),
+      renderTrackRow(track, "clipboard", selectedId === track.id),
     );
   });
+  updateTabCount(
+    clipTracksEl.closest(".panel"),
+    "clip-tracks",
+    filteredTracks.length,
+  );
+  if (clipTandasEl) {
+    clipTandasEl.innerHTML = "";
+    clipboardTandas.forEach((tanda) => {
+      clipTandasEl.appendChild(renderTandaRow(tanda, "clipboard"));
+    });
+    updateTabCount(
+      clipTandasEl.closest(".panel"),
+      "clip-tandas",
+      clipboardTandas.length,
+    );
+  }
 };
 
 const normalizePlaylist = () => {
   while (
-    playlistTracks.length > 1 &&
-    playlistTracks[playlistTracks.length - 1] === null &&
-    playlistTracks[playlistTracks.length - 2] === null
+    playlistItems.length > 1 &&
+    playlistItems[playlistItems.length - 1] === null &&
+    playlistItems[playlistItems.length - 2] === null
   ) {
-    playlistTracks.pop();
+    playlistItems.pop();
   }
-  if (playlistTracks[playlistTracks.length - 1] !== null) {
-    playlistTracks.push(null);
+  if (playlistItems[playlistItems.length - 1] !== null) {
+    playlistItems.push(null);
   }
 };
 
@@ -1180,9 +1797,13 @@ const renderPlaylist = () => {
   }
   normalizePlaylist();
   playlistListEl.innerHTML = "";
-  playlistTracks.forEach((track, index) => {
-    if (track) {
-      const row = renderTrackRow(track, "playlist");
+  playlistItems.forEach((item, index) => {
+    if (item && item.kind === "track") {
+      const row = renderTrackRow(item.track, "playlist");
+      row.dataset.index = index.toString();
+      playlistListEl.appendChild(row);
+    } else if (item && item.kind === "tanda") {
+      const row = renderTandaRow(item.tanda, "playlist");
       row.dataset.index = index.toString();
       playlistListEl.appendChild(row);
     } else {
@@ -1197,24 +1818,301 @@ const renderPlaylist = () => {
       playlistListEl.appendChild(row);
     }
   });
+  updateTabCount(playlistPanel, "playlist-tab", getPlaylistCount());
 };
 
 const renderAllLists = () => {
   renderSearchResults();
+  renderTandaSearchResults();
   renderClipboard();
   renderPlaylist();
+  renderTandaDesigner();
+};
+
+const renderTandaDesigner = () => {
+  if (!tandaListEl) {
+    return;
+  }
+  if (tandaDrafts.length === 0) {
+    const draft = createEmptyTanda();
+    tandaDrafts = [draft];
+    selectedTandaId = draft.id;
+  }
+  const activeId = selectedTandaId ?? tandaDrafts[0]?.id ?? null;
+  if (activeId && activeId !== selectedTandaId) {
+    selectedTandaId = activeId;
+  }
+  tandaListEl.innerHTML = "";
+  tandaDrafts.forEach((tanda) => {
+    const card = document.createElement("div");
+    card.className = `tanda-card${tanda.id === selectedTandaId ? " selected" : ""}`;
+    card.dataset.tandaId = tanda.id;
+
+    const header = document.createElement("div");
+    header.className = "tanda-header";
+
+    const nameRow = document.createElement("div");
+    nameRow.className = "tanda-row";
+    const nameInput = document.createElement("input");
+    nameInput.className = "tanda-name";
+    nameInput.value = tanda.name;
+    nameInput.placeholder = t("tandaNameLabel");
+    nameInput.addEventListener("input", () => {
+      tanda.name = nameInput.value;
+    });
+    const ratingLabel = document.createElement("span");
+    ratingLabel.className = "tanda-meta";
+    ratingLabel.textContent = t("tandaRatingLabel");
+    const ratingSelect = document.createElement("select");
+    ratingSelect.className = "tanda-rating";
+    ratingSelect.setAttribute("aria-label", t("tandaRatingLabel"));
+    for (let rating = 0; rating <= 5; rating += 1) {
+      const option = document.createElement("option");
+      option.value = rating.toString();
+      option.textContent = rating.toString();
+      ratingSelect.appendChild(option);
+    }
+    ratingSelect.value = tanda.rating.toString();
+    ratingSelect.addEventListener("change", () => {
+      tanda.rating = Number.parseInt(ratingSelect.value, 10);
+    });
+    nameRow.append(nameInput, ratingLabel, ratingSelect);
+
+    const styleRow = document.createElement("div");
+    styleRow.className = "tanda-row";
+    const styleLabel = document.createElement("span");
+    styleLabel.textContent = t("tandaStylesLabel");
+    styleLabel.className = "tanda-meta";
+    const styleOptions = document.createElement("div");
+    styleOptions.className = "tanda-style-options";
+    const anyButton = document.createElement("button");
+    anyButton.textContent = t("tandaAnyStyle");
+    anyButton.classList.toggle("active", tanda.styles.length === 0);
+    anyButton.addEventListener("click", () => {
+      tanda.styles = [];
+      setActiveTanda(tanda.id);
+    });
+    styleOptions.appendChild(anyButton);
+    availableStyles.forEach((style) => {
+      const button = document.createElement("button");
+      button.textContent = style;
+      button.classList.toggle("active", tanda.styles.includes(style));
+      button.addEventListener("click", () => {
+        if (tanda.styles.includes(style)) {
+          tanda.styles = tanda.styles.filter((value) => value !== style);
+        } else {
+          tanda.styles = [...tanda.styles, style];
+        }
+        setActiveTanda(tanda.id);
+      });
+      styleOptions.appendChild(button);
+    });
+    styleRow.append(styleLabel, styleOptions);
+
+    const metaRow = document.createElement("div");
+    metaRow.className = "tanda-row";
+    const tracks = tanda.trackSlots.map((trackId) =>
+      trackId ? trackCache.get(trackId) ?? null : null,
+    );
+    const totalDurationMs = sumEffectiveDurationMs(tracks);
+    const instrumental = deriveInstrumental(tracks);
+    metaRow.innerHTML = `
+      <span class="tanda-meta">${t("tandaTrackCountLabel")}: ${tanda.trackSlots.filter(
+        Boolean,
+      ).length}</span>
+      <span class="tanda-meta">${t("tandaInstrumentalLabel")}: ${
+        instrumental ? t("tandaInstrumentalYes") : t("tandaInstrumentalNo")
+      }</span>
+      <span class="tanda-meta">${t("tandaDurationLabel")}: ${formatTime(
+        totalDurationMs / 1000,
+      )}</span>
+    `;
+
+    header.append(nameRow, styleRow, metaRow);
+
+    const trackList = document.createElement("div");
+    trackList.className = "tanda-track-list";
+    tanda.trackSlots.forEach((trackId, index) => {
+      const row = document.createElement("div");
+      row.className = `tanda-track-row${trackId ? "" : " placeholder"}`;
+      row.dataset.tandaId = tanda.id;
+      row.dataset.slotIndex = index.toString();
+      if (trackId) {
+        row.dataset.trackId = trackId;
+      }
+      const label = document.createElement("span");
+      if (trackId) {
+        const track = trackCache.get(trackId);
+        label.textContent = track ? buildTrackLabel(track) : t("tandaPlaceholder");
+      } else {
+        label.textContent = t("tandaPlaceholder");
+      }
+      const actions = document.createElement("div");
+      actions.className = "tanda-track-actions";
+      const upButton = buildActionButton(
+        "tandaMoveUp",
+        "tandaMoveUpShort",
+        "tanda-up",
+      );
+      const downButton = buildActionButton(
+        "tandaMoveDown",
+        "tandaMoveDownShort",
+        "tanda-down",
+      );
+      const removeButton = buildActionButton(
+        "tandaRemoveTrack",
+        "tandaRemoveTrackShort",
+        "tanda-remove",
+      );
+      actions.append(upButton, downButton, removeButton);
+      row.append(label, document.createElement("span"), actions);
+      trackList.appendChild(row);
+    });
+
+    const footerRow = document.createElement("div");
+    footerRow.className = "tanda-row";
+    const addSlotButton = document.createElement("button");
+    addSlotButton.textContent = t("tandaAddSlot");
+    addSlotButton.dataset.action = "tanda-add-slot";
+    addSlotButton.dataset.tandaId = tanda.id;
+    const saveButton = document.createElement("button");
+    saveButton.textContent = t("tandaSave");
+    saveButton.dataset.action = "tanda-save";
+    saveButton.dataset.tandaId = tanda.id;
+    const deleteButton = document.createElement("button");
+    deleteButton.textContent = t("tandaDelete");
+    deleteButton.dataset.action = "tanda-delete";
+    deleteButton.dataset.tandaId = tanda.id;
+    const clipButton = document.createElement("button");
+    clipButton.textContent = t("tandaToClipboard");
+    clipButton.dataset.action = "tanda-clip";
+    clipButton.dataset.tandaId = tanda.id;
+    footerRow.append(addSlotButton, saveButton, deleteButton, clipButton);
+
+    card.append(header, trackList, footerRow);
+    card.addEventListener("click", (event) => {
+      const target = event.target as HTMLElement;
+      if (target.closest("button") || target.tagName === "INPUT" || target.tagName === "SELECT") {
+        return;
+      }
+      setActiveTanda(tanda.id);
+    });
+    tandaListEl.appendChild(card);
+  });
 };
 
 const addTrackToClipboard = (track: TrackRow) => {
+  const existingIndex = clipboardTracks.findIndex((item) => item.id === track.id);
+  if (existingIndex >= 0) {
+    selectedClipboardIndex = existingIndex;
+    renderClipboard();
+    return;
+  }
   clipboardTracks = [...clipboardTracks, track];
   selectedClipboardIndex = clipboardTracks.length - 1;
+  trackCache.set(track.id, track);
   renderClipboard();
 };
 
 const appendTrackToPlaylist = (track: TrackRow) => {
   normalizePlaylist();
-  const insertIndex = Math.max(0, playlistTracks.length - 1);
-  playlistTracks[insertIndex] = track;
+  const insertIndex = Math.max(0, playlistItems.length - 1);
+  playlistItems[insertIndex] = { kind: "track", track };
+  normalizePlaylist();
+  trackCache.set(track.id, track);
+  renderPlaylist();
+};
+
+const getDefaultTandaSize = () => {
+  const raw = localStorage.getItem("tanda-default-size");
+  const value = raw ? Number.parseInt(raw, 10) : 3;
+  if (Number.isNaN(value) || value < 1) {
+    return 3;
+  }
+  return Math.min(value, 10);
+};
+
+const createEmptyTanda = (): TandaDraft => {
+  const size = getDefaultTandaSize();
+  return {
+    id: crypto.randomUUID(),
+    name: "",
+    styles: [],
+    rating: 0,
+    trackSlots: Array.from({ length: size }, () => null),
+  };
+};
+
+const cloneTanda = (tanda: TandaDraft): TandaDraft => ({
+  id: tanda.id,
+  name: tanda.name,
+  styles: [...tanda.styles],
+  rating: tanda.rating,
+  trackSlots: [...tanda.trackSlots],
+});
+
+const getActiveTanda = () =>
+  tandaDrafts.find((tanda) => tanda.id === selectedTandaId) ?? null;
+
+const setActiveTanda = (tandaId: string | null) => {
+  selectedTandaId = tandaId;
+  loadStyles();
+  updateSearchTabVisibility();
+  refreshSearch();
+  renderClipboard();
+  renderTandaDesigner();
+};
+
+const activateRightTab = (tabId: RightPanelTab) => {
+  const button = playlistPanel?.querySelector<HTMLButtonElement>(
+    `.tab-bar button[data-tab="${tabId}"]`,
+  );
+  button?.click();
+};
+
+const addTrackToTanda = (tandaId: string | null, track: TrackRow) => {
+  const tanda = tandaDrafts.find((item) => item.id === tandaId);
+  if (!tanda) {
+    return false;
+  }
+  if (tanda.styles.length > 0 && !tanda.styles.includes(track.genre)) {
+    return false;
+  }
+  trackCache.set(track.id, track);
+  const slotIndex = tanda.trackSlots.findIndex((slot) => slot === null);
+  if (slotIndex >= 0) {
+    tanda.trackSlots[slotIndex] = track.id;
+  } else {
+    tanda.trackSlots.push(track.id);
+  }
+  if (selectedTandaId !== tanda.id) {
+    selectedTandaId = tanda.id;
+  }
+  renderTandaDesigner();
+  renderClipboard();
+  return true;
+};
+
+const addTrackToActiveTanda = (track: TrackRow) =>
+  addTrackToTanda(selectedTandaId, track);
+
+const addTandaToClipboard = (tandaId: string) => {
+  const tanda = tandaDrafts.find((item) => item.id === tandaId);
+  if (!tanda) {
+    return;
+  }
+  clipboardTandas = [...clipboardTandas, cloneTanda(tanda)];
+  renderClipboard();
+};
+
+const addTandaToPlaylist = (tandaId: string) => {
+  const tanda = tandaDrafts.find((item) => item.id === tandaId);
+  if (!tanda) {
+    return;
+  }
+  normalizePlaylist();
+  const insertIndex = Math.max(0, playlistItems.length - 1);
+  playlistItems[insertIndex] = { kind: "tanda", tanda: cloneTanda(tanda) };
   normalizePlaylist();
   renderPlaylist();
 };
@@ -1235,11 +2133,19 @@ const removeClipboardTrack = (trackId: string) => {
   }
 };
 
-const resolveTrackById = (trackId: string) =>
-  searchState.items.find((item) => item.id === trackId) ??
-  clipboardTracks.find((item) => item.id === trackId) ??
-  playlistTracks.find((item) => item?.id === trackId) ??
-  null;
+const resolveTrackById = (trackId: string) => {
+  const playlistTrack = playlistItems.find(
+    (item): item is { kind: "track"; track: TrackRow } =>
+      item?.kind === "track" && item.track.id === trackId,
+  );
+  return (
+    trackCache.get(trackId) ??
+    searchState.items.find((item) => item.id === trackId) ??
+    clipboardTracks.find((item) => item.id === trackId) ??
+    playlistTrack?.track ??
+    null
+  );
+};
 
 const showAlert = (message: string) => {
   if (!alertBanner) {
@@ -1262,21 +2168,28 @@ const loadStyles = async () => {
     return;
   }
   const styles = await window.tanda.getTrackStyles();
-  const available = styles.length > 0 ? styles : ["Tango", "Waltz", "Milonga"];
+  availableStyles = styles.length > 0 ? styles : ["Tango", "Waltz", "Milonga"];
+  const forcedStyles = getActiveStyleFilter();
   styleOptions.innerHTML = "";
   const allButton = document.createElement("button");
   allButton.textContent = t("styleAll");
-  allButton.classList.toggle("active", selectedStyles.length === 0);
+  allButton.classList.toggle(
+    "active",
+    (forcedStyles.length > 0 ? forcedStyles : selectedStyles).length === 0,
+  );
+  allButton.disabled = forcedStyles.length > 0;
   allButton.addEventListener("click", () => {
     selectedStyles = [];
     loadStyles();
     refreshSearch();
   });
   styleOptions.appendChild(allButton);
-  available.forEach((style) => {
+  availableStyles.forEach((style) => {
     const button = document.createElement("button");
     button.textContent = style;
-    button.classList.toggle("active", selectedStyles.includes(style));
+    const activeSet = forcedStyles.length > 0 ? forcedStyles : selectedStyles;
+    button.classList.toggle("active", activeSet.includes(style));
+    button.disabled = forcedStyles.length > 0;
     button.addEventListener("click", () => {
       if (selectedStyles.includes(style)) {
         selectedStyles = selectedStyles.filter((value) => value !== style);
@@ -1292,21 +2205,36 @@ const loadStyles = async () => {
 
 let searchTimer: number | undefined;
 
-const getSearchParams = () => ({
-  query: searchInput?.value?.trim() ?? "",
-  styles: selectedStyles,
-});
+const getActiveStyleFilter = () => {
+  const tanda = getActiveTanda();
+  return tanda && tanda.styles.length > 0 ? tanda.styles : [];
+};
+
+const getSearchParams = () => {
+  const forcedStyles = getActiveStyleFilter();
+  return {
+    query: searchInput?.value?.trim() ?? "",
+    styles: forcedStyles.length > 0 ? forcedStyles : selectedStyles,
+  };
+};
 
 const updateSearchCount = async () => {
   if (!window.tanda) {
     return;
   }
   searchState.total = await window.tanda.searchTrackCount(getSearchParams());
-  if (searchCount) {
-    searchCount.textContent = t("searchResultsCount", {
-      count: searchState.total,
-    });
+  updateSearchCountDisplay();
+};
+
+const updateSearchCountDisplay = () => {
+  if (!searchCount) {
+    return;
   }
+  const count =
+    activeSearchTab === "search-tracks"
+      ? searchState.total
+      : tandaSearchResults.length;
+  searchCount.textContent = t("searchResultsCount", { count });
 };
 
 const renderJumpIndex = (available: string[]) => {
@@ -1376,6 +2304,7 @@ const loadSearchPage = async (
       sortBy: searchState.sortBy,
       sortDir: searchState.sortDir,
     });
+    rows.forEach((track) => trackCache.set(track.id, track));
     if (mode === "replace") {
       searchState.items = rows;
       searchState.offsetStart = offset;
@@ -1395,6 +2324,7 @@ const refreshSearch = async () => {
   await updateSearchCount();
   await updateJumpIndex();
   await loadSearchPage(0, "replace");
+  await loadTandaSearchResults();
   if (searchListBody) {
     searchListBody.scrollTop = 0;
   }
@@ -1417,7 +2347,11 @@ const jumpToPrefix = async (prefix: string) => {
 };
 
 const handleSearchScroll = async () => {
-  if (!searchListBody || searchState.isLoading) {
+  if (
+    !searchListBody ||
+    searchState.isLoading ||
+    activeSearchTab !== "search-tracks"
+  ) {
     return;
   }
   if (searchState.total === 0) {
@@ -1478,8 +2412,8 @@ const handleDropToClipboard = (event: DragEvent) => {
   }
   if (payload.context === "playlist" && payload.index) {
     const sourceIndex = Number.parseInt(payload.index, 10);
-    if (!Number.isNaN(sourceIndex) && playlistTracks[sourceIndex]) {
-      playlistTracks[sourceIndex] = null;
+    if (!Number.isNaN(sourceIndex) && playlistItems[sourceIndex]) {
+      playlistItems[sourceIndex] = null;
       normalizePlaylist();
       renderPlaylist();
     }
@@ -1515,8 +2449,8 @@ const handleDropToPlaylist = (event: DragEvent) => {
       renderClipboard();
     } else if (payload.context === "playlist" && payload.index) {
       const sourceIndex = Number.parseInt(payload.index, 10);
-      if (!Number.isNaN(sourceIndex) && playlistTracks[sourceIndex]) {
-        playlistTracks[sourceIndex] = null;
+      if (!Number.isNaN(sourceIndex) && playlistItems[sourceIndex]) {
+        playlistItems[sourceIndex] = null;
       }
     }
     normalizePlaylist();
@@ -1524,26 +2458,53 @@ const handleDropToPlaylist = (event: DragEvent) => {
     return;
   }
 
-  const replaced = playlistTracks[targetIndex];
-  playlistTracks[targetIndex] = track;
+  const replaced = playlistItems[targetIndex];
+  playlistItems[targetIndex] = { kind: "track", track };
 
   if (payload.context === "playlist" && payload.index) {
     const sourceIndex = Number.parseInt(payload.index, 10);
     if (!Number.isNaN(sourceIndex) && sourceIndex !== targetIndex) {
-      playlistTracks[sourceIndex] = replaced ?? null;
+      playlistItems[sourceIndex] = replaced ?? null;
     }
   } else if (payload.context === "clipboard") {
     removeClipboardTrack(payload.trackId);
-    if (replaced) {
-      addTrackToClipboard(replaced);
+    if (replaced?.kind === "track") {
+      addTrackToClipboard(replaced.track);
+    } else if (replaced?.kind === "tanda") {
+      clipboardTandas = [...clipboardTandas, cloneTanda(replaced.tanda)];
+      renderClipboard();
     }
-  } else if (payload.context === "search" && replaced) {
-    addTrackToClipboard(replaced);
+  } else if (payload.context === "search" && replaced?.kind === "track") {
+    addTrackToClipboard(replaced.track);
+  } else if (payload.context === "search" && replaced?.kind === "tanda") {
+    clipboardTandas = [...clipboardTandas, cloneTanda(replaced.tanda)];
+    renderClipboard();
   }
 
   normalizePlaylist();
   renderPlaylist();
   renderClipboard();
+};
+
+const handleDropToTanda = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  const payload = parseDragData(event);
+  if (!payload) {
+    return;
+  }
+  const track = resolveTrackById(payload.trackId);
+  if (!track) {
+    return;
+  }
+  const targetTandaId =
+    (event.target as HTMLElement)
+      ?.closest<HTMLElement>(".tanda-card")
+      ?.dataset.tandaId ?? selectedTandaId;
+  const added = addTrackToTanda(targetTandaId ?? null, track);
+  if (!added) {
+    setStatus(t("statusNoTandaSelected"));
+  }
 };
 
 const scheduleSearch = () => {
@@ -1574,6 +2535,28 @@ const setSettingsOpen = (open: boolean) => {
   }
   settingsPanel.classList.toggle("open", open);
   settingsPanel.setAttribute("aria-hidden", open ? "false" : "true");
+};
+
+const updateSearchTabVisibility = () => {
+  if (searchTrackHeader) {
+    searchTrackHeader.classList.toggle(
+      "hidden",
+      activeSearchTab !== "search-tracks",
+    );
+  }
+  if (searchTandaHeader) {
+    searchTandaHeader.classList.toggle(
+      "hidden",
+      activeSearchTab !== "search-tandas",
+    );
+  }
+  if (searchJumpIndex) {
+    searchJumpIndex.classList.toggle(
+      "hidden",
+      activeSearchTab !== "search-tracks",
+    );
+  }
+  updateSearchCountDisplay();
 };
 
 const renderRoots = async () => {
@@ -1641,6 +2624,7 @@ const init = async () => {
 
   const message = await window.tanda.ping();
   setStatus(t("statusMainProcess", { message }));
+  await loadTandaDrafts();
 
   if (themeToggle) {
     const savedTheme = localStorage.getItem("tanda-theme");
@@ -1673,6 +2657,18 @@ const init = async () => {
       setStatus(
         t("statusLanguageSet", { language: languageSelect.value }),
       );
+    });
+  }
+
+  if (tandaSizeInput) {
+    tandaSizeInput.value = getDefaultTandaSize().toString();
+    tandaSizeInput.addEventListener("change", () => {
+      const next = Number.parseInt(tandaSizeInput.value, 10);
+      if (Number.isNaN(next) || next < 1) {
+        tandaSizeInput.value = getDefaultTandaSize().toString();
+        return;
+      }
+      localStorage.setItem("tanda-default-size", next.toString());
     });
   }
 
@@ -1880,6 +2876,33 @@ const init = async () => {
     handleDropToClipboard(event as DragEvent);
   });
 
+  clipTandasEl?.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    const row = target.closest<HTMLElement>(".list-row");
+    const tandaId = row?.dataset.tandaId;
+    if (!tandaId) {
+      return;
+    }
+    const action = target.getAttribute("data-action");
+    if (action === "tanda-toggle" && row) {
+      toggleTandaRow(row);
+      return;
+    }
+    if (action === "add-playlist-tanda") {
+      addTandaToPlaylist(tandaId);
+      return;
+    }
+    const found = clipboardTandas.find((item) => item.id === tandaId);
+    if (!found) {
+      return;
+    }
+    if (!tandaDrafts.some((item) => item.id === tandaId)) {
+      tandaDrafts = [...tandaDrafts, found];
+    }
+    setActiveTanda(tandaId);
+    activateRightTab("tanda-designer-tab");
+  });
+
   playlistPanel?.addEventListener("dragover", (event) => {
     event.preventDefault();
   });
@@ -1887,7 +2910,24 @@ const init = async () => {
     handleDropToPlaylist(event as DragEvent);
   });
 
-  searchTabButtons.forEach((button) => {
+  addTandaBtn?.addEventListener("click", () => {
+    const draft = createEmptyTanda();
+    tandaDrafts = [...tandaDrafts, draft];
+    setActiveTanda(draft.id);
+  });
+
+  tandaListEl?.addEventListener("click", (event) => {
+    void handleTandaAction(event);
+  });
+
+  tandaListEl?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+  });
+  tandaListEl?.addEventListener("drop", (event) => {
+    handleDropToTanda(event as DragEvent);
+  });
+
+  panelTabButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const tabId = button.dataset.tab;
       if (!tabId) {
@@ -1897,16 +2937,30 @@ const init = async () => {
       if (!panel) {
         return;
       }
-      panel.querySelectorAll<HTMLButtonElement>(".tab-bar button").forEach((btn) =>
-        btn.classList.remove("active"),
-      );
-      panel.querySelectorAll<HTMLElement>(".list-rows").forEach((list) =>
-        list.classList.remove("active"),
-      );
-      button.classList.add("active");
+      const tabBar = button.closest(".tab-bar");
+      tabBar
+        ?.querySelectorAll<HTMLButtonElement>("button")
+        .forEach((btn) => btn.classList.remove("active"));
       panel
-        .querySelectorAll<HTMLElement>(`.list-rows#${tabId}`)
-        .forEach((list) => list.classList.add("active"));
+        .querySelectorAll<HTMLElement>(".tab-panel, .list-rows")
+        .forEach((list) => list.classList.remove("active"));
+      button.classList.add("active");
+      const targetPanel = panel.querySelector<HTMLElement>(`#${tabId}`);
+      if (targetPanel) {
+        targetPanel.classList.add("active");
+        if (targetPanel.classList.contains("tab-panel")) {
+          targetPanel
+            .querySelectorAll<HTMLElement>(".list-rows")
+            .forEach((list) => list.classList.add("active"));
+        }
+      }
+      if (tabId === "search-tracks" || tabId === "search-tandas") {
+        activeSearchTab = tabId as SearchTab;
+        updateSearchTabVisibility();
+      }
+      if (tabId === "tanda-designer-tab" || tabId === "playlist-tab") {
+        activeRightTab = tabId as RightPanelTab;
+      }
     });
   });
 
@@ -1945,12 +2999,35 @@ const init = async () => {
       addTrackToClipboard(track);
       return;
     }
-    if (action === "add-playlist") {
-      appendTrackToPlaylist(track);
+    if (action === "add-tanda") {
+      const added = addTrackToActiveTanda(track);
+      if (!added) {
+        setStatus(t("statusNoTandaSelected"));
+      }
       return;
     }
     if (appMode !== "live") {
       await playOnChannel("main", data.filePath, data.trackId, track, data.gainDb);
+    }
+  });
+
+  searchTandasEl?.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    const row = target.closest<HTMLElement>(".list-row");
+    if (!row) {
+      return;
+    }
+    const tandaId = row.dataset.tandaId;
+    if (!tandaId) {
+      return;
+    }
+    const action = target.getAttribute("data-action");
+    if (action === "tanda-toggle") {
+      toggleTandaRow(row);
+      return;
+    }
+    if (action === "add-clip-tanda") {
+      addTandaToClipboard(tandaId);
     }
   });
 
@@ -1985,6 +3062,18 @@ const init = async () => {
       }
       return;
     }
+    if (action === "add-tanda") {
+      const added = addTrackToActiveTanda(clipTrack);
+      if (!added) {
+        setStatus(t("statusNoTandaSelected"));
+      }
+      return;
+    }
+    if (action === "remove-clip") {
+      removeClipboardTrack(clipTrack.id);
+      renderClipboard();
+      return;
+    }
     const index = clipboardTracks.findIndex((item) => item.id === data.trackId);
     if (index >= 0) {
       selectedClipboardIndex = index;
@@ -2008,6 +3097,10 @@ const init = async () => {
       return;
     }
     const action = target.getAttribute("data-action");
+    if (action === "tanda-toggle") {
+      toggleTandaRow(row);
+      return;
+    }
     const data = getTrackDataFromRow(row);
     if (action === "headphone" && headphoneAvailable && data) {
       const playlistTrack = resolveTrackById(data.trackId);
@@ -2031,15 +3124,18 @@ const init = async () => {
       return;
     }
     const clipTrack = clipboardTracks[selectedClipboardIndex];
-    const playlistTrack = playlistTracks[index];
+    const playlistItem = playlistItems[index];
     if (!clipTrack) {
       return;
     }
-    if (playlistTrack) {
-      clipboardTracks[selectedClipboardIndex] = playlistTrack;
-      playlistTracks[index] = clipTrack;
+    if (playlistItem?.kind === "tanda") {
+      return;
+    }
+    if (playlistItem?.kind === "track") {
+      clipboardTracks[selectedClipboardIndex] = playlistItem.track;
+      playlistItems[index] = { kind: "track", track: clipTrack };
     } else {
-      playlistTracks[index] = clipTrack;
+      playlistItems[index] = { kind: "track", track: clipTrack };
       clipboardTracks = clipboardTracks.filter(
         (_track, idx) => idx !== selectedClipboardIndex,
       );
@@ -2050,6 +3146,7 @@ const init = async () => {
   });
 
   applyTranslations();
+  updateSearchTabVisibility();
   await ensureAudioOutputs();
   if (navigator.mediaDevices?.addEventListener) {
     navigator.mediaDevices.addEventListener("devicechange", async () => {

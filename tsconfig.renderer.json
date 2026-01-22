@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ES2020",
+    "moduleResolution": "Bundler",
+    "outDir": "dist/renderer"
+  },
+  "include": [
+    "app/src/renderer/**/*",
+    "app/src/shared/**/*"
+  ]
+}

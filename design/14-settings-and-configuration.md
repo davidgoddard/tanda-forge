@@ -33,6 +33,7 @@ Lighting, Network, etc.).
   device is present.
 - Output changes update the main UI immediately (headphone controls shown/hidden).
 - Users can configure the default new tanda size (placeholder count).
+- The default size also acts as the minimum size threshold for save warnings.
 
 ## Diagnostics
 

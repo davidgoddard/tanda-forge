@@ -32,6 +32,10 @@ const api: AppApi = {
   searchJumpToPrefix: async (params) =>
     ipcRenderer.invoke("tracks:searchJumpToPrefix", params),
   getTrackStyles: async () => ipcRenderer.invoke("tracks:getStyles"),
+  listTandas: async () => ipcRenderer.invoke("tandas:list"),
+  saveTanda: async (payload) => ipcRenderer.invoke("tandas:save", payload),
+  deleteTanda: async (id) => ipcRenderer.invoke("tandas:delete", id),
+  searchTandas: async (params) => ipcRenderer.invoke("tandas:search", params),
   closeApp: async () => ipcRenderer.invoke("app:close"),
   logClientError: async (params) =>
     ipcRenderer.invoke("app:logClientError", params),

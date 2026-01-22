@@ -114,12 +114,24 @@
               Results: 0
             </div>
             <nav class="jump-index" id="search-jump-index"></nav>
-            <div class="search-header">
+            <div class="search-header track" id="search-track-header">
               <span class="actions-label" data-i18n="colActions">Actions</span>
-              <button data-sort="title" data-i18n="colTitle">Title</button>
-              <button data-sort="artist" data-i18n="colArtist">Artist</button>
-              <button data-sort="album" data-i18n="colAlbum">Album</button>
-              <button data-sort="year" data-i18n="colYear">Year</button>
+              <div class="track-header">
+                <span class="track-header-title" data-i18n="colTrack">Track</span>
+                <div class="track-sort">
+                  <button data-sort="title" data-i18n="colTitle">Title</button>
+                  <button data-sort="artist" data-i18n="colArtist">Artist</button>
+                  <button data-sort="album" data-i18n="colAlbum">Album</button>
+                  <button data-sort="year" data-i18n="colYear">Year</button>
+                </div>
+              </div>
+            </div>
+            <div class="search-header tanda hidden" id="search-tanda-header">
+              <span class="actions-label" data-i18n="colActions">Actions</span>
+              <span data-i18n="tandaNameLabel">Tanda name</span>
+              <span data-i18n="tandaStylesLabel">Styles</span>
+              <span data-i18n="tandaRatingLabel">Rating</span>
+              <span data-i18n="tandaDurationLabel">Duration</span>
             </div>
             <div class="list-body" id="search-list-body">
               <div id="search-tracks" class="list-rows active"></div>
@@ -151,9 +163,27 @@
         <div class="column">
           <div class="panel">
             <h2 data-i18n="playlistTitle">Playlist</h2>
-            <div id="playlist-list" class="list-rows"></div>
-            <div class="playlist-hint" data-i18n="playlistHint">
-              Click a clipboard item, then click a playlist slot to swap.
+            <div class="tab-bar">
+              <button data-tab="playlist-tab" class="active" data-i18n="tabPlaylist">
+                Playlist
+              </button>
+              <button data-tab="tanda-designer-tab" data-i18n="tabTandaDesigner">
+                Tanda Designer
+              </button>
+            </div>
+            <div class="list-body">
+              <div id="playlist-tab" class="tab-panel active">
+                <div id="playlist-list" class="list-rows active"></div>
+                <div class="playlist-hint" data-i18n="playlistHint">
+                  Click a clipboard item, then click a playlist slot to swap.
+                </div>
+              </div>
+              <div id="tanda-designer-tab" class="tab-panel">
+                <div class="tanda-toolbar">
+                  <button id="add-tanda" data-i18n="addTanda">Add Tanda</button>
+                </div>
+                <div id="tanda-list" class="tanda-list"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -217,6 +247,18 @@
               </label>
               <select id="language-select"></select>
             </div>
+            <div class="settings-field">
+              <label for="tanda-size-input" data-i18n="defaultTandaSize">
+                Default tanda size
+              </label>
+              <input
+                id="tanda-size-input"
+                type="number"
+                min="1"
+                max="10"
+                step="1"
+              />
+            </div>
             <p data-i18n="languageHelp">
               Language selection affects UI labels and formatting.
             </p>
@@ -234,6 +276,6 @@
         </div>
       </section>
     </main>
-    <script src="renderer.js"></script>
+    <script type="module" src="renderer/renderer.js"></script>
   </body>
 </html>

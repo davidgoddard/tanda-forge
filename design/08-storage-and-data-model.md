@@ -25,10 +25,10 @@ Represents a scan scope. A root can be a USB volume or local folder.
 
 Fields:
 - `id` (UUID)
-- `kind` (`usb` | `folder`)
+- `kind` (`music` | `cortina`)
 - `path` (absolute path)
 - `label` (user-friendly name)
-- `last_seen_at` (timestamp)
+- `created_at` (timestamp)
 - `last_scan_started_at`
 - `last_scan_completed_at`
 - `last_scan_error`
@@ -41,31 +41,22 @@ Fields:
 - `id` (UUID)
 - `root_id` (FK to library_root)
 - `relative_path` (path within the root)
+- `full_path` (absolute path)
 - `file_size` (bytes)
 - `file_mtime_ms` (last modified time, ms)
 - `file_hash` (content hash; stable across moves)
+- `title`, `artist`, `album`, `album_artist`, `year`, `genre`
 - `duration_ms` (from analysis)
 - `start_offset_ms`
 - `end_trim_ms`
 - `loudness_db`
 - `gain_db`
+- `tag_error`
+- `analysis_error`
+- `tag_json`
+- `analysis_json`
 - `last_scanned_at`
 - `created_at`, `updated_at`
-
-### Metadata
-
-Parsed and user-supplied metadata is stored separately to avoid re-parsing.
-
-Fields:
-- `track_id` (FK)
-- `title`, `artist`, `album`, `year`, `genre`
-- `album_artist` (optional)
-- `date` (original release date, optional)
-- `grouping` (optional)
-- `comment` (optional)
-- `composer` (optional)
-- `bpm`, `key`
-- `notes` (free text)
 
 ### Tanda
 
@@ -75,60 +66,36 @@ Fields:
 - `instrumental` (bool, derived; true only if all tracks are instrumental; missing flags count as false)
 - `rating` (optional)
 - `total_duration_ms` (derived, sum of effective track durations)
+- `slot_count` (number of slots in the tanda)
 - `invalid` (bool)
-- `notes`
-- `created_at`, `updated_at`
+- `updated_at`
 
 ### Tanda Style
 
 Fields:
 - `tanda_id` (FK)
-- `style_id` (FK)
+- `style_name` (string)
 
 ### Tanda Track
 
 Fields:
 - `tanda_id` (FK)
 - `track_id` (FK)
-- `position` (1-based)
+- `position` (0-based)
 
 ### Playlist
 
 Fields:
 - `id` (UUID)
 - `name`
-- `structure` (symbolic pattern, e.g. `3T-3T-3W-3M`)
-- `is_rule_based` (bool)
-- `auto_play` (bool)
-- `track_spacing_s`
-- `pre_cortina_spacing_s`
-- `post_cortina_spacing_s`
-- `auto_dj_cortina_duration_s`
-- `start_time_s` (seconds from midnight)
-- `end_time_s` (seconds from midnight)
 - `invalid` (bool)
-- `created_at`, `updated_at`
+- `updated_at`
 
 ### Playlist Item
 
 Fields:
 - `playlist_id` (FK)
 - `tanda_id` (FK)
-- `position` (1-based)
-- `cortina_id` (nullable)
-
-### Cortina
-
-Fields:
-- `id` (UUID)
-- `track_id` (FK)
-- `group_name` (folder label)
-
-### Style
-
-Fields:
-- `id` (UUID)
-- `name` (e.g. Tango, Vals, Milonga)
 
 ## Scanning and Integrity Rules
 
@@ -142,8 +109,9 @@ Fields:
 
 ## Migrations
 
-- SQLite migrations are versioned and stored in `app/resources/migrations/`.
-- On startup, the main process applies pending migrations.
+- No versioned migration system yet.
+- Schema changes are applied with best-effort `alter table` statements in
+  `app/src/main/db.ts`.
 
 ## Legacy Import
 

@@ -14,6 +14,12 @@ import {
   normalizeSortDirection,
 } from "./library/query";
 import { buildSearchWhere } from "./library/search";
+import {
+  deleteTanda,
+  listTandas,
+  saveTanda,
+  searchTandas,
+} from "./library/tandas";
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
@@ -326,6 +332,53 @@ const registerIpc = () => {
       .map((row) => (row as { prefix: string }).prefix);
     return buildJumpIndex(prefixes);
   });
+
+  ipcMain.handle(
+    "tandas:list",
+    async () => {
+      const db = getDb();
+      return listTandas(db);
+    },
+  );
+
+  ipcMain.handle(
+    "tandas:save",
+    async (
+      _event,
+      payload: {
+        id: string;
+        name: string;
+        styles: string[];
+        rating: number;
+        instrumental: boolean;
+        total_duration_ms: number;
+        track_slots: (string | null)[];
+      },
+    ) => {
+      const db = getDb();
+      return saveTanda(db, payload);
+    },
+  );
+
+  ipcMain.handle("tandas:delete", async (_event, id: string) => {
+    const db = getDb();
+    deleteTanda(db, id);
+    return { ok: true };
+  });
+
+  ipcMain.handle(
+    "tandas:search",
+    async (
+      _event,
+      params: { query: string; styles: string[] },
+    ) => {
+      const db = getDb();
+      return searchTandas(db, {
+        query: params.query ?? "",
+        styles: params.styles ?? [],
+      });
+    },
+  );
 
   ipcMain.handle("app:resetDatabase", async () => {
     const window = BrowserWindow.getFocusedWindow();

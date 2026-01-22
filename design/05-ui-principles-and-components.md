@@ -131,11 +131,10 @@ Rules:
 Represents a single track.
 
 Must display:
-- Track title
-- Orchestra / artist
-- Year (if available)
+- Track title + artist on the first line
+- Secondary line with year plus any available metadata (album, genre, BPM, notes)
 - Headphone preview icon (FR-061)
-- Action controls for adding to clipboard/playlist in search results
+- Action controls for adding to clipboard/tanda where applicable
 - Action controls use compact, language-aware glyphs/letters with tooltips.
 
 Optional indicators:
@@ -149,7 +148,26 @@ Behavior:
 - Headphone icon toggles preview playback regardless of mode, when available.
 - Headphone icon is hidden when no secondary output is configured.
 - Search list rows are draggable into clipboard or playlist.
+- Clipboard tracks are unique; adding a track that already exists is ignored.
 - Active playback rows are visually highlighted in lists.
+
+### UI-011 — Tanda Row Component
+
+Represents a single tanda in search, clipboard, or playlist lists.
+
+Collapsed view:
+- Tanda name
+- Artist summary with counts (e.g. `Di Sarli(3), Troilo(1)`)
+- Instrumental flag
+- Years list (unique, comma-separated)
+
+Expanded view:
+- Shows the list of tracks with artist/title/year lines.
+
+Behavior:
+- Expand/collapse is explicit and does not trigger playback.
+- Clipboard tandas offer a "P" action to add to playlist.
+- Search tandas offer a "C" action to add to clipboard.
 
 ---
 
@@ -167,6 +185,9 @@ Interactions:
 - Search includes a submit control and displays result counts.
 - Track/tanda tabs stretch to fill the column width.
 - Workspace fills the available screen space between a slim header and footer.
+- Adding tracks to tandas is explicit (T button or drag/drop), not via click.
+- Removing a clipboard track is explicit (R button).
+ - Track/tanda tab labels show entry counts.
 
 ## UI-015 — Now Playing Strip
 
@@ -189,8 +210,10 @@ Layout and behavior:
 - Tandas are selectable; the selected tanda is the target for incoming tracks.
 - Tracks can be added from search/clipboard via the add action or drag/drop.
 - Tracks can be reordered via drag/drop and up/down controls.
-- Tracks can be removed back to clipboard, leaving a placeholder.
+- Tracks can be sent back to the clipboard, leaving a placeholder.
 - A "+" control adds another placeholder to extend tanda length.
+ - Saving a tanda removes empty slots; if it falls below the minimum size, the
+   user must confirm the save.
 - Derived properties are displayed and auto-updated:
   - Styles (one or more)
   - Instrumental (true only if all tracks are instrumental)

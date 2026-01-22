@@ -314,10 +314,25 @@ body.theme-dark .panel {
   color: var(--panel);
 }
 
+.tab-panel {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.tab-panel.active {
+  display: flex;
+}
+
 .jump-index {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
+}
+
+.hidden {
+  display: none !important;
 }
 
 .jump-index button {
@@ -343,6 +358,31 @@ body.theme-dark .panel {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+}
+
+.search-header.track {
+  grid-template-columns: 110px minmax(0, 1fr);
+  align-items: center;
+}
+
+.track-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.track-sort {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.track-header-title {
+  font-size: 0.75rem;
+}
+
+.search-header.tanda {
+  grid-template-columns: 110px minmax(0, 2fr) minmax(0, 1.5fr) 0.6fr 0.8fr;
 }
 
 .search-header button {
@@ -445,6 +485,57 @@ body.theme-dark .panel {
   color: var(--text);
 }
 
+.list-row.track-row {
+  grid-template-columns: 110px minmax(0, 1fr);
+  align-items: start;
+}
+
+.list-row.tanda-row {
+  grid-template-columns: 110px minmax(0, 1fr);
+  align-items: start;
+}
+
+.track-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.track-primary {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-secondary {
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tanda-summary {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tanda-details {
+  display: none;
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  grid-column: 2;
+}
+
+.list-row.tanda-row.expanded .tanda-details {
+  display: grid;
+  gap: 0.2rem;
+}
+
 .list-row .meta {
   font-size: 0.85rem;
   color: var(--muted);
@@ -468,6 +559,109 @@ body.theme-dark .panel {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tanda-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tanda-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.tanda-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.8rem;
+  background: var(--panel);
+  display: grid;
+  gap: 0.6rem;
+}
+
+.tanda-card.selected {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.tanda-header {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.tanda-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tanda-name {
+  flex: 1;
+  min-width: 180px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.tanda-rating {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.5rem;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.tanda-style-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tanda-style-options button {
+  border: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.tanda-style-options button.active {
+  background: var(--accent);
+  color: var(--panel);
+}
+
+.tanda-track-list {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.tanda-track-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.35rem 0.4rem;
+  border-radius: 10px;
+  background: var(--accent-soft);
+}
+
+.tanda-track-row.placeholder {
+  background: rgba(91, 79, 68, 0.08);
+  color: var(--muted);
+}
+
+.tanda-track-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.tanda-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 .playlist-hint {
@@ -594,6 +788,14 @@ body.theme-dark .settings-panel {
 }
 
 .settings-field select {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.settings-field input {
   border-radius: 10px;
   border: 1px solid var(--border);
   padding: 0.4rem 0.6rem;

@@ -53,13 +53,23 @@ const createSchema = (database: Database.Database) => {
     create table if not exists tandas (
       id text primary key,
       name text not null,
+      rating integer default 0,
+      instrumental integer default 0,
+      total_duration_ms integer default 0,
+      slot_count integer default 0,
       invalid integer default 0,
       updated_at text not null
     );
 
     create table if not exists tanda_tracks (
       tanda_id text not null,
-      track_id text not null
+      track_id text not null,
+      position integer not null
+    );
+
+    create table if not exists tanda_styles (
+      tanda_id text not null,
+      style_name text not null
     );
 
     create table if not exists playlists (
@@ -113,6 +123,26 @@ export const initDb = () => {
   } catch {}
   try {
     db.exec("alter table tracks add column last_scanned_at text");
+  } catch {}
+  try {
+    db.exec("alter table tandas add column rating integer");
+  } catch {}
+  try {
+    db.exec("alter table tandas add column instrumental integer");
+  } catch {}
+  try {
+    db.exec("alter table tandas add column total_duration_ms integer");
+  } catch {}
+  try {
+    db.exec("alter table tandas add column slot_count integer");
+  } catch {}
+  try {
+    db.exec("alter table tanda_tracks add column position integer");
+  } catch {}
+  try {
+    db.exec(
+      "create table if not exists tanda_styles (tanda_id text not null, style_name text not null)",
+    );
   } catch {}
   return db;
 };
