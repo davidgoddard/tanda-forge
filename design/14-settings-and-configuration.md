@@ -32,6 +32,7 @@ Lighting, Network, etc.).
 - Headphone output is disabled if it matches the main output or no secondary
   device is present.
 - Output changes update the main UI immediately (headphone controls shown/hidden).
+- Users can configure the default new tanda size (placeholder count).
 
 ## Diagnostics
 

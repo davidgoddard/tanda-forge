@@ -51,6 +51,13 @@ Search applies to all searchable fields including:
 - User-defined text fields (e.g. Notes, Sound, Tags, Comments)
 - Aliases and nicknames (see FR-094)
 
+Tanda search applies to:
+- Tanda name
+- Style(s)
+- Rating
+- Instrumental flag
+- Any track metadata for tracks within the tanda
+
 Numeric fields (e.g. BPM, year) may be searchable both:
 - as text (simple)
 - and as ranges (advanced feature; define later)
@@ -252,6 +259,9 @@ Rules:
 - Actions must be consistent in naming and placement.
 - Actions must not appear in Performance Mode if they can disrupt playback
   (UI-001, UI-002).
+
+When a tanda is actively selected in the Tanda Designer, search results and the
+clipboard are immediately filtered by the tanda's style(s) to prevent mismatches.
 
 ---
 

@@ -60,3 +60,9 @@ git commit -m "Remove tmp/clean.git"
 
 If GitHub still warns about large files, use a history rewrite tool (e.g.
 `git filter-repo`) to purge the folder from all commits.
+
+After removing large folders, run:
+
+```bash
+git gc --prune=now --aggressive
+```

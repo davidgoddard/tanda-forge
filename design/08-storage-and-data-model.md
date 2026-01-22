@@ -72,12 +72,18 @@ Fields:
 Fields:
 - `id` (UUID)
 - `name`
-- `style_id` (FK to style)
-- `instrumental` (bool)
+- `instrumental` (bool, derived; true only if all tracks are instrumental; missing flags count as false)
 - `rating` (optional)
+- `total_duration_ms` (derived, sum of effective track durations)
 - `invalid` (bool)
 - `notes`
 - `created_at`, `updated_at`
+
+### Tanda Style
+
+Fields:
+- `tanda_id` (FK)
+- `style_id` (FK)
 
 ### Tanda Track
 

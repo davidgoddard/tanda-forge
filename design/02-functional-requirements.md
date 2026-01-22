@@ -59,6 +59,15 @@ Analysis:
 - Tandas reference tracks by stable ID.
 - Invalid tandas (missing tracks) are detected and surfaced.
 - Editing a tanda must be fast and low-friction.
+- Tanda editing supports:
+  - Default empty tanda sized by a system configuration value
+  - Extending tanda length with additional placeholders
+  - Reordering tracks within the tanda
+  - Removing tracks back to the clipboard
+  - Derived fields (total duration, instrumental flag) updated live
+- Tanda styles may be one or more styles.
+- Style filtering for search/clipboard updates immediately when a tanda is selected.
+- Tracks without an instrumental flag are treated as non-instrumental.
 
 ---
 

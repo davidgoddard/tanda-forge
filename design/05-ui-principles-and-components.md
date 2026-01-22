@@ -158,7 +158,7 @@ Behavior:
 The main workspace uses three columns:
 - Left: search input, style filters, and results (tabs for tracks/tandas).
 - Middle: clipboard/scratch pad with track/tanda tabs.
-- Right: playlist view with a trailing empty slot.
+- Right: tabbed panel with Playlist and Tanda Designer views.
 
 Interactions:
 - Search results provide add buttons and drag-and-drop into clipboard/playlist.
@@ -177,6 +177,32 @@ Requirements:
 - Shows artist and title.
 - Shows elapsed time and total duration.
 - Headphone playback overrides the main output display while active.
+
+## UI-016 — Tanda Designer Panel
+
+The playlist column includes a Tanda Designer tab for creating and editing tandas.
+
+Layout and behavior:
+- Presents a default empty tanda with the configured placeholder count.
+- Allows adding additional empty tandas via an Add button.
+- Each tanda has Save and Delete actions.
+- Tandas are selectable; the selected tanda is the target for incoming tracks.
+- Tracks can be added from search/clipboard via the add action or drag/drop.
+- Tracks can be reordered via drag/drop and up/down controls.
+- Tracks can be removed back to clipboard, leaving a placeholder.
+- A "+" control adds another placeholder to extend tanda length.
+- Derived properties are displayed and auto-updated:
+  - Styles (one or more)
+  - Instrumental (true only if all tracks are instrumental)
+  - Total duration (sum of effective track durations)
+  - Track count
+  - Rating (0–5 stars)
+  - Name
+
+Filtering:
+- When a tanda is selected, the clipboard (and search results, when enabled)
+  are filtered to the tanda's style(s).
+- Style filtering applies immediately on tanda selection to prevent mismatches.
 
 ---
 
@@ -340,36 +366,27 @@ It must be difficult to accidentally construct an invalid playlist.
 
 ## UI-080 — Scratch Pad Component
 
-The Scratch Pad is a temporary holding area for tracks and tandas during playlist editing.
+The Scratch Pad is a temporary holding area for tracks and tandas during playlist
+editing and tanda construction.
 
 Purpose:
+- Provide a simple dumping ground for search results.
 - Reduce cognitive load during long-distance rearrangements.
-- Support safe replacement workflows without breaking playlist integrity.
 
 Behavior:
-- Items may be dragged from the playlist or search results into the scratch pad.
-- Dragging an item from the playlist to the scratch pad marks its original position.
-- Dropping an item from the scratch pad into the playlist replaces the target item.
-- The displaced item is automatically moved to the scratch pad.
+- Items may be dragged from search results or the playlist into the scratch pad.
+- Items in the scratch pad can be added to the playlist or the active tanda.
 
 Rules:
-- The playlist must never be left with an invalid gap.
-- Automatic replacement is preferred over leaving holes.
-- If ambiguity exists, the system must choose the safest default behavior.
-
-The scratch pad provides an indirect but safe equivalent of complex drag-and-drop.
+- The scratch pad does not enforce playlist structure.
+- The playlist must still guard against invalid gaps or mismatched styles.
 
 ---
 
 ## UI-081 — Scratch Pad Auto-Targeting
 
-When a playlist item is moved to the scratch pad:
-- Its original position is marked.
-- If the DJ later drops another item from the scratch pad, the marked position
-  is the default replacement target.
-- This behavior mirrors a direct drag-and-drop without requiring continuous dragging.
-
-This mechanism must be visible and predictable.
+Reserved for future playlist replacement workflows. Not used in the current
+three-column layout.
 
 ---
 
