@@ -9,6 +9,9 @@
   and keep the user informed about errors and knock-on effects.
 - All UI strings must be sourced from a language map (i18n), except for user
   data and tag-derived metadata.
+- Keep the git repository lean: never commit large binaries, generated artifacts,
+  or temp directories (e.g. `node_modules/`, `dist/`, `tmp/`, `.git/tmp/`,
+  `app/resources/ffmpeg/`). Use external downloads or Git LFS when needed.
 - If a change would introduce ambiguity, stop and ask for clarification.
 
 ## Documentation Discipline

@@ -39,3 +39,24 @@ These binaries are intentionally excluded from git to keep the repo small. You c
 
 - The app runs fullscreen by default.
 - Settings and scan progress live inside the app; use the Settings button.
+
+## Repository size and hygiene
+
+This repo intentionally excludes large generated files and binaries.
+
+Do not commit:
+- `node_modules/`
+- `dist/`
+- `tmp/` or `.git/tmp/`
+- `app/resources/ffmpeg/` binaries
+
+If you accidentally commit a large temp folder (for example `tmp/clean.git`),
+remove it from the index and rewrite history before pushing:
+
+```bash
+git rm -r --cached tmp/clean.git
+git commit -m "Remove tmp/clean.git"
+```
+
+If GitHub still warns about large files, use a history rewrite tool (e.g.
+`git filter-repo`) to purge the folder from all commits.
