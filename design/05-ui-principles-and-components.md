@@ -149,6 +149,7 @@ Behavior:
 - Headphone icon toggles preview playback regardless of mode, when available.
 - Headphone icon is hidden when no secondary output is configured.
 - Search list rows are draggable into clipboard or playlist.
+- Active playback rows are visually highlighted in lists.
 
 ---
 

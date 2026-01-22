@@ -38,6 +38,8 @@ const clipTracksEl = document.querySelector<HTMLDivElement>("#clip-tracks");
 const clipTandasEl = document.querySelector<HTMLDivElement>("#clip-tandas");
 const playlistListEl = document.querySelector<HTMLDivElement>("#playlist-list");
 const clipListBody = clipTracksEl?.closest(".list-body") ?? null;
+const clipPanel = clipTracksEl?.closest(".panel") ?? null;
+const playlistPanel = playlistListEl?.closest(".panel") ?? null;
 const searchTabButtons = Array.from(
   document.querySelectorAll<HTMLButtonElement>(".panel .tab-bar button[data-tab]"),
 );
@@ -780,6 +782,7 @@ const updateNowPlayingDisplay = () => {
       current: formatTime(0),
       duration: formatTime(0),
     });
+    updatePlayingIndicators();
     return;
   }
 
@@ -816,6 +819,23 @@ const updateNowPlayingDisplay = () => {
     current: formatTime(clampedCurrent),
     duration: formatTime(fallbackDurationSeconds),
   });
+  updatePlayingIndicators();
+};
+
+const updatePlayingIndicators = () => {
+  const active = getNowPlayingState();
+  const activeId = active?.state.currentTrackId ?? null;
+  const activeChannel = active?.channel ?? null;
+  document
+    .querySelectorAll<HTMLElement>(".list-row[data-track-id]")
+    .forEach((row) => {
+      const match = row.dataset.trackId === activeId;
+      row.classList.toggle("playing", match);
+      row.classList.toggle(
+        "playing-headphone",
+        match && activeChannel === "headphone",
+      );
+    });
 };
 
 const fadeBetween = (
@@ -1064,7 +1084,14 @@ const renderTrackRow = (
   isSelected = false,
 ) => {
   const row = document.createElement("div");
-  row.className = `list-row ${isSelected ? "selected" : ""}`;
+  const active = getNowPlayingState();
+  const isPlaying = active?.state.currentTrackId === track.id;
+  const playingClass = isPlaying ? "playing" : "";
+  const headphoneClass =
+    isPlaying && active?.channel === "headphone" ? "playing-headphone" : "";
+  row.className = (
+    `list-row ${isSelected ? "selected" : ""} ${playingClass} ${headphoneClass}`
+  ).trim();
   row.dataset.trackId = track.id;
   row.dataset.filePath = track.full_path;
   row.dataset.gainDb =
@@ -1440,6 +1467,7 @@ const parseDragData = (event: DragEvent) => {
 
 const handleDropToClipboard = (event: DragEvent) => {
   event.preventDefault();
+  event.stopPropagation();
   const payload = parseDragData(event);
   if (!payload) {
     return;
@@ -1464,6 +1492,7 @@ const handleDropToClipboard = (event: DragEvent) => {
 
 const handleDropToPlaylist = (event: DragEvent) => {
   event.preventDefault();
+  event.stopPropagation();
   const payload = parseDragData(event);
   if (!payload) {
     return;
@@ -1844,24 +1873,18 @@ const init = async () => {
     handleSearchScroll();
   });
 
-  clipTracksEl?.addEventListener("dragover", (event) => {
+  clipPanel?.addEventListener("dragover", (event) => {
     event.preventDefault();
   });
-  clipTracksEl?.addEventListener("drop", (event) => {
-    handleDropToClipboard(event);
-  });
-  clipListBody?.addEventListener("dragover", (event) => {
-    event.preventDefault();
-  });
-  clipListBody?.addEventListener("drop", (event) => {
-    handleDropToClipboard(event);
+  clipPanel?.addEventListener("drop", (event) => {
+    handleDropToClipboard(event as DragEvent);
   });
 
-  playlistListEl?.addEventListener("dragover", (event) => {
+  playlistPanel?.addEventListener("dragover", (event) => {
     event.preventDefault();
   });
-  playlistListEl?.addEventListener("drop", (event) => {
-    handleDropToPlaylist(event);
+  playlistPanel?.addEventListener("drop", (event) => {
+    handleDropToPlaylist(event as DragEvent);
   });
 
   searchTabButtons.forEach((button) => {

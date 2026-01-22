@@ -3,6 +3,7 @@
 ## Global Rules
 
 - All new code must include unit tests where feasible.
+- All code changes must be verified by a successful build and all tests passing.
 - Design documents must reflect current requirements and code behavior.
 - Runtime behavior must be defensive: expect failures, handle them gracefully,
   and keep the user informed about errors and knock-on effects.
