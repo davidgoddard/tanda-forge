@@ -12,6 +12,7 @@ Files:
 - `design/legacy/playlists.dat`
 - `design/legacy/cortinas.dat`
 - `design/legacy/config.js`
+- `design/legacy/similar.js`
 
 ## Library Entries (`library.dat`)
 
@@ -109,3 +110,5 @@ Global settings including:
   separately from per-track values.
 - Legacy import must preserve tandas and playlists and map track references to
   the new library roots where possible.
+- Legacy artist normalization logic in `similar.js` informs the
+  `artist_summary` field used for sorting and tanda summaries.

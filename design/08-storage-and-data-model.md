@@ -45,7 +45,8 @@ Fields:
 - `file_size` (bytes)
 - `file_mtime_ms` (last modified time, ms)
 - `file_hash` (content hash; stable across moves)
-- `title`, `artist`, `album`, `album_artist`, `year`, `genre`
+- `title`, `artist`, `artist_summary`, `album`, `album_artist`, `year`, `genre`
+- `bpm` (user-derived tempo estimate)
 - `duration_ms` (from analysis)
 - `start_offset_ms`
 - `end_trim_ms`
@@ -101,6 +102,10 @@ Fields:
 
 - Track identity is `root_id + relative_path + file_hash`.
 - `file_hash` is computed when a file changes and stored.
+- `artist_summary` is normalized for display in tanda summaries.
+- `genre` is normalized on scan to prevent case-duplicate styles.
+- Artist normalization is based on legacy `similar.js` noise removal and
+  abbreviation expansion to yield a consistent primary artist string.
 - Missing roots set `last_seen_at` and mark tracks as unavailable.
 - Deleting a track in the filesystem does not delete historical usage records.
 - Resume logic uses `file_size` and `file_mtime_ms` to skip unchanged files.

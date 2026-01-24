@@ -6,6 +6,7 @@ import path from "path";
 import { initDb, getDb, resetDb } from "./db";
 import { scanLibraryRoots } from "./library/scan";
 import type { LibraryRoot } from "./library/scan";
+import { renderWaveformPng } from "./library/analysis";
 import {
   buildJumpIndex,
   getSortKeySql,
@@ -14,6 +15,7 @@ import {
   normalizeSortDirection,
 } from "./library/query";
 import { buildSearchWhere } from "./library/search";
+import { normalizeStyleName, summarizeArtistName } from "../shared/tanda-utils";
 import {
   deleteTanda,
   listTandas,
@@ -23,9 +25,9 @@ import {
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    fullscreen: true,
+    width: 1920,
+    height: 1080,
+    fullscreen: false,
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),
       contextIsolation: true,
@@ -108,8 +110,8 @@ const registerIpc = () => {
     const db = getDb();
     return db
       .prepare(
-        `select id, full_path, relative_path, title, artist, album, album_artist,
-          year, genre, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+        `select id, full_path, relative_path, title, artist, artist_summary, album, album_artist,
+          year, genre, bpm, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
           tag_error, analysis_error
          from tracks
          order by artist, title`,
@@ -134,13 +136,15 @@ const registerIpc = () => {
       const offset = Math.max(0, params.offset ?? 0);
       const limit = Math.min(500, Math.max(1, params.limit ?? 200));
       const sortSql = getSortSql(sortBy);
+      const extraSort =
+        sortBy === "artist" ? `, artist ${sortDir}` : "";
       return db
         .prepare(
-          `select id, full_path, relative_path, title, artist, album, album_artist,
-            year, genre, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+          `select id, full_path, relative_path, title, artist, artist_summary, album, album_artist,
+            year, genre, bpm, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
             loudness_db, gain_db, tag_error, analysis_error
            from tracks
-           order by ${sortSql} ${sortDir}, id ${sortDir}
+           order by ${sortSql} ${sortDir}${extraSort}, id ${sortDir}
            limit ? offset ?`,
         )
         .all(limit, offset);
@@ -172,14 +176,16 @@ const registerIpc = () => {
       });
       const sortSql = getSortSql(sortBy);
 
+      const extraSort =
+        sortBy === "artist" ? `, artist ${sortDir}` : "";
       return db
         .prepare(
-          `select id, full_path, relative_path, title, artist, album, album_artist,
-            year, genre, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+          `select id, full_path, relative_path, title, artist, artist_summary, album, album_artist,
+            year, genre, bpm, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
             loudness_db, gain_db, tag_error, analysis_error
            from tracks
            ${whereSql}
-           order by ${sortSql} ${sortDir}, id ${sortDir}
+           order by ${sortSql} ${sortDir}${extraSort}, id ${sortDir}
            limit ? offset ?`,
         )
         .all(...values, limit, offset);
@@ -278,12 +284,44 @@ const registerIpc = () => {
 
   ipcMain.handle("tracks:getStyles", async () => {
     const db = getDb();
-    const rows = db
-      .prepare(
-        "select distinct genre from tracks where genre is not null and genre != '' order by genre",
-      )
-      .all() as { genre: string }[];
-    return rows.map((row) => row.genre);
+    return db
+      .prepare("select name from styles order by name")
+      .all()
+      .map((row) => (row as { name: string }).name);
+  });
+
+  ipcMain.handle("styles:list", async () => {
+    const db = getDb();
+    return db
+      .prepare("select name from styles order by name")
+      .all()
+      .map((row) => (row as { name: string }).name);
+  });
+
+  ipcMain.handle("styles:add", async (_event, name: string) => {
+    const db = getDb();
+    const normalized = normalizeStyleName(name);
+    if (!normalized) {
+      return { ok: false };
+    }
+    db.prepare("insert or ignore into styles (name, normalized) values (?, ?)").run(
+      normalized,
+      normalized.toLowerCase(),
+    );
+    return { ok: true };
+  });
+
+  ipcMain.handle("styles:remove", async (_event, name: string) => {
+    const db = getDb();
+    const normalized = normalizeStyleName(name);
+    if (!normalized) {
+      return { ok: false };
+    }
+    db.prepare("delete from styles where normalized = ?").run(
+      normalized.toLowerCase(),
+    );
+    db.prepare("update tracks set genre = null where genre = ?").run(normalized);
+    return { ok: true };
   });
 
   ipcMain.handle(
@@ -331,6 +369,92 @@ const registerIpc = () => {
       .all()
       .map((row) => (row as { prefix: string }).prefix);
     return buildJumpIndex(prefixes);
+  });
+
+  ipcMain.handle(
+    "tracks:update",
+    async (
+      _event,
+      payload: {
+        id: string;
+        title?: string | null;
+        artist?: string | null;
+        album?: string | null;
+        album_artist?: string | null;
+        year?: string | null;
+        genre?: string | null;
+        bpm?: number | null;
+      },
+    ) => {
+      const db = getDb();
+      const title = payload.title?.trim() ?? "";
+      const artist = payload.artist?.trim() ?? "";
+      const album = payload.album?.trim() ?? "";
+      const albumArtist = payload.album_artist?.trim() ?? "";
+      const year = payload.year?.trim() ?? "";
+      const genreRaw = payload.genre?.trim() ?? "";
+      const genreNormalized = genreRaw ? normalizeStyleName(genreRaw) : "";
+      const styleRow = genreNormalized
+        ? (db
+            .prepare("select name from styles where normalized = ?")
+            .get(genreNormalized.toLowerCase()) as { name: string } | undefined)
+        : undefined;
+      const genre = styleRow?.name ?? "";
+      const bpm =
+        payload.bpm !== null && payload.bpm !== undefined && Number.isFinite(payload.bpm)
+          ? Math.max(0, payload.bpm)
+          : null;
+      const artistSummary = artist ? summarizeArtistName(artist) : "";
+      const updatedAt = new Date().toISOString();
+      db.prepare(
+        `update tracks
+          set title = ?, artist = ?, artist_summary = ?, album = ?, album_artist = ?,
+              year = ?, genre = ?, bpm = ?, updated_at = ?
+          where id = ?`,
+      ).run(
+        title || null,
+        artist || null,
+        artistSummary || null,
+        album || null,
+        albumArtist || null,
+        year || null,
+        genre || null,
+        bpm,
+        updatedAt,
+        payload.id,
+      );
+      const row = db
+        .prepare(
+          `select id, full_path, relative_path, title, artist, artist_summary, album, album_artist,
+            year, genre, bpm, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+            loudness_db, gain_db, tag_error, analysis_error
+           from tracks where id = ?`,
+        )
+        .get(payload.id);
+      return row ?? null;
+    },
+  );
+
+  ipcMain.handle("tracks:getWaveform", async (_event, trackId: string) => {
+    const db = getDb();
+    const row = db
+      .prepare("select full_path from tracks where id = ?")
+      .get(trackId) as { full_path?: string } | undefined;
+    if (!row?.full_path) {
+      return null;
+    }
+    const waveDir = path.join(app.getPath("userData"), "waveforms");
+    const wavePath = path.join(waveDir, `${trackId}.png`);
+    try {
+      fs.mkdirSync(waveDir, { recursive: true });
+      if (!fs.existsSync(wavePath)) {
+        await renderWaveformPng(row.full_path, wavePath);
+      }
+      const data = fs.readFileSync(wavePath);
+      return `data:image/png;base64,${data.toString("base64")}`;
+    } catch {
+      return null;
+    }
   });
 
   ipcMain.handle(

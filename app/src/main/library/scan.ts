@@ -2,6 +2,10 @@ import { createHash, randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
 import { analyzeTrack, readTags } from "./analysis";
+import {
+  normalizeStyleName,
+  summarizeArtistName,
+} from "../../shared/tanda-utils";
 import { getDb } from "../db";
 
 export type LibraryRoot = {
@@ -72,6 +76,12 @@ export const scanLibraryRoots = async (
 ): Promise<ScanSummary> => {
   const db = getDb();
   const now = new Date().toISOString();
+  const styleRows = db
+    .prepare("select name, normalized from styles")
+    .all() as { name: string; normalized: string }[];
+  const styleMap = new Map(
+    styleRows.map((row) => [row.normalized.toLowerCase(), row.name]),
+  );
   let scanned = 0;
   let added = 0;
   let updated = 0;
@@ -81,12 +91,12 @@ export const scanLibraryRoots = async (
   const insertStmt = db.prepare(`
     insert into tracks (
       id, root_id, relative_path, full_path, file_hash, file_size, file_mtime_ms,
-      title, artist, album, album_artist, year, genre, duration_ms,
+      title, artist, artist_summary, album, album_artist, year, genre, duration_ms,
       start_offset_ms, end_trim_ms, loudness_db, gain_db, tag_error, analysis_error, tag_json,
       analysis_json, created_at, updated_at, last_scanned_at
     ) values (
       @id, @root_id, @relative_path, @full_path, @file_hash, @file_size,
-      @file_mtime_ms, @title, @artist, @album, @album_artist, @year, @genre,
+      @file_mtime_ms, @title, @artist, @artist_summary, @album, @album_artist, @year, @genre,
       @duration_ms, @start_offset_ms, @end_trim_ms, @loudness_db, @gain_db,
       @tag_error, @analysis_error, @tag_json, @analysis_json, @created_at,
       @updated_at, @last_scanned_at
@@ -97,6 +107,7 @@ export const scanLibraryRoots = async (
       file_mtime_ms=excluded.file_mtime_ms,
       title=excluded.title,
       artist=excluded.artist,
+      artist_summary=excluded.artist_summary,
       album=excluded.album,
       album_artist=excluded.album_artist,
       year=excluded.year,
@@ -115,8 +126,9 @@ export const scanLibraryRoots = async (
   `);
 
   const existsStmt = db.prepare(
-    `select id, file_size, file_mtime_ms, tag_error, analysis_error, tag_json,
-      analysis_json
+    `select id, file_hash, file_size, file_mtime_ms, title, artist, artist_summary,
+      album, album_artist, year, genre, duration_ms, start_offset_ms, end_trim_ms,
+      loudness_db, gain_db, tag_error, analysis_error, tag_json, analysis_json
      from tracks where root_id = ? and relative_path = ?`,
   );
 
@@ -163,8 +175,21 @@ export const scanLibraryRoots = async (
         const existing = existsStmt.get(root.id, relativePath) as
           | {
               id: string;
+              file_hash?: string;
               file_size?: number;
               file_mtime_ms?: number;
+              title?: string;
+              artist?: string;
+              artist_summary?: string;
+              album?: string;
+              album_artist?: string;
+              year?: string;
+              genre?: string;
+              duration_ms?: number;
+              start_offset_ms?: number;
+              end_trim_ms?: number;
+              loudness_db?: number | null;
+              gain_db?: number | null;
               tag_error?: string;
               analysis_error?: string;
               tag_json?: string;
@@ -187,28 +212,63 @@ export const scanLibraryRoots = async (
           if (tagResult.error) {
             tagError = tagResult.error;
           }
+        } else if (existing?.tag_json) {
+          try {
+            tags = JSON.parse(existing.tag_json) as Record<string, string>;
+          } catch {
+            tags = {};
+          }
         }
 
         const analysis = unchanged
-          ? { durationMs: 0, startOffsetMs: 0, endTrimMs: 0 }
+          ? ({
+              durationMs: existing?.duration_ms ?? 0,
+              startOffsetMs: existing?.start_offset_ms ?? 0,
+              endTrimMs: existing?.end_trim_ms ?? 0,
+              loudnessDb: existing?.loudness_db ?? null,
+              gainDb: existing?.gain_db ?? null,
+              error: existing?.analysis_error ?? "",
+            } as const)
           : await analyzeTrack(filePath);
         const analysisError = analysis.error ?? "";
 
         const title =
-          tags.title || path.basename(filePath, path.extname(filePath));
-        const artist = tags.artist || tags.album_artist || "";
-        const album = tags.album || "";
-        const albumArtist = tags.album_artist || "";
+          tags.title ||
+          existing?.title ||
+          path.basename(filePath, path.extname(filePath));
+        const artist =
+          tags.artist || tags.album_artist || existing?.artist || "";
+        const album = tags.album || existing?.album || "";
+        const albumArtist = tags.album_artist || existing?.album_artist || "";
         const year =
           tags.year ||
-          (tags.date ? new Date(tags.date).getFullYear().toString() : "");
-        const genre = tags.genre || "";
+          (tags.date ? new Date(tags.date).getFullYear().toString() : "") ||
+          existing?.year ||
+          "";
+        const rawGenre = tags.genre || existing?.genre || "";
+        const genreNormalized = normalizeStyleName(rawGenre);
+        const genre = genreNormalized
+          ? styleMap.get(genreNormalized.toLowerCase()) ?? ""
+          : "";
+        const artistSummary = summarizeArtistName(artist);
 
-        if (unchanged) {
+        const needsMetadataUpdate =
+          !existing ||
+          existing.title !== title ||
+          existing.artist !== artist ||
+          existing.album !== album ||
+          existing.album_artist !== albumArtist ||
+          existing.year !== year ||
+          existing.genre !== genre ||
+          existing.artist_summary !== artistSummary;
+
+        if (unchanged && !needsMetadataUpdate) {
           touchStmt.run(now, root.id, relativePath);
           updated += 1;
         } else {
-          const fileHash = await hashFile(filePath);
+          const fileHash = unchanged
+            ? existing?.file_hash ?? (await hashFile(filePath))
+            : await hashFile(filePath);
           const row = {
             id: randomUUID(),
             root_id: root.id,
@@ -223,15 +283,20 @@ export const scanLibraryRoots = async (
             album_artist: albumArtist,
             year,
             genre,
+            artist_summary: artistSummary,
             duration_ms: analysis.durationMs,
             start_offset_ms: analysis.startOffsetMs,
             end_trim_ms: analysis.endTrimMs,
             loudness_db: analysis.loudnessDb ?? null,
             gain_db: analysis.gainDb ?? null,
-            tag_error: tagError,
+            tag_error: unchanged ? existing?.tag_error ?? "" : tagError,
             analysis_error: analysisError,
-            tag_json: JSON.stringify(tags ?? {}),
-            analysis_json: JSON.stringify(analysis),
+            tag_json: unchanged
+              ? existing?.tag_json ?? JSON.stringify(tags ?? {})
+              : JSON.stringify(tags ?? {}),
+            analysis_json: unchanged
+              ? existing?.analysis_json ?? JSON.stringify(analysis)
+              : JSON.stringify(analysis),
             created_at: now,
             updated_at: now,
             last_scanned_at: now,

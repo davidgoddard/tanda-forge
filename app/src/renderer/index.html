@@ -24,6 +24,28 @@
         <h1 data-i18n="appTitle">Tanda Player 2</h1>
         <div class="top-actions">
           <button
+            id="open-settings"
+            class="icon-button settings-button"
+            data-i18n-attr="aria-label"
+            data-i18n="openSettings"
+            aria-label="Open Settings"
+            title="Open Settings"
+          >
+            <span class="sr-only" data-i18n="openSettings">Open Settings</span>
+          </button>
+          <button
+            id="fullscreen-toggle"
+            class="icon-button fullscreen-button"
+            data-i18n-attr="aria-label"
+            data-i18n="toggleFullscreen"
+            aria-label="Toggle fullscreen"
+            title="Toggle fullscreen"
+          >
+            <span class="sr-only" data-i18n="toggleFullscreen">
+              Toggle fullscreen
+            </span>
+          </button>
+          <button
             id="theme-toggle"
             class="icon-button"
             data-i18n-attr="aria-label"
@@ -46,7 +68,7 @@
         </div>
         </div>
       </header>
-      <section class="now-playing" aria-live="polite">
+      <section class="now-playing" id="now-playing" aria-live="polite">
         <div class="now-playing-label" data-i18n="nowPlayingLabel">
           Now playing
         </div>
@@ -59,13 +81,25 @@
             <span id="now-playing-time">0:00 / 0:00</span>
           </div>
         </div>
+        <div
+          class="waveform"
+          id="waveform-container"
+          data-i18n-attr="aria-label"
+          data-i18n="waveformLabel"
+          aria-label="Waveform timeline"
+        >
+          <img id="waveform-image" alt="" />
+          <div id="waveform-progress" class="waveform-progress"></div>
+          <div id="waveform-playhead" class="waveform-playhead"></div>
+        </div>
       </section>
       <section class="banner" id="root-banner">
         <div class="banner-text" id="root-banner-text"></div>
-        <button id="open-settings" data-i18n="openSettings">Open Settings</button>
-      </section>
-      <section class="controls">
-        <button id="settings" data-i18n="settings">Settings</button>
+        <div class="banner-actions">
+          <button id="open-diagnostics-main" data-i18n="viewScanIssues">
+            View scan issues
+          </button>
+        </div>
       </section>
       <section class="progress">
         <div class="progress-label" id="progress-label" data-i18n="idle">
@@ -162,7 +196,14 @@
         </div>
         <div class="column">
           <div class="panel">
-            <h2 data-i18n="playlistTitle">Playlist</h2>
+            <div class="panel-header">
+              <h2 data-i18n="playlistTitle">Playlist</h2>
+              <div class="playlist-controls" aria-label="Playlist controls">
+                <button id="playlist-start" data-i18n="playlistStart">Start</button>
+                <button id="playlist-resume" data-i18n="playlistResume">Resume</button>
+                <button id="playlist-stop" data-i18n="playlistStop">Stop</button>
+              </div>
+            </div>
             <div class="tab-bar">
               <button data-tab="playlist-tab" class="active" data-i18n="tabPlaylist">
                 Playlist
@@ -188,6 +229,89 @@
           </div>
         </div>
       </section>
+      <section
+        class="modal"
+        id="track-editor"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden="true"
+      >
+        <div class="modal-card">
+          <header class="modal-header">
+            <h2 data-i18n="trackEditorTitle">Edit track</h2>
+            <button id="track-editor-cancel" data-i18n="trackEditorCancel">
+              Cancel
+            </button>
+          </header>
+          <div class="modal-body">
+            <div class="modal-field">
+              <label for="track-editor-title" data-i18n="trackEditorTitleLabel">
+                Title
+              </label>
+              <input id="track-editor-title" type="text" />
+            </div>
+            <div class="modal-field">
+              <label for="track-editor-artist" data-i18n="trackEditorArtistLabel">
+                Artist
+              </label>
+              <input id="track-editor-artist" type="text" />
+            </div>
+            <div class="modal-field">
+              <label for="track-editor-album" data-i18n="trackEditorAlbumLabel">
+                Album
+              </label>
+              <input id="track-editor-album" type="text" />
+            </div>
+            <div class="modal-field">
+              <label
+                for="track-editor-album-artist"
+                data-i18n="trackEditorAlbumArtistLabel"
+              >
+                Album artist
+              </label>
+              <input id="track-editor-album-artist" type="text" />
+            </div>
+            <div class="modal-field">
+              <label for="track-editor-year" data-i18n="trackEditorYearLabel">
+                Year
+              </label>
+              <input id="track-editor-year" type="text" />
+            </div>
+            <div class="modal-field">
+              <label for="track-editor-genre" data-i18n="trackEditorGenreLabel">
+                Style
+              </label>
+              <select id="track-editor-genre"></select>
+            </div>
+            <div class="modal-field">
+              <label for="track-editor-bpm" data-i18n="trackEditorBpmLabel">
+                BPM
+              </label>
+              <div class="modal-bpm-row">
+                <input id="track-editor-bpm" type="number" min="0" step="1" />
+                <button
+                  id="track-editor-tap"
+                  data-i18n="trackEditorTapTempo"
+                  data-i18n-attr="title"
+                >
+                  Tap
+                </button>
+              </div>
+              <div class="modal-hint" data-i18n="trackEditorTapHint">
+                Tap to set BPM
+              </div>
+            </div>
+          </div>
+          <footer class="modal-footer">
+            <button id="track-editor-reset" data-i18n="trackEditorReset">
+              Reset
+            </button>
+            <button id="track-editor-save" data-i18n="trackEditorSave">
+              Save
+            </button>
+          </footer>
+        </div>
+      </section>
       <footer class="app-footer" data-i18n="footerPlaceholder">
         Footer area
       </footer>
@@ -199,6 +323,9 @@
         <nav class="settings-tabs">
           <button data-tab="library" class="active" data-i18n="tabLibrary">
             Library
+          </button>
+          <button data-tab="playlist" data-i18n="tabPlaylistSettings">
+            Playlist
           </button>
           <button data-tab="diagnostics" data-i18n="tabDiagnostics">
             Diagnostics
@@ -222,7 +349,95 @@
                 Scan Library
               </button>
             </div>
+            <div class="settings-progress">
+              <div class="progress-row">
+                <div id="progress-label-settings" class="progress-label" data-i18n="idle">
+                  Idle
+                </div>
+                <button id="open-diagnostics-settings" data-i18n="viewScanIssues">
+                  View scan issues
+                </button>
+              </div>
+              <progress id="scan-progress-settings" value="0" max="1"></progress>
+            </div>
             <div id="root-list" class="root-list"></div>
+            <button id="reset-db" class="danger" data-i18n="eraseDatabase">
+              Erase Database
+            </button>
+          </div>
+          <div class="settings-tab" data-tab="playlist">
+            <h3 data-i18n="playlistSettingsTitle">Playlist Settings</h3>
+            <div class="settings-field">
+              <label for="gap-between-tracks" data-i18n="gapBetweenTracks">
+                Gap between tracks (sec)
+              </label>
+              <input
+                id="gap-between-tracks"
+                type="number"
+                min="0"
+                max="30"
+                step="1"
+              />
+            </div>
+            <div class="settings-field">
+              <label for="gap-before-tanda" data-i18n="gapBeforeTanda">
+                Gap before tanda (sec)
+              </label>
+              <input
+                id="gap-before-tanda"
+                type="number"
+                min="0"
+                max="30"
+                step="1"
+              />
+            </div>
+            <div class="settings-field">
+              <label for="gap-before-cortina" data-i18n="gapBeforeCortina">
+                Gap before cortina (sec)
+              </label>
+              <input
+                id="gap-before-cortina"
+                type="number"
+                min="0"
+                max="30"
+                step="1"
+              />
+            </div>
+            <div class="settings-field">
+              <label for="stop-fade-duration" data-i18n="stopFade">
+                Stop fade (sec)
+              </label>
+              <input
+                id="stop-fade-duration"
+                type="number"
+                min="0"
+                max="10"
+                step="0.5"
+              />
+            </div>
+            <div class="settings-field wide">
+              <label for="playlist-sequence" data-i18n="playlistSequenceLabel">
+                Tanda sequence
+              </label>
+              <input
+                id="playlist-sequence"
+                type="text"
+                placeholder="3t 3t 3w"
+                data-i18n-attr="placeholder"
+                data-i18n="playlistSequencePlaceholder"
+              />
+            </div>
+            <div class="settings-field wide">
+              <label for="playlist-style-map" data-i18n="playlistStyleMapLabel">
+                Style mapping
+              </label>
+              <textarea
+                id="playlist-style-map"
+                rows="5"
+                data-i18n-attr="placeholder"
+                data-i18n="playlistStyleMapPlaceholder"
+              ></textarea>
+            </div>
           </div>
           <div class="settings-tab" data-tab="system">
             <h3 data-i18n="system">System</h3>
@@ -246,6 +461,19 @@
                 Language
               </label>
               <select id="language-select"></select>
+              <p data-i18n="languageHelp">
+                Language selection affects UI labels and formatting.
+              </p>
+            </div>
+            <div class="settings-field">
+              <label for="style-name-input" data-i18n="styleManagerLabel">
+                Styles
+              </label>
+              <div class="settings-inline">
+                <input id="style-name-input" type="text" />
+                <button id="style-add" data-i18n="styleAdd">Add</button>
+              </div>
+              <div id="style-list" class="style-list"></div>
             </div>
             <div class="settings-field">
               <label for="tanda-size-input" data-i18n="defaultTandaSize">
@@ -259,12 +487,6 @@
                 step="1"
               />
             </div>
-            <p data-i18n="languageHelp">
-              Language selection affects UI labels and formatting.
-            </p>
-            <button id="reset-db" class="danger" data-i18n="eraseDatabase">
-              Erase Database
-            </button>
           </div>
           <div class="settings-tab" data-tab="diagnostics">
             <h3 data-i18n="scanIssues">Scan Issues</h3>

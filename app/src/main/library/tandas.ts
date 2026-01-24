@@ -25,13 +25,14 @@ export type TandaDetail = {
   total_duration_ms: number;
   slot_count: number;
   track_slots: (string | null)[];
-  tracks: {
-    id: string;
-    title: string;
-    artist: string;
-    album: string;
-    genre: string;
-    year: string;
+    tracks: {
+      id: string;
+      title: string;
+      artist: string;
+      artist_summary: string;
+      album: string;
+      genre: string;
+      year: string;
     full_path: string;
     duration_ms: number;
     start_offset_ms: number;
@@ -161,7 +162,7 @@ export const saveTanda = (
   const trackRows = trackIds.length
     ? (db
         .prepare(
-          `select id, title, artist, album, genre, year, full_path,
+          `select id, title, artist, artist_summary, album, genre, year, full_path,
             duration_ms, start_offset_ms, end_trim_ms, gain_db
            from tracks where id in (${trackIds.map(() => "?").join(", ")})`,
         )
@@ -256,8 +257,9 @@ const loadTandaDetail = (
 
   const trackRows = db
     .prepare(
-      `select tt.track_id, tt.position, t.title, t.artist, t.album, t.genre, t.year,
-        t.full_path, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.gain_db
+      `select tt.track_id, tt.position, t.title, t.artist, t.artist_summary, t.album, t.album_artist,
+              t.genre, t.year, t.bpm, t.full_path, t.duration_ms, t.start_offset_ms,
+              t.end_trim_ms, t.gain_db
        from tanda_tracks tt
        join tracks t on t.id = tt.track_id
        where tt.tanda_id = ?
@@ -268,9 +270,12 @@ const loadTandaDetail = (
     position: number;
     title: string;
     artist: string;
+    artist_summary: string;
     album: string;
+    album_artist: string;
     genre: string;
     year: string;
+    bpm: number | null;
     full_path: string;
     duration_ms: number;
     start_offset_ms: number;
@@ -293,9 +298,12 @@ const loadTandaDetail = (
     id: track.track_id,
     title: track.title,
     artist: track.artist,
+    artist_summary: track.artist_summary,
     album: track.album,
+    album_artist: track.album_artist,
     genre: track.genre,
     year: track.year,
+    bpm: track.bpm,
     full_path: track.full_path,
     duration_ms: track.duration_ms,
     start_offset_ms: track.start_offset_ms,

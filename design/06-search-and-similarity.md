@@ -146,6 +146,10 @@ Sorting must define a stable total order suitable for cursor-based paging.
 
 Sorting must apply to the entire result set, not only visible rows.
 
+Current implementation note:
+- Artist sorts use `artist_summary` as the primary key and `artist` as secondary
+  to avoid noisy orchestra suffixes.
+
 ---
 
 ## FR-094 — Alias Metadata Source

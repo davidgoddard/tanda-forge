@@ -62,3 +62,17 @@ The playback engine must expose:
 - Pending overrides (e.g. cortina replacement)
 
 This state is consumed by the UI and must remain consistent across clients.
+
+---
+
+## Current Implementation Notes (Electron)
+
+- Playlist playback currently runs in the renderer as a sequential loop on the
+  main output channel.
+- Start/resume/stop are supported; stop fades out over a configurable duration,
+  and resume uses in-memory position only.
+- Gaps are applied between tracks within a tanda and before each tanda. Cortina
+  gaps are stored but not scheduled yet.
+- Played tandas are locked and muted in Live mode while playback state is active.
+- Track start offsets and end trims are not yet applied to playback, but are
+  used for display and duration calculations.

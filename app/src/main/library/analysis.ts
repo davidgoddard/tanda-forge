@@ -163,6 +163,34 @@ export const readTags = async (filePath: string): Promise<TagResult> => {
   }
 };
 
+export const renderWaveformPng = async (
+  filePath: string,
+  outputPath: string,
+) => {
+  const { binary, fallback } = resolveFfmpeg();
+  const args = [
+    "-y",
+    "-i",
+    filePath,
+    "-map",
+    "0:a:0",
+    "-vn",
+    "-sn",
+    "-dn",
+    "-filter_complex",
+    "showwavespic=s=1200x240:colors=white",
+    "-frames:v",
+    "1",
+    outputPath,
+  ];
+
+  try {
+    await runCommand(binary, args);
+  } catch {
+    await runCommand(fallback, args);
+  }
+};
+
 const readDurationMs = async (filePath: string) => {
   const { binary, fallback } = resolveFfprobe();
   const args = [
@@ -191,6 +219,11 @@ const readSilenceBounds = async (filePath: string) => {
   const args = [
     "-i",
     filePath,
+    "-map",
+    "0:a:0",
+    "-vn",
+    "-sn",
+    "-dn",
     "-af",
     "silencedetect=noise=-35dB:d=0.2",
     "-f",
@@ -230,6 +263,11 @@ const readLoudness = async (filePath: string) => {
   const args = [
     "-i",
     filePath,
+    "-map",
+    "0:a:0",
+    "-vn",
+    "-sn",
+    "-dn",
     "-af",
     "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json",
     "-f",

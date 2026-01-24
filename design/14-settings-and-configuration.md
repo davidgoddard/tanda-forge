@@ -20,6 +20,8 @@ Lighting, Network, etc.).
 - Each root shows availability status (connected/missing).
 - Changes to roots are applied immediately and do not require a restart.
 - Library scanning is initiated from the Library tab.
+- Scan progress is mirrored on the main screen and the Library tab, with a
+  shortcut to Diagnostics beside the scan-issue count.
 
 ## System Configuration
 
@@ -35,10 +37,27 @@ Lighting, Network, etc.).
 - Users can configure the default new tanda size (placeholder count).
 - The default size also acts as the minimum size threshold for save warnings.
 
+## Playlist Configuration
+
+- Users can configure timing gaps for playlist playback:
+  - Gap between tracks within a tanda.
+  - Gap before each tanda.
+  - Gap before cortina (stored for future cortina playback).
+- Users can configure the stop fade duration for live playlist playback.
+- A tanda sequence string (e.g. `3t 3t 3w`) defines slot expectations.
+- A style mapping table connects sequence letters (e.g. `T`) to allowed styles.
+- Style mismatches are rejected; count mismatches prompt a confirmation before
+  allowing the tanda into the slot.
+
+## Library Utilities
+
+- The Erase Database action is located in the Library tab alongside scanning.
+
 ## Diagnostics
 
 - Scan issues are shown under the Diagnostics tab.
 - Errors are persistent across scans until resolved or cleared by a new scan.
+- A "View scan issues" link in progress areas jumps directly to Diagnostics.
 
 ## Professional DJ Expectations
 

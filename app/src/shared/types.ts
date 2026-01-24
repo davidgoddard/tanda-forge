@@ -12,10 +12,12 @@ export type TrackRow = {
   relative_path: string;
   title: string;
   artist: string;
+  artist_summary: string;
   album: string;
   album_artist: string;
   year: string;
   genre: string;
+  bpm: number | null;
   duration_ms: number;
   start_offset_ms: number;
   end_trim_ms: number;
@@ -109,6 +111,20 @@ export type AppApi = {
     sortDir?: string;
   }) => Promise<{ offset: number }>;
   getTrackStyles: () => Promise<string[]>;
+  updateTrack: (payload: {
+    id: string;
+    title?: string | null;
+    artist?: string | null;
+    album?: string | null;
+    album_artist?: string | null;
+    year?: string | null;
+    genre?: string | null;
+    bpm?: number | null;
+  }) => Promise<TrackRow | null>;
+  getWaveform: (trackId: string) => Promise<string | null>;
+  listStyles: () => Promise<string[]>;
+  addStyle: (name: string) => Promise<{ ok: boolean }>;
+  removeStyle: (name: string) => Promise<{ ok: boolean }>;
   listTandas: () => Promise<TandaDetail[]>;
   saveTanda: (payload: {
     id: string;

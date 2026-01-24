@@ -33,7 +33,51 @@ The app expects platform binaries in the following folders:
 These binaries are intentionally excluded from git to keep the repo small. You can:
 
 - Download platform binaries and place them in the folders above, or
+- Use the helper script: `scripts/fetch-ffmpeg.sh [macos|windows|linux|all]`, or
 - Install `ffmpeg`/`ffprobe` in your system `PATH` (the app will fall back to that).
+
+## Packaging and distribution (GitHub Releases)
+
+Recommended approach: publish packaged builds to GitHub Releases.
+
+1) Install dependencies:
+
+```bash
+npm install
+```
+
+2) Ensure ffmpeg binaries are present (see above). The `build.extraResources`
+   section in `package.json` will bundle `app/resources/ffmpeg` into the app.
+
+3) Build the app bundles with Electron Builder (download on demand):
+
+```bash
+npx electron-builder --mac
+npx electron-builder --win
+npx electron-builder --linux
+```
+
+Artifacts will appear in `dist/` (do not commit to git). Upload the resulting
+installers to GitHub Releases.
+
+Notes:
+- If you prefer, add a `package` script in `package.json` that runs
+  `electron-builder` so it’s consistent for the team.
+- Packaging should be done on the target OS (macOS for `.dmg`, Windows for
+  `.exe`, Linux for `.AppImage`/`.deb`).
+
+## End-user install and run
+
+From GitHub Releases, download the installer for your platform:
+
+- macOS: open the `.dmg`, drag the app to Applications, then launch it.
+- Windows: run the `.exe` installer, then launch the app from the Start Menu.
+- Linux: run the `.AppImage` (make executable) or install the `.deb`.
+
+First-run checklist:
+1) Open Settings → Library and add your Music/Cortina folders.
+2) Scan Library.
+3) Set audio outputs in Settings → System if you want headphones preview.
 
 ## Notes
 

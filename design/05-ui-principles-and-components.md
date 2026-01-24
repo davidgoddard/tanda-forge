@@ -57,6 +57,7 @@ available from the main screen.
 All text and controls must meet WCAG AA contrast requirements in both themes.
 
 The main screen defaults to fullscreen for live use.
+The top bar includes a fullscreen toggle for quick access.
 
 ---
 
@@ -136,6 +137,7 @@ Must display:
 - Headphone preview icon (FR-061)
 - Action controls for adding to clipboard/tanda where applicable
 - Action controls use compact, language-aware glyphs/letters with tooltips.
+- Edit action (pencil or similar) to open the track editor.
 
 Optional indicators:
 - BPM
@@ -151,23 +153,52 @@ Behavior:
 - Clipboard tracks are unique; adding a track that already exists is ignored.
 - Active playback rows are visually highlighted in lists.
 
+## UI-010a — Track Editor Modal
+
+Tracks can be edited via an in-app modal editor.
+
+Fields:
+- Title
+- Artist
+- Album
+- Album artist
+- Year
+- Style
+- BPM (tap-tempo derived)
+
+Tap Tempo:
+- First tap always resets the tap series.
+- If more than 3 seconds elapse without a tap, the series resets automatically.
+- BPM is computed from the average interval and rounded for display.
+
+Controls:
+- Save persists the edits to the database.
+- Reset restores the original values for the current edit session.
+- Cancel closes without changes.
+- The editor surface is opaque to keep the form readable over long lists.
+
 ### UI-011 — Tanda Row Component
 
 Represents a single tanda in search, clipboard, or playlist lists.
 
 Collapsed view:
 - Tanda name
+- Style badge (single-letter or multi-letter indicator to the left, e.g. `T/W`)
 - Artist summary with counts (e.g. `Di Sarli(3), Troilo(1)`)
-- Instrumental flag
+- Instrumental flag (or "Sung" if vocals are present)
 - Years list (unique, comma-separated)
 
 Expanded view:
-- Shows the list of tracks with artist/title/year lines.
+- Summary shows name, style(s), instrumental flag, year range, and duration.
+- Artist summary is omitted in expanded view.
+- Shows the list of tracks with artist/title/year and duration.
 
 Behavior:
 - Expand/collapse is explicit and does not trigger playback.
 - Clipboard tandas offer a "P" action to add to playlist.
 - Search tandas offer a "C" action to add to clipboard.
+- Search style filters mirror the selected tanda styles but remain editable and
+  do not mutate the tanda until a track is added.
 
 ---
 
@@ -181,6 +212,8 @@ The main workspace uses three columns:
 Interactions:
 - Search results provide add buttons and drag-and-drop into clipboard/playlist.
 - Clicking a clipboard item then a playlist slot swaps the two.
+- Clipboard tandas can be selected and swapped into playlist slots.
+- Playlist tandas include a remove control.
 - Clicking a track row plays it (Preparation mode only).
 - Search includes a submit control and displays result counts.
 - Track/tanda tabs stretch to fill the column width.
@@ -188,6 +221,9 @@ Interactions:
 - Adding tracks to tandas is explicit (T button or drag/drop), not via click.
 - Removing a clipboard track is explicit (R button).
  - Track/tanda tab labels show entry counts.
+- When items are added to clipboard or playlist, the corresponding tab becomes
+  active so the DJ can see the result immediately.
+- Lists scroll within their column while tab bars remain visible.
 
 ## UI-015 — Now Playing Strip
 
@@ -198,6 +234,10 @@ Requirements:
 - Shows artist and title.
 - Shows elapsed time and total duration.
 - Headphone playback overrides the main output display while active.
+- Displays the active output (main vs headphones).
+- Displays a waveform image with a moving playhead and shaded progress.
+- In Preparation mode, clicking the waveform seeks within the current track.
+- If headphone preview is active, waveform seeking is always allowed.
 
 ## UI-016 — Tanda Designer Panel
 
@@ -205,6 +245,9 @@ The playlist column includes a Tanda Designer tab for creating and editing tanda
 
 Layout and behavior:
 - Presents a default empty tanda with the configured placeholder count.
+- On startup, the active tanda is a fresh draft; saved tandas are not mutated
+  unless explicitly edited and saved. The designer does not preload all saved
+  tandas; they are opened on demand from search/clipboard.
 - Allows adding additional empty tandas via an Add button.
 - Each tanda has Save and Delete actions.
 - Tandas are selectable; the selected tanda is the target for incoming tracks.
@@ -265,6 +308,13 @@ Behavior:
 - Reordering allowed subject to mode rules.
 - Current and next items are visually emphasized.
 - Timeline reflects authoritative playback state.
+- While a tanda is playing, it expands and highlights the active track.
+- Once a tanda finishes, it collapses automatically.
+- In Live mode, played tandas are visually muted and their slots are locked
+  against edits, swaps, or drops while playback is active.
+- If no main output is playing, clicking a playlist track starts playback from
+  that track (prep or live mode).
+- If main output is playing, playlist clicks are ignored in Live mode.
 
 ---
 
@@ -281,6 +331,10 @@ Must include:
 Rules:
 - Only this component may initiate playback in Performance Mode.
 - Changes must be reflected across all connected clients.
+- Start resets playback to the top of the playlist.
+- Resume continues from the last stopped track position.
+- Stop applies a configurable fade-out and preserves resume position.
+- Controls live in the playlist column header for immediate access.
 
 ---
 
@@ -380,7 +434,10 @@ The UI must actively prevent DJs from breaking their own defined playlist rules.
 Rules:
 - Drag-and-drop operations must respect playlist structure constraints.
 - A tanda of one style must not be droppable into a position requiring another style.
-- Invalid drop targets must be visibly indicated and rejected.
+- Count mismatches prompt a confirmation before allowing the drop.
+- Invalid style targets must be visibly indicated and rejected.
+- Style mismatch attempts trigger a pulsing warning with an Allow Anyway action.
+- Overridden tandas display a visible mismatch badge in the playlist.
 - Search-and-replace operations must respect the same constraints.
 
 It must be difficult to accidentally construct an invalid playlist.

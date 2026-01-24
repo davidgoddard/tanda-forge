@@ -4,6 +4,10 @@ import {
   effectiveDurationMs,
   sumEffectiveDurationMs,
   summarizeTandaTracks,
+  normalizeStyleName,
+  summarizeArtistName,
+  extractArtistCandidates,
+  extractSingerName,
 } from "../app/src/shared/tanda-utils";
 
 describe("tanda utils", () => {
@@ -53,5 +57,33 @@ describe("tanda utils", () => {
     ]);
     expect(summary.years).toEqual(["1940", "1941"]);
     expect(summary.instrumental).toBe(true);
+  });
+
+  it("normalizes artist names for summaries", () => {
+    expect(summarizeArtistName("Carlos Di Sarli y su orquesta tipica")).toBe(
+      "Carlos Di Sarli",
+    );
+    expect(summarizeArtistName("Anibal Troilo and his orchestra")).toBe(
+      "Anibal Troilo",
+    );
+    expect(
+      extractArtistCandidates("D'Agostino, Angel y su orquesta tipica"),
+    ).toContain("Angel D'agostino");
+  });
+
+  it("extracts singer names from markers", () => {
+    expect(extractSingerName("Francisco Canaro con Ada Falcon")).toBe(
+      "Ada Falcon",
+    );
+    expect(extractSingerName("Anibal Troilo with Fiorentino")).toBe(
+      "Fiorentino",
+    );
+    expect(extractSingerName("Di Sarli with his orchestra")).toBe("");
+  });
+
+  it("normalizes style names", () => {
+    expect(normalizeStyleName("tango waltz")).toBe("Tango Waltz");
+    expect(normalizeStyleName(["MILONGA", "Tango"])).toBe("Milonga");
+    expect(normalizeStyleName("Tango / Vals")).toBe("Tango");
   });
 });

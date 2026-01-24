@@ -1,6 +1,6 @@
 const allowedSortColumns = new Map([
   ["title", "title"],
-  ["artist", "artist"],
+  ["artist", "artist_summary"],
   ["album", "album"],
   ["year", "year"],
   ["duration", "duration_ms"],
@@ -38,6 +38,9 @@ export const getSortSql = (column: SortColumn) => {
 
 export const getSortKeySql = (column: SortColumn) => {
   const mapped = getSortSql(column);
+  if (column === "artist") {
+    return "upper(coalesce(artist_summary, artist, ''))";
+  }
   return `upper(coalesce(${mapped}, ''))`;
 };
 

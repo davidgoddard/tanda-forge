@@ -32,6 +32,11 @@ const api: AppApi = {
   searchJumpToPrefix: async (params) =>
     ipcRenderer.invoke("tracks:searchJumpToPrefix", params),
   getTrackStyles: async () => ipcRenderer.invoke("tracks:getStyles"),
+  updateTrack: async (payload) => ipcRenderer.invoke("tracks:update", payload),
+  getWaveform: async (trackId) => ipcRenderer.invoke("tracks:getWaveform", trackId),
+  listStyles: async () => ipcRenderer.invoke("styles:list"),
+  addStyle: async (name) => ipcRenderer.invoke("styles:add", name),
+  removeStyle: async (name) => ipcRenderer.invoke("styles:remove", name),
   listTandas: async () => ipcRenderer.invoke("tandas:list"),
   saveTanda: async (payload) => ipcRenderer.invoke("tandas:save", payload),
   deleteTanda: async (id) => ipcRenderer.invoke("tandas:delete", id),

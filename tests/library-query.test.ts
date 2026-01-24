@@ -23,7 +23,9 @@ describe("library query helpers", () => {
 
   it("maps sort sql correctly", () => {
     expect(getSortSql("duration")).toBe("duration_ms");
+    expect(getSortSql("artist")).toBe("artist_summary");
     expect(getSortKeySql("album")).toContain("album");
+    expect(getSortKeySql("artist")).toContain("artist_summary");
   });
 
   it("builds jump index with digit and symbol buckets", () => {

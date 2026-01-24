@@ -5,6 +5,251 @@ export type TrackDurationFields = {
   instrumental?: boolean | null;
 };
 
+const stripDiacritics = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+const collapseWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
+
+const titleCase = (value: string) =>
+  value
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(" ");
+
+const artistNoise = [
+  "ORQUESTA",
+  "TIPICO",
+  "TIPICA",
+  "ORCHESTA",
+  "ORCHESTRA",
+  "ORCHESTRE",
+  "ORUUESTA",
+  "CUARTETO",
+  "Y SU",
+  "Y SUS",
+  "SUS",
+  "HIS",
+  "GRAN",
+  "ORQ.",
+  "ORQ",
+  "TIP.",
+  "TIP",
+  "INSTR.",
+  "INSTR",
+  "QUINTETO DEL A",
+  "ENSEMBLE",
+  "SEIN",
+  "TANZORCHESTRA",
+  "CUARTETO TIPICO DE",
+  "CUARTETO VICTOR DE",
+  "CUARTETO TIPICO",
+  "CUARTETO VICTOR",
+];
+
+const artistSwaps = new Map<string, string>([
+  ["A.AMOR", "ALBERTO AMOR"],
+  ["A.ECHAGUE", "ALBERTO ECHAGUE"],
+  ["A.MARINO", "ALBERTO MARINO"],
+  ["A.MORAN", "ALBERTO MORAN"],
+  ["A.PIAZZOLA", "ASTOR PIAZZOLA"],
+  ["A.PODESTA", "ALBERTO PODESTA"],
+  ["C.GARDEL", "CARLOS GARDEL"],
+  ["C.SAAVEDRA", "CARLOS SAAVEDRA"],
+  ["E.DONATO", "EDGARDO DONATO"],
+  ["E.FAMA", "ERNESTO FAMA"],
+  ["F.CANARO", "FRANCISCO CANARO"],
+  ["F.FIORENTINO", "FRANCISCO FIORENTINO"],
+  ["F.GUTIERREZ", "FELIX GUTIERREZ"],
+  ["F.RUIZ", "FLOREAL RUIZ"],
+  ["H.LAGOS", "HORACIO LAGOS"],
+  ["H.MAURE", "HECTOR MAURE"],
+  ["J.ARIENZO", "JUAN ARIENZO"],
+  ["L.MORALES", "LITA MORALES"],
+  ["M.BUSTOS", "MARIO BUSTOS"],
+  ["M.CALO", "MIGUEL CALO"],
+  ["N.OMAR", "NELLY OMAR"],
+  ["O.PUGLIESE", "OSVALDO PUGLIESE"],
+  ["O.RIBO", "OSVALDO RIBO"],
+  ["P.CONTURSI", "PASCUAL CONTURSI"],
+  ["Q.PIRINCHO", "QUINTETO PIRINCHO"],
+  ["R.BERON", "RAUL BERON"],
+  ["R.CHANEL", "ROBERTO CHANEL"],
+  ["R.FIRPO", "ROBERTO FIRPO"],
+  ["R.GAVIO", "ROMEO GAVIOLI"],
+  ["R.MAIDA", "ROEBERTO MAIDA"],
+  ["R.RUFINO", "ROBERTO RUFINO"],
+  ["A. AMOR", "ALBERTO AMOR"],
+  ["A. ECHAGUE", "ALBERTO ECHAGUE"],
+  ["A. MARINO", "ALBERTO MARINO"],
+  ["A. MORAN", "ALBERTO MORAN"],
+  ["A. PIAZZOLA", "ASTOR PIAZZOLA"],
+  ["A. PODESTA", "ALBERTO PODESTA"],
+  ["C. GARDEL", "CARLOS GARDEL"],
+  ["C. SAAVEDRA", "CARLOS SAAVEDRA"],
+  ["E. DONATO", "EDGARDO DONATO"],
+  ["E. FAMA", "ERNESTO FAMA"],
+  ["F. CANARO", "FRANCISCO CANARO"],
+  ["F. FIORENTINO", "FRANCISCO FIORENTINO"],
+  ["F. GUTIERREZ", "FELIX GUTIERREZ"],
+  ["F. RUIZ", "FLOREAL RUIZ"],
+  ["H. LAGOS", "HORACIO LAGOS"],
+  ["H. MAURE", "HECTOR MAURE"],
+  ["J. ARIENZO", "JUAN ARIENZO"],
+  ["L. MORALES", "LITA MORALES"],
+  ["M. BUSTOS", "MARIO BUSTOS"],
+  ["M. CALO", "MIGUEL CALO"],
+  ["N. OMAR", "NELLY OMAR"],
+  ["O. PUGLIESE", "OSVALDO PUGLIESE"],
+  ["O. RIBO", "OSVALDO RIBO"],
+  ["P. CONTURSI", "PASCUAL CONTURSI"],
+  ["Q. PIRINCHO", "QUINTETO PIRINCHO"],
+  ["R. BERON", "RAUL BERON"],
+  ["R. CHANEL", "ROBERTO CHANEL"],
+  ["R. FIRPO", "ROBERTO FIRPO"],
+  ["R. GAVIO", "ROMEO GAVIOLI"],
+  ["R. MAIDA", "ROEBERTO MAIDA"],
+  ["R. RUFINO", "ROBERTO RUFINO"],
+]);
+
+const artistSeparators =
+  /(( +(FEAT\.|FT\.|CANTOR|CANTA|CANTA:|CANTAN|CANTORES|AND|WITH|MEETS|MEET|CON|Y|&) +)|[>\(\)\-\:\;\~\_\+\/\\])/g;
+
+const cleanArtistCandidate = (value: string) => {
+  const trimmed = collapseWhitespace(value);
+  if (!trimmed) {
+    return "";
+  }
+  const swapped = artistSwaps.get(trimmed) ?? trimmed;
+  return titleCase(swapped.toLowerCase());
+};
+
+export const extractArtistCandidates = (input: string) => {
+  const raw = collapseWhitespace(input);
+  if (!raw) {
+    return [];
+  }
+  let work = stripDiacritics(raw).toUpperCase();
+  work = work.replace(/,| ' /g, " , ");
+  work = work.replace(/\./g, ". ");
+  work = collapseWhitespace(work);
+  work = ` ${work} `;
+  artistNoise.forEach((token) => {
+    const pattern = new RegExp(`\\s${token}\\s`, "g");
+    work = work.replace(pattern, " ");
+  });
+  const bits = work.replace(artistSeparators, "|").split("|");
+  const candidates: string[] = [];
+  bits.forEach((bit) => {
+    const value = bit.trim();
+    if (value.length <= 1) {
+      return;
+    }
+    if (value.includes(",")) {
+      const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+      if (parts.length === 2) {
+        const swapped = `${parts[1]} ${parts[0]}`;
+        const cleaned = cleanArtistCandidate(swapped);
+        if (cleaned) {
+          candidates.push(cleaned);
+        }
+        return;
+      }
+      parts.forEach((part) => {
+        const cleaned = cleanArtistCandidate(part);
+        if (cleaned) {
+          candidates.push(cleaned);
+        }
+      });
+      return;
+    }
+    const cleaned = cleanArtistCandidate(value);
+    if (cleaned) {
+      candidates.push(cleaned);
+    }
+  });
+  const unique = Array.from(new Set(candidates));
+  return unique;
+};
+
+export const summarizeArtistName = (input: string) => {
+  const candidates = extractArtistCandidates(input);
+  if (candidates.length > 0) {
+    return candidates[0];
+  }
+  const cleaned = collapseWhitespace(stripDiacritics(input));
+  return cleaned ? titleCase(cleaned.toLowerCase()) : "";
+};
+
+export const normalizeArtistName = (input: string) => summarizeArtistName(input);
+
+export const extractSingerName = (input: string) => {
+  const raw = collapseWhitespace(input);
+  if (!raw) {
+    return "";
+  }
+  const normalized = stripDiacritics(raw).toUpperCase();
+  const singerMarkers = /\b(WITH|CON|CANTA|CANTOR|CANTORES|FEAT\.|FT\.)\b/i;
+  const match = normalized.match(singerMarkers);
+  if (!match || match.index === undefined) {
+    return "";
+  }
+  const singerPart = raw.slice(match.index + match[0].length).trim();
+  if (!singerPart) {
+    return "";
+  }
+  const normalizedSinger = stripDiacritics(singerPart).toUpperCase();
+  const nonSingerTokens = [
+    "ORCHESTRA",
+    "ORCHESTA",
+    "ORCHESTRE",
+    "ORQUESTA",
+    "ORQUESTA TIPICA",
+    "ORQUESTA TIPICO",
+    "ORQ",
+    "ORQ.",
+    "TIPICA",
+    "TIPICO",
+    "CUARTETO",
+    "QUINTETO",
+    "ENSEMBLE",
+    "TANZORCHESTRA",
+  ];
+  const nonSingerPhrases = [
+    "HIS ORCHESTRA",
+    "SU ORQUESTA",
+    "Y SU ORQUESTA",
+    "Y SU ORQUESTA TIPICA",
+  ];
+  if (
+    nonSingerPhrases.some((phrase) => normalizedSinger.includes(phrase)) ||
+    nonSingerTokens.some((token) =>
+      new RegExp(`\\b${token}\\b`).test(normalizedSinger),
+    )
+  ) {
+    return "";
+  }
+  const candidates = extractArtistCandidates(singerPart);
+  if (candidates.length > 0) {
+    return candidates[0];
+  }
+  return summarizeArtistName(singerPart);
+};
+
+export const normalizeStyleName = (
+  input: string | string[] | undefined,
+) => {
+  if (!input) {
+    return "";
+  }
+  const raw = Array.isArray(input)
+    ? input.find((value) => value && value.trim().length > 0) ?? ""
+    : input;
+  const first = raw.split(/[;,/|]+/)[0] ?? "";
+  const simplified = collapseWhitespace(stripDiacritics(first).toLowerCase());
+  return simplified ? titleCase(simplified) : "";
+};
+
 export const effectiveDurationMs = (
   track: TrackDurationFields | null,
 ): number => {

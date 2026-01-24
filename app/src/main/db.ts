@@ -29,10 +29,12 @@ const createSchema = (database: Database.Database) => {
       file_mtime_ms integer,
       title text,
       artist text,
+      artist_summary text,
       album text,
       album_artist text,
       year text,
       genre text,
+      bpm real,
       duration_ms integer,
       start_offset_ms integer,
       end_trim_ms integer,
@@ -46,6 +48,11 @@ const createSchema = (database: Database.Database) => {
       updated_at text not null,
       last_scanned_at text,
       unique (root_id, relative_path)
+    );
+
+    create table if not exists styles (
+      name text primary key,
+      normalized text not null unique
     );
 
     create index if not exists idx_tracks_root on tracks (root_id);
@@ -108,6 +115,17 @@ export const initDb = () => {
   } catch {}
   try {
     db.exec("alter table tracks add column file_mtime_ms integer");
+  } catch {}
+  try {
+    db.exec("alter table tracks add column artist_summary text");
+  } catch {}
+  try {
+    db.exec("alter table tracks add column bpm real");
+  } catch {}
+  try {
+    db.exec(
+      "create table if not exists styles (name text primary key, normalized text not null unique)",
+    );
   } catch {}
   try {
     db.exec("alter table tracks add column loudness_db real");
