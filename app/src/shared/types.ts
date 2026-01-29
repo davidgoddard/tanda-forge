@@ -86,6 +86,8 @@ export type TrackSearchRequest = {
   offset?: number;
   sortBy?: string;
   sortDir?: string;
+  minScore?: number;
+  bpmRange?: number;
 };
 
 export type AppApi = {
@@ -101,15 +103,29 @@ export type AppApi = {
   jumpToPrefix: (params: JumpRequest) => Promise<{ offset: number }>;
   getJumpIndex: (params: { sortBy?: string }) => Promise<string[]>;
   searchTracks: (params: TrackSearchRequest) => Promise<TrackRow[]>;
-  searchTrackCount: (params: { query: string; styles: string[] }) => Promise<number>;
-  searchJumpIndex: (params: { query: string; styles: string[]; sortBy?: string }) => Promise<string[]>;
+  searchTrackCount: (params: {
+    query: string;
+    styles: string[];
+    minScore?: number;
+    bpmRange?: number;
+  }) => Promise<number>;
+  searchJumpIndex: (params: {
+    query: string;
+    styles: string[];
+    sortBy?: string;
+    minScore?: number;
+    bpmRange?: number;
+  }) => Promise<string[]>;
   searchJumpToPrefix: (params: {
     query: string;
     styles: string[];
     prefix: string;
     sortBy?: string;
     sortDir?: string;
+    minScore?: number;
+    bpmRange?: number;
   }) => Promise<{ offset: number }>;
+  getTracksByIds: (ids: string[]) => Promise<TrackRow[]>;
   getTrackStyles: () => Promise<string[]>;
   updateTrack: (payload: {
     id: string;
@@ -122,10 +138,22 @@ export type AppApi = {
     bpm?: number | null;
   }) => Promise<TrackRow | null>;
   getWaveform: (trackId: string) => Promise<string | null>;
+  generateWaveform: (trackId: string) => Promise<{ ok: boolean; path?: string; error?: string }>;
+  getDiagnosticsPaths: () => Promise<{
+    userData: string;
+    waveformsDir: string;
+    ffmpegPath: string;
+    ffprobePath: string;
+  }>;
   listStyles: () => Promise<string[]>;
   addStyle: (name: string) => Promise<{ ok: boolean }>;
   removeStyle: (name: string) => Promise<{ ok: boolean }>;
+  replaceDefaultStyles: (params: {
+    oldStyles: string[];
+    newStyles: string[];
+  }) => Promise<{ ok: boolean }>;
   listTandas: () => Promise<TandaDetail[]>;
+  getTandasByIds: (ids: string[]) => Promise<TandaDetail[]>;
   saveTanda: (payload: {
     id: string;
     name: string;

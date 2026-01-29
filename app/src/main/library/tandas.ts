@@ -108,7 +108,21 @@ export const listTandas = (db: Database.Database): TandaDetail[] => {
     total_duration_ms: number | null;
     slot_count: number | null;
   }[];
-  return rows.map((row) => loadTandaDetail(db, row.id));
+  return rows
+    .map((row) => loadTandaDetail(db, row.id))
+    .filter((row): row is TandaDetail => row !== null);
+};
+
+export const getTandasByIds = (
+  db: Database.Database,
+  ids: string[],
+): TandaDetail[] => {
+  if (ids.length === 0) {
+    return [];
+  }
+  return ids
+    .map((id) => loadTandaDetail(db, id))
+    .filter((row): row is TandaDetail => row !== null);
 };
 
 export const searchTandas = (
@@ -218,7 +232,11 @@ export const saveTanda = (
   });
 
   transactional();
-  return loadTandaDetail(db, payload.id);
+  const result = loadTandaDetail(db, payload.id);
+  if (!result) {
+    throw new Error(`Failed to load tanda ${payload.id} after save.`);
+  }
+  return result;
 };
 
 export const deleteTanda = (db: Database.Database, id: string) => {
@@ -233,7 +251,7 @@ export const deleteTanda = (db: Database.Database, id: string) => {
 const loadTandaDetail = (
   db: Database.Database,
   tandaId: string,
-): TandaDetail => {
+): TandaDetail | null => {
   const row = db
     .prepare(
       `select id, name, rating, instrumental, total_duration_ms, slot_count
@@ -246,7 +264,10 @@ const loadTandaDetail = (
     instrumental: number | null;
     total_duration_ms: number | null;
     slot_count: number | null;
-  };
+  } | undefined;
+  if (!row) {
+    return null;
+  }
 
   const styles = db
     .prepare(

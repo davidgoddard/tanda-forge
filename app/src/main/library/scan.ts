@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
-import { analyzeTrack, readTags } from "./analysis";
+import { analyzeTrack, readTags, renderWaveformPng } from "./analysis";
 import {
   normalizeStyleName,
   summarizeArtistName,
@@ -73,9 +73,18 @@ const hashFile = async (filePath: string) => {
 export const scanLibraryRoots = async (
   roots: LibraryRoot[],
   onProgress?: (progress: ScanProgress) => void,
+  options?: { waveformsDir?: string },
 ): Promise<ScanSummary> => {
   const db = getDb();
   const now = new Date().toISOString();
+  const waveformsDir = options?.waveformsDir;
+  if (waveformsDir) {
+    try {
+      await fs.promises.mkdir(waveformsDir, { recursive: true });
+    } catch {
+      // Ignore; waveform generation will fail per-file if we can't create the dir.
+    }
+  }
   const styleRows = db
     .prepare("select name, normalized from styles")
     .all() as { name: string; normalized: string }[];
@@ -197,6 +206,7 @@ export const scanLibraryRoots = async (
             }
           | undefined;
 
+        const trackId = existing?.id ?? randomUUID();
         const unchanged =
           existing &&
           existing.file_size === stat.size &&
@@ -270,7 +280,7 @@ export const scanLibraryRoots = async (
             ? existing?.file_hash ?? (await hashFile(filePath))
             : await hashFile(filePath);
           const row = {
-            id: randomUUID(),
+            id: trackId,
             root_id: root.id,
             relative_path: relativePath,
             full_path: filePath,
@@ -307,6 +317,22 @@ export const scanLibraryRoots = async (
             updated += 1;
           } else {
             added += 1;
+          }
+        }
+
+        if (waveformsDir) {
+          const wavePath = path.join(waveformsDir, `${trackId}.png`);
+          if (!fs.existsSync(wavePath)) {
+            try {
+              await renderWaveformPng(filePath, wavePath);
+            } catch (error) {
+              errors.push({
+                filePath,
+                message: `Waveform: ${
+                  error instanceof Error ? error.message : "Waveform failed"
+                }`,
+              });
+            }
           }
         }
 

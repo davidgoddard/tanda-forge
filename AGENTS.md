@@ -12,9 +12,13 @@
 - Keep the git repository lean: never commit large binaries, generated artifacts,
   or temp directories (e.g. `node_modules/`, `dist/`, `tmp/`, `.git/tmp/`,
   `app/resources/ffmpeg/`). Use external downloads or Git LFS when needed.
+- All new requirements must include document-specific requirement identifiers
+  in the relevant design docs.
+- After any code or doc change, update `docs/handoff.md` and `docs/dialogue.md`.
 - If a change would introduce ambiguity, stop and ask for clarification.
+- Always record the users prompt and any generated responses or questions in the `docs/dialogue.md`.
 
 ## Documentation Discipline
 
 - Update or add design docs in the same change as code updates.
-- If a doc is intentionally ahead of implementation, mark it clearly as "planned."
+- If a doc is intentionally ahead of implementation, mark it clearly as "planned."  Ensure that the tracking and feature matrix contains any features that are not fully implemented with a description of what is missing.

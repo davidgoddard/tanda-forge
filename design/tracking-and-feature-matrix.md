@@ -30,16 +30,41 @@ and implementation status to prevent drift.
 | FR-002 | Loudness normalization | Yes | Partial | Done: store loudness/gain and apply to preview/main. Missing: configurable reference loudness, cortina level handling. |
 | FR-011 | Tanda management | Yes | Partial | Done: tanda designer UI, save/delete to DB, search tab. Missing: import/export, advanced validation rules. |
 | FR-020 | Playlist structure | Yes | Partial | Done: playlist UI, start/resume/stop, active tanda expansion, live-mode locking. Missing: persistence, rule-based generation, cortina integration. |
+| FR-021 | Rule-based playlists | Yes | No | Missing: rule parsing, generation engine, and save/export flows. |
+| FR-022 | Auto DJ / auto play | Yes | No | Missing: auto-play playlist flagging and unattended playback mode. |
 | FR-030 | Cortina handling | Yes | Partial | Done: separate cortina roots. Missing: grouping, search, playback rules, volume override. |
 | FR-040 | Gaps & overlaps | Yes | Partial | Done: configurable gaps between tracks and before tandas. Missing: overlap rules, cortina timing, negative-gap fades. |
-| FR-050 | Playback state machine | Yes | Partial | Done: sequential renderer playback with resume state. Missing: deterministic engine, multi-client state sync, scheduling visibility. |
+| FR-050 | Playback state machine | Yes | Partial | Done: sequential renderer playback with resume state, start/end trims applied. Missing: deterministic engine, multi-client state sync, scheduling visibility. |
+| FR-089 | Search fundamentals | Yes | Partial | Done: track/tanda search tabs, scoped actions. Missing: context-specific row menus. |
+| FR-090 | Search scope and fields | Yes | Partial | Done: track/tanda search, track fields, style filters, numeric year/BPM handling. Missing: rating/instrumental filters in tanda search. |
+| FR-091 | Fuzzy, fault-tolerant search | Yes | Partial | Done: trigram scoring across fields, token edit-distance bonus for close matches, configurable min score, numeric query handling. Missing: configurable accent-sensitive toggle. |
+| FR-092 | Tokenization and ignored phrases | Yes | Partial | Done: artist normalization rules. Missing: configurable ignore list and nickname mapping. |
+| FR-093 | Ranking and ordering | Yes | Partial | Done: stable ordering + sortable columns. Missing: relevance scoring. |
+| FR-094 | Alias metadata | Yes | No | Missing: alias dataset ingestion and usage. |
 | FR-096 | Incremental loading + virtualization | Yes | Partial | Done: lazy paging + bidirectional scroll. Missing: DOM windowing/virtualization. |
 | FR-097 | Jump index + jumping | Yes | Partial | Done: index + jump with filtered track search support. Missing: tanda jump index. |
 
 ---
 
-## Next Planned Documents
+## UI Requirement Coverage
 
-- `04-resilience-and-persistence.md`
-- `05-ui-principles-and-components.md`
-- `06-search-and-similarity.md`
+| UI ID | Description | Spec’d | Implemented | Notes |
+|------|------------|:------:|:-----------:|------|
+| UI-014 | Three-column workspace | Yes | Partial | Done: search/clipboard/playlist columns, tabs, counts, add actions, playlist send-to-clipboard, first-free slot insertion, and tab focus on add. Missing: verify send-to-clipboard and tab focus when adding a track to the tanda designer from search/clipboard (reported unreliable). |
+| UI-082 | Clipboard collections | Yes | Yes | Done: active collection tabs, include chips, local persistence, add/remove collections. |
+| UI-015 | Now Playing strip | Yes | Yes | Done: artist/title, duration, waveform preview, seek behavior, headphone override, and waveform placeholder while generating. |
+| UI-016 | Tanda Designer | Yes | Partial | Done: draft editing, placeholders, save/delete, add slot, Done action, filtering, up/down controls. Missing: drag/drop reordering; send-to-clipboard action reliability (reported). |
+| UI-017 | Tanda Summary (planned) | Yes | No | Planned; not implemented beyond UI-011 row component. |
+| UI-020 | Cortina selector | Yes | No | Planned; not implemented. |
+| UI-030 | Similarity visualization | Yes | No | Planned; not implemented. |
+| UI-040 | Waveform preview | Yes | Partial | Done: waveform display, placeholder on load, click-to-seek, on-demand caching, scan-time generation, diagnostics panel. Missing: centralized retry policy for failed waveform generation. |
+| UI-050 | Configuration panel | Yes | Partial | Done: Library/System/Playlist tabs, diagnostics paths and waveform test. Missing: gain target controls and UI visibility toggles. |
+| UI-060 | Display board UI | Yes | No | Planned; not implemented. |
+| UI-070 | Playlist integrity enforcement | Yes | Partial | Done: style mismatch warnings, count confirmation, mismatch badges. Missing: search-and-replace enforcement hooks. |
+| UI-080 | Scratch pad | Yes | Partial | Done: clipboard tabs and add/remove. Missing: explicit cross-playlist drag/drop from playlist into scratch pad. |
+
+---
+
+## Notes
+
+- Several planned UI components remain documented for future implementation.

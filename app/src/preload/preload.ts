@@ -27,6 +27,7 @@ const api: AppApi = {
   searchTracks: async (params) => ipcRenderer.invoke("tracks:search", params),
   searchTrackCount: async (params) =>
     ipcRenderer.invoke("tracks:searchCount", params),
+  getTracksByIds: async (ids) => ipcRenderer.invoke("tracks:getByIds", ids),
   searchJumpIndex: async (params) =>
     ipcRenderer.invoke("tracks:searchJumpIndex", params),
   searchJumpToPrefix: async (params) =>
@@ -34,10 +35,17 @@ const api: AppApi = {
   getTrackStyles: async () => ipcRenderer.invoke("tracks:getStyles"),
   updateTrack: async (payload) => ipcRenderer.invoke("tracks:update", payload),
   getWaveform: async (trackId) => ipcRenderer.invoke("tracks:getWaveform", trackId),
+  generateWaveform: async (trackId) =>
+    ipcRenderer.invoke("tracks:generateWaveform", trackId),
+  getDiagnosticsPaths: async () =>
+    ipcRenderer.invoke("diagnostics:getPaths"),
   listStyles: async () => ipcRenderer.invoke("styles:list"),
   addStyle: async (name) => ipcRenderer.invoke("styles:add", name),
   removeStyle: async (name) => ipcRenderer.invoke("styles:remove", name),
+  replaceDefaultStyles: async (payload) =>
+    ipcRenderer.invoke("styles:replaceDefaults", payload),
   listTandas: async () => ipcRenderer.invoke("tandas:list"),
+  getTandasByIds: async (ids) => ipcRenderer.invoke("tandas:getByIds", ids),
   saveTanda: async (payload) => ipcRenderer.invoke("tandas:save", payload),
   deleteTanda: async (id) => ipcRenderer.invoke("tandas:delete", id),
   searchTandas: async (params) => ipcRenderer.invoke("tandas:search", params),

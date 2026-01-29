@@ -89,6 +89,9 @@
           aria-label="Waveform timeline"
         >
           <img id="waveform-image" alt="" />
+          <div id="waveform-placeholder" class="waveform-placeholder" data-i18n="waveformUnavailable">
+            Waveform unavailable
+          </div>
           <div id="waveform-progress" class="waveform-progress"></div>
           <div id="waveform-playhead" class="waveform-playhead"></div>
         </div>
@@ -101,12 +104,7 @@
           </button>
         </div>
       </section>
-      <section class="progress">
-        <div class="progress-label" id="progress-label" data-i18n="idle">
-          Idle
-        </div>
-        <progress id="scan-progress" value="0" max="1"></progress>
-      </section>
+      <!-- Scan progress lives in Settings to reduce main-screen noise -->
       <section class="alert-banner" id="alert-banner" aria-live="polite"></section>
       <p id="status" data-i18n="starting">Starting...</p>
       <section class="workspace">
@@ -149,7 +147,6 @@
             </div>
             <nav class="jump-index" id="search-jump-index"></nav>
             <div class="search-header track" id="search-track-header">
-              <span class="actions-label" data-i18n="colActions">Actions</span>
               <div class="track-header">
                 <span class="track-header-title" data-i18n="colTrack">Track</span>
                 <div class="track-sort">
@@ -159,13 +156,12 @@
                   <button data-sort="year" data-i18n="colYear">Year</button>
                 </div>
               </div>
+              <span class="actions-label" data-i18n="colActions">Actions</span>
             </div>
             <div class="search-header tanda hidden" id="search-tanda-header">
-              <span class="actions-label" data-i18n="colActions">Actions</span>
-              <span data-i18n="tandaNameLabel">Tanda name</span>
               <span data-i18n="tandaStylesLabel">Styles</span>
-              <span data-i18n="tandaRatingLabel">Rating</span>
-              <span data-i18n="tandaDurationLabel">Duration</span>
+              <span data-i18n="tandaNameLabel">Tanda name</span>
+              <span class="actions-label" data-i18n="colActions">Actions</span>
             </div>
             <div class="list-body" id="search-list-body">
               <div id="search-tracks" class="list-rows active"></div>
@@ -178,6 +174,31 @@
         <div class="column">
           <div class="panel">
             <h2 data-i18n="clipboardTitle">Clipboard</h2>
+            <div class="clipboard-collections">
+              <div class="clipboard-collections-header">
+                <span data-i18n="clipboardCollectionsLabel">Collections</span>
+                <div class="clipboard-collections-controls">
+                  <input
+                    id="clipboard-collection-name"
+                    type="text"
+                    data-i18n-attr="placeholder"
+                    data-i18n="clipboardCollectionPlaceholder"
+                    placeholder="New collection"
+                  />
+                  <button id="clipboard-collection-add" data-i18n="clipboardCollectionAdd">
+                    Add
+                  </button>
+                  <button id="clipboard-collection-remove" data-i18n="clipboardCollectionRemove">
+                    Remove
+                  </button>
+                </div>
+              </div>
+              <div id="clipboard-collections-tabs" class="collection-tabs"></div>
+              <div class="clipboard-collections-include">
+                <span data-i18n="clipboardCollectionInclude">Include</span>
+                <div id="clipboard-collections-include" class="collection-chips"></div>
+              </div>
+            </div>
             <div class="tab-bar">
               <button data-tab="clip-tracks" class="active" data-i18n="tabTracks">
                 Tracks
@@ -476,6 +497,18 @@
               <div id="style-list" class="style-list"></div>
             </div>
             <div class="settings-field">
+              <label for="search-min-score" data-i18n="searchMinScoreLabel">
+                Search minimum score
+              </label>
+              <input id="search-min-score" type="number" min="0" max="1" step="0.01" />
+            </div>
+            <div class="settings-field">
+              <label for="search-bpm-range" data-i18n="searchBpmRangeLabel">
+                BPM search range
+              </label>
+              <input id="search-bpm-range" type="number" min="0" max="20" step="1" />
+            </div>
+            <div class="settings-field">
               <label for="tanda-size-input" data-i18n="defaultTandaSize">
                 Default tanda size
               </label>
@@ -494,6 +527,17 @@
               Recent scan problems and files that need attention.
             </p>
             <ul id="error-list" class="error-list"></ul>
+            <div class="settings-section">
+              <h3 data-i18n="diagnosticsPaths">Paths</h3>
+              <div id="diagnostics-paths" class="diagnostics-paths"></div>
+            </div>
+            <div class="settings-section">
+              <h3 data-i18n="diagnosticsWaveform">Waveform</h3>
+              <button id="diagnostics-waveform" data-i18n="diagnosticsWaveformRun">
+                Generate waveform for current track
+              </button>
+              <div id="diagnostics-waveform-result" class="diagnostics-result"></div>
+            </div>
           </div>
         </div>
       </section>

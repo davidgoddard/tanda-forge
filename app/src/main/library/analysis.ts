@@ -1,4 +1,5 @@
 import { app } from "electron";
+import fs from "fs";
 import path from "path";
 import { spawn } from "child_process";
 
@@ -77,6 +78,28 @@ const runCommand = (command: string, args: string[]) =>
     });
   });
 
+const resolveBinary = (candidate: string, fallbackName: string) => {
+  if (fs.existsSync(candidate)) {
+    return candidate;
+  }
+  const platform = process.platform;
+  const commonPaths =
+    platform === "win32"
+      ? []
+      : [
+          "/opt/homebrew/bin",
+          "/usr/local/bin",
+          "/usr/bin",
+        ];
+  for (const base of commonPaths) {
+    const alt = path.join(base, fallbackName);
+    if (fs.existsSync(alt)) {
+      return alt;
+    }
+  }
+  return fallbackName;
+};
+
 const resolveFfmpeg = () => {
   const base = app.isPackaged
     ? path.join(process.resourcesPath, "ffmpeg")
@@ -89,7 +112,7 @@ const resolveFfmpeg = () => {
         ? "ffmpeg"
         : "ffmpeg";
   const candidate = path.join(base, platform, binary);
-  return { binary: candidate, fallback: "ffmpeg" };
+  return { binary: resolveBinary(candidate, binary), fallback: "ffmpeg" };
 };
 
 const resolveFfprobe = () => {
@@ -104,8 +127,12 @@ const resolveFfprobe = () => {
         ? "ffprobe"
         : "ffprobe";
   const candidate = path.join(base, platform, binary);
-  return { binary: candidate, fallback: "ffprobe" };
+  return { binary: resolveBinary(candidate, binary), fallback: "ffprobe" };
 };
+
+export const getResolvedFfmpegPath = () => resolveFfmpeg().binary;
+
+export const getResolvedFfprobePath = () => resolveFfprobe().binary;
 
 const parseTags = (payload: string): TagResult => {
   try {
@@ -172,13 +199,13 @@ export const renderWaveformPng = async (
     "-y",
     "-i",
     filePath,
-    "-map",
-    "0:a:0",
-    "-vn",
-    "-sn",
-    "-dn",
     "-filter_complex",
-    "showwavespic=s=1200x240:colors=white",
+    "[0:a:0]showwavespic=s=1200x240:colors=white[v]",
+    "-map",
+    "[v]",
+    "-an",
+    "-c:v",
+    "png",
     "-frames:v",
     "1",
     outputPath,

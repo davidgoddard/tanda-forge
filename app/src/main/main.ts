@@ -6,7 +6,11 @@ import path from "path";
 import { initDb, getDb, resetDb } from "./db";
 import { scanLibraryRoots } from "./library/scan";
 import type { LibraryRoot } from "./library/scan";
-import { renderWaveformPng } from "./library/analysis";
+import {
+  getResolvedFfmpegPath,
+  getResolvedFfprobePath,
+  renderWaveformPng,
+} from "./library/analysis";
 import {
   buildJumpIndex,
   getSortKeySql,
@@ -14,14 +18,39 @@ import {
   normalizeSortColumn,
   normalizeSortDirection,
 } from "./library/query";
-import { buildSearchWhere } from "./library/search";
+import { countFuzzyTracks, fuzzySearchTracks } from "./library/search";
 import { normalizeStyleName, summarizeArtistName } from "../shared/tanda-utils";
 import {
   deleteTanda,
+  getTandasByIds,
   listTandas,
   saveTanda,
   searchTandas,
 } from "./library/tandas";
+
+const buildStyleWhere = (styles: string[]) => {
+  if (!styles || styles.length === 0) {
+    return { whereSql: "", values: [] as unknown[] };
+  }
+  const placeholders = styles.map(() => "?").join(", ");
+  return {
+    whereSql: `where genre in (${placeholders})`,
+    values: [...styles],
+  };
+};
+
+const normalizeSearchConfig = (params: {
+  minScore?: number;
+  bpmRange?: number;
+}) => {
+  const minScore = Number.isFinite(params.minScore)
+    ? Math.min(1, Math.max(0, params.minScore ?? 0))
+    : 0.25;
+  const bpmRange = Number.isFinite(params.bpmRange)
+    ? Math.min(20, Math.max(0, params.bpmRange ?? 0))
+    : 5;
+  return { minScore, bpmRange };
+};
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
@@ -86,11 +115,16 @@ const registerIpc = () => {
     ).run(startedAt);
 
     try {
-      const summary = await scanLibraryRoots(roots, (progress) => {
+      const waveformsDir = path.join(app.getPath("userData"), "waveforms");
+      const summary = await scanLibraryRoots(
+        roots,
+        (progress) => {
         BrowserWindow.getAllWindows().forEach((window) => {
           window.webContents.send("library:scanProgress", progress);
         });
-      });
+        },
+        { waveformsDir },
+      );
       const completedAt = new Date().toISOString();
       db.prepare(
         "update library_roots set last_scan_completed_at = ?",
@@ -162,6 +196,8 @@ const registerIpc = () => {
         offset?: number;
         sortBy?: string;
         sortDir?: string;
+        minScore?: number;
+        bpmRange?: number;
       },
     ) => {
       const db = getDb();
@@ -170,40 +206,53 @@ const registerIpc = () => {
       const offset = Math.max(0, params.offset ?? 0);
       const sortBy = normalizeSortColumn(params.sortBy);
       const sortDir = normalizeSortDirection(params.sortDir);
-      const { whereSql, values } = buildSearchWhere({
-        query,
-        styles: params.styles ?? [],
-      });
-      const sortSql = getSortSql(sortBy);
-
-      const extraSort =
-        sortBy === "artist" ? `, artist ${sortDir}` : "";
-      return db
-        .prepare(
-          `select id, full_path, relative_path, title, artist, artist_summary, album, album_artist,
-            year, genre, bpm, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
-            loudness_db, gain_db, tag_error, analysis_error
-           from tracks
-           ${whereSql}
-           order by ${sortSql} ${sortDir}${extraSort}, id ${sortDir}
-           limit ? offset ?`,
-        )
-        .all(...values, limit, offset);
+      const styles = params.styles ?? [];
+      const { minScore, bpmRange } = normalizeSearchConfig(params);
+      if (!query) {
+        const { whereSql, values } = buildStyleWhere(styles);
+        const sortSql = getSortSql(sortBy);
+        const extraSort =
+          sortBy === "artist" ? `, artist ${sortDir}` : "";
+        return db
+          .prepare(
+            `select id, full_path, relative_path, title, artist, artist_summary, album, album_artist,
+              year, genre, bpm, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+              loudness_db, gain_db, tag_error, analysis_error
+             from tracks
+             ${whereSql}
+             order by ${sortSql} ${sortDir}${extraSort}, id ${sortDir}
+             limit ? offset ?`,
+          )
+          .all(...values, limit, offset);
+      }
+      const result = fuzzySearchTracks(
+        db,
+        { query, styles, minScore, bpmRange },
+        limit,
+        offset,
+      );
+      return result.page;
     },
   );
 
   ipcMain.handle(
     "tracks:searchCount",
-    async (_event, params: { query: string; styles: string[] }) => {
+    async (
+      _event,
+      params: { query: string; styles: string[]; minScore?: number; bpmRange?: number },
+    ) => {
       const db = getDb();
-      const { whereSql, values } = buildSearchWhere({
-        query: params.query ?? "",
-        styles: params.styles ?? [],
-      });
-      const row = db
-        .prepare(`select count(*) as count from tracks ${whereSql}`)
-        .get(...values) as { count: number };
-      return row.count;
+      const query = params.query?.trim() ?? "";
+      const styles = params.styles ?? [];
+      if (!query) {
+        const { whereSql, values } = buildStyleWhere(styles);
+        const row = db
+          .prepare(`select count(*) as count from tracks ${whereSql}`)
+          .get(...values) as { count: number };
+        return row.count;
+      }
+      const { minScore, bpmRange } = normalizeSearchConfig(params);
+      return countFuzzyTracks(db, { query, styles, minScore, bpmRange });
     },
   );
 
@@ -214,12 +263,13 @@ const registerIpc = () => {
       params: { query: string; styles: string[]; sortBy?: string },
     ) => {
       const db = getDb();
+      const query = params.query?.trim() ?? "";
+      if (query) {
+        return [];
+      }
       const sortBy = normalizeSortColumn(params.sortBy);
       const keySql = getSortKeySql(sortBy);
-      const { whereSql, values } = buildSearchWhere({
-        query: params.query ?? "",
-        styles: params.styles ?? [],
-      });
+      const { whereSql, values } = buildStyleWhere(params.styles ?? []);
       const filterSql = whereSql
         ? `${whereSql} and ${keySql} != ''`
         : `where ${keySql} != ''`;
@@ -243,17 +293,20 @@ const registerIpc = () => {
         prefix: string;
         sortBy?: string;
         sortDir?: string;
+        minScore?: number;
+        bpmRange?: number;
       },
     ) => {
       const db = getDb();
+      const query = params.query?.trim() ?? "";
+      if (query) {
+        return { offset: 0 };
+      }
       const sortBy = normalizeSortColumn(params.sortBy);
       const sortDir = normalizeSortDirection(params.sortDir);
       const keySql = getSortKeySql(sortBy);
       const prefix = params.prefix.toUpperCase();
-      const { whereSql, values } = buildSearchWhere({
-        query: params.query ?? "",
-        styles: params.styles ?? [],
-      });
+      const { whereSql, values } = buildStyleWhere(params.styles ?? []);
       let whereClause = "key like ?";
       let matchValue = `${prefix}%`;
       if (prefix === "0-9") {
@@ -321,8 +374,56 @@ const registerIpc = () => {
       normalized.toLowerCase(),
     );
     db.prepare("update tracks set genre = null where genre = ?").run(normalized);
+    db.prepare("delete from tanda_styles where style_name = ?").run(normalized);
     return { ok: true };
   });
+
+  ipcMain.handle(
+    "styles:replaceDefaults",
+    async (
+      _event,
+      payload: { oldStyles: string[]; newStyles: string[] },
+    ) => {
+      const db = getDb();
+      const oldStyles = payload.oldStyles ?? [];
+      const newStyles = payload.newStyles ?? [];
+      if (newStyles.length === 0) {
+        return { ok: false };
+      }
+      const normalizedNew = newStyles
+        .map((style) => normalizeStyleName(style))
+        .filter(Boolean);
+      if (normalizedNew.length === 0) {
+        return { ok: false };
+      }
+      const normalizedOld = oldStyles
+        .map((style) => normalizeStyleName(style))
+        .filter(Boolean);
+      const transactional = db.transaction(() => {
+        normalizedOld.forEach((oldStyle, index) => {
+          const newStyle = normalizedNew[index];
+          if (!newStyle || oldStyle === newStyle) {
+            return;
+          }
+          db.prepare("update tracks set genre = ? where genre = ?").run(
+            newStyle,
+            oldStyle,
+          );
+          db.prepare(
+            "update tanda_styles set style_name = ? where style_name = ?",
+          ).run(newStyle, oldStyle);
+        });
+        db.prepare("delete from styles").run();
+        normalizedNew.forEach((style) => {
+          db.prepare(
+            "insert or ignore into styles (name, normalized) values (?, ?)",
+          ).run(style, style.toLowerCase());
+        });
+      });
+      transactional();
+      return { ok: true };
+    },
+  );
 
   ipcMain.handle(
     "tracks:jumpToPrefix",
@@ -457,6 +558,55 @@ const registerIpc = () => {
     }
   });
 
+  ipcMain.handle("tracks:generateWaveform", async (_event, trackId: string) => {
+    const db = getDb();
+    const row = db
+      .prepare("select full_path from tracks where id = ?")
+      .get(trackId) as { full_path?: string } | undefined;
+    if (!row?.full_path) {
+      return { ok: false, error: "Track not found" };
+    }
+    const waveDir = path.join(app.getPath("userData"), "waveforms");
+    const wavePath = path.join(waveDir, `${trackId}.png`);
+    try {
+      fs.mkdirSync(waveDir, { recursive: true });
+      await renderWaveformPng(row.full_path, wavePath);
+      return { ok: true, path: wavePath };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "Waveform failed",
+      };
+    }
+  });
+
+  ipcMain.handle("diagnostics:getPaths", () => {
+    const userData = app.getPath("userData");
+    return {
+      userData,
+      waveformsDir: path.join(userData, "waveforms"),
+      ffmpegPath: getResolvedFfmpegPath(),
+      ffprobePath: getResolvedFfprobePath(),
+    };
+  });
+
+  ipcMain.handle("tracks:getByIds", async (_event, ids: string[]) => {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return [];
+    }
+    const db = getDb();
+    const placeholders = ids.map(() => "?").join(", ");
+    return db
+      .prepare(
+        `select id, full_path, relative_path, title, artist, artist_summary,
+                album, album_artist, year, genre, bpm, duration_ms,
+                start_offset_ms, end_trim_ms, analysis_json, loudness_db,
+                gain_db, tag_error, analysis_error
+         from tracks where id in (${placeholders})`,
+      )
+      .all(...ids);
+  });
+
   ipcMain.handle(
     "tandas:list",
     async () => {
@@ -464,6 +614,14 @@ const registerIpc = () => {
       return listTandas(db);
     },
   );
+
+  ipcMain.handle("tandas:getByIds", async (_event, ids: string[]) => {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return [];
+    }
+    const db = getDb();
+    return getTandasByIds(db, ids);
+  });
 
   ipcMain.handle(
     "tandas:save",

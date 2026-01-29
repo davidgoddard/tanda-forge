@@ -1,29 +1,71 @@
 import { describe, expect, it } from "vitest";
-import { buildSearchWhere } from "../app/src/main/library/search";
+import {
+  filterAndScoreTracks,
+  normalizeSearchQuery,
+  scoreTrackAgainstQuery,
+} from "../app/src/main/library/fuzzy-search";
+import type { TrackRow } from "../app/src/shared/types";
 
-describe("library search helpers", () => {
-  it("builds empty filter when no search criteria", () => {
-    const result = buildSearchWhere({ query: "", styles: [] });
-    expect(result.whereSql).toBe("");
-    expect(result.values).toEqual([]);
+const buildTrack = (overrides: Partial<TrackRow>): TrackRow => ({
+  id: "1",
+  full_path: "/tmp/file.mp3",
+  relative_path: "file.mp3",
+  title: "",
+  artist: "",
+  artist_summary: "",
+  album: "",
+  album_artist: "",
+  year: "",
+  genre: "",
+  bpm: null,
+  duration_ms: 0,
+  start_offset_ms: 0,
+  end_trim_ms: 0,
+  analysis_json: "",
+  loudness_db: null,
+  gain_db: null,
+  tag_error: "",
+  analysis_error: "",
+  ...overrides,
+});
+
+describe("fuzzy search helpers", () => {
+  it("normalizes text to ASCII lowercase tokens", () => {
+    expect(normalizeSearchQuery("Ángel D'Árienzo"))
+      .toBe("angel d arienzo");
   });
 
-  it("builds query filter with wildcards", () => {
-    const result = buildSearchWhere({ query: "carlos", styles: [] });
-    expect(result.whereSql).toContain("title like ?");
-    expect(result.values).toEqual(["%carlos%", "%carlos%", "%carlos%"]);
+  it("scores year queries against year ranges", () => {
+    const track = buildTrack({ year: "1931-1932" });
+    const score = scoreTrackAgainstQuery("1932", track, 5);
+    expect(score).toBeGreaterThan(0.5);
   });
 
-  it("builds style filter with placeholders", () => {
-    const result = buildSearchWhere({ query: "", styles: ["Tango", "Vals"] });
-    expect(result.whereSql).toContain("genre in (?, ?)");
-    expect(result.values).toEqual(["Tango", "Vals"]);
+  it("scores bpm queries within configured range", () => {
+    const track = buildTrack({ bpm: 60 });
+    const score = scoreTrackAgainstQuery("63", track, 5);
+    expect(score).toBeGreaterThan(0);
   });
 
-  it("combines query and styles", () => {
-    const result = buildSearchWhere({ query: "roberto", styles: ["Tango"] });
-    expect(result.whereSql).toContain("title like ?");
-    expect(result.whereSql).toContain("genre in (?)");
-    expect(result.values).toEqual(["%roberto%", "%roberto%", "%roberto%", "Tango"]);
+  it("matches common misspellings via trigrams", () => {
+    const track = buildTrack({ title: "La Cumparsita" });
+    const result = filterAndScoreTracks([track], {
+      query: "cumprasita",
+      minScore: 0.2,
+      bpmRange: 5,
+    });
+    expect(result.length).toBe(1);
+    expect(result[0].score).toBeGreaterThan(0.2);
+  });
+
+  it("prefers closer token matches when trigrams tie", () => {
+    const francisco = buildTrack({ artist: "Francisco Canaro", title: "Test A" });
+    const francini = buildTrack({ artist: "Francini - Pontier", title: "Test B" });
+    const result = filterAndScoreTracks([francisco, francini], {
+      query: "francico",
+      minScore: 0,
+      bpmRange: 5,
+    });
+    expect(result[0].track.artist).toBe("Francisco Canaro");
   });
 });

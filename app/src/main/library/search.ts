@@ -1,27 +1,55 @@
+import Database from "better-sqlite3";
+import { TrackRow } from "../../shared/types";
+import { filterAndScoreTracks } from "./fuzzy-search";
+
 export type SearchFilters = {
   query: string;
   styles: string[];
+  minScore: number;
+  bpmRange: number;
 };
 
-export const buildSearchWhere = (filters: SearchFilters) => {
-  const where: string[] = [];
-  const values: unknown[] = [];
-
-  const query = filters.query.trim();
-  if (query) {
-    const like = `%${query}%`;
-    where.push("(title like ? or artist like ? or album like ?)");
-    values.push(like, like, like);
+const buildStyleWhere = (styles: string[]) => {
+  if (!styles.length) {
+    return { whereSql: "", values: [] as unknown[] };
   }
-
-  if (filters.styles.length > 0) {
-    const placeholders = filters.styles.map(() => "?").join(", ");
-    where.push(`genre in (${placeholders})`);
-    values.push(...filters.styles);
-  }
-
+  const placeholders = styles.map(() => "?").join(", ");
   return {
-    whereSql: where.length ? `where ${where.join(" and ")}` : "",
-    values,
+    whereSql: `where genre in (${placeholders})`,
+    values: [...styles],
   };
+};
+
+const selectTrackSql = `select id, full_path, relative_path, title, artist, artist_summary, album, album_artist,\n  year, genre, bpm, duration_ms, start_offset_ms, end_trim_ms, analysis_json,\n  loudness_db, gain_db, tag_error, analysis_error\nfrom tracks`;
+
+export const fetchSearchCandidates = (db: Database.Database, styles: string[]) => {
+  const { whereSql, values } = buildStyleWhere(styles);
+  return db.prepare(`${selectTrackSql} ${whereSql}`).all(...values) as TrackRow[];
+};
+
+export const fuzzySearchTracks = (
+  db: Database.Database,
+  filters: SearchFilters,
+  limit: number,
+  offset: number,
+) => {
+  const candidates = fetchSearchCandidates(db, filters.styles);
+  const scored = filterAndScoreTracks(candidates, {
+    query: filters.query,
+    minScore: filters.minScore,
+    bpmRange: filters.bpmRange,
+  });
+  const total = scored.length;
+  const page = scored.slice(offset, offset + limit).map((entry) => entry.track);
+  return { total, page };
+};
+
+export const countFuzzyTracks = (db: Database.Database, filters: SearchFilters) => {
+  const candidates = fetchSearchCandidates(db, filters.styles);
+  const scored = filterAndScoreTracks(candidates, {
+    query: filters.query,
+    minScore: filters.minScore,
+    bpmRange: filters.bpmRange,
+  });
+  return scored.length;
 };
