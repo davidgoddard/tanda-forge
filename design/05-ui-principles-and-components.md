@@ -17,8 +17,8 @@ Sub-bullets use `UI-<section>.R<n>.<letter>`.
 
 The system operates in explicit modes (FR-060):
 
-- UI-001.R0: Supported modes include Preparation Mode, Performance Mode, and
-  Maintenance / Recovery Mode (FR-086).
+- UI-001.R0: Supported modes include Preparation Mode, Live/Performance Mode, Edit
+  Mode, and Maintenance / Recovery Mode (FR-086).
 
 ### Rules
 - UI-001.R1: The current mode must always be visible.
@@ -41,6 +41,9 @@ In Preparation Mode:
 - UI-002.R4: Speed and exploration are prioritized.
 - UI-002.R5: Immediate preview playback is allowed.
 
+In Edit Mode:
+- UI-002.R6: Clicking tracks plays them and opens the track editor for quick edits.
+
 ---
 
 ## UI-003 — Consistent Visual Language
@@ -58,9 +61,13 @@ UI-003.R6: The UI must support both light and dark themes with a single-toggle c
 available from the main screen.
 
 UI-003.R7: All text and controls must meet WCAG AA contrast requirements in both themes.
+UI-003.R7.a: Collection tabs/chips must remain high-contrast in dark mode.
 
 UI-003.R8: The main screen defaults to fullscreen for live use.
 UI-003.R9: The top bar includes a fullscreen toggle for quick access.
+UI-003.R10: Status messages (errors, updates, warnings) are shown in the footer.
+UI-003.R11: Control padding scales down on smaller viewports; padding yields before
+overall control size.
 
 ---
 
@@ -121,6 +128,8 @@ Rules:
 - UI-009.R1: Missing library roots trigger a visible banner with a shortcut to Settings.
 - UI-009.R2: Destructive settings (e.g. database reset) require explicit confirmation.
 - UI-009.R3: Diagnostic information (scan issues) lives in a Diagnostics tab.
+- UI-009.R4: Playlist and System settings use multi-column layout on wide screens,
+  collapsing to a single column on narrow screens.
 
 ### UI-009a — Jump Index Bar
 
@@ -149,12 +158,14 @@ Optional indicators:
 Behavior:
 - UI-010.R13: In Preparation Mode, clicking plays preview.
 - UI-010.R14: In Performance Mode, clicking selects only.
+- UI-010.R14.a: In Edit Mode, clicking plays and opens the track editor automatically.
 - UI-010.R15: Headphone icon toggles preview playback regardless of mode, when available.
 - UI-010.R16: Headphone icon is hidden when no secondary output is configured.
 - UI-010.R17: Search list rows are draggable into clipboard or playlist.
 - UI-010.R18: Clipboard tracks are unique; adding a track that already exists is ignored.
 - UI-010.R19: Active playback rows are visually highlighted in lists.
 - UI-010.R20: Track actions are grouped in a context menu revealed by a "..." button on the right; the headphone preview stays visible when available.
+- UI-010.R21: Track rows include a search (S) action that launches a similarity search for related tracks.
 
 ## UI-010a — Track Editor Modal
 
@@ -163,22 +174,26 @@ Tracks can be edited via an in-app modal editor.
 Fields:
 - UI-010a.R1: Title.
 - UI-010a.R2: Artist.
+- UI-010a.R2.a: Singer.
 - UI-010a.R3: Album.
-- UI-010a.R4: Album artist.
+- UI-010a.R4: Album artist is not collected or displayed.
 - UI-010a.R5: Year.
 - UI-010a.R6: Style.
-- UI-010a.R7: BPM (tap-tempo derived).
+- UI-010a.R7: Notes (user-authored).
+- UI-010a.R8: BPM (tap-tempo derived).
 
 Tap Tempo:
-- UI-010a.R8: First tap always resets the tap series.
-- UI-010a.R9: If more than 3 seconds elapse without a tap, the series resets automatically.
-- UI-010a.R10: BPM is computed from the average interval and rounded for display.
+- UI-010a.R9: First tap always resets the tap series.
+- UI-010a.R10: If more than 3 seconds elapse without a tap, the series resets automatically.
+- UI-010a.R11: BPM is computed from the average interval and rounded for display.
 
 Controls:
-- UI-010a.R11: Save persists the edits to the database.
-- UI-010a.R12: Reset restores the original values for the current edit session.
-- UI-010a.R13: Cancel closes without changes.
-- UI-010a.R14: The editor surface is opaque to keep the form readable over long lists.
+- UI-010a.R12: Save persists the edits to the database.
+- UI-010a.R13: Reset restores the original values for the current edit session.
+- UI-010a.R14: Cancel closes without changes.
+- UI-010a.R15: The editor surface is opaque to keep the form readable over long lists.
+- UI-010a.R16: In Edit mode, the editor is non-modal and updates in place as
+  different tracks are clicked.
 
 ### UI-011 — Tanda Row Component
 
@@ -204,14 +219,24 @@ Behavior:
   do not mutate the tanda until a track is added.
 - UI-011.R13: Clipboard tandas include a remove control (R) that removes them from the
   active collection.
-- UI-011.R14: Tanda action buttons are grouped on the far right to keep the summary readable.
+- UI-011.R14: Tanda action buttons are grouped on the far right edge to keep the summary readable.
+  UI-011.R14.a: Action buttons use consistent sizing across contexts.
+- UI-011.R14.b: The summary wraps only within the middle column between the style badge
+  and action menu; badge and menu stay top-aligned.
 - UI-011.R15: The style badge is the left-most visual element and is vertically centered
   alongside the summary text.
 - UI-011.R16: In Preparation mode, clicking a track within a tanda plays that track.
+- UI-011.R16.a: If headphones are available, tanda track lines expose a headphone
+  preview control consistent with track rows.
 - UI-011.R17: The tanda edit action (T) opens the tanda in the Tanda Designer for editing.
-- UI-011.R18: Tanda summaries may wrap, but never under the style badge or action buttons.
-- UI-011.R19: Tanda actions are grouped in a context menu revealed by a "..." button on the right.
-- UI-011.R20: When expanded, the style badge and action menu remain aligned with the summary line (top-aligned).
+- UI-011.R18: The expand/collapse action uses a distinct control (E) separate from editing.
+- UI-011.R19: In the playlist view, each tanda track line offers a send-to-clipboard
+  action that clears the slot and places the track into the General collection.
+- UI-011.R20: Tanda summaries may wrap, but never under the style badge or action buttons.
+- UI-011.R21: Tanda actions are grouped in a context menu revealed by a "..." button on the right.
+- UI-011.R22: When expanded, the style badge and action menu remain aligned with the summary line (top-aligned).
+- UI-011.R23: Tanda rows include a search (S) action that launches a similarity search for related tracks.
+- UI-011.R24: Tanda track action buttons align to the far right edge of the tanda row.
 
 ---
 
@@ -239,6 +264,16 @@ Interactions:
 - UI-014.R16: Lists scroll within their column while tab bars remain visible.
 - UI-014.R17: Playlist tandas include a "Send to clipboard" action that clears the slot.
 - UI-014.R18: Adding a tanda to the playlist targets the first available empty slot.
+- UI-014.R19: Playlist tracks include a "Send to clipboard" action that clears the slot.
+- UI-014.R20: Clipboard tracks/tandas can only be added to the playlist when at least one empty slot exists.
+- UI-014.R21: The current playlist auto-restores on app launch.
+- UI-014.R22: Clearing the playlist requires a confirmation prompt.
+- UI-014.R22: Adding a track to the playlist creates a new tanda in the first empty slot,
+  pre-sized to the sequence slot (or default size) and seeded with the track.
+- UI-014.R23: Clicking an empty playlist slot creates a new tanda seeded with the slot’s
+  sequence style(s) and focuses the Tanda Designer for continued editing.
+- UI-014.R24: A Clear button next to the Playlist header clears all playlist items
+  while preserving playlist configuration; it is disabled in Live mode.
 
 ## UI-015 — Now Playing Strip
 
@@ -257,8 +292,14 @@ Requirements:
   of hiding the waveform area.
 - UI-015.R9: The now-playing label, track metadata, and waveform share a single row, with
   the waveform expanding to fill remaining width.
-- UI-015.R10: The playhead and time display must reflect the actual playback position
-  reported by the audio engine (after start/end trims).
+- UI-015.R10: The playhead must reflect the raw playback position over the full
+  waveform (including leading/trailing silence), while the time display uses the
+  trimmed effective duration.
+- UI-015.R11: Clicking the now-playing strip stops only the active channel (main or
+  headphones) in Preparation or Edit mode; if headphones are overriding the
+  display, it must not stop main playback.
+- UI-015.R12: The waveform container uses a fixed height so showing/hiding the
+  waveform does not change the now-playing layout height.
 
 ## UI-016 — Tanda Designer Panel
 
@@ -285,8 +326,12 @@ Layout and behavior:
   - UI-016.R11.c: Total duration (sum of effective track durations).
   - UI-016.R11.d: Track count.
   - UI-016.R11.e: Rating (0–5 stars).
-  - UI-016.R11.f: Name.
+- UI-016.R11.f: Name.
+- UI-016.R11.g: The tanda style list is the union of styles present in its tracks
+  (normalized against the system style list) and updates as tracks are added or removed.
 - UI-016.R12: A Done action replaces the active draft with a fresh empty tanda.
+- UI-016.R15: The Tanda Designer shows only in-progress draft tandas that contain tracks
+  plus at most one empty template; the template is always listed first.
 
 Filtering:
 - UI-016.R13: When a tanda is selected, the clipboard (and search results, when enabled)
@@ -333,11 +378,20 @@ Behavior:
 - UI-012.R7: Timeline reflects authoritative playback state.
 - UI-012.R8: While a tanda is playing, it expands and highlights the active track.
 - UI-012.R9: Once a tanda finishes, it collapses automatically.
+- UI-012.R9.a: When cortinas are enabled, cortina rows appear in the playlist
+  before the first tanda, between tandas, and after the final tanda.
+- UI-012.R9.b: Clicking a cortina row opens the cortina picker to replace the
+  upcoming cortina.
 - UI-012.R10: In Live mode, played tandas are visually muted and their slots are locked
   against edits, swaps, or drops while playback is active.
 - UI-012.R11: If no main output is playing, clicking a playlist track starts playback from
   that track (prep or live mode).
 - UI-012.R12: If main output is playing, playlist clicks are ignored in Live mode.
+- UI-012.R13: Each tanda row shows its total duration and an estimated start time based on
+  the configured playlist start time and gap settings.
+- UI-012.R14: When playback is active and the playlist is taller than the viewport, the
+  current tanda auto-centers after a period of user inactivity (about two minutes).
+  Any user interaction pauses auto-centering until the idle window elapses again.
 
 ---
 
@@ -370,8 +424,18 @@ Features:
 - UI-020.R2: Grouped by cortina folder.
 - UI-020.R3: Preview via headphone output.
 - UI-020.R4: Replace-at-boundary semantics.
+ - UI-020.R4.a: The picker defaults to the playlist’s current set but includes an
+   "Any" option to search across all sets without changing the playlist default.
+ - UI-020.R4.b: Results are ordered by title then artist.
 
 UI-020.R5: Must be usable up to the moment a cortina plays.
+UI-020.R6: In Live mode, previously played cortinas cannot be replaced.
+UI-020.R7: Playlist cortina rows show the selected/playing cortina title and artist
+when available.
+UI-020.R8: The cortina picker modal uses a fixed size; results scroll within
+the modal body without resizing the window as filters change.
+UI-020.R9: Cortina rows align their label column with tanda style badges, and show
+the title/artist to the right of the label area.
 
 ---
 
@@ -499,6 +563,20 @@ Behavior:
 - UI-082.R3: Included collections do not change the active collection target.
 - UI-082.R4: Collections persist across app restarts.
 - UI-082.R5: Collections are named and removable, but at least one must always exist.
+- UI-082.R6 (Planned): Items already in a collection can be added to additional collections without removing them from the active collection.
+- UI-082.R7: Sending a playlist item to the clipboard switches focus to the General collection only.
+- UI-082.R8: Clicking a clipboard tanda selects it but does not open the Tanda Designer;
+  editing requires the T menu action or drag/drop into the designer.
+- UI-082.R9: Tracks can be moved between clipboard collections by dragging a
+  clipboard track onto a collection lozenge (context tab).
+- UI-082.R8: Named collections (except General) are draggable to reorder the
+  collection tabs; General is fixed in place and not draggable.
+- UI-082.R9: A Clear button next to the Clipboard header clears only the General
+  collection (tracks and tandas); named collections are unaffected.
+- UI-082.R10: The system provides a "New" collection populated with the most
+  recently added music tracks (no cortinas).
+- UI-082.R11: The New collection is read-only and cannot be removed or reordered.
+- UI-082.R12: The size of the New collection is configurable in System settings.
 
 ---
 

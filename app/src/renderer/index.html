@@ -19,6 +19,7 @@
           <select id="mode-select">
             <option value="prep" data-i18n="modePrep">Preparation</option>
             <option value="live" data-i18n="modeLive">Live</option>
+            <option value="edit" data-i18n="modeEdit">Edit</option>
           </select>
         </div>
         <h1 data-i18n="appTitle">Tanda Player 2</h1>
@@ -57,28 +58,60 @@
           </button>
           <button
             id="close-app"
-            class="icon-button close-button"
+            class="icon-button close-button has-glyph"
             data-i18n-attr="aria-label"
             data-i18n="closeApp"
             aria-label="Close app"
             title="Close app"
           >
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z"
+              />
+            </svg>
             <span class="sr-only" data-i18n="closeApp">Close app</span>
           </button>
         </div>
         </div>
       </header>
       <section class="now-playing" id="now-playing" aria-live="polite">
-        <div class="now-playing-label" data-i18n="nowPlayingLabel">
-          Now playing
-        </div>
-        <div class="now-playing-info">
-          <div id="now-playing-track" class="now-playing-track" data-i18n="nowPlayingIdle">
-            Idle
+        <div class="now-playing-text">
+          <div class="now-playing-label" data-i18n="nowPlayingLabel">
+            Now playing
           </div>
-          <div class="now-playing-meta">
-            <span id="now-playing-source" data-i18n="nowPlayingMain">Main</span>
-            <span id="now-playing-time">0:00 / 0:00</span>
+          <div class="now-playing-info">
+            <div id="now-playing-track" class="now-playing-track" data-i18n="nowPlayingIdle">
+              Idle
+            </div>
+            <div class="now-playing-meta">
+              <span id="now-playing-source" data-i18n="nowPlayingMain">Main</span>
+              <span id="now-playing-time">0:00 / 0:00</span>
+            </div>
+          </div>
+          <div class="cortina-controls" id="cortina-controls">
+            <button
+              id="cortina-stop"
+              class="icon-button"
+              data-i18n-attr="aria-label"
+              data-i18n="cortinaStopLabel"
+              aria-label="Stop cortina"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="7" y="7" width="10" height="10" rx="1.6" fill="currentColor" />
+              </svg>
+            </button>
+            <button
+              id="cortina-play"
+              class="icon-button"
+              data-i18n-attr="aria-label"
+              data-i18n="cortinaPlayLabel"
+              aria-label="Play cortina"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 7l9 5-9 5z" fill="currentColor" />
+              </svg>
+            </button>
           </div>
         </div>
         <div
@@ -106,7 +139,6 @@
       </section>
       <!-- Scan progress lives in Settings to reduce main-screen noise -->
       <section class="alert-banner" id="alert-banner" aria-live="polite"></section>
-      <p id="status" data-i18n="starting">Starting...</p>
       <section class="workspace">
         <div class="column">
           <div class="panel">
@@ -121,18 +153,37 @@
               />
               <button
                 id="search-button"
-                class="icon-button search-button"
+                class="icon-button search-button has-glyph"
                 data-i18n-attr="aria-label"
                 data-i18n="searchButton"
                 aria-label="Search"
                 title="Search"
               >
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.3 4.3-1.4 1.4-4.3-4.3A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11z"
+                  />
+                </svg>
                 <span class="sr-only" data-i18n="searchButton">Search</span>
               </button>
             </div>
             <div class="style-filter">
               <span data-i18n="styleLabel">Styles</span>
               <div id="style-options" class="style-options"></div>
+            </div>
+            <div class="tanda-size-control">
+              <label for="search-tanda-size" data-i18n="searchTandaSizeLabel">
+                Tanda size
+              </label>
+              <input
+                id="search-tanda-size"
+                type="text"
+                inputmode="numeric"
+                data-i18n-attr="placeholder"
+                data-i18n="searchTandaSizeAny"
+                placeholder="-"
+              />
             </div>
             <div class="tab-bar">
               <button data-tab="search-tracks" class="active" data-i18n="tabTracks">
@@ -173,7 +224,14 @@
         </div>
         <div class="column">
           <div class="panel">
-            <h2 data-i18n="clipboardTitle">Clipboard</h2>
+            <div class="panel-header">
+              <h2 data-i18n="clipboardTitle">Clipboard</h2>
+              <div class="panel-actions">
+                <button id="clipboard-clear" data-i18n="clipboardClear">
+                  Clear
+                </button>
+              </div>
+            </div>
             <div class="clipboard-collections">
               <div class="clipboard-collections-header">
                 <span data-i18n="clipboardCollectionsLabel">Collections</span>
@@ -223,6 +281,9 @@
                 <button id="playlist-start" data-i18n="playlistStart">Start</button>
                 <button id="playlist-resume" data-i18n="playlistResume">Resume</button>
                 <button id="playlist-stop" data-i18n="playlistStop">Stop</button>
+              </div>
+              <div class="panel-actions">
+                <button id="playlist-clear" data-i18n="playlistClear">Clear</button>
               </div>
             </div>
             <div class="tab-bar">
@@ -278,19 +339,16 @@
               <input id="track-editor-artist" type="text" />
             </div>
             <div class="modal-field">
+              <label for="track-editor-singer" data-i18n="trackEditorSingerLabel">
+                Singer
+              </label>
+              <input id="track-editor-singer" type="text" />
+            </div>
+            <div class="modal-field">
               <label for="track-editor-album" data-i18n="trackEditorAlbumLabel">
                 Album
               </label>
               <input id="track-editor-album" type="text" />
-            </div>
-            <div class="modal-field">
-              <label
-                for="track-editor-album-artist"
-                data-i18n="trackEditorAlbumArtistLabel"
-              >
-                Album artist
-              </label>
-              <input id="track-editor-album-artist" type="text" />
             </div>
             <div class="modal-field">
               <label for="track-editor-year" data-i18n="trackEditorYearLabel">
@@ -303,6 +361,12 @@
                 Style
               </label>
               <select id="track-editor-genre"></select>
+            </div>
+            <div class="modal-field">
+              <label for="track-editor-notes" data-i18n="trackEditorNotesLabel">
+                Notes
+              </label>
+              <textarea id="track-editor-notes" rows="3"></textarea>
             </div>
             <div class="modal-field">
               <label for="track-editor-bpm" data-i18n="trackEditorBpmLabel">
@@ -333,9 +397,25 @@
           </footer>
         </div>
       </section>
-      <footer class="app-footer" data-i18n="footerPlaceholder">
-        Footer area
-      </footer>
+      <section class="modal" id="cortina-modal" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="modal-card">
+          <header class="modal-header">
+            <h2 data-i18n="cortinaPickerTitle">Cortina Picker</h2>
+            <button id="cortina-modal-close" data-i18n="close">Close</button>
+          </header>
+          <div class="modal-body">
+            <div class="modal-field">
+              <label for="cortina-search-input" data-i18n="cortinaSearchLabel">Search</label>
+              <input id="cortina-search-input" type="text" />
+            </div>
+            <div class="modal-field">
+              <label for="cortina-modal-set" data-i18n="cortinaSetLabel">Cortina set</label>
+              <select id="cortina-modal-set"></select>
+            </div>
+            <div id="cortina-results" class="list-rows active"></div>
+          </div>
+        </div>
+      </section>
       <section class="settings-panel" id="settings-panel" aria-hidden="true">
         <header>
           <h2 data-i18n="settings">Settings</h2>
@@ -366,8 +446,11 @@
               <button id="add-cortina" data-i18n="addCortinaFolder">
                 Add Cortina Folder
               </button>
-              <button id="scan-settings" data-i18n="scanLibrary">
-                Scan Library
+              <button id="scan-music" data-i18n="scanMusic">
+                Scan Music
+              </button>
+              <button id="scan-cortinas" data-i18n="scanCortinas">
+                Scan Cortinas
               </button>
             </div>
             <div class="settings-progress">
@@ -382,143 +465,204 @@
               <progress id="scan-progress-settings" value="0" max="1"></progress>
             </div>
             <div id="root-list" class="root-list"></div>
+            <div id="legacy-import" class="settings-section hidden">
+              <h3 data-i18n="legacyImportTitle">Legacy Import</h3>
+              <p id="legacy-import-description"></p>
+              <button id="legacy-import-button" data-i18n="legacyImportButton">
+                Import legacy tandas
+              </button>
+            </div>
             <button id="reset-db" class="danger" data-i18n="eraseDatabase">
               Erase Database
             </button>
           </div>
           <div class="settings-tab" data-tab="playlist">
             <h3 data-i18n="playlistSettingsTitle">Playlist Settings</h3>
-            <div class="settings-field">
-              <label for="gap-between-tracks" data-i18n="gapBetweenTracks">
-                Gap between tracks (sec)
-              </label>
-              <input
-                id="gap-between-tracks"
-                type="number"
-                min="0"
-                max="30"
-                step="1"
-              />
-            </div>
-            <div class="settings-field">
-              <label for="gap-before-tanda" data-i18n="gapBeforeTanda">
-                Gap before tanda (sec)
-              </label>
-              <input
-                id="gap-before-tanda"
-                type="number"
-                min="0"
-                max="30"
-                step="1"
-              />
-            </div>
-            <div class="settings-field">
-              <label for="gap-before-cortina" data-i18n="gapBeforeCortina">
-                Gap before cortina (sec)
-              </label>
-              <input
-                id="gap-before-cortina"
-                type="number"
-                min="0"
-                max="30"
-                step="1"
-              />
-            </div>
-            <div class="settings-field">
-              <label for="stop-fade-duration" data-i18n="stopFade">
-                Stop fade (sec)
-              </label>
-              <input
-                id="stop-fade-duration"
-                type="number"
-                min="0"
-                max="10"
-                step="0.5"
-              />
-            </div>
-            <div class="settings-field wide">
-              <label for="playlist-sequence" data-i18n="playlistSequenceLabel">
-                Tanda sequence
-              </label>
-              <input
-                id="playlist-sequence"
-                type="text"
-                placeholder="3t 3t 3w"
-                data-i18n-attr="placeholder"
-                data-i18n="playlistSequencePlaceholder"
-              />
-            </div>
-            <div class="settings-field wide">
-              <label for="playlist-style-map" data-i18n="playlistStyleMapLabel">
-                Style mapping
-              </label>
-              <textarea
-                id="playlist-style-map"
-                rows="5"
-                data-i18n-attr="placeholder"
-                data-i18n="playlistStyleMapPlaceholder"
-              ></textarea>
+            <div class="settings-grid">
+              <div class="settings-field">
+                <label for="gap-between-tracks" data-i18n="gapBetweenTracks">
+                  Gap between tracks (sec)
+                </label>
+                <input
+                  id="gap-between-tracks"
+                  type="number"
+                  min="0"
+                  max="30"
+                  step="1"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="gap-before-tanda" data-i18n="gapBeforeTanda">
+                  Gap before tanda (sec)
+                </label>
+                <input
+                  id="gap-before-tanda"
+                  type="number"
+                  min="0"
+                  max="30"
+                  step="1"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="gap-before-cortina" data-i18n="gapBeforeCortina">
+                  Gap before cortina (sec)
+                </label>
+                <input
+                  id="gap-before-cortina"
+                  type="number"
+                  min="0"
+                  max="30"
+                  step="1"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="playlist-cortina-set" data-i18n="cortinaSetLabel">
+                  Cortina set
+                </label>
+                <select id="playlist-cortina-set"></select>
+              </div>
+              <div class="settings-field">
+                <label for="playlist-cortina-duration" data-i18n="cortinaDurationLabel">
+                  Cortina duration (sec)
+                </label>
+                <input
+                  id="playlist-cortina-duration"
+                  type="number"
+                  min="10"
+                  max="120"
+                  step="1"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="stop-fade-duration" data-i18n="stopFade">
+                  Stop fade (sec)
+                </label>
+                <input
+                  id="stop-fade-duration"
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="0.5"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="playlist-start-time" data-i18n="playlistStartTimeLabel">
+                  Playlist start time
+                </label>
+                <input id="playlist-start-time" type="time" step="60" />
+              </div>
+              <div class="settings-field wide">
+                <label for="playlist-sequence" data-i18n="playlistSequenceLabel">
+                  Tanda sequence
+                </label>
+                <input
+                  id="playlist-sequence"
+                  type="text"
+                  placeholder="3t 3t 3w"
+                  data-i18n-attr="placeholder"
+                  data-i18n="playlistSequencePlaceholder"
+                />
+              </div>
+              <div class="settings-field wide">
+                <label for="playlist-style-map" data-i18n="playlistStyleMapLabel">
+                  Style mapping
+                </label>
+                <textarea
+                  id="playlist-style-map"
+                  rows="5"
+                  data-i18n-attr="placeholder"
+                  data-i18n="playlistStyleMapPlaceholder"
+                ></textarea>
+              </div>
             </div>
           </div>
           <div class="settings-tab" data-tab="system">
             <h3 data-i18n="system">System</h3>
-            <div class="settings-field">
-              <label for="main-output-select" data-i18n="mainOutput">
-                Main Output
-              </label>
-              <select id="main-output-select"></select>
-            </div>
-            <div class="settings-field">
-              <label
-                for="headphone-output-select"
-                data-i18n="headphoneOutput"
-              >
-                Headphones Output
-              </label>
-              <select id="headphone-output-select"></select>
-            </div>
-            <div class="settings-field">
-              <label for="language-select" data-i18n="language">
-                Language
-              </label>
-              <select id="language-select"></select>
-              <p data-i18n="languageHelp">
-                Language selection affects UI labels and formatting.
-              </p>
-            </div>
-            <div class="settings-field">
-              <label for="style-name-input" data-i18n="styleManagerLabel">
-                Styles
-              </label>
-              <div class="settings-inline">
-                <input id="style-name-input" type="text" />
-                <button id="style-add" data-i18n="styleAdd">Add</button>
+            <div class="settings-grid">
+              <div class="settings-field">
+                <label for="main-output-select" data-i18n="mainOutput">
+                  Main Output
+                </label>
+                <select id="main-output-select"></select>
               </div>
-              <div id="style-list" class="style-list"></div>
-            </div>
-            <div class="settings-field">
-              <label for="search-min-score" data-i18n="searchMinScoreLabel">
-                Search minimum score
-              </label>
-              <input id="search-min-score" type="number" min="0" max="1" step="0.01" />
-            </div>
-            <div class="settings-field">
-              <label for="search-bpm-range" data-i18n="searchBpmRangeLabel">
-                BPM search range
-              </label>
-              <input id="search-bpm-range" type="number" min="0" max="20" step="1" />
-            </div>
-            <div class="settings-field">
-              <label for="tanda-size-input" data-i18n="defaultTandaSize">
-                Default tanda size
-              </label>
-              <input
-                id="tanda-size-input"
-                type="number"
-                min="1"
-                max="10"
-                step="1"
-              />
+              <div class="settings-field">
+                <label
+                  for="headphone-output-select"
+                  data-i18n="headphoneOutput"
+                >
+                  Headphones Output
+                </label>
+                <select id="headphone-output-select"></select>
+              </div>
+              <div class="settings-field">
+                <label for="language-select" data-i18n="language">
+                  Language
+                </label>
+                <select id="language-select"></select>
+                <p data-i18n="languageHelp">
+                  Language selection affects UI labels and formatting.
+                </p>
+              </div>
+              <div class="settings-field">
+                <label for="style-name-input" data-i18n="styleManagerLabel">
+                  Styles
+                </label>
+                <div class="settings-inline">
+                  <input id="style-name-input" type="text" />
+                  <button id="style-add" data-i18n="styleAdd">Add</button>
+                </div>
+                <div id="style-list" class="style-list"></div>
+              </div>
+              <div class="settings-field">
+                <label for="search-min-score" data-i18n="searchMinScoreLabel">
+                  Search minimum score
+                </label>
+                <input id="search-min-score" type="number" min="0" max="1" step="0.01" />
+              </div>
+              <div class="settings-field">
+                <label for="search-bpm-range" data-i18n="searchBpmRangeLabel">
+                  BPM search range
+                </label>
+                <input id="search-bpm-range" type="number" min="0" max="20" step="1" />
+              </div>
+              <div class="settings-field">
+                <label for="tanda-size-input" data-i18n="defaultTandaSize">
+                  Default tanda size
+                </label>
+                <input
+                  id="tanda-size-input"
+                  type="number"
+                  min="1"
+                  max="10"
+                  step="1"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="clipboard-new-limit" data-i18n="clipboardNewLimitLabel">
+                  New collection size
+                </label>
+                <input
+                  id="clipboard-new-limit"
+                  type="number"
+                  min="0"
+                  max="500"
+                  step="1"
+                />
+              </div>
+              <div class="settings-field wide">
+                <label for="data-location-path" data-i18n="dataLocationLabel">
+                  Data location
+                </label>
+                <div class="settings-inline">
+                  <input id="data-location-path" type="text" readonly />
+                  <button id="data-location-choose" data-i18n="dataLocationChoose">
+                    Choose…
+                  </button>
+                </div>
+                <p data-i18n="dataLocationHelp">
+                  Data is stored in a _tp_data folder at the selected location.
+                </p>
+              </div>
             </div>
           </div>
           <div class="settings-tab" data-tab="diagnostics">

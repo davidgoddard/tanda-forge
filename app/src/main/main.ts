@@ -3,7 +3,8 @@ import fs from "fs";
 import os from "os";
 import { randomUUID } from "crypto";
 import path from "path";
-import { initDb, getDb, resetDb } from "./db";
+import { initDb, getDb, resetDb, reopenDb } from "./db";
+import { getDataPaths, getDataRoot, getDefaultDataPath, setDataRoot } from "./data-location";
 import { scanLibraryRoots } from "./library/scan";
 import type { LibraryRoot } from "./library/scan";
 import {
@@ -18,7 +19,18 @@ import {
   normalizeSortColumn,
   normalizeSortDirection,
 } from "./library/query";
-import { countFuzzyTracks, fuzzySearchTracks } from "./library/search";
+import type { SortColumn } from "./library/query";
+import {
+  countFuzzyTracks,
+  fetchSearchCandidates,
+  fuzzySearchTracks,
+} from "./library/search";
+import type { CortinaTrackRow } from "../shared/types";
+import { filterAndScoreTracks } from "./library/fuzzy-search";
+import {
+  DEFAULT_CORTINA_SET_ID,
+  getCortinaSetName,
+} from "../shared/cortina-utils";
 import { normalizeStyleName, summarizeArtistName } from "../shared/tanda-utils";
 import {
   deleteTanda,
@@ -27,6 +39,12 @@ import {
   saveTanda,
   searchTandas,
 } from "./library/tandas";
+import {
+  detectLegacyFromRoots,
+  detectLegacyRoot,
+  importLegacyData,
+  type LegacyTrackOverride,
+} from "./legacy-import";
 
 const buildStyleWhere = (styles: string[]) => {
   if (!styles || styles.length === 0) {
@@ -37,6 +55,40 @@ const buildStyleWhere = (styles: string[]) => {
     whereSql: `where genre in (${placeholders})`,
     values: [...styles],
   };
+};
+
+let scanInProgress = false;
+let legacyOverridesByRootId = new Map<string, Map<string, LegacyTrackOverride>>();
+
+const getSortKeyForTrack = (sortBy: string, track: { [key: string]: unknown }) => {
+  if (sortBy === "artist") {
+    const artistSummary = track.artist_summary as string | undefined;
+    const artist = track.artist as string | undefined;
+    return (artistSummary || artist || "").toUpperCase();
+  }
+  const value = track[sortBy] as string | number | undefined | null;
+  return `${value ?? ""}`.toUpperCase();
+};
+
+const getPrefixForTrack = (sortBy: string, track: { [key: string]: unknown }) => {
+  const key = getSortKeyForTrack(sortBy, track).trim();
+  return key ? key.slice(0, 1) : "";
+};
+
+type SearchSortColumn = SortColumn | "score";
+
+const matchesPrefix = (prefix: string, key: string) => {
+  const upper = key.toUpperCase();
+  if (!upper) {
+    return false;
+  }
+  if (prefix === "0-9") {
+    return /^[0-9]/.test(upper);
+  }
+  if (prefix === "#") {
+    return /^[^A-Z0-9]/.test(upper);
+  }
+  return upper.startsWith(prefix);
 };
 
 const normalizeSearchConfig = (params: {
@@ -65,6 +117,54 @@ const createWindow = () => {
   });
 
   mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+
+  const closeState = { allowClose: false, closeRequested: false };
+  const windowId = mainWindow.webContents.id;
+
+  mainWindow.on("close", (event) => {
+    if (closeState.allowClose) {
+      return;
+    }
+    event.preventDefault();
+    if (closeState.closeRequested) {
+      return;
+    }
+    closeState.closeRequested = true;
+    mainWindow.webContents.send("app:request-close");
+  });
+
+  mainWindow.on("closed", () => {
+    closeState.allowClose = true;
+    closeState.closeRequested = false;
+  });
+
+  ipcMain.handle("app:close-response", async (event, allowed: boolean) => {
+    if (event.sender.id !== windowId) {
+      return;
+    }
+    if (allowed) {
+      closeState.allowClose = true;
+      closeState.closeRequested = false;
+      mainWindow.close();
+    } else {
+      closeState.closeRequested = false;
+    }
+  });
+
+  ipcMain.handle("app:close", async (event) => {
+    if (event.sender.id !== windowId) {
+      const window = BrowserWindow.getFocusedWindow();
+      if (window) {
+        window.close();
+      } else {
+        app.quit();
+      }
+      return;
+    }
+    closeState.allowClose = true;
+    closeState.closeRequested = false;
+    mainWindow.close();
+  });
 };
 
 const registerIpc = () => {
@@ -77,6 +177,29 @@ const registerIpc = () => {
       return null;
     }
     return result.filePaths[0];
+  });
+
+  ipcMain.handle("data:pickLocation", async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory"],
+      title: "Select Data Location",
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle("data:getLocation", async () => ({
+    path: getDataRoot(),
+    defaultPath: getDefaultDataPath(),
+  }));
+
+  ipcMain.handle("data:setLocation", async (_event, selectedPath: string | null) => {
+    const next = setDataRoot(selectedPath);
+    legacyOverridesByRootId = new Map();
+    reopenDb();
+    return { path: next };
   });
 
   ipcMain.handle(
@@ -104,6 +227,64 @@ const registerIpc = () => {
     }));
   });
 
+  ipcMain.handle("legacy:detect", async (_event, candidatePath?: string | null) => {
+    if (candidatePath) {
+      const detected = detectLegacyRoot(candidatePath);
+      return detected
+        ? { available: true, rootPath: detected.rootPath }
+        : { available: false, rootPath: "" };
+    }
+    const db = getDb();
+    const roots = db
+      .prepare("select id, kind, path, label from library_roots")
+      .all() as LibraryRoot[];
+    const detected = detectLegacyFromRoots(roots);
+    return detected
+      ? { available: true, rootPath: detected.rootPath }
+      : { available: false, rootPath: "" };
+  });
+
+  ipcMain.handle("legacy:import", async (_event, rootPath: string) => {
+    const db = getDb();
+    const roots = db
+      .prepare("select id, kind, path, label from library_roots")
+      .all() as LibraryRoot[];
+    const result = importLegacyData(rootPath, roots);
+    legacyOverridesByRootId = result.overridesByRootId;
+    return {
+      tandasImported: result.tandasImported,
+      tracksUpdated: result.tracksUpdated,
+      missingTracks: result.missingTracks,
+      rootPath: result.rootPath,
+    };
+  });
+
+  const runScan = async (roots: LibraryRoot[]) => {
+    if (scanInProgress) {
+      const error = new Error("SCAN_IN_PROGRESS");
+      throw error;
+    }
+    scanInProgress = true;
+    try {
+      const { waveformsDir } = getDataPaths();
+      return await scanLibraryRoots(
+        roots,
+        (progress) => {
+          BrowserWindow.getAllWindows().forEach((window) => {
+            window.webContents.send("library:scanProgress", progress);
+          });
+        },
+        {
+          waveformsDir,
+          getLegacyMetadata: (root, relativePath) =>
+            legacyOverridesByRootId.get(root.id)?.get(relativePath) ?? null,
+        },
+      );
+    } finally {
+      scanInProgress = false;
+    }
+  };
+
   ipcMain.handle("library:scanAll", async () => {
     const db = getDb();
     const roots = db
@@ -115,16 +296,7 @@ const registerIpc = () => {
     ).run(startedAt);
 
     try {
-      const waveformsDir = path.join(app.getPath("userData"), "waveforms");
-      const summary = await scanLibraryRoots(
-        roots,
-        (progress) => {
-        BrowserWindow.getAllWindows().forEach((window) => {
-          window.webContents.send("library:scanProgress", progress);
-        });
-        },
-        { waveformsDir },
-      );
+      const summary = await runScan(roots);
       const completedAt = new Date().toISOString();
       db.prepare(
         "update library_roots set last_scan_completed_at = ?",
@@ -140,12 +312,38 @@ const registerIpc = () => {
     }
   });
 
+  ipcMain.handle("library:scanKind", async (_event, kind: "music" | "cortina") => {
+    const db = getDb();
+    const roots = db
+      .prepare("select id, kind, path, label from library_roots where kind = ?")
+      .all(kind) as LibraryRoot[];
+    const startedAt = new Date().toISOString();
+    db.prepare(
+      "update library_roots set last_scan_started_at = ?, last_scan_error = null where kind = ?",
+    ).run(startedAt, kind);
+    try {
+      const summary = await runScan(roots);
+      const completedAt = new Date().toISOString();
+      db.prepare(
+        "update library_roots set last_scan_completed_at = ? where kind = ?",
+      ).run(completedAt, kind);
+      return summary;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Scan failed.";
+      db.prepare(
+        "update library_roots set last_scan_error = ? where kind = ?",
+      ).run(message, kind);
+      throw error;
+    }
+  });
+
   ipcMain.handle("library:listTracks", async () => {
     const db = getDb();
     return db
       .prepare(
-        `select id, full_path, relative_path, title, artist, artist_summary, album, album_artist,
-          year, genre, bpm, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+        `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
+          year, genre, bpm, notes, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
           tag_error, analysis_error
          from tracks
          order by artist, title`,
@@ -174,8 +372,8 @@ const registerIpc = () => {
         sortBy === "artist" ? `, artist ${sortDir}` : "";
       return db
         .prepare(
-          `select id, full_path, relative_path, title, artist, artist_summary, album, album_artist,
-            year, genre, bpm, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+          `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
+            year, genre, bpm, notes, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
             loudness_db, gain_db, tag_error, analysis_error
            from tracks
            order by ${sortSql} ${sortDir}${extraSort}, id ${sortDir}
@@ -204,19 +402,23 @@ const registerIpc = () => {
       const query = params.query?.trim() ?? "";
       const limit = Math.min(500, Math.max(1, params.limit ?? 200));
       const offset = Math.max(0, params.offset ?? 0);
-      const sortBy = normalizeSortColumn(params.sortBy);
+      const sortByRaw = params.sortBy?.toLowerCase() ?? "";
+      const isScoreSort = sortByRaw === "score";
+      const sortBy: SearchSortColumn = isScoreSort
+        ? "score"
+        : normalizeSortColumn(params.sortBy);
       const sortDir = normalizeSortDirection(params.sortDir);
       const styles = params.styles ?? [];
       const { minScore, bpmRange } = normalizeSearchConfig(params);
       if (!query) {
         const { whereSql, values } = buildStyleWhere(styles);
-        const sortSql = getSortSql(sortBy);
+        const sortSql = getSortSql(normalizeSortColumn(sortBy));
         const extraSort =
           sortBy === "artist" ? `, artist ${sortDir}` : "";
         return db
           .prepare(
-            `select id, full_path, relative_path, title, artist, artist_summary, album, album_artist,
-              year, genre, bpm, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+            `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
+              year, genre, bpm, notes, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
               loudness_db, gain_db, tag_error, analysis_error
              from tracks
              ${whereSql}
@@ -230,6 +432,8 @@ const registerIpc = () => {
         { query, styles, minScore, bpmRange },
         limit,
         offset,
+        sortBy,
+        sortDir,
       );
       return result.page;
     },
@@ -260,15 +464,40 @@ const registerIpc = () => {
     "tracks:searchJumpIndex",
     async (
       _event,
-      params: { query: string; styles: string[]; sortBy?: string },
+      params: {
+        query: string;
+        styles: string[];
+        sortBy?: string;
+        minScore?: number;
+        bpmRange?: number;
+      },
     ) => {
       const db = getDb();
       const query = params.query?.trim() ?? "";
+      const sortByRaw = params.sortBy?.toLowerCase() ?? "";
+      const isScoreSort = sortByRaw === "score";
+      const sortBy: SearchSortColumn = isScoreSort
+        ? "score"
+        : normalizeSortColumn(params.sortBy);
       if (query) {
-        return [];
+        const { minScore, bpmRange } = normalizeSearchConfig(params);
+        const candidates = fetchSearchCandidates(db, params.styles ?? []);
+        const scored = filterAndScoreTracks(candidates, {
+          query,
+          minScore,
+          bpmRange,
+          sortBy,
+          sortDir: "asc",
+        });
+        if (isScoreSort) {
+          return buildJumpIndex([]);
+        }
+        const prefixes = scored.map((entry) =>
+          getPrefixForTrack(isScoreSort ? "title" : sortBy, entry.track),
+        );
+        return buildJumpIndex(prefixes);
       }
-      const sortBy = normalizeSortColumn(params.sortBy);
-      const keySql = getSortKeySql(sortBy);
+      const keySql = getSortKeySql(normalizeSortColumn(sortBy));
       const { whereSql, values } = buildStyleWhere(params.styles ?? []);
       const filterSql = whereSql
         ? `${whereSql} and ${keySql} != ''`
@@ -299,12 +528,35 @@ const registerIpc = () => {
     ) => {
       const db = getDb();
       const query = params.query?.trim() ?? "";
-      if (query) {
-        return { offset: 0 };
-      }
-      const sortBy = normalizeSortColumn(params.sortBy);
+      const sortByRaw = params.sortBy?.toLowerCase() ?? "";
+      const isScoreSort = sortByRaw === "score";
+      const sortBy: SearchSortColumn = isScoreSort
+        ? "score"
+        : normalizeSortColumn(params.sortBy);
       const sortDir = normalizeSortDirection(params.sortDir);
-      const keySql = getSortKeySql(sortBy);
+      if (query) {
+        const { minScore, bpmRange } = normalizeSearchConfig(params);
+        const candidates = fetchSearchCandidates(db, params.styles ?? []);
+        const scored = filterAndScoreTracks(candidates, {
+          query,
+          minScore,
+          bpmRange,
+          sortBy,
+          sortDir,
+        });
+        if (isScoreSort) {
+          return { offset: 0 };
+        }
+        const prefix = params.prefix.toUpperCase();
+        const index = scored.findIndex((entry) =>
+          matchesPrefix(
+            prefix,
+            getSortKeyForTrack(isScoreSort ? "title" : sortBy, entry.track),
+          ),
+        );
+        return { offset: Math.max(0, index) };
+      }
+      const keySql = getSortKeySql(normalizeSortColumn(sortBy));
       const prefix = params.prefix.toUpperCase();
       const { whereSql, values } = buildStyleWhere(params.styles ?? []);
       let whereClause = "key like ?";
@@ -332,6 +584,106 @@ const registerIpc = () => {
         ) as { offset: number } | undefined;
 
       return { offset: row?.offset ?? 0 };
+    },
+  );
+
+  ipcMain.handle("cortinas:listSets", async () => {
+    const db = getDb();
+    const rows = db
+      .prepare(
+        `select t.relative_path as relative_path, r.label as root_label, r.path as root_path
+         from tracks t
+         join library_roots r on r.id = t.root_id
+         where r.kind = 'cortina'`,
+      )
+      .all() as { relative_path: string; root_label?: string | null; root_path?: string | null }[];
+    const sets = new Set<string>();
+    rows.forEach((row) => {
+      if (!row.relative_path) {
+        return;
+      }
+      sets.add(getCortinaSetName(row.relative_path, row.root_label, row.root_path));
+    });
+    if (rows.length > 0 && sets.size === 0) {
+      sets.add(DEFAULT_CORTINA_SET_ID);
+    }
+    return Array.from(sets).sort();
+  });
+
+  ipcMain.handle(
+    "cortinas:listTracks",
+    async (_event, setName: string): Promise<CortinaTrackRow[]> => {
+      const db = getDb();
+      const rows = db
+        .prepare(
+          `select t.id, t.full_path, t.relative_path, t.title, t.artist, t.artist_summary, t.singer,
+            t.album, t.year, t.genre, t.bpm, t.duration_ms,
+            t.start_offset_ms, t.end_trim_ms, t.analysis_json, t.loudness_db, t.gain_db,
+            t.tag_error, t.analysis_error, r.label as root_label, r.path as root_path
+           from tracks t
+           join library_roots r on r.id = t.root_id
+           where r.kind = 'cortina'`,
+        )
+        .all() as (CortinaTrackRow & { root_label?: string | null; root_path?: string | null })[];
+      return rows
+        .map((row) => ({
+          ...row,
+          cortina_set: getCortinaSetName(
+            row.relative_path ?? "",
+            row.root_label,
+            row.root_path,
+          ),
+        }))
+        .filter((row) => row.cortina_set === setName);
+    },
+  );
+
+  ipcMain.handle(
+    "cortinas:searchTracks",
+    async (
+      _event,
+      params: { query: string; setName?: string },
+    ): Promise<CortinaTrackRow[]> => {
+      const db = getDb();
+      const query = params.query?.trim() ?? "";
+      const rows = db
+        .prepare(
+          `select t.id, t.full_path, t.relative_path, t.title, t.artist, t.artist_summary, t.singer,
+            t.album, t.year, t.genre, t.bpm, t.duration_ms,
+            t.start_offset_ms, t.end_trim_ms, t.analysis_json, t.loudness_db, t.gain_db,
+            t.tag_error, t.analysis_error, r.label as root_label, r.path as root_path
+           from tracks t
+           join library_roots r on r.id = t.root_id
+           where r.kind = 'cortina'`,
+        )
+        .all() as (CortinaTrackRow & { root_label?: string | null; root_path?: string | null })[];
+      const filtered = rows
+        .map((row) => ({
+          ...row,
+          cortina_set: getCortinaSetName(
+            row.relative_path ?? "",
+            row.root_label,
+            row.root_path,
+          ),
+        }))
+        .filter((row) =>
+          params.setName ? row.cortina_set === params.setName : true,
+        );
+      if (!query) {
+        return filtered;
+      }
+      const q = query.toLowerCase();
+      return filtered.filter((row) =>
+        [
+          row.title,
+          row.artist,
+          row.album,
+          row.year,
+          row.genre,
+        ]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase().includes(q)),
+      );
     },
   );
 
@@ -480,18 +832,19 @@ const registerIpc = () => {
         id: string;
         title?: string | null;
         artist?: string | null;
+        singer?: string | null;
         album?: string | null;
-        album_artist?: string | null;
         year?: string | null;
         genre?: string | null;
         bpm?: number | null;
+        notes?: string | null;
       },
     ) => {
       const db = getDb();
       const title = payload.title?.trim() ?? "";
       const artist = payload.artist?.trim() ?? "";
+      const singer = payload.singer?.trim() ?? "";
       const album = payload.album?.trim() ?? "";
-      const albumArtist = payload.album_artist?.trim() ?? "";
       const year = payload.year?.trim() ?? "";
       const genreRaw = payload.genre?.trim() ?? "";
       const genreNormalized = genreRaw ? normalizeStyleName(genreRaw) : "";
@@ -505,29 +858,31 @@ const registerIpc = () => {
         payload.bpm !== null && payload.bpm !== undefined && Number.isFinite(payload.bpm)
           ? Math.max(0, payload.bpm)
           : null;
+      const notes = payload.notes?.trim() ?? "";
       const artistSummary = artist ? summarizeArtistName(artist) : "";
       const updatedAt = new Date().toISOString();
       db.prepare(
         `update tracks
-          set title = ?, artist = ?, artist_summary = ?, album = ?, album_artist = ?,
-              year = ?, genre = ?, bpm = ?, updated_at = ?
+          set title = ?, artist = ?, artist_summary = ?, singer = ?, album = ?,
+              year = ?, genre = ?, bpm = ?, notes = ?, updated_at = ?
           where id = ?`,
       ).run(
         title || null,
         artist || null,
         artistSummary || null,
+        singer || null,
         album || null,
-        albumArtist || null,
         year || null,
         genre || null,
         bpm,
+        notes || null,
         updatedAt,
         payload.id,
       );
       const row = db
         .prepare(
-          `select id, full_path, relative_path, title, artist, artist_summary, album, album_artist,
-            year, genre, bpm, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+          `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
+            year, genre, bpm, notes, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
             loudness_db, gain_db, tag_error, analysis_error
            from tracks where id = ?`,
         )
@@ -544,7 +899,7 @@ const registerIpc = () => {
     if (!row?.full_path) {
       return null;
     }
-    const waveDir = path.join(app.getPath("userData"), "waveforms");
+    const { waveformsDir: waveDir } = getDataPaths();
     const wavePath = path.join(waveDir, `${trackId}.png`);
     try {
       fs.mkdirSync(waveDir, { recursive: true });
@@ -566,7 +921,7 @@ const registerIpc = () => {
     if (!row?.full_path) {
       return { ok: false, error: "Track not found" };
     }
-    const waveDir = path.join(app.getPath("userData"), "waveforms");
+    const { waveformsDir: waveDir } = getDataPaths();
     const wavePath = path.join(waveDir, `${trackId}.png`);
     try {
       fs.mkdirSync(waveDir, { recursive: true });
@@ -581,7 +936,7 @@ const registerIpc = () => {
   });
 
   ipcMain.handle("diagnostics:getPaths", () => {
-    const userData = app.getPath("userData");
+    const userData = getDataRoot();
     return {
       userData,
       waveformsDir: path.join(userData, "waveforms"),
@@ -598,14 +953,37 @@ const registerIpc = () => {
     const placeholders = ids.map(() => "?").join(", ");
     return db
       .prepare(
-        `select id, full_path, relative_path, title, artist, artist_summary,
-                album, album_artist, year, genre, bpm, duration_ms,
+        `select id, full_path, relative_path, title, artist, artist_summary, singer,
+                album, year, genre, bpm, notes, duration_ms,
                 start_offset_ms, end_trim_ms, analysis_json, loudness_db,
                 gain_db, tag_error, analysis_error
          from tracks where id in (${placeholders})`,
       )
       .all(...ids);
   });
+
+  ipcMain.handle(
+    "tracks:listRecent",
+    async (_event, limit: number): Promise<string[]> => {
+      const db = getDb();
+      const safeLimit =
+        Number.isFinite(limit) && limit > 0 ? Math.min(500, Math.floor(limit)) : 0;
+      if (safeLimit <= 0) {
+        return [];
+      }
+      const rows = db
+        .prepare(
+          `select t.id
+           from tracks t
+           join library_roots r on r.id = t.root_id
+           where r.kind = 'music'
+           order by t.created_at desc
+           limit ?`,
+        )
+        .all(safeLimit) as { id: string }[];
+      return rows.map((row) => row.id);
+    },
+  );
 
   ipcMain.handle(
     "tandas:list",
@@ -693,22 +1071,14 @@ const registerIpc = () => {
     }
 
     resetDb();
+    legacyOverridesByRootId = new Map();
     return { ok: true };
-  });
-
-  ipcMain.handle("app:close", async () => {
-    const window = BrowserWindow.getFocusedWindow();
-    if (window) {
-      window.close();
-    } else {
-      app.quit();
-    }
   });
 
   ipcMain.handle(
     "app:logClientError",
     async (_event, params: { message: string; stack?: string }) => {
-      const logDir = app.getPath("userData");
+      const { logDir } = getDataPaths();
       const logPath = path.join(logDir, "renderer-errors.log");
       const entry = [
         new Date().toISOString(),

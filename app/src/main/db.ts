@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { app } from "electron";
+import { getDataRoot } from "./data-location";
 import path from "path";
 import fs from "fs";
 
@@ -32,9 +32,11 @@ const createSchema = (database: Database.Database) => {
       artist_summary text,
       album text,
       album_artist text,
+      singer text,
       year text,
       genre text,
       bpm real,
+      notes text,
       duration_ms integer,
       start_offset_ms integer,
       end_trim_ms integer,
@@ -98,7 +100,7 @@ export const initDb = () => {
     return db;
   }
 
-  dbPath = path.join(app.getPath("userData"), "tanda-player.db");
+  dbPath = path.join(getDataRoot(), "tanda-player.db");
   db = new Database(dbPath);
   createSchema(db);
   try {
@@ -120,7 +122,13 @@ export const initDb = () => {
     db.exec("alter table tracks add column artist_summary text");
   } catch {}
   try {
+    db.exec("alter table tracks add column singer text");
+  } catch {}
+  try {
     db.exec("alter table tracks add column bpm real");
+  } catch {}
+  try {
+    db.exec("alter table tracks add column notes text");
   } catch {}
   try {
     db.exec(
@@ -163,6 +171,14 @@ export const initDb = () => {
     );
   } catch {}
   return db;
+};
+
+export const reopenDb = () => {
+  if (db) {
+    db.close();
+    db = null;
+  }
+  return initDb();
 };
 
 export const getDb = () => {

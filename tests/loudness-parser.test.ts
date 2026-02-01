@@ -18,8 +18,14 @@ describe("parseLoudnessJson", () => {
     expect(result.gainDb).toBeCloseTo(2.2);
   });
 
-  it("returns error for invalid payload", () => {
+  it("ignores invalid payloads without throwing errors", () => {
     const result = parseLoudnessJson("no json");
-    expect(result.error).toBeTruthy();
+    expect(result.error).toBeUndefined();
+    expect(result.loudnessDb).toBeUndefined();
+  });
+
+  it("does not report missing JSON as an analysis error", () => {
+    const result = parseLoudnessJson("not-json");
+    expect(result.error).toBeUndefined();
   });
 });

@@ -4,10 +4,16 @@ import type { AppApi } from "../shared/types";
 const api: AppApi = {
   ping: async () => "pong",
   pickRoot: async (kind) => ipcRenderer.invoke("library:pickRoot", kind),
+  pickDataLocation: async () => ipcRenderer.invoke("data:pickLocation"),
+  getDataLocation: async () => ipcRenderer.invoke("data:getLocation"),
+  setDataLocation: async (path) => ipcRenderer.invoke("data:setLocation", path),
   addRoot: async (kind, rootPath) =>
     ipcRenderer.invoke("library:addRoot", kind, rootPath),
   listRoots: async () => ipcRenderer.invoke("library:listRoots"),
+  detectLegacy: async (path) => ipcRenderer.invoke("legacy:detect", path),
+  importLegacy: async (rootPath) => ipcRenderer.invoke("legacy:import", rootPath),
   scanAll: async () => ipcRenderer.invoke("library:scanAll"),
+  scanKind: async (kind) => ipcRenderer.invoke("library:scanKind", kind),
   listTracks: async () => ipcRenderer.invoke("library:listTracks"),
   onScanProgress: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, progress: unknown) => {
@@ -28,6 +34,8 @@ const api: AppApi = {
   searchTrackCount: async (params) =>
     ipcRenderer.invoke("tracks:searchCount", params),
   getTracksByIds: async (ids) => ipcRenderer.invoke("tracks:getByIds", ids),
+  listRecentTracks: async (limit) =>
+    ipcRenderer.invoke("tracks:listRecent", limit),
   searchJumpIndex: async (params) =>
     ipcRenderer.invoke("tracks:searchJumpIndex", params),
   searchJumpToPrefix: async (params) =>
@@ -49,7 +57,23 @@ const api: AppApi = {
   saveTanda: async (payload) => ipcRenderer.invoke("tandas:save", payload),
   deleteTanda: async (id) => ipcRenderer.invoke("tandas:delete", id),
   searchTandas: async (params) => ipcRenderer.invoke("tandas:search", params),
+  listCortinaSets: async () => ipcRenderer.invoke("cortinas:listSets"),
+  listCortinas: async (setName) =>
+    ipcRenderer.invoke("cortinas:listTracks", setName),
+  searchCortinas: async (params) =>
+    ipcRenderer.invoke("cortinas:searchTracks", params),
   closeApp: async () => ipcRenderer.invoke("app:close"),
+  respondToCloseRequest: async (allowed) =>
+    ipcRenderer.invoke("app:close-response", allowed),
+  onAppCloseRequest: (handler) => {
+    const listener = () => {
+      handler();
+    };
+    ipcRenderer.on("app:request-close", listener);
+    return () => {
+      ipcRenderer.removeListener("app:request-close", listener);
+    };
+  },
   logClientError: async (params) =>
     ipcRenderer.invoke("app:logClientError", params),
 };

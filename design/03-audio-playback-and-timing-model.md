@@ -29,6 +29,8 @@ FR-051.R4: Each unit has a known start time, end time, and transition behavior.
 For each track:
 - FR-052.R1: Playback begins at the computed start offset.
 - FR-052.R2: Playback ends at the computed end trim.
+- FR-052.R2.a: The player must stop at the trimmed end so trailing silence does not
+  extend inter-track gaps.
 - FR-052.R3: Gain adjustment is applied at runtime.
 - FR-052.R4: No fades are applied unless overlap rules require them (FR-040).
 
@@ -45,6 +47,13 @@ For each cortina:
 - FR-053.R3: Playback ends at the DJ-defined duration.
 - FR-053.R4: Fade-out is applied using system-defined curves.
 - FR-053.R5: Cortina gain is applied independently.
+- FR-053.R6: When cortinas are enabled, a cortina plays before the first tanda
+  and after the final tanda in the playlist.
+- FR-053.R7: A pre-cortina delay is applied after a tanda ends and before the next
+  cortina starts (when configured); there is no pre-cortina delay before the
+  first cortina when starting a playlist.
+- FR-053.R8: After a cortina fades out, the pre-tanda delay is applied before the
+  next tanda starts (when configured).
 
 ---
 
@@ -66,6 +75,12 @@ The playback engine must expose:
 - FR-055.R4: Pending overrides (e.g. cortina replacement)
 
 FR-055.R5: This state is consumed by the UI and must remain consistent across clients.
+
+---
+
+## FR-056 — Close Safety
+
+FR-056.R1: If audio is playing, app-close requests must warn the user and allow cancel.
 
 ---
 

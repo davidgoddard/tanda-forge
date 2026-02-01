@@ -69,10 +69,11 @@ export const getSequenceRule = (
   sequence: SequenceEntry[],
   index: number,
 ): SequenceEntry | null => {
-  if (index < 0 || index >= sequence.length) {
+  if (sequence.length === 0 || index < 0) {
     return null;
   }
-  return sequence[index] ?? null;
+  const wrappedIndex = index % sequence.length;
+  return sequence[wrappedIndex] ?? null;
 };
 
 export const validateTandaForRule = (

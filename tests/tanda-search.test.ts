@@ -15,16 +15,10 @@ describe("tanda search helpers", () => {
     });
     expect(result.whereSql).toContain("tandas.name like ?");
     expect(result.whereSql).toContain("style_name in (?, ?)");
-    expect(result.values).toEqual([
-      "%troilo%",
-      "%troilo%",
-      "%troilo%",
-      "%troilo%",
-      "%troilo%",
-      "%troilo%",
-      "%troilo%",
-      "Tango",
-      "Vals",
-    ]);
+    const likeCount = result.values.filter(
+      (value) => value === "%troilo%",
+    ).length;
+    expect(likeCount).toBe(9);
+    expect(result.values.slice(-2)).toEqual(["Tango", "Vals"]);
   });
 });

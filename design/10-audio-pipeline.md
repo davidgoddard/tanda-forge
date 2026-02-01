@@ -20,6 +20,14 @@ modified on disk.
 AUD-002.R4: Loudness analysis uses `loudnorm` with a target integrated loudness of -16 LUFS
 and stores both the measured loudness and gain offset.
 
+- AUD-002.R5: Loudness JSON parsing must tolerate FFmpeg banners/extra output and extract
+  the most recent valid JSON block without aborting the scan.
+- AUD-002.R6: Tag JSON parsing must tolerate stray output and extract valid JSON blocks
+  without failing the overall scan.
+- AUD-002.R7: Analysis must be resilient to malformed or partial FFmpeg output; JSON
+  parser failures should not abort scanning, and errors should be sanitized before
+  surfacing to users.
+
 ## AUD-003 — Playback Pipeline
 
 - AUD-003.R1: Playback engine schedules tracks with gaps or overlaps per playlist rules.

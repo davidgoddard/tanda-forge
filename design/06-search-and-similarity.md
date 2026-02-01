@@ -55,7 +55,7 @@ and tanda search returns full matching rows without pagination.
 
 ### FR-090.2 Field Coverage
 Search applies to all searchable fields including:
-- FR-090.2.R1: Standard fields (title, artist/orchestra, year, BPM, etc.).
+- FR-090.2.R1: Standard fields (title, artist/orchestra, singer, year, BPM, notes, etc.).
 - FR-090.2.R2: User-defined text fields (e.g. Notes, Sound, Tags, Comments).
 - FR-090.2.R3: Aliases and nicknames (see FR-094).
 
@@ -72,6 +72,8 @@ via SQL `LIKE`. Rating/instrumental filtering is not yet implemented.
 Numeric fields (e.g. BPM, year) may be searchable both:
 - FR-090.2.R9: As text (simple).
 - FR-090.2.R10: As ranges (advanced feature; define later).
+- FR-090.2.R11: Invoking "Search similar" from a track should include title,
+  artist/summary, singer, style, year, BPM, notes, and album title in the query.
 
 ---
 
@@ -86,16 +88,27 @@ Search must tolerate:
 FR-091.1.R4: The search algorithm must produce a relevance score and rank results by score.
 
 FR-091.1.R5: The fuzzy matcher uses normalized trigram (3-gram) overlap across all
-textual fields (title, artist, album, genre, notes).
+textual fields (title, artist, singer, album, genre, notes).
 FR-091.1.R6: A configurable minimum score determines which matches are returned.
 FR-091.1.R7: When trigram scores are close, apply a token-level edit-distance bonus
 to prefer the closest word match (e.g., `francico` → `Francisco`).
+
+## FR-092 — Similarity Search Shortcuts
+
+Quick-search actions should launch related-track searches from existing content.
+
+- FR-092.R1: Track rows provide an S action that fills the search box with a related query.
+- FR-092.R2: Tanda rows provide an S action that fills the search box based on its tracks.
+- FR-092.R3: Similarity queries should favor artist and title signals over generic metadata.
+- FR-092.R4: Similarity actions always target the track search tab (not tanda search).
 
 ### FR-091.2 Numeric Search
 - FR-091.2.R1: A numeric-only query with 4 digits is treated as a year search.
 - FR-091.2.R2: A numeric-only query with fewer than 4 digits is treated as a BPM search.
 - FR-091.2.R3: BPM search matches within a configurable ± range (default 5 BPM).
-- FR-091.2.R4: Numeric matches are scored and ranked like text matches.
+- FR-091.2.R4: BPM matches within range are treated as full matches regardless of
+  the global min-score threshold.
+- FR-091.2.R5: Numeric matches are scored and ranked like text matches for year queries.
 
 ### FR-091.3 Accent Handling (Diacritics)
 Search must support a configurable accent/diacritic strategy:
@@ -113,19 +126,19 @@ Optional behavior:
 
 ---
 
-## FR-092 — Tokenization and Ignored Phrases
+## FR-095 — Tokenization and Ignored Phrases
 
 The system must support token rules to improve search quality and ordering.
 
-### FR-092.1 Ignored Phrase List
+### FR-095.1 Ignored Phrase List
 A configurable ignore list may remove non-informative suffixes/prefixes from
 matching and/or ordering.
 
 Example:
-- FR-092.1.R1: “X and his orchestra” may ignore “and his orchestra” for ordering and scoring,
+- FR-095.1.R1: “X and his orchestra” may ignore “and his orchestra” for ordering and scoring,
   so that results cluster naturally under the canonical artist name.
 
-### FR-092.2 Nicknames and Common Name Variants
+### FR-095.2 Nicknames and Common Name Variants
 A small alias list must support known nicknames or leader-name variants,
 so that searches for nicknames match the canonical orchestra/artist.
 
@@ -138,6 +151,9 @@ hand-curated.
 
 ### FR-093.1 Relevance Rank
 FR-093.1.R1: Default ordering is by search score (descending).
+FR-093.1.R2: When the search query is empty, default ordering is by title (ascending).
+FR-093.1.R3: Changing the search query resets sorting to relevance unless the user
+  explicitly selects a column sort.
 
 ### FR-093.2 Stable Secondary Ordering
 When scores tie or are close, ordering must be stable and predictable using a
@@ -147,7 +163,8 @@ consistent secondary key order, for example:
 3. year (if present)
 4. file path (as a last resort for determinism)
 
-FR-093.2.R1: Ignored phrases (FR-092.1) must not distort ordering.
+FR-093.2.R1: Ignored phrases (FR-095.1) must not distort ordering.
+FR-093.2.R2: Jump index is available only when ordering is by a column (not by relevance).
 
 ### FR-093.3 Column Sorting (UI)
 Track results are shown in a grid/table with sortable columns.
@@ -306,7 +323,7 @@ Performance Mode:
 
 ### FR-100.1 Similarity Inputs
 Similarity may use:
-- FR-100.1.R1: Standard metadata fields (artist/orchestra, year, BPM, etc.).
+- FR-100.1.R1: Standard metadata fields (artist/orchestra, singer, year, BPM, etc.).
 - FR-100.1.R2: User-defined musical properties (manual vectors).
 - FR-100.1.R3: Future derived vectors (ML-based), without changing the UI abstraction (UI-030).
 

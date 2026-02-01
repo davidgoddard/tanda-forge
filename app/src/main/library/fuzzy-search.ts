@@ -148,8 +148,7 @@ const scoreBpmMatch = (queryBpm: number, trackBpm: number | null, range: number)
   if (diff > range) {
     return 0;
   }
-  const denom = range === 0 ? 1 : range;
-  return Math.max(0, 1 - diff / denom);
+  return 1;
 };
 
 const isNumericQuery = (query: string) => /^\d+$/.test(query.trim());
@@ -158,6 +157,8 @@ export type FuzzySearchConfig = {
   query: string;
   minScore: number;
   bpmRange: number;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
 };
 
 export const buildTrackSearchText = (track: TrackRow) =>
@@ -165,10 +166,11 @@ export const buildTrackSearchText = (track: TrackRow) =>
     track.title,
     track.artist_summary,
     track.artist,
+    track.singer,
     track.album,
-    track.album_artist,
     track.genre,
     track.year,
+    track.notes,
   ]
     .filter(Boolean)
     .join(" ");
@@ -193,10 +195,11 @@ export const scoreTrackAgainstQuery = (
     track.title,
     track.artist_summary,
     track.artist,
+    track.singer,
     track.album,
-    track.album_artist,
     track.genre,
     track.year,
+    track.notes,
   ].filter(Boolean) as string[];
   const combined = fields.join(" ");
   const baseScore = Math.max(
@@ -217,7 +220,43 @@ export const filterAndScoreTracks = (
       score: scoreTrackAgainstQuery(config.query, track, config.bpmRange),
     }))
     .filter((entry) => entry.score >= config.minScore);
+  const sortBy = config.sortBy?.toLowerCase() ?? "score";
+  const sortDir = config.sortDir ?? "desc";
+  const direction = sortDir === "desc" ? -1 : 1;
+  const getSortValue = (track: TrackRow) => {
+    switch (sortBy) {
+      case "title":
+        return track.title ?? "";
+      case "artist":
+        return track.artist_summary || track.artist || "";
+      case "album":
+        return track.album ?? "";
+      case "year":
+        return track.year ?? "";
+      default:
+        return "";
+    }
+  };
   scored.sort((a, b) => {
+    if (sortBy === "score") {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+    } else {
+      const left = getSortValue(a.track);
+      const right = getSortValue(b.track);
+      if (sortBy === "year") {
+        const leftNum = Number.parseInt(left, 10);
+        const rightNum = Number.parseInt(right, 10);
+        if (Number.isFinite(leftNum) && Number.isFinite(rightNum) && leftNum !== rightNum) {
+          return (leftNum - rightNum) * direction;
+        }
+      }
+      const cmp = left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
+      if (cmp !== 0) {
+        return cmp * direction;
+      }
+    }
     if (b.score !== a.score) {
       return b.score - a.score;
     }

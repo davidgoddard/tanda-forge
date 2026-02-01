@@ -3,10 +3,12 @@ import fs from "fs";
 import path from "path";
 import { analyzeTrack, readTags, renderWaveformPng } from "./analysis";
 import {
+  extractSingerName,
   normalizeStyleName,
   summarizeArtistName,
 } from "../../shared/tanda-utils";
 import { getDb } from "../db";
+import type { LegacyTrackOverride } from "../legacy-import";
 
 export type LibraryRoot = {
   id: string;
@@ -73,7 +75,13 @@ const hashFile = async (filePath: string) => {
 export const scanLibraryRoots = async (
   roots: LibraryRoot[],
   onProgress?: (progress: ScanProgress) => void,
-  options?: { waveformsDir?: string },
+  options?: {
+    waveformsDir?: string;
+    getLegacyMetadata?: (
+      root: LibraryRoot,
+      relativePath: string,
+    ) => LegacyTrackOverride | null;
+  },
 ): Promise<ScanSummary> => {
   const db = getDb();
   const now = new Date().toISOString();
@@ -100,13 +108,13 @@ export const scanLibraryRoots = async (
   const insertStmt = db.prepare(`
     insert into tracks (
       id, root_id, relative_path, full_path, file_hash, file_size, file_mtime_ms,
-      title, artist, artist_summary, album, album_artist, year, genre, duration_ms,
+      title, artist, artist_summary, singer, album, year, genre, bpm, notes, duration_ms,
       start_offset_ms, end_trim_ms, loudness_db, gain_db, tag_error, analysis_error, tag_json,
       analysis_json, created_at, updated_at, last_scanned_at
     ) values (
       @id, @root_id, @relative_path, @full_path, @file_hash, @file_size,
-      @file_mtime_ms, @title, @artist, @artist_summary, @album, @album_artist, @year, @genre,
-      @duration_ms, @start_offset_ms, @end_trim_ms, @loudness_db, @gain_db,
+      @file_mtime_ms, @title, @artist, @artist_summary, @singer, @album, @year, @genre,
+      @bpm, @notes, @duration_ms, @start_offset_ms, @end_trim_ms, @loudness_db, @gain_db,
       @tag_error, @analysis_error, @tag_json, @analysis_json, @created_at,
       @updated_at, @last_scanned_at
     )
@@ -117,10 +125,12 @@ export const scanLibraryRoots = async (
       title=excluded.title,
       artist=excluded.artist,
       artist_summary=excluded.artist_summary,
+      singer=excluded.singer,
       album=excluded.album,
-      album_artist=excluded.album_artist,
       year=excluded.year,
       genre=excluded.genre,
+      bpm=excluded.bpm,
+      notes=excluded.notes,
       duration_ms=excluded.duration_ms,
       start_offset_ms=excluded.start_offset_ms,
       end_trim_ms=excluded.end_trim_ms,
@@ -135,8 +145,8 @@ export const scanLibraryRoots = async (
   `);
 
   const existsStmt = db.prepare(
-    `select id, file_hash, file_size, file_mtime_ms, title, artist, artist_summary,
-      album, album_artist, year, genre, duration_ms, start_offset_ms, end_trim_ms,
+    `select id, file_hash, file_size, file_mtime_ms, title, artist, artist_summary, singer,
+      album, year, genre, bpm, notes, duration_ms, start_offset_ms, end_trim_ms,
       loudness_db, gain_db, tag_error, analysis_error, tag_json, analysis_json
      from tracks where root_id = ? and relative_path = ?`,
   );
@@ -190,10 +200,12 @@ export const scanLibraryRoots = async (
               title?: string;
               artist?: string;
               artist_summary?: string;
+              singer?: string;
               album?: string;
-              album_artist?: string;
               year?: string;
               genre?: string;
+              bpm?: number | null;
+              notes?: string;
               duration_ms?: number;
               start_offset_ms?: number;
               end_trim_ms?: number;
@@ -242,35 +254,55 @@ export const scanLibraryRoots = async (
           : await analyzeTrack(filePath);
         const analysisError = analysis.error ?? "";
 
+        const legacy =
+          options?.getLegacyMetadata?.(root, relativePath) ?? null;
         const title =
+          legacy?.title?.trim() ||
           tags.title ||
           existing?.title ||
           path.basename(filePath, path.extname(filePath));
-        const artist =
-          tags.artist || tags.album_artist || existing?.artist || "";
-        const album = tags.album || existing?.album || "";
-        const albumArtist = tags.album_artist || existing?.album_artist || "";
+        const artist = legacy?.artist?.trim() || tags.artist || existing?.artist || "";
+        const album = legacy?.album?.trim() || tags.album || existing?.album || "";
         const year =
+          legacy?.year?.trim() ||
           tags.year ||
           (tags.date ? new Date(tags.date).getFullYear().toString() : "") ||
           existing?.year ||
           "";
-        const rawGenre = tags.genre || existing?.genre || "";
+        const rawGenre =
+          legacy?.genre?.trim() || tags.genre || existing?.genre || "";
         const genreNormalized = normalizeStyleName(rawGenre);
         const genre = genreNormalized
           ? styleMap.get(genreNormalized.toLowerCase()) ?? ""
           : "";
+        const bpm =
+          typeof legacy?.bpm === "number"
+            ? legacy.bpm
+            : existing?.bpm ?? null;
+        const notes = legacy?.notes?.trim() || existing?.notes || "";
         const artistSummary = summarizeArtistName(artist);
+        const singerFromTags =
+          tags.singer ||
+          tags.performer ||
+          tags.vocalist ||
+          tags["lead_performer"] ||
+          tags["lead performer"] ||
+          tags.soloist ||
+          "";
+        const singer =
+          existing?.singer || singerFromTags || extractSingerName(artist);
 
         const needsMetadataUpdate =
           !existing ||
           existing.title !== title ||
           existing.artist !== artist ||
           existing.album !== album ||
-          existing.album_artist !== albumArtist ||
           existing.year !== year ||
           existing.genre !== genre ||
-          existing.artist_summary !== artistSummary;
+          existing.bpm !== bpm ||
+          existing.notes !== notes ||
+          existing.artist_summary !== artistSummary ||
+          existing.singer !== singer;
 
         if (unchanged && !needsMetadataUpdate) {
           touchStmt.run(now, root.id, relativePath);
@@ -290,10 +322,12 @@ export const scanLibraryRoots = async (
             title,
             artist,
             album,
-            album_artist: albumArtist,
             year,
             genre,
+            bpm,
             artist_summary: artistSummary,
+            singer,
+            notes,
             duration_ms: analysis.durationMs,
             start_offset_ms: analysis.startOffsetMs,
             end_trim_ms: analysis.endTrimMs,

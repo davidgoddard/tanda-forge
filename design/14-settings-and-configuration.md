@@ -13,6 +13,8 @@ Lighting, Network, etc.).
 - CFG-NAV-003: Critical information (e.g. missing music folders) surfaces as a banner with a
   shortcut into Settings.
 - CFG-NAV-004: A light/dark theme toggle is available from the main screen.
+- CFG-LAYOUT-001: System and Playlist settings use a multi-column layout on wide
+  screens and collapse to a single column on smaller windows.
 
 ## Library Configuration
 
@@ -22,26 +24,43 @@ Lighting, Network, etc.).
 - CFG-LIB-004: Library scanning is initiated from the Library tab.
 - CFG-LIB-005: Scan progress is shown in the Library tab, with a shortcut to Diagnostics
   beside the scan-issue count. The main screen remains uncluttered for day-to-day use.
+- CFG-LIB-006: Separate scan actions exist for Music and Cortinas. Only one scan runs at a
+  time; attempts to start another scan report that a scan is already in progress.
+- CFG-LIB-007: If legacy Tanda Player files (`config.js`, `tandas.dat`, `library.dat`)
+  are detected when adding roots or changing the data location, the UI exposes a
+  legacy import action.
+- CFG-LIB-008: Legacy import replaces existing tandas and applies any available
+  legacy track metadata in preference to tag/analysis data when fields are non-empty.
 
 ## System Configuration
 
 - CFG-SYS-001: Destructive actions (e.g. Erase Database) require a confirmation dialog.
 - CFG-SYS-002: The dialog explains the consequences and cannot be bypassed.
 - CFG-SYS-003: Users can select their preferred UI language.
+- CFG-SYS-003.a: Supported languages include English, Spanish, French, German,
+  Portuguese, and Italian.
 - CFG-SYS-004: Users assign output devices for main and headphone playback.
-- CFG-SYS-005: Output selection persists across sessions and degrades gracefully if devices
-  are missing.
+- CFG-SYS-005: Output selection persists across sessions and reuses the preferred device
+  when available (matching by device ID, label, or group); it falls back gracefully
+  without overwriting the stored preference if the device is missing.
 - CFG-SYS-006: Headphone output is disabled if it matches the main output or no secondary
   device is present.
 - CFG-SYS-007: Output changes update the main UI immediately (headphone controls shown/hidden).
 - CFG-SYS-008: Users can configure the default new tanda size (placeholder count).
 - CFG-SYS-009: The default size also acts as the minimum size threshold for save warnings.
+- CFG-SYS-010: Users can configure the size of the system "New" clipboard
+  collection (most recent music tracks).
 - CFG-SYS-010: The system provides a managed list of musical styles for official tagging.
 - CFG-SYS-011: New installs include default styles (Tango, Milonga, Waltz/Vals).
 - CFG-SYS-012: If the user changes language and has only default styles, those defaults
   are rewritten in the new language without altering custom styles.
 - CFG-SYS-013: Users can configure the minimum fuzzy-search score required for a match.
 - CFG-SYS-014: Users can configure the BPM search tolerance range for numeric BPM queries.
+- CFG-SYS-015: Users can choose the data storage location for the application.
+- CFG-SYS-015.a: When a custom location is chosen, data is stored in a `_tp_data`
+  folder within the selected directory.
+- CFG-SYS-015.b: Changing the data location starts with a fresh database and does
+  not migrate existing data automatically.
 
 ## Playlist Configuration
 
@@ -54,6 +73,13 @@ Lighting, Network, etc.).
 - CFG-PL-004: A style mapping table connects sequence letters (e.g. `T`) to allowed styles.
 - CFG-PL-005: Style mismatches prompt an explicit override warning; count mismatches prompt a
   confirmation before allowing the tanda into the slot.
+- CFG-PL-006: A playlist start time (default 20:00) is configurable and used when
+  displaying estimated start times for tandas.
+- CFG-PL-006.a: Default playlist start time is 20:00 (8pm).
+- CFG-PL-007: If cortina tracks exist directly under the cortina root (no subfolder),
+  they appear as a localized "Default" cortina set.
+- CFG-PL-008: Default cortina duration is 40 seconds unless the user changes it.
+- CFG-PL-009: Cortina set selection includes a localized "None" option to disable cortinas.
 
 ## Library Utilities
 

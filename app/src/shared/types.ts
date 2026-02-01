@@ -13,11 +13,12 @@ export type TrackRow = {
   title: string;
   artist: string;
   artist_summary: string;
+  singer: string | null;
   album: string;
-  album_artist: string;
   year: string;
   genre: string;
   bpm: number | null;
+  notes: string;
   duration_ms: number;
   start_offset_ms: number;
   end_trim_ms: number;
@@ -26,6 +27,10 @@ export type TrackRow = {
   gain_db: number | null;
   tag_error: string;
   analysis_error: string;
+};
+
+export type CortinaTrackRow = TrackRow & {
+  cortina_set?: string;
 };
 
 export type TandaDetail = {
@@ -93,9 +98,22 @@ export type TrackSearchRequest = {
 export type AppApi = {
   ping: () => Promise<string>;
   pickRoot: (kind: "music" | "cortina") => Promise<string | null>;
+  pickDataLocation: () => Promise<string | null>;
+  getDataLocation: () => Promise<{ path: string; defaultPath: string }>;
+  setDataLocation: (path: string | null) => Promise<{ path: string }>;
   addRoot: (kind: "music" | "cortina", path: string) => Promise<LibraryRoot>;
   listRoots: () => Promise<LibraryRoot[]>;
+  detectLegacy: (
+    path?: string | null,
+  ) => Promise<{ available: boolean; rootPath: string }>;
+  importLegacy: (rootPath: string) => Promise<{
+    tandasImported: number;
+    tracksUpdated: number;
+    missingTracks: number;
+    rootPath: string;
+  }>;
   scanAll: () => Promise<ScanSummary>;
+  scanKind: (kind: "music" | "cortina") => Promise<ScanSummary>;
   listTracks: () => Promise<TrackRow[]>;
   onScanProgress: (handler: (progress: ScanProgress) => void) => () => void;
   resetDatabase: () => Promise<{ ok: boolean }>;
@@ -126,16 +144,18 @@ export type AppApi = {
     bpmRange?: number;
   }) => Promise<{ offset: number }>;
   getTracksByIds: (ids: string[]) => Promise<TrackRow[]>;
+  listRecentTracks: (limit: number) => Promise<string[]>;
   getTrackStyles: () => Promise<string[]>;
   updateTrack: (payload: {
     id: string;
     title?: string | null;
     artist?: string | null;
+    singer?: string | null;
     album?: string | null;
-    album_artist?: string | null;
     year?: string | null;
     genre?: string | null;
     bpm?: number | null;
+    notes?: string | null;
   }) => Promise<TrackRow | null>;
   getWaveform: (trackId: string) => Promise<string | null>;
   generateWaveform: (trackId: string) => Promise<{ ok: boolean; path?: string; error?: string }>;
@@ -168,7 +188,15 @@ export type AppApi = {
     query: string;
     styles: string[];
   }) => Promise<TandaSearchRow[]>;
+  listCortinaSets: () => Promise<string[]>;
+  listCortinas: (setName: string) => Promise<CortinaTrackRow[]>;
+  searchCortinas: (params: {
+    query: string;
+    setName?: string;
+  }) => Promise<CortinaTrackRow[]>;
   closeApp: () => Promise<void>;
+  respondToCloseRequest: (allowed: boolean) => Promise<void>;
+  onAppCloseRequest: (handler: () => void) => () => void;
   logClientError: (params: { message: string; stack?: string }) => Promise<void>;
 };
 

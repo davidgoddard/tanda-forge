@@ -115,8 +115,25 @@ Code diffs are omitted; only intent and outcomes are captured.
   chevrons, made inputs/paddings consistent, removed the main scan progress bar,
   added search tuning inputs, and reintroduced trigram fuzzy search with numeric
   year/BPM handling plus tests and doc updates.
+- User: Waveform still unavailable and playhead timing felt off; requested the now-playing
+  label/metadata/waveform on a single line and live-mode waveform to be view-only.
+  Assistant: Fixed waveform PNG generation (explicit encoder), aligned the now-playing
+  strip to a single row with waveform expanding to fill space, updated playhead timing
+  to follow actual playback time, and disabled waveform seeking in live mode.
+- User: Requested separate scan buttons for music and cortinas; reported no cortina sets
+  available after scanning.
+  Assistant: Split scan into Music/Cortinas with a scan-in-progress guard and ensured
+  cortina sets load on startup and after scans. Added spacing above the erase button.
+- User: Reported missing cortina sets in playlist config after scan.
+  Assistant: Added scan-by-kind handlers and ensured cortina sets are loaded at init and after scans.
+- User: Reported scan errors from analysis JSON parse failures and asked for more resilient scanning.
+  Assistant: Hardened loudness JSON parsing to extract the last valid block, added `-v error`
+  to reduce FFmpeg noise, and updated the audio pipeline spec accordingly.
 
 ## Open Questions / Unanswered Items
+
+- How should users add an item already in the General clipboard into a named collection
+  (multi-collection add flow)?
 
 - “Add track” hint in playlist column: confirm if track adds are supported or remove hint.
 - Per-item indicator of which clipboard collection(s) an item belongs to.
@@ -132,3 +149,335 @@ Code diffs are omitted; only intent and outcomes are captured.
   Assistant: Added a token edit-distance bonus on top of trigram scoring to prefer closer word matches, added a test for the misspelling case, and updated the search design spec and tracking matrix.
 - User: Requested that when a tanda expands, the style badge and menu buttons stay aligned with the summary line.
   Assistant: Updated expanded tanda row layout so the style badge and actions top-align with the summary and updated the UI spec.
+- User: Reported waveform clicks stopping playback instead of seeking.
+  Assistant: Stopped event propagation on waveform clicks and ignored waveform targets
+  in the now-playing stop handler so waveform clicks seek only.
+- User: Asked to note unresolved clipboard multi-collection adds and add an S action to search similar tracks/tandas.
+  Assistant: Added UI-082.R6 (planned) for multi-collection adds, added S actions for tracks/tandas to populate the track search, and documented the new similarity search requirements in FR-092.
+- User: Reported S in clipboard started playback and sorting/jump index stopped working after sorting.
+  Assistant: Routed actions via button[data-action] so S is honored, enabled fuzzy sort by selected column, and allowed jump index/prefix jumps for filtered queries.
+- User: Asked for a visible X in the close button and a magnifying glass icon for search.
+  Assistant: Added explicit glyphs/icons inside the buttons and adjusted icon-button CSS to render them.
+- User: Requested search results default to score-desc ordering for non-empty queries, title for empty queries, and jump index only when sorting by a column.
+  Assistant: Set dynamic default sorting based on query presence and disabled the jump index when sorting by relevance.
+- User: Requested larger icons within circular buttons.
+  Assistant: Increased the global icon size token so toolbar glyphs fill the circles better.
+- User: Requested playlist items (tracks/tandas) be movable to General clipboard and clipboard items only fill empty playlist slots.
+  Assistant: Added send-to-General actions for playlist tracks/tandas, enforced empty-slot requirement for clipboard-to-playlist adds, and updated UI specs/matrix.
+- User: Requested a warning when closing the app while music is playing, with cancel/continue.
+  Assistant: Added a close-confirmation prompt for active playback and documented it in the audio model and tracking matrix.
+- User: Requested playlists auto-save and restore on app launch (single unnamed playlist for now).
+  Assistant: Implemented playlist persistence, added empty-slot gating for clipboard adds, and updated design docs and feature matrix.
+
+- User: Reported scan analysis JSON parse errors and missing waveforms; asked for more bomb-proof scanning,
+  waveform/now-playing on one line, and estimated playlist start times.
+  Assistant: Hardened tag/loudness JSON parsing, improved waveform ffmpeg args with fallbacks, corrected
+  waveform progress/seek to respect trims, added a playlist start time setting and estimated start times,
+  adjusted now-playing layout, and updated specs/matrix; tests/build pass.
+
+- User: Reported that search results were not relevance-sorted and didn’t find close matches.
+  Assistant: Fixed search sort-by-score handling (previously normalized to title), added a unit test
+  to ensure score ordering, and verified tests/build.
+
+- User: Requested that cortina files under the root be grouped into a localized “Default” set.
+  Assistant: Added a default cortina set identifier with localized display labels in the UI,
+  updated playlist settings documentation, and verified tests/build.
+
+- User: Reported scan issues with “Analysis: No loudness JSON” and asked for more bomb-proofing.
+  Assistant: Suppressed missing-loudness JSON as a scan error while preserving analysis output,
+  added a unit test, and verified tests/build.
+
+- User: Set default cortina duration to 40 seconds and default playlist start time to 8pm.
+  Assistant: Confirmed defaults and documented them in playlist settings requirements.
+
+- User: Requested a “None” cortina option and automatic cortina insertion before/after tandas.
+  Assistant: Added localized “None” labels, persisted set/duration changes, and inserted cortinas
+  at the start/end of playback when enabled; updated specs and verified tests/build.
+
+- User: Reported BPM search not matching within the +/- range.
+  Assistant: Changed BPM matching to return full matches within range (bypassing min-score),
+  updated tests and search spec, and verified tests/build.
+- User: Sending a tanda to an in-context collection works from search but not from the playlist; extra “C”
+  appears in playlist header; and per-track buttons should live behind an ellipsis menu for consistency.
+  Assistant: Routed playlist send/remove actions to the active collection, removed the header action strip,
+  added a per-track ellipsis menu with open/close handling, and updated styles so the detail menu is toggled
+  cleanly; tests/build pass.
+- User: Asked for the playlist Clear button to look disabled in live mode.
+  Assistant: Added disabled styling for panel action buttons so the Clear button appears greyed out; tests/build pass.
+- User: Requested a language-aware P action to send search-result tandas to the playlist.
+  Assistant: Added the playlist action to search tanda menus and wired it to add the tanda to the playlist; tests/build pass.
+- User: Requested duplicate indicators in search results and clipboard for tracks/tandas already in the playlist
+  (full vs partial overlap).
+  Assistant: Added duplicate detection helpers, rendered top-right overlap icons for search/clipboard rows,
+  and added unit tests; tests/build pass.
+- User: Reported search style pills not filtering clipboard immediately.
+  Assistant: Triggered clipboard re-render when style pills change; tests/build pass.
+- User: Noted the playlist target cancel button overlaps the scrollbar.
+  Assistant: Moved the cancel button inside the row bounds; tests/build pass.
+- User: Wanted clicks on the tanda summary text to expand/collapse like the E action.
+  Assistant: Updated summary click handling to use closest match so nested summary text toggles as well; tests/build pass.
+- User: Asked for played tandas and cortinas to have a subtle background tint.
+  Assistant: Added a light background tint for played rows; tests/build pass.
+- User: Wanted marking a playlist target (for P sends) to apply that tanda’s style to search and clipboard filters.
+  Assistant: Apply target slot styles to selected styles, refresh search, and re-render clipboard; tests/build pass.
+- User: Preferred duplicate overlap markers to replace the row menu icon instead of overlaying it.
+  Assistant: Rendered duplicate icons inside the row menu button for search/clipboard items; tests/build pass.
+- User: Duplicate markers did not clear after swapping a tanda into the playlist.
+  Assistant: Refreshed search/clipboard renders when playlist updates so markers stay in sync; tests/build pass.
+- User: Requested immediate playback when clicking a tanda summary while nothing is playing.
+  Assistant: Skipped pre-cortina and pre-tanda gaps on idle start so playback begins immediately; tests/build pass.
+- User: Wanted the waveform to shrink so long titles wrap less in the now-playing area.
+  Assistant: Adjusted now-playing grid columns to favor text width and allow waveform to shrink; tests/build pass.
+- User: In prep mode, clicking a playlist track should play it like search results.
+  Assistant: Enabled playlist click playback in prep mode; tests/build pass.
+- User: Reported per-track ellipsis menus in expanded playlist tandas not opening.
+  Assistant: Added detail-menu toggle handling in the playlist click handler; tests/build pass.
+- User: Requested P action on search tracks to add to playlist (first free slot).
+  Assistant: Added P action to search track menus and wired it to append to playlist; tests/build pass.
+- User: Reported waveform too small; wants it to fill remaining space but not shrink below half width.
+  Assistant: Adjusted now-playing grid to let waveform share space and enforce a larger minimum width; tests/build pass.
+- User: Sending a track to the playlist always opened the Tanda Designer; removed tracks should open the relevant
+  playlist tanda editor and allow the next send to refill the empty slot.
+  Assistant: When adding a track, fill the first empty slot in a targeted tanda (instead of always creating a new
+  tanda), and after removing a track from a playlist tanda, target that slot, apply styles, and open the editor;
+  tests/build pass.
+
+- User: Requested playlist summary-line clicks toggle expand/collapse like the E action.
+  Assistant: Routed playlist summary click handling through the same toggle path.
+
+## Latest Exchange
+
+- User prompt: In the playlist when clicking on the summary line I think it should expand as it would for E. Clicking it again closes it which is correct.
+- Assistant response: Updated the playlist click handler so summary-line clicks toggle expand/collapse (same as E action), then ran tests/build.
+
+- User prompt: No improvement yet in the alignment of the tanda styles, the summry and the elipsis menu button. There should be 3 logical items on the row and the summary can wrap around in the middle one and the first should be hard left and the 3rd hard right.
+- Assistant response: Scoped the designer-only `.tanda-row` flex styles to `.tanda-card .tanda-row` so list rows keep the 3-column grid alignment; ran tests/build.
+
+- User prompt: With a first cortina visible, clicking play removes the details from the playlist - it plays the right track, it's just the details are lost.
+- Assistant response: Kept cortina row details visible during playback start by falling back to the planned cortina when the active track is not yet set; ran tests/build.
+
+- User prompt: Please check language use. In English I am now getting an A for add to clipboard which was the change for Italian - the menu letters should always relate to the selected language as should all boilerplate text and buttons and tooltips etc.
+- Assistant response: Fixed English short action letters to use C for clipboard actions, left Italian with A; ran tests/build.
+
+- User prompt: When an item is moved to another column such as clipboard to playlist, please add a visual pulse like transition of the border or something so that it catches the eye and lets the user confirm it arrived at the target. Likewise any new item added such as changing a cortina track or adding a tanda to a playlist.
+- Assistant response: Added a pulse highlight animation for newly added items in playlist/clipboard and for selected cortinas; ran tests/build.
+
+- User prompt: Please produce a markdown document of a user guide starting with describing the key areas and their roles, then going through the initial set up of configurable items and then some insights into how to find songs, add to collections or clipboards and build tandas and playlists. Add place holders of images you thing I should take as screenshots to add to the quality of the document and make it so that it will render in github - i.e. ensure images are going to be found.
+- Assistant response: Created `docs/user-guide.md` with the requested structure and GitHub-friendly screenshot placeholders.
+
+- User prompt: When a playlist is actually playing in live mode, the times should be based on now. I.e. whichever track is playing will be now and the next tanda will start a little later and previous tanda would have played earlier. I.e. if it is playing the start of the second song after a 3 minute song and this song is 2 minutes and then one more in the tanda at 3 minutes means it should show this tanda started 3 minutes ago and the next tanda will start in 5 minutes. This applies to the entire playlist so that the user can see when tandas will play so that they can plan what to play and when.
+- Assistant response: Added live-playlist timeline calculations so start times are based on the current clock during live playback; added shared timing helpers and unit tests, ran tests/build.
+
+- User prompt: When clicking on a tanda to search, it should search for the artists within the tanda, years and speeds and also ensure that the search results switch to the correct style to view the results. I.e. searching from a Waltz tanda should switch the search results to the waltz tab
+- Assistant response: Expanded tanda search queries to include artists/years/BPM and aligned search style filters with the tanda’s styles; added shared helpers and tests, ran tests/build.
+
+- User prompt: Going back to the refactoring suggestions, yes, address the innerHTML concerns. It is correct behaviour to open the tanda when E for edit is issued. I did ask to open it in the tanda designer so that all tanda design work happens in one place, however, I think now that in the playlist it might make sense to open the same tanda editor as the tanda designer allowing tracks to be moved about or simply construct a tanda on the fly. Clicking done closes the editor and the playlist would play the tracks as they are. The user does not have to click save for the current playlist to use it as is, but if they name it and save it they can use it another day. Implementing a dirty flag for the playlist to reduce saves would be good. As to releasing, do I need to set up another github repo for releases or do they normally go in the code repo?
+- Assistant response: Replaced innerHTML in user-data contexts, added playlist save debouncing, and made Done return to the playlist when opened from playlist; ran tests/build. Also advised releases usually live in the same repo’s GitHub Releases.
+
+- User prompt: The cortina picker is still doing strange truncation and wrapping instead of using the full width available - see image.
+- Assistant response: Adjusted cortina picker result layout to ensure the text column uses the full width and wraps naturally; ran tests/build.
+
+- User prompt: I don't think the footer is adding value - it is used only for messages really so ditch this from the layout. I would like the warnings about style mis-matches with the allow anyway buttons etc. to be in a pop-up dialogue to make it really obvious as to why things are not happening. The messages were a little lost at the top.
+- Assistant response: Removed the footer status bar from the layout and switched style-mismatch warnings to a modal confirm dialog; ran tests/build.
+
+- User prompt: I would like some SVG used in the buttons for the cortina playing "stop now" and "play all of it" - I previously used the standard CD player style button symbols for stop and play respectively.
+- Assistant response: Replaced the cortina stop/play icons with classic stop/play SVGs; ran tests/build.
+
+- User prompt: In the playlist, the empty tanda slot should contain a required style letter to the left so that the DJ can see what style to go looking for. If they click on the empty tanda, it should set that style in searches. I think also that although in a different column, the style as indicated or selected in the search column should also affect the styles shown in the clipboard column. The warning symbol next to a tanda of the wrong style for the position in the playlist obscurs the elipsis menu button so it needs to float to the right a little. Also the elipsis menus throughout the app need to be totally opaque backgrounds.
+- Assistant response: Added style badges to empty playlist slots and synced empty-slot clicks to search style filters; normalized clipboard style filtering to use the same normalization as search; moved mismatch badge to avoid the ellipsis and made menu backgrounds fully opaque; ran tests/build.
+
+- User prompt: In the menu for a tanda in the playlist, I think I would like a 'M' for marking a tanda in the playlist and this will become the target of the next 'send to playlist' request. Whilst a tanda is the current target, I think it should get a pulsing border or similar visual indicator and it should offer a cancel button floating just to the top right outside the tanda so that the target can be cleared returning to normal mode whereby a track or tanda sent to the playlist goes in the first free tanda slot as it does now. Also, in live mode all played or historic tandas should get a darkening or greying out of their contents to make it obvious they are in the past - i.e. played already so no point in changing! This would make it obvious why you cannot send it to the clipboard creating an empty slot.
+- Assistant response: Added playlist target marking (M) with pulsing border and cancel button, routed send-to-playlist actions to the target slot, and dimmed played tandas in live mode; ran tests/build.
+
+- User prompt: In the image you can see that the graphics for the stop/play buttons for the cortina are rendering correctly. Also, when no music is playing and the DJ clicks on the tanda say in the summary it starts to play from the cortina - perfect - except it should not have the delay before playing on this occassion, simply start the cortina immediately. The pauses make the user think they did not click correctlyl or something went wrong.
+- Assistant response: Skipped the initial post-cortina gap when starting playback from an idle click so the cortina begins immediately; ran tests/build.
+
+- User prompt: The style sequence defined the playlist repeats indefinitely. So if I have "3t 3t 3w 3t 3t 3m" then after the tanda of 3 milongas the next tanda is back at the start - 3t. It currently shows a "?" presumably because it has fallen off the end of the list!
+- Assistant response: Wrapped playlist sequence rules so they repeat; added a unit test and ran tests/build.
+
+- User prompt: In the search column please add a 'tanda size' field that the user can set and default it to the value in the configuration page for min size. Then when searching only show tandas of the required number of tracks. In the tanda size field, let them clear the field or enter a dash or something to mean any size. Then in the clipboard also only show tandas of the required size and update the displays in both clipboard and search if the user changes the tanda size control.
+- Assistant response: Added a search-side tanda size input (defaults to config min size, supports blank/dash for any), filtered search and clipboard tandas by size, and synced clipboard styles with search filter; ran tests/build.
+
+- User prompt: Going back to the playlist duplication issue - if I add a tanda to the playlist the playlist doubles up. However, when the currently playing track ends and the next one starts, it re-renders the playlist and sorts itself out - I think this is just a case of the rendering code when adding a tanda not clearing first or something?
+- Assistant response: Switched playlist rendering to build a fragment and replace children atomically to avoid duplicate DOM rows; ran tests/build.
+
+- User: Requested moving status/warning messages to the footer.
+  Assistant: Moved the status element into the footer, removed placeholder text/i18n,
+  updated the UI spec, and verified tests/build.
+
+- User: Reported widespread scan errors with JSON parse messages and asked for a more
+  bomb-proof analysis pipeline; also requested that the Tanda Designer only show
+  in-progress drafts plus one empty template at the top.
+  Assistant: Hardened FFmpeg analysis to tolerate failures and sanitize errors, added
+  cortina “Default” set handling for root-level files (with tests), adjusted Tanda
+  Designer draft listing, updated specs/matrix, and verified tests/build.
+
+- User: Reported inability to sort search results by title/artist/year after a style-only
+  search.
+  Assistant: Centralized search sort defaults so relevance vs column sorting resets
+  correctly, added unit tests, updated search spec, and verified tests/build.
+
+- User: Requested adding tracks to the playlist create new sequence-aware tandas and
+  clicking empty slots to create styled tandas for editing.
+  Assistant: Implemented track-to-playlist to create a new tanda (sequence-sized),
+  added empty-slot click to create a styled tanda and open the designer, added helper
+  tests, updated UI spec/matrix, and verified tests/build.
+
+- User: Asked for the OS/window close button to show the same warning dialog as the
+  in-app close button when music is playing.
+  Assistant: Added IPC-driven close requests so OS/window close triggers the same
+  renderer confirmation dialog, and verified tests/build.
+
+- User: Reported cortina duration not persisting between app restarts.
+  Assistant: Ensured defaults are saved on init and duration changes persist on input,
+  then verified tests/build.
+- User: Requested the playlist to auto-center the currently playing tanda after user
+  inactivity (about two minutes) so the DJ always sees the active section.
+  Assistant: Added idle-detection, auto-centering scroll behavior, and unit tests,
+  then updated the UI spec and feature matrix.
+- User: Reported cortina timing ignored the configured pre-tanda gap after fade-outs.
+  Assistant: Added pre-cortina and pre-tanda waits around cortina playback, updated
+  playlist start time calculations, added timing unit tests, and updated the
+  audio playback/timing spec.
+- User: Reported that clicking the Stop Cortina button did not end cortinas.
+  Assistant: Wired the Stop/Play cortina controls so Stop immediately triggers
+  a fade-out and ends the cortina; Play allows full playback again.
+- User: Reported drag/drop into the empty tanda created a new empty draft instead
+  of using the visible empty tanda.
+  Assistant: Made the drop target resolve via elementFromPoint or fallback to
+  the selected/first draft so drops land in the visible card.
+- User: Reported missing cortina rows in the playlist to select replacements.
+  Assistant: Rendered cortina rows before/between/after tandas when enabled,
+  added click-to-open cortina picker, and styled the rows for visibility.
+- User: Reported tracks inside tandas lacked headphone preview icons.
+  Assistant: Added headphone buttons to tanda detail lines and wired headphone
+  preview handling for search/clipboard/playlist tanda tracks.
+- User: Reported that adding tracks of different styles to a tanda only kept the
+  last track’s style.
+  Assistant: Recomputed tanda styles as the union of track styles (normalized to
+  system styles) and updated tests/docs.
+- User: Requested drag-and-drop reordering for named clipboard collections while
+  keeping General fixed and non-draggable.
+  Assistant: Added collection drag/drop ordering with a pinned General tab and
+  unit tests for the reorder logic.
+- User: Requested clear buttons for the Clipboard and Playlist headers (Clipboard
+  clears General only; Playlist clears items and is disabled in Live mode).
+  Assistant: Added header clear buttons, handlers, and i18n, updated UI specs, and
+  verified tests/build.
+- User: Requested that "Search similar" from a track include style/year/BPM/notes
+  and other metadata.
+  Assistant: Updated the query builder to include all key metadata fields, added
+  a shared helper with tests, and updated the search spec.
+- User: Reported scan errors with JSON parse failures in analysis output and asked
+  for more bomb-proof scanning.
+  Assistant: Hardened analysis to catch JSON parse failures, normalized loudness
+  parse errors to non-fatal "No loudness JSON", and ensured analysis failures do
+  not abort scans; updated requirements and tests/build.
+- User: Requested a singer field for tracks and inclusion in searches/similarity.
+  Assistant: Added singer storage and editing, included singer in search/similarity
+  query fields, and updated tests/docs.
+- User: Reported waveform display longer than trimmed playback and asked to keep
+  full waveform while adjusting playhead for silence trims.
+  Assistant: Adjusted waveform playhead to use raw playback position over the
+  full duration while keeping the time display trimmed; updated UI specs.
+- User: Reported that stopping headphone preview also stopped main playback.
+  Assistant: Made now-playing click stop only the active channel (headphones or
+  main) so it does not interrupt the other output.
+- User: Reported that now-playing click did not stop playback in Edit mode.
+  Assistant: Allowed now-playing click stop in both Preparation and Edit modes.
+- User: Requested the track editor to be non-modal in Edit mode and update as
+  different tracks are clicked.
+  Assistant: Made the editor non-modal in Edit mode so it stays open and updates
+  on track clicks; updated UI specs.
+- User: Requested a system-managed "New" clipboard collection containing the
+  most recently added music tracks with a configurable size.
+  Assistant: Added a read-only "New" collection, a size setting, and refreshed
+  it from recent music track inserts; updated UI specs and tests.
+- User: Reported that the T edit action on a playlist tanda did nothing.
+  Assistant: Added a dedicated edit action (T) to open the Tanda Designer and
+  reassigned expand/collapse to a separate control (E).
+- User: Requested a send-to-clipboard action for each track inside a playlist
+  tanda, clearing the slot and keeping the playlist structure.
+  Assistant: Added a per-track send-to-clipboard action in expanded playlist
+  tandas and ensured it clears the slot and targets the General collection.
+- User: Reported cortina picker missing and asked for an "Any" option that does
+  not change the playlist default set.
+  Assistant: Restored cortina picker behavior, added an Any option for modal
+  search across sets, and prevented modal selection from changing the playlist set.
+- User: Requested that playlist start should not wait the pre-cortina delay.
+  Assistant: Removed the initial pre-cortina delay and updated the timing spec.
+- User: Requested a smaller waveform height and stable now-playing layout.
+  Assistant: Reduced waveform height and kept the container visible to avoid
+  layout jumps; updated UI specs.
+- User: Requested that clicking a clipboard tanda should not open the Tanda Designer
+  unless using the T action or drag/drop.
+  Assistant: Changed clipboard click handling to select only and updated UI specs
+  and the tracking matrix.
+- User: Said album artist is not needed; album title is still useful.
+  Assistant: Removed album artist from the editor, search/similarity, and update
+  pipeline while keeping album title; updated storage and search specs.
+- User: Asked to infer singer from "canta"/similar markers when singer metadata is missing.
+  Assistant: Added singer inference from artist strings when no singer tag exists,
+  added a unit test, and updated the storage spec.
+- User: Reported that tracks were not trimming end silence, causing extra gaps.
+  Assistant: Added trimmed end enforcement in playback so tracks stop at the
+  computed end trim and added a unit test for trim calculations.
+- User: Requested that output device selections persist and are reused on restart.
+  Assistant: Stored device label/group metadata and reused preferred devices when
+  available, without overwriting preferences when missing.
+- User: Requested drag/drop from one clipboard collection to another by dropping
+  on the collection lozenge.
+  Assistant: Added drag-to-collection handling for clipboard tracks, plus a unit
+  test and updated UI specs/matrix.
+- User: Requested confirmation before clearing the playlist.
+  Assistant: Added a confirmation prompt for playlist clear and documented it.
+- User: Requested jump-index letters (and buttons) to shrink padding on small windows.
+  Assistant: Made control padding responsive with clamp-based CSS variables and
+  updated UI principles to require responsive control padding.
+- User: Reported that clicking "click to choose cortina" did not open the picker.
+  Assistant: Fixed the modal class toggle so the cortina picker opens.
+- User: Reported low contrast for collection buttons in dark mode.
+  Assistant: Increased dark-mode collection tab contrast and documented it in UI specs.
+- User: Requested cortina rows show title/artist rather than only a hint.
+  Assistant: Displayed selected/playing cortina titles in playlist rows and updated specs.
+- User: Asked for a fixed-size cortina picker modal.
+  Assistant: Set fixed modal dimensions so results scroll without resizing.
+- User: Requested Italian language support.
+  Assistant: Added Italian to language options with base translations and labels.
+- User: Asked for cortina picker title/artist to sit on the same line as the headphone icon.
+  Assistant: Rendered cortina picker rows as single-line title/artist labels to keep the headphone action aligned.
+- User: Asked to remove the CORTINA label so only the tinted row and track details show.
+  Assistant: Dropped the CORTINA label from playlist cortina rows and kept the track details.
+- User: Reported that adding a tanda while the final cortina was playing stopped playback.
+  Assistant: Allowed playback to continue after the end cortina when new items are appended.
+- User: Reported cortina picker selections did not render in playlist cortina rows and requested random cortina details be visible by default.
+  Assistant: Added planned cortina previews per row, refreshed rendering after selection, and backed it with a unit test.
+- User: Requested cortina headphones in playlist/picker layout fixes and a data-location + legacy import flow for USB drives.
+  Assistant: Added cortina-row headphone previews and picker layout tweaks, implemented data-location selection, legacy detection/import with metadata overrides, and added tests/docs.
+- User: Asked to expand Italian translations, ensure cortina picker scrolls, and improve row-menu readability over long track names.
+  Assistant: Added full Italian UI strings, enabled cortina picker scrolling, and gave row menus an opaque container background.
+- User: Requested playlist layout tweaks (timed cortina rows, single-line summary) and that selected cortinas play at runtime.
+  Assistant: Added cortina start times, split playlist summary into title/meta lines, and ensured planned cortinas are used in playback.
+- User: Requested tanda alignment fixes, start times only inside tandas when cortinas are disabled, and Italian menu short labels that match Appunti.
+  Assistant: Aligned tanda row elements to the top line, hid tanda start times when cortinas are enabled, and localized Italian action short labels.
+- User: Reported cortina picker list truncation and overflow instead of scroll.
+  Assistant: Constrained the cortina modal layout to allow scrolling and allowed titles to wrap.
+- User: Reported first cortina row showing the hint once playback starts.
+  Assistant: Kept planned/selected cortina entries in place so the row continues to show the track details during playback.
+- User: Requested cortina metadata alignment, clearer cortina stop/play icons, right-aligned tanda actions with consistent sizing, tighter search style button padding, a larger settings gear icon, and multi-column playlist/system settings.
+  Assistant: Updated cortina row layout, swapped cortina control icons, aligned tanda actions, tightened search style button padding, enlarged the settings gear icon, added multi-column settings grids, and refreshed UI specs.
+- User: Asked for more indicative stop/play icons for cortina controls.
+  Assistant: Switched cortina controls to classic stop/play SVG symbols with i18n labels.
+- User: Requested playlist tanda buttons align to the right edge with consistent sizing.
+  Assistant: Aligned tanda detail action buttons to the far right using a dedicated
+  action container and documented the UI requirement.
+- User: Requested style badge, wrapping summary, and menu stay top-aligned with summary
+  wrapping only between badge and menu.
+  Assistant: Tightened tanda row grid columns and documented the summary wrap rule.
+- User: Requested narrower padding on search jump-letter buttons.
+  Assistant: Reduced horizontal padding for jump-index buttons.
+- User: Asked to increase the settings gear icon size.
+  Assistant: Increased the gear icon font size in the settings button.
+- User: Asked for a multi-column layout on the Settings page for System and Playlist.
+  Assistant: Implemented a responsive two-column grid for those tabs and documented
+  the requirement.

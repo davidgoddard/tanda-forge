@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseSequence,
   parseStyleMap,
+  getSequenceRule,
   validateTandaForRule,
 } from "../app/src/shared/playlist-sequence";
 
@@ -31,5 +32,12 @@ describe("playlist sequence parsing", () => {
     expect(validateTandaForRule(3, ["Tango"], rule, styleMap).ok).toBe(true);
     expect(validateTandaForRule(4, ["Tango"], rule, styleMap).ok).toBe(false);
     expect(validateTandaForRule(3, ["Milonga"], rule, styleMap).ok).toBe(false);
+  });
+
+  it("wraps sequence rules", () => {
+    const sequence = parseSequence("3t 3w 3m");
+    expect(getSequenceRule(sequence, 0)).toEqual({ count: 3, code: "T" });
+    expect(getSequenceRule(sequence, 3)).toEqual({ count: 3, code: "T" });
+    expect(getSequenceRule(sequence, 4)).toEqual({ count: 3, code: "W" });
   });
 });

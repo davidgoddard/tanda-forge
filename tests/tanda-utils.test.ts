@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  collectStylesFromTracks,
   deriveInstrumental,
   effectiveDurationMs,
   sumEffectiveDurationMs,
@@ -78,6 +79,9 @@ describe("tanda utils", () => {
     expect(extractSingerName("Anibal Troilo with Fiorentino")).toBe(
       "Fiorentino",
     );
+    expect(extractSingerName("Julio De Caro canta Ada Falcon")).toBe(
+      "Ada Falcon",
+    );
     expect(extractSingerName("Di Sarli with his orchestra")).toBe("");
   });
 
@@ -85,5 +89,19 @@ describe("tanda utils", () => {
     expect(normalizeStyleName("tango waltz")).toBe("Tango Waltz");
     expect(normalizeStyleName(["MILONGA", "Tango"])).toBe("Milonga");
     expect(normalizeStyleName("Tango / Vals")).toBe("Tango");
+  });
+
+  it("collects unique styles from tracks using available styles", () => {
+    const styles = collectStylesFromTracks(
+      [
+        { genre: "Tango" },
+        { genre: "Waltz" },
+        { genre: "tango" },
+        { genre: "Milonga" },
+        { genre: "Unknown" },
+      ],
+      ["Tango", "Waltz"],
+    );
+    expect(styles.sort()).toEqual(["Tango", "Waltz"]);
   });
 });

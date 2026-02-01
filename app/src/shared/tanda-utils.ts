@@ -250,6 +250,35 @@ export const normalizeStyleName = (
   return simplified ? titleCase(simplified) : "";
 };
 
+export type TrackStyleFields = {
+  genre?: string | null;
+};
+
+export const collectStylesFromTracks = (
+  tracks: (TrackStyleFields | null)[],
+  availableStyles: string[],
+) => {
+  const styleMap = new Map<string, string>();
+  availableStyles.forEach((style) => {
+    const normalized = normalizeStyleName(style);
+    if (normalized) {
+      styleMap.set(normalized, style);
+    }
+  });
+  const styles = new Set<string>();
+  tracks.forEach((track) => {
+    if (!track?.genre) {
+      return;
+    }
+    const normalized = normalizeStyleName(track.genre);
+    const canonical = normalized ? styleMap.get(normalized) : undefined;
+    if (canonical) {
+      styles.add(canonical);
+    }
+  });
+  return Array.from(styles);
+};
+
 export const effectiveDurationMs = (
   track: TrackDurationFields | null,
 ): number => {

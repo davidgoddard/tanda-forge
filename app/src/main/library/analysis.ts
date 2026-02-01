@@ -18,42 +18,65 @@ export type TagResult = {
   error?: string;
 };
 
+const extractJsonPayload = (payload: string) => {
+  const trimmed = payload.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    return trimmed;
+  }
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    return trimmed.slice(start, end + 1);
+  }
+  return null;
+};
+
 export const parseLoudnessJson = (payload: string) => {
-  const start = payload.indexOf("{");
-  const end = payload.lastIndexOf("}");
-  if (start === -1 || end === -1) {
-    return {
-      loudnessDb: undefined,
-      gainDb: undefined,
-      error: "No loudness JSON",
-    };
-  }
-  try {
-    const json = JSON.parse(payload.slice(start, end + 1)) as {
-      input_i?: string;
-      target_i?: string;
-    };
-    const inputI = json.input_i ? Number.parseFloat(json.input_i) : undefined;
-    const targetI = json.target_i ? Number.parseFloat(json.target_i) : -16;
-    if (inputI === undefined || !Number.isFinite(inputI)) {
-      return {
-        loudnessDb: undefined,
-        gainDb: undefined,
-        error: "Invalid loudness",
+  const blocks = payload.match(/\{[\s\S]*?\}/g) ?? [];
+  for (let i = blocks.length - 1; i >= 0; i -= 1) {
+    const candidate = blocks[i];
+    try {
+      const json = JSON.parse(candidate) as {
+        input_i?: string;
+        target_i?: string;
       };
+      const inputI = json.input_i ? Number.parseFloat(json.input_i) : undefined;
+      const targetI = json.target_i ? Number.parseFloat(json.target_i) : -16;
+      if (inputI === undefined || !Number.isFinite(inputI)) {
+        continue;
+      }
+      return {
+        loudnessDb: inputI,
+        gainDb: targetI - inputI,
+        error: undefined,
+      };
+    } catch {
+      continue;
     }
-    return {
-      loudnessDb: inputI,
-      gainDb: targetI - inputI,
-      error: undefined,
-    };
-  } catch (error) {
-    return {
-      loudnessDb: undefined,
-      gainDb: undefined,
-      error: error instanceof Error ? error.message : "Loudness parse failed",
-    };
   }
+  return {
+    loudnessDb: undefined,
+    gainDb: undefined,
+    error: undefined,
+  };
+};
+
+const normalizeJsonParseError = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return null;
+  }
+  const message = error.message.toLowerCase();
+  if (
+    message.includes("expected property name") ||
+    message.includes("unexpected token") ||
+    message.includes("json")
+  ) {
+    return "No loudness JSON";
+  }
+  return null;
 };
 
 const runCommand = (command: string, args: string[]) =>
@@ -75,6 +98,24 @@ const runCommand = (command: string, args: string[]) =>
       } else {
         reject(new Error(stderr || `Command failed: ${command}`));
       }
+    });
+  });
+
+const runCommandAllowFailure = (command: string, args: string[]) =>
+  new Promise<{ stdout: string; stderr: string; code: number }>((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      resolve({ stdout, stderr, code: code ?? -1 });
     });
   });
 
@@ -134,9 +175,29 @@ export const getResolvedFfmpegPath = () => resolveFfmpeg().binary;
 
 export const getResolvedFfprobePath = () => resolveFfprobe().binary;
 
+const sanitizeFfmpegError = (stderr: string) => {
+  const lower = stderr.toLowerCase();
+  if (!lower) {
+    return undefined;
+  }
+  if (
+    lower.includes("no such file") ||
+    lower.includes("permission denied") ||
+    lower.includes("invalid data") ||
+    lower.includes("could not find codec parameters") ||
+    lower.includes("error while decoding") ||
+    lower.includes("error opening output")
+  ) {
+    const line = stderr.split("\n").find((entry) => entry.trim().length > 0);
+    return line?.trim();
+  }
+  return undefined;
+};
+
 const parseTags = (payload: string): TagResult => {
   try {
-    const data = JSON.parse(payload) as {
+    const jsonPayload = extractJsonPayload(payload) ?? payload;
+    const data = JSON.parse(jsonPayload) as {
       format?: { tags?: Record<string, unknown> };
     };
     const rawTags = data.format?.tags ?? {};
@@ -196,6 +257,24 @@ export const renderWaveformPng = async (
 ) => {
   const { binary, fallback } = resolveFfmpeg();
   const args = [
+    "-v",
+    "error",
+    "-y",
+    "-i",
+    filePath,
+    "-filter_complex",
+    "showwavespic=s=1200x240:colors=white",
+    "-frames:v",
+    "1",
+    "-f",
+    "image2",
+    "-c:v",
+    "png",
+    outputPath,
+  ];
+  const legacyArgs = [
+    "-v",
+    "error",
     "-y",
     "-i",
     filePath,
@@ -204,6 +283,8 @@ export const renderWaveformPng = async (
     "-map",
     "[v]",
     "-an",
+    "-f",
+    "image2",
     "-c:v",
     "png",
     "-frames:v",
@@ -214,7 +295,15 @@ export const renderWaveformPng = async (
   try {
     await runCommand(binary, args);
   } catch {
-    await runCommand(fallback, args);
+    try {
+      await runCommand(fallback, args);
+    } catch {
+      try {
+        await runCommand(binary, legacyArgs);
+      } catch {
+        await runCommand(fallback, legacyArgs);
+      }
+    }
   }
 };
 
@@ -276,18 +365,26 @@ const readSilenceBounds = async (filePath: string) => {
     return { silenceStarts, silenceEnds };
   };
 
-  try {
-    const { stderr } = await runCommand(binary, args);
-    return parseOutput(stderr);
-  } catch {
-    const { stderr } = await runCommand(fallback, args);
-    return parseOutput(stderr);
+  const primary = await runCommandAllowFailure(binary, args);
+  const primaryParsed = parseOutput(primary.stderr);
+  if (primary.code === 0 || primaryParsed.silenceStarts.length > 0 || primaryParsed.silenceEnds.length > 0) {
+    return {
+      ...primaryParsed,
+      error: primary.code === 0 ? undefined : sanitizeFfmpegError(primary.stderr),
+    };
   }
+  const secondary = await runCommandAllowFailure(fallback, args);
+  return {
+    ...parseOutput(secondary.stderr),
+    error: secondary.code === 0 ? undefined : sanitizeFfmpegError(secondary.stderr),
+  };
 };
 
 const readLoudness = async (filePath: string) => {
   const { binary, fallback } = resolveFfmpeg();
   const args = [
+    "-v",
+    "error",
     "-i",
     filePath,
     "-map",
@@ -303,48 +400,79 @@ const readLoudness = async (filePath: string) => {
   ];
 
   try {
-    const { stderr } = await runCommand(binary, args);
-    return parseLoudnessJson(stderr);
-  } catch {
-    const { stderr } = await runCommand(fallback, args);
-    return parseLoudnessJson(stderr);
+    const primary = await runCommandAllowFailure(binary, args);
+    const primaryParsed = parseLoudnessJson(primary.stderr);
+    if (primary.code === 0 || primaryParsed.loudnessDb !== undefined) {
+      return {
+        ...primaryParsed,
+        error:
+          primary.code === 0
+            ? primaryParsed.error
+            : sanitizeFfmpegError(primary.stderr),
+      };
+    }
+    const secondary = await runCommandAllowFailure(fallback, args);
+    const secondaryParsed = parseLoudnessJson(secondary.stderr);
+    return {
+      ...secondaryParsed,
+      error:
+        secondary.code === 0
+          ? secondaryParsed.error
+          : sanitizeFfmpegError(secondary.stderr),
+    };
+  } catch (error) {
+    const normalized = normalizeJsonParseError(error);
+    return {
+      loudnessDb: undefined,
+      gainDb: undefined,
+      error: normalized ?? (error instanceof Error ? error.message : "Loudness failed"),
+    };
   }
 };
 
 export const analyzeTrack = async (filePath: string): Promise<TrackAnalysis> => {
-  try {
-    const durationMs = await readDurationMs(filePath);
-    const { silenceStarts, silenceEnds } = await readSilenceBounds(filePath);
-    const loudness = await readLoudness(filePath);
-
-    let startOffsetMs = 0;
-    if (silenceStarts[0] === 0 && silenceEnds.length > 0) {
-      startOffsetMs = Math.round(silenceEnds[0] * 1000);
-    }
-
-    let endTrimMs = 0;
-    if (durationMs > 0 && silenceStarts.length > 0) {
-      const lastSilenceStart = silenceStarts[silenceStarts.length - 1];
-      if (lastSilenceStart > 0) {
-        const trim = durationMs - Math.round(lastSilenceStart * 1000);
-        endTrimMs = Math.max(0, trim);
-      }
-    }
-
+  const durationMs = await readDurationMs(filePath).catch(() => 0);
+  const silence = await readSilenceBounds(filePath).catch((error) => ({
+    silenceStarts: [],
+    silenceEnds: [],
+    error: error instanceof Error ? error.message : "Silence analysis failed",
+  }));
+  const loudness = await readLoudness(filePath).catch((error) => {
+    const normalized = normalizeJsonParseError(error);
     return {
-      durationMs,
-      startOffsetMs,
-      endTrimMs,
-      loudnessDb: loudness.loudnessDb,
-      gainDb: loudness.gainDb,
-      error: loudness.error,
+      loudnessDb: undefined,
+      gainDb: undefined,
+      error: normalized ?? (error instanceof Error ? error.message : "Loudness failed"),
     };
-  } catch (error) {
-    return {
-      durationMs: 0,
-      startOffsetMs: 0,
-      endTrimMs: 0,
-      error: error instanceof Error ? error.message : "Analysis failed",
-    };
+  });
+  const loudnessError =
+    loudness.error && loudness.error === "No loudness JSON"
+      ? undefined
+      : loudness.error;
+
+  let startOffsetMs = 0;
+  if (silence.silenceStarts[0] === 0 && silence.silenceEnds.length > 0) {
+    startOffsetMs = Math.round(silence.silenceEnds[0] * 1000);
   }
+
+  let endTrimMs = 0;
+  if (durationMs > 0 && silence.silenceStarts.length > 0) {
+    const lastSilenceStart =
+      silence.silenceStarts[silence.silenceStarts.length - 1];
+    if (lastSilenceStart > 0) {
+      const trim = durationMs - Math.round(lastSilenceStart * 1000);
+      endTrimMs = Math.max(0, trim);
+    }
+  }
+
+  const analysisError = silence.error ?? loudnessError;
+
+  return {
+    durationMs,
+    startOffsetMs,
+    endTrimMs,
+    loudnessDb: loudness.loudnessDb,
+    gainDb: loudness.gainDb,
+    error: analysisError,
+  };
 };

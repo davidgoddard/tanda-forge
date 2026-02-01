@@ -31,6 +31,9 @@ Analysis:
 - FR-001.2.R6: Must be resumable and repeatable.
 - FR-001.2.R7: Must persist results for reuse at runtime (NFR-003).
 - FR-001.2.R8: Tag-derived styles are applied only when they match a known system style;
+  otherwise the stored style remains blank.
+- FR-001.2.R9: Analysis must tolerate malformed FFmpeg/ffprobe output; parsing
+  failures must be sanitized and never abort a scan.
   otherwise the official style is left blank.
 
 ### FR-001.3 Progress and Resume
@@ -87,6 +90,11 @@ Analysis:
 ### FR-020.2 Live Editing
 - FR-020.2.R1: Tandas may be reordered during playback.
 - FR-020.2.R2: Cortinas may be enabled, disabled, or replaced at any tanda boundary.
+
+### FR-020.3 Persistence
+- FR-020.3.R1: The current playlist auto-saves after edits.
+- FR-020.3.R2: The playlist reloads on app start and restores its slots.
+- FR-020.3.R3: Only a single unnamed playlist is required for now.
 
 ---
 
@@ -164,6 +172,17 @@ Use cases include:
 - FR-030.3.R1: Cortinas play for a defined duration.
 - FR-030.3.R2: Cortinas are faded out by the system.
 - FR-030.3.R3: Cortinas play at a separate volume level from tanda tracks.
+
+---
+
+## FR-062 — Edit Mode
+
+- FR-062.R1: Add an Edit mode alongside Preparation and Live modes.
+- FR-062.R2: In Edit mode, clicking a track plays it and opens the track editor
+  automatically for metadata edits.
+- FR-062.R3: Edit mode does not auto-start playlist playback; it focuses on
+  per-track review and correction.
+- FR-062.R4: Track notes are editable and stored as part of the track metadata.
 
 ---
 

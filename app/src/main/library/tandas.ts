@@ -30,9 +30,11 @@ export type TandaDetail = {
       title: string;
       artist: string;
       artist_summary: string;
+      singer: string;
       album: string;
       genre: string;
       year: string;
+      notes: string;
     full_path: string;
     duration_ms: number;
     start_offset_ms: number;
@@ -69,11 +71,11 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
           select 1 from tanda_tracks tt
           join tracks t on t.id = tt.track_id
           where tt.tanda_id = tandas.id
-            and (t.title like ? or t.artist like ? or t.album like ? or t.year like ? or t.genre like ?)
+            and (t.title like ? or t.artist like ? or t.singer like ? or t.album like ? or t.year like ? or t.genre like ? or t.notes like ?)
         )
       )`,
     );
-    values.push(like, like, like, like, like, like, like);
+    values.push(like, like, like, like, like, like, like, like, like);
   }
 
   if (params.styles.length > 0) {
@@ -117,10 +119,13 @@ export const getTandasByIds = (
   db: Database.Database,
   ids: string[],
 ): TandaDetail[] => {
-  if (ids.length === 0) {
+  const filteredIds = ids.filter(
+    (id): id is string => typeof id === "string" && id.trim().length > 0,
+  );
+  if (filteredIds.length === 0) {
     return [];
   }
-  return ids
+  return filteredIds
     .map((id) => loadTandaDetail(db, id))
     .filter((row): row is TandaDetail => row !== null);
 };
@@ -176,8 +181,8 @@ export const saveTanda = (
   const trackRows = trackIds.length
     ? (db
         .prepare(
-          `select id, title, artist, artist_summary, album, genre, year, full_path,
-            duration_ms, start_offset_ms, end_trim_ms, gain_db
+      `select id, title, artist, artist_summary, album, genre, year, notes, full_path,
+            singer, duration_ms, start_offset_ms, end_trim_ms, gain_db
            from tracks where id in (${trackIds.map(() => "?").join(", ")})`,
         )
         .all(...trackIds) as TandaDetail["tracks"])
@@ -278,8 +283,8 @@ const loadTandaDetail = (
 
   const trackRows = db
     .prepare(
-      `select tt.track_id, tt.position, t.title, t.artist, t.artist_summary, t.album, t.album_artist,
-              t.genre, t.year, t.bpm, t.full_path, t.duration_ms, t.start_offset_ms,
+      `select tt.track_id, tt.position, t.title, t.artist, t.artist_summary, t.album,
+              t.genre, t.year, t.bpm, t.notes, t.full_path, t.singer, t.duration_ms, t.start_offset_ms,
               t.end_trim_ms, t.gain_db
        from tanda_tracks tt
        join tracks t on t.id = tt.track_id
@@ -293,10 +298,11 @@ const loadTandaDetail = (
     artist: string;
     artist_summary: string;
     album: string;
-    album_artist: string;
+    singer: string;
     genre: string;
     year: string;
     bpm: number | null;
+    notes: string;
     full_path: string;
     duration_ms: number;
     start_offset_ms: number;
@@ -321,10 +327,11 @@ const loadTandaDetail = (
     artist: track.artist,
     artist_summary: track.artist_summary,
     album: track.album,
-    album_artist: track.album_artist,
+    singer: track.singer,
     genre: track.genre,
     year: track.year,
     bpm: track.bpm,
+    notes: track.notes,
     full_path: track.full_path,
     duration_ms: track.duration_ms,
     start_offset_ms: track.start_offset_ms,

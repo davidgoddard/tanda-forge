@@ -49,19 +49,21 @@ Fields:
 - DATA-004.R2.e: `file_size` (bytes)
 - DATA-004.R2.f: `file_mtime_ms` (last modified time, ms)
 - DATA-004.R2.g: `file_hash` (content hash; stable across moves)
-- DATA-004.R2.h: `title`, `artist`, `artist_summary`, `album`, `album_artist`, `year`, `genre`
-- DATA-004.R2.i: `bpm` (user-derived tempo estimate)
-- DATA-004.R2.j: `duration_ms` (from analysis)
-- DATA-004.R2.k: `start_offset_ms`
-- DATA-004.R2.l: `end_trim_ms`
-- DATA-004.R2.m: `loudness_db`
-- DATA-004.R2.n: `gain_db`
-- DATA-004.R2.o: `tag_error`
-- DATA-004.R2.p: `analysis_error`
-- DATA-004.R2.q: `tag_json`
-- DATA-004.R2.r: `analysis_json`
-- DATA-004.R2.s: `last_scanned_at`
-- DATA-004.R2.t: `created_at`, `updated_at`
+- DATA-004.R2.h: `title`, `artist`, `artist_summary`, `singer`, `album`, `year`, `genre`
+- DATA-004.R2.i: `notes` (user-authored free text)
+- DATA-004.R2.j: `bpm` (user-derived tempo estimate)
+- DATA-004.R2.k: `duration_ms` (from analysis)
+- DATA-004.R2.l: `start_offset_ms`
+- DATA-004.R2.m: `end_trim_ms`
+- DATA-004.R2.n: `loudness_db`
+- DATA-004.R2.o: `gain_db`
+- DATA-004.R2.p: `tag_error`
+- DATA-004.R2.q: `analysis_error`
+- DATA-004.R2.r: `tag_json`
+- DATA-004.R2.s: `analysis_json`
+- DATA-004.R2.t: `last_scanned_at`
+- DATA-004.R2.u: `created_at`, `updated_at`
+- DATA-004.R2.v: Album artist is not stored or used; only album title is retained.
 
 ### Tanda
 
@@ -117,6 +119,14 @@ Fields:
   are marked invalid.
 - DATA-005.R10: Tag-derived styles are only persisted if they match a defined system style;
   otherwise `genre` remains empty.
+- DATA-005.R11: If singer metadata is missing, infer singer from artist strings that
+  include markers such as "canta", "con", or "with".
+
+## DATA-006 — Local UI State
+
+- DATA-006.R1: The current playlist is stored in local UI storage for fast recovery.
+- DATA-006.R2: Playlist slots persist as references to track IDs or tanda IDs, plus mismatch flags.
+- DATA-006.R3: The single unnamed playlist auto-restores on app launch.
 
 ## DATA-006 — Migrations
 
