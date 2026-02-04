@@ -5,7 +5,8 @@
 - Version: `0.1.0` (from `package.json`)
 
 ### What I was doing last
-- Playlist track sends now fill empty slots in the target tanda and open the playlist editor after removals.
+- Updated now-playing cortina duration display: shows configured cortina length by
+  default and switches to full track duration when "play all" is selected.
 - Tests and build are green (npm test, npm run build).
 
 ### Commands to run
@@ -19,6 +20,6 @@
 - None (all tests passing as of last run).
 
 ### Immediate next 3 tasks
-1) Verify playlist detail ellipsis menus behave as expected in search/clipboard/playlist.
+1) Verify removing a track from a playlist tanda no longer changes clipboard tandas.
 2) Capture screenshots for the user guide placeholders.
 3) Continue UI polish backlog (button sizing, menus, waveform layout tweaks).

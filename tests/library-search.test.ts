@@ -20,6 +20,7 @@ const buildTrack = (overrides: Partial<TrackRow>): TrackRow => ({
   genre: "",
   bpm: null,
   notes: "",
+  instrumental: false,
   duration_ms: 0,
   start_offset_ms: 0,
   end_trim_ms: 0,

@@ -1,7 +1,7 @@
 # Resilience and Persistence
 
 This document defines the guarantees, failure modes, and persistence strategy
-for Tanda Player 2. These rules exist to ensure that DJ work is never lost and
+for Tanda Player Lite. These rules exist to ensure that DJ work is never lost and
 that the system behaves predictably under imperfect real-world conditions.
 
 This document defines *what must be true*, not *how it is implemented*.

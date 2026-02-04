@@ -19,6 +19,7 @@ export type TrackRow = {
   genre: string;
   bpm: number | null;
   notes: string;
+  instrumental: boolean | null;
   duration_ms: number;
   start_offset_ms: number;
   end_trim_ms: number;
@@ -61,6 +62,7 @@ export type ScanSummary = {
   updated: number;
   removed: number;
   errors: { filePath: string; message: string }[];
+  inProgress?: boolean;
 };
 
 export type ScanProgress = {
@@ -156,6 +158,7 @@ export type AppApi = {
     genre?: string | null;
     bpm?: number | null;
     notes?: string | null;
+    instrumental?: boolean | null;
   }) => Promise<TrackRow | null>;
   getWaveform: (trackId: string) => Promise<string | null>;
   generateWaveform: (trackId: string) => Promise<{ ok: boolean; path?: string; error?: string }>;

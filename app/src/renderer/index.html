@@ -7,7 +7,7 @@
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tanda Player 2</title>
+    <title>Tanda Player Lite</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -22,7 +22,7 @@
             <option value="edit" data-i18n="modeEdit">Edit</option>
           </select>
         </div>
-        <h1 data-i18n="appTitle">Tanda Player 2</h1>
+        <h1 data-i18n="appTitle">Tanda Player Lite</h1>
         <div class="top-actions">
           <button
             id="open-settings"
@@ -92,24 +92,26 @@
           <div class="cortina-controls" id="cortina-controls">
             <button
               id="cortina-stop"
-              class="icon-button"
+              class="icon-button has-glyph cortina-icon"
               data-i18n-attr="aria-label"
               data-i18n="cortinaStopLabel"
               aria-label="Stop cortina"
             >
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="7" y="7" width="10" height="10" rx="1.6" fill="currentColor" />
+                <circle cx="12" cy="12" r="10" fill="currentColor" />
+                <rect class="icon-inner" x="8" y="8" width="8" height="8" rx="1.4" />
               </svg>
             </button>
             <button
               id="cortina-play"
-              class="icon-button"
+              class="icon-button has-glyph cortina-icon"
               data-i18n-attr="aria-label"
               data-i18n="cortinaPlayLabel"
               aria-label="Play cortina"
             >
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M9 7l9 5-9 5z" fill="currentColor" />
+                <circle cx="12" cy="12" r="10" fill="currentColor" />
+                <path class="icon-inner" d="M10 8l7 4-7 4z" />
               </svg>
             </button>
           </div>
@@ -227,6 +229,14 @@
             <div class="panel-header">
               <h2 data-i18n="clipboardTitle">Clipboard</h2>
               <div class="panel-actions">
+                <input
+                  id="clipboard-filter"
+                  type="search"
+                  data-i18n-attr="placeholder,aria-label"
+                  data-i18n="clipboardFilterPlaceholder"
+                  placeholder="Filter"
+                  aria-label="Filter clipboard"
+                />
                 <button id="clipboard-clear" data-i18n="clipboardClear">
                   Clear
                 </button>
@@ -297,6 +307,10 @@
             <div class="list-body">
               <div id="playlist-tab" class="tab-panel active">
                 <div id="playlist-list" class="list-rows active"></div>
+                <div
+                  id="playlist-tanda-editor"
+                  class="tanda-list playlist-tanda-editor hidden"
+                ></div>
                 <div class="playlist-hint" data-i18n="playlistHint">
                   Click a clipboard item, then click a playlist slot to swap.
                 </div>
@@ -343,6 +357,17 @@
                 Singer
               </label>
               <input id="track-editor-singer" type="text" />
+            </div>
+            <div class="modal-field">
+              <label for="track-editor-vocal" data-i18n="trackEditorVocalLabel">
+                Vocal
+              </label>
+              <select id="track-editor-vocal">
+                <option value="sung" data-i18n="trackEditorVocalSung">Sung</option>
+                <option value="instrumental" data-i18n="trackEditorVocalInstrumental">
+                  Instrumental
+                </option>
+              </select>
             </div>
             <div class="modal-field">
               <label for="track-editor-album" data-i18n="trackEditorAlbumLabel">

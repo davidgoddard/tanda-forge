@@ -20,7 +20,7 @@ const buildStyleWhere = (styles: string[]) => {
   };
 };
 
-const selectTrackSql = `select id, full_path, relative_path, title, artist, artist_summary, singer, album,\n  year, genre, bpm, notes, duration_ms, start_offset_ms, end_trim_ms, analysis_json,\n  loudness_db, gain_db, tag_error, analysis_error\nfrom tracks`;
+const selectTrackSql = `select id, full_path, relative_path, title, artist, artist_summary, singer, album,\n  year, genre, bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms, analysis_json,\n  loudness_db, gain_db, tag_error, analysis_error\nfrom tracks`;
 
 export const fetchSearchCandidates = (db: Database.Database, styles: string[]) => {
   const { whereSql, values } = buildStyleWhere(styles);

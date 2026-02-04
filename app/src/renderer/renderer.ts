@@ -1,4 +1,5 @@
 import {
+  buildTandaArtistSortKey,
   deriveInstrumental,
   effectiveDurationMs,
   normalizeStyleName,
@@ -44,7 +45,10 @@ import {
 import { reorderClipboardCollections } from "../shared/clipboard-order.js";
 import { moveTrackToCollection } from "../shared/clipboard-move.js";
 import { computeTrimmedEnd } from "../shared/audio-trim.js";
-import { shouldContinueAfterEndCortina } from "../shared/playlist-flow.js";
+import {
+  shouldContinueAfterEndCortina,
+  shouldInsertCortinaBeforeTanda,
+} from "../shared/playlist-flow.js";
 import { getCortinaRowIndices } from "../shared/cortina-plan.js";
 
 const statusEl = document.querySelector<HTMLParagraphElement>("#status");
@@ -78,12 +82,16 @@ const dataLocationChooseBtn =
   document.querySelector<HTMLButtonElement>("#data-location-choose");
 const legacyImportSection =
   document.querySelector<HTMLDivElement>("#legacy-import");
+const playlistTandaEditorEl =
+  document.querySelector<HTMLDivElement>("#playlist-tanda-editor");
 const legacyImportDescription =
   document.querySelector<HTMLParagraphElement>("#legacy-import-description");
 const legacyImportButton =
   document.querySelector<HTMLButtonElement>("#legacy-import-button");
 const clipboardClearBtn =
   document.querySelector<HTMLButtonElement>("#clipboard-clear");
+const clipboardFilterInput =
+  document.querySelector<HTMLInputElement>("#clipboard-filter");
 const tabButtons = Array.from(
   document.querySelectorAll<HTMLButtonElement>(".settings-tabs button"),
 );
@@ -235,6 +243,8 @@ const trackEditorArtistInput =
   document.querySelector<HTMLInputElement>("#track-editor-artist");
 const trackEditorSingerInput =
   document.querySelector<HTMLInputElement>("#track-editor-singer");
+const trackEditorVocalInput =
+  document.querySelector<HTMLSelectElement>("#track-editor-vocal");
 const trackEditorAlbumInput =
   document.querySelector<HTMLInputElement>("#track-editor-album");
 const trackEditorYearInput =
@@ -257,9 +267,7 @@ const trackEditorCancelBtn =
 let headphoneAvailable = false;
 let audioOutputs: MediaDeviceInfo[] = [];
 
-type TrackRow = import("../shared/types").TrackRow & {
-  instrumental?: boolean | null;
-};
+type TrackRow = import("../shared/types").TrackRow;
 
 type TandaDetail = {
   id: string;
@@ -350,6 +358,7 @@ let searchState: SearchState = {
   lastQuery: "",
 };
 let clipboardTracks: TrackRow[] = [];
+let clipboardFilterText = "";
 type PlaylistItem =
   | { kind: "track"; track: TrackRow }
   | { kind: "tanda"; tandaId: string; mismatch?: "style" | "count" };
@@ -447,6 +456,9 @@ const playback: Record<OutputChannel, PlaybackState> = {
 let waveformTrackId: string | null = null;
 let waveformRequestId = 0;
 let openRowMenuId: string | null = null;
+let playlistOpenTandaIndex: number | null = null;
+let tandaEditorHostTab: RightPanelTab = "tanda-designer-tab";
+let scanRequestInFlight = false;
 
 type TrackEditorState = {
   track: TrackRow | null;
@@ -465,6 +477,9 @@ const updateTrackEditorPresentation = () => {
     return;
   }
   trackEditor.classList.toggle("non-modal", appMode === "edit");
+  if (appMode !== "edit") {
+    resetModalCardPosition(trackEditor);
+  }
 };
 
 type PlaylistPlaybackStatus = "idle" | "playing" | "paused";
@@ -510,7 +525,7 @@ const DEFAULT_PLAYLIST_START_TIME = "20:00";
 
 const translations: Record<LanguageKey, Record<string, string>> = {
   en: {
-    appTitle: "Tanda Player 2",
+    appTitle: "Tanda Player Lite",
     closeApp: "Close app",
     playlistStart: "Start",
     playlistResume: "Resume",
@@ -534,10 +549,11 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Include",
     clipboardCollectionGeneral: "General",
     clipboardCollectionNew: "New",
+    clipboardFilterPlaceholder: "Filter",
     confirmClipboardCollectionRemove: "Remove collection \"{name}\"?",
     clipboardClear: "Clear",
     playlistTitle: "Playlist",
-    playlistHint: "Click a clipboard item, then click a playlist slot to swap.",
+    playlistHint: "Use tanda menu to mark for replacement and then choose a replacement in the clipboard.",
     playlistClear: "Clear",
     tandasEmpty: "Tandas coming soon.",
     playlistEmptySlot: "Empty tanda",
@@ -614,6 +630,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     trackEditorTitleLabel: "Title",
     trackEditorArtistLabel: "Artist",
     trackEditorSingerLabel: "Singer",
+    trackEditorVocalLabel: "Vocal",
+    trackEditorVocalSung: "Sung",
+    trackEditorVocalInstrumental: "Instrumental",
     trackEditorAlbumLabel: "Album",
     trackEditorYearLabel: "Year",
     trackEditorGenreLabel: "Style",
@@ -775,6 +794,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaUnknownArtist: "Unknown artist",
     tandaUnknownYear: "Unknown year",
     tandaNonInstrumental: "Sung",
+    tandaMixedLabel: "Mixed",
     tandaSave: "Save tanda",
     tandaDone: "Done",
     tandaDelete: "Delete tanda",
@@ -801,7 +821,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     lang_it: "Italian",
   },
   es: {
-    appTitle: "Tanda Player 2",
+    appTitle: "Tanda Player Lite",
     closeApp: "Cerrar app",
     playlistStart: "Iniciar",
     playlistResume: "Reanudar",
@@ -825,10 +845,12 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Incluir",
     clipboardCollectionGeneral: "General",
     clipboardCollectionNew: "Nuevos",
+    clipboardFilterPlaceholder: "Filtrar",
     confirmClipboardCollectionRemove: "Quitar la coleccion \"{name}\"?",
     clipboardClear: "Limpiar",
     playlistTitle: "Lista",
-    playlistHint: "Selecciona del portapapeles y luego un espacio en la lista.",
+    playlistHint:
+      "Usa el menu de la tanda para marcar el reemplazo y luego elige en el portapapeles.",
     playlistClear: "Limpiar",
     tandasEmpty: "Tandas pronto.",
     playlistEmptySlot: "Tanda vacia",
@@ -906,6 +928,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     trackEditorTitleLabel: "Titulo",
     trackEditorArtistLabel: "Artista",
     trackEditorSingerLabel: "Cantante",
+    trackEditorVocalLabel: "Voz",
+    trackEditorVocalSung: "Cantado",
+    trackEditorVocalInstrumental: "Instrumental",
     trackEditorAlbumLabel: "Album",
     trackEditorYearLabel: "Ano",
     trackEditorGenreLabel: "Estilo",
@@ -1069,6 +1094,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaUnknownArtist: "Artista desconocido",
     tandaUnknownYear: "Ano desconocido",
     tandaNonInstrumental: "Cantado",
+    tandaMixedLabel: "Mixto",
     tandaSave: "Guardar tanda",
     tandaDone: "Listo",
     tandaDelete: "Borrar tanda",
@@ -1095,7 +1121,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     lang_it: "Italiano",
   },
   fr: {
-    appTitle: "Tanda Player 2",
+    appTitle: "Tanda Player Lite",
     closeApp: "Fermer l'application",
     playlistStart: "Demarrer",
     playlistResume: "Reprendre",
@@ -1119,10 +1145,12 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Inclure",
     clipboardCollectionGeneral: "General",
     clipboardCollectionNew: "Nouveaux",
+    clipboardFilterPlaceholder: "Filtrer",
     confirmClipboardCollectionRemove: "Retirer la collection \"{name}\" ?",
     clipboardClear: "Vider",
     playlistTitle: "Playlist",
-    playlistHint: "Cliquez un element puis une case de playlist.",
+    playlistHint:
+      "Utilisez le menu tanda pour marquer le remplacement puis choisissez dans le presse-papiers.",
     playlistClear: "Vider",
     tandasEmpty: "Tandas bientot.",
     playlistEmptySlot: "Tanda vide",
@@ -1200,6 +1228,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     trackEditorTitleLabel: "Titre",
     trackEditorArtistLabel: "Artiste",
     trackEditorSingerLabel: "Chanteur",
+    trackEditorVocalLabel: "Voix",
+    trackEditorVocalSung: "Chante",
+    trackEditorVocalInstrumental: "Instrumental",
     trackEditorAlbumLabel: "Album",
     trackEditorYearLabel: "Annee",
     trackEditorGenreLabel: "Style",
@@ -1363,6 +1394,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaUnknownArtist: "Artiste inconnu",
     tandaUnknownYear: "Annee inconnue",
     tandaNonInstrumental: "Chante",
+    tandaMixedLabel: "Mixte",
     tandaSave: "Enregistrer la tanda",
     tandaDone: "Terminer",
     tandaDelete: "Supprimer la tanda",
@@ -1389,7 +1421,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     lang_it: "Italien",
   },
   de: {
-    appTitle: "Tanda Player 2",
+    appTitle: "Tanda Player Lite",
     closeApp: "App schliessen",
     playlistStart: "Start",
     playlistResume: "Fortsetzen",
@@ -1413,10 +1445,12 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Einblenden",
     clipboardCollectionGeneral: "Allgemein",
     clipboardCollectionNew: "Neu",
+    clipboardFilterPlaceholder: "Filtern",
     confirmClipboardCollectionRemove: "Sammlung \"{name}\" entfernen?",
     clipboardClear: "Leeren",
     playlistTitle: "Playlist",
-    playlistHint: "Zwischenablage auswahlen, dann Playlist-Slot anklicken.",
+    playlistHint:
+      "Tanda-Menue zum Ersetzen markieren, dann in der Zwischenablage auswaehlen.",
     playlistClear: "Leeren",
     tandasEmpty: "Tandas bald verfugbar.",
     playlistEmptySlot: "Leere Tanda",
@@ -1494,6 +1528,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     trackEditorTitleLabel: "Titel",
     trackEditorArtistLabel: "Artist",
     trackEditorSingerLabel: "Sanger",
+    trackEditorVocalLabel: "Stimme",
+    trackEditorVocalSung: "Gesungen",
+    trackEditorVocalInstrumental: "Instrumental",
     trackEditorAlbumLabel: "Album",
     trackEditorYearLabel: "Jahr",
     trackEditorGenreLabel: "Stil",
@@ -1657,6 +1694,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaUnknownArtist: "Unbekannter Artist",
     tandaUnknownYear: "Unbekanntes Jahr",
     tandaNonInstrumental: "Gesungen",
+    tandaMixedLabel: "Gemischt",
     tandaSave: "Tanda speichern",
     tandaDone: "Fertig",
     tandaDelete: "Tanda loschen",
@@ -1683,7 +1721,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     lang_it: "Italienisch",
   },
   pt: {
-    appTitle: "Tanda Player 2",
+    appTitle: "Tanda Player Lite",
     closeApp: "Fechar app",
     playlistStart: "Iniciar",
     playlistResume: "Retomar",
@@ -1707,10 +1745,12 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Incluir",
     clipboardCollectionGeneral: "Geral",
     clipboardCollectionNew: "Novos",
+    clipboardFilterPlaceholder: "Filtrar",
     confirmClipboardCollectionRemove: "Remover a colecao \"{name}\"?",
     clipboardClear: "Limpar",
     playlistTitle: "Playlist",
-    playlistHint: "Clique no item e depois no slot da playlist.",
+    playlistHint:
+      "Use o menu da tanda para marcar a substituicao e depois escolha no bloco.",
     playlistClear: "Limpar",
     tandasEmpty: "Tandas em breve.",
     playlistEmptySlot: "Tanda vazia",
@@ -1788,6 +1828,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     trackEditorTitleLabel: "Titulo",
     trackEditorArtistLabel: "Artista",
     trackEditorSingerLabel: "Cantor",
+    trackEditorVocalLabel: "Voz",
+    trackEditorVocalSung: "Cantado",
+    trackEditorVocalInstrumental: "Instrumental",
     trackEditorAlbumLabel: "Album",
     trackEditorYearLabel: "Ano",
     trackEditorGenreLabel: "Estilo",
@@ -1949,6 +1992,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaUnknownArtist: "Artista desconhecido",
     tandaUnknownYear: "Ano desconhecido",
     tandaNonInstrumental: "Cantado",
+    tandaMixedLabel: "Misto",
     tandaSave: "Salvar tanda",
     tandaDone: "Concluir",
     tandaDelete: "Excluir tanda",
@@ -1975,7 +2019,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     lang_it: "Italiano",
   },
   it: {
-    appTitle: "Tanda Player 2",
+    appTitle: "Tanda Player Lite",
     closeApp: "Chiudi app",
     playlistStart: "Avvia",
     playlistResume: "Riprendi",
@@ -1999,11 +2043,12 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Includi",
     clipboardCollectionGeneral: "Generale",
     clipboardCollectionNew: "Nuovo",
+    clipboardFilterPlaceholder: "Filtra",
     confirmClipboardCollectionRemove: "Rimuovere la collezione \"{name}\"?",
     clipboardClear: "Svuota",
     playlistTitle: "Playlist",
     playlistHint:
-      "Clicca un elemento negli appunti, poi uno slot playlist per scambiare.",
+      "Usa il menu tanda per segnare la sostituzione e poi scegli negli appunti.",
     playlistClear: "Svuota",
     tandasEmpty: "Tandas in arrivo.",
     playlistEmptySlot: "Tanda vuota",
@@ -2081,6 +2126,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     trackEditorTitleLabel: "Titolo",
     trackEditorArtistLabel: "Artista",
     trackEditorSingerLabel: "Cantante",
+    trackEditorVocalLabel: "Voce",
+    trackEditorVocalSung: "Cantato",
+    trackEditorVocalInstrumental: "Strumentale",
     trackEditorAlbumLabel: "Album",
     trackEditorYearLabel: "Anno",
     trackEditorGenreLabel: "Stile",
@@ -2249,6 +2297,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaUnknownArtist: "Artista sconosciuto",
     tandaUnknownYear: "Anno sconosciuto",
     tandaNonInstrumental: "Cantato",
+    tandaMixedLabel: "Misto",
     tandaSave: "Salva tanda",
     tandaDone: "Fatto",
     tandaDelete: "Elimina tanda",
@@ -2315,7 +2364,13 @@ const applyTranslations = () => {
     }
     const attr = element.dataset.i18nAttr;
     if (attr) {
-      element.setAttribute(attr, t(key));
+      attr
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .forEach((name) => {
+          element.setAttribute(name, t(key));
+        });
       return;
     }
     const params =
@@ -2353,6 +2408,9 @@ const setTrackEditorOpen = (open: boolean) => {
     return;
   }
   updateTrackEditorPresentation();
+  if (!open || appMode !== "edit") {
+    resetModalCardPosition(trackEditor);
+  }
   trackEditor.classList.toggle("open", open);
   trackEditor.setAttribute("aria-hidden", open ? "false" : "true");
 };
@@ -2370,6 +2428,7 @@ const fillTrackEditorFields = (track: TrackRow) => {
     !trackEditorTitleInput ||
     !trackEditorArtistInput ||
     !trackEditorSingerInput ||
+    !trackEditorVocalInput ||
     !trackEditorAlbumInput ||
     !trackEditorYearInput ||
     !trackEditorGenreInput ||
@@ -2389,6 +2448,15 @@ const fillTrackEditorFields = (track: TrackRow) => {
   trackEditorTitleInput.value = track.title ?? "";
   trackEditorArtistInput.value = track.artist ?? "";
   trackEditorSingerInput.value = track.singer ?? "";
+  trackEditorVocalInput.innerHTML = "";
+  const sungOption = document.createElement("option");
+  sungOption.value = "sung";
+  sungOption.textContent = t("trackEditorVocalSung");
+  const instrumentalOption = document.createElement("option");
+  instrumentalOption.value = "instrumental";
+  instrumentalOption.textContent = t("trackEditorVocalInstrumental");
+  trackEditorVocalInput.append(sungOption, instrumentalOption);
+  trackEditorVocalInput.value = track.instrumental === true ? "instrumental" : "sung";
   trackEditorAlbumInput.value = track.album ?? "";
   trackEditorYearInput.value = track.year ?? "";
   trackEditorGenreInput.value = track.genre ?? "";
@@ -2919,13 +2987,20 @@ const updateNowPlayingDisplay = () => {
           baseDurationSeconds - startOffsetMs / 1000 - endTrimMs / 1000,
         )
       : 0;
+  const cortinaDisplayDurationSeconds =
+    cortinaPlaying &&
+    channel === "main" &&
+    Boolean(track) &&
+    !cortinaAllowFull
+      ? Math.min(effectiveDurationSeconds, getCortinaDuration())
+      : effectiveDurationSeconds;
   const currentSeconds = Math.max(
     0,
     (state.active?.currentTime ?? 0) - startOffsetMs / 1000,
   );
   const clampedCurrent = Math.min(
     currentSeconds,
-    effectiveDurationSeconds || currentSeconds,
+    cortinaDisplayDurationSeconds || currentSeconds,
   );
 
   nowPlayingTrack.textContent = buildTrackLabel(track);
@@ -2935,7 +3010,7 @@ const updateNowPlayingDisplay = () => {
       : t("nowPlayingMain");
   nowPlayingTime.textContent = t("nowPlayingTime", {
     current: formatTime(clampedCurrent),
-    duration: formatTime(effectiveDurationSeconds),
+    duration: formatTime(cortinaDisplayDurationSeconds),
   });
   const progressSeconds = Math.max(0, state.active?.currentTime ?? 0);
   const progressDurationSeconds = baseDurationSeconds;
@@ -2956,7 +3031,7 @@ const seekToWaveformPosition = (event: MouseEvent) => {
   if (!active || !active.state.active) {
     return;
   }
-  if (appMode !== "prep") {
+  if (appMode !== "prep" && appMode !== "edit") {
     return;
   }
   if (!waveformContainer) {
@@ -3082,16 +3157,8 @@ const handleTandaAction = async (event: Event) => {
     return;
   }
   if (action === "tanda-done") {
-    tandaCache.set(tanda.id, cloneTanda(tanda));
-    tandaDrafts = tandaDrafts.filter((item) => item.id !== tanda.id);
-    const fresh = createEmptyTanda();
-    tandaDrafts = [...tandaDrafts, fresh];
-    selectedTandaId = fresh.id;
-    renderTandaDesigner();
-    if (tandaEditorReturnTab) {
-      activateRightTab(tandaEditorReturnTab);
-      tandaEditorReturnTab = null;
-    }
+    finalizeTandaDraft(tanda, tandaEditorReturnTab);
+    tandaEditorReturnTab = null;
     return;
   }
   if (action === "tanda-delete") {
@@ -3739,6 +3806,77 @@ const closeDetailMenus = () => {
     .forEach((line) => line.classList.remove("detail-menu-open"));
 };
 
+const resetModalCardPosition = (modal: HTMLElement) => {
+  const card = modal.querySelector<HTMLElement>(".modal-card");
+  if (!card) {
+    return;
+  }
+  card.style.removeProperty("position");
+  card.style.removeProperty("left");
+  card.style.removeProperty("top");
+  card.style.removeProperty("transform");
+  card.style.removeProperty("margin");
+  card.style.removeProperty("width");
+  card.style.removeProperty("max-width");
+};
+
+const attachModalDrag = (modal: HTMLElement | null) => {
+  if (!modal) {
+    return;
+  }
+  const card = modal.querySelector<HTMLElement>(".modal-card");
+  const header = modal.querySelector<HTMLElement>(".modal-header");
+  if (!card || !header) {
+    return;
+  }
+  let isDragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+  const onMouseMove = (event: MouseEvent) => {
+    if (!isDragging) {
+      return;
+    }
+    const maxLeft = window.innerWidth - card.offsetWidth - 8;
+    const maxTop = window.innerHeight - card.offsetHeight - 8;
+    const nextLeft = Math.min(Math.max(event.clientX - offsetX, 8), maxLeft);
+    const nextTop = Math.min(Math.max(event.clientY - offsetY, 8), maxTop);
+    card.style.left = `${nextLeft}px`;
+    card.style.top = `${nextTop}px`;
+  };
+  const onMouseUp = () => {
+    if (!isDragging) {
+      return;
+    }
+    isDragging = false;
+    document.body.style.userSelect = "";
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+  };
+  header.addEventListener("mousedown", (event) => {
+    if (appMode !== "edit") {
+      return;
+    }
+    const target = event.target as HTMLElement;
+    if (target.closest("button") || target.closest("input") || target.closest("select")) {
+      return;
+    }
+    const rect = card.getBoundingClientRect();
+    isDragging = true;
+    offsetX = event.clientX - rect.left;
+    offsetY = event.clientY - rect.top;
+    card.style.position = "fixed";
+    card.style.left = `${rect.left}px`;
+    card.style.top = `${rect.top}px`;
+    card.style.width = `${rect.width}px`;
+    card.style.maxWidth = "none";
+    card.style.transform = "none";
+    card.style.margin = "0";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  });
+};
+
 const toggleRowMenu = (row: HTMLElement) => {
   const menuId = row.dataset.menuId;
   if (!menuId) {
@@ -3761,6 +3899,9 @@ const openTandaInDesigner = (
   returnTab?: RightPanelTab | null,
 ) => {
   tandaEditorReturnTab = returnTab ?? null;
+  const shouldHostInPlaylist =
+    returnTab === "playlist-tab" && playlistOpenTandaIndex !== null;
+  tandaEditorHostTab = shouldHostInPlaylist ? "playlist-tab" : "tanda-designer-tab";
   if (source) {
     ensureTandaDraft(source);
   } else if (!tandaDrafts.some((item) => item.id === tandaId)) {
@@ -3770,8 +3911,31 @@ const openTandaInDesigner = (
     }
   }
   setActiveTanda(tandaId);
-  activateRightTab("tanda-designer-tab");
+  activateRightTab(tandaEditorHostTab ?? "tanda-designer-tab");
   renderTandaDesigner();
+};
+
+const finalizeTandaDraft = (
+  tanda: TandaDraft,
+  returnTab?: RightPanelTab | null,
+) => {
+  tandaCache.set(tanda.id, cloneTanda(tanda));
+  tandaDrafts = tandaDrafts.filter((item) => item.id !== tanda.id);
+  const fresh = createEmptyTanda();
+  tandaDrafts = [...tandaDrafts, fresh];
+  selectedTandaId = fresh.id;
+  renderTandaDesigner();
+  if (returnTab) {
+    activateRightTab(returnTab);
+  }
+  const openIndex = getOpenPlaylistTandaIndex();
+  if (openIndex !== null) {
+    const item = playlistItems[openIndex];
+    if (item?.kind === "tanda" && item.tandaId === tanda.id) {
+      clearPlaylistOpenTanda();
+    }
+  }
+  renderPlaylist();
 };
 
 const buildHeadphoneButton = () => {
@@ -4001,38 +4165,18 @@ const getTandaYearRange = (years: string[]) => {
   return `${min}-${max}`;
 };
 
-const buildTandaSummaryText = (tanda: TandaDraft, fallbackName?: string) => {
-  const name = tanda.name || fallbackName || t("tandaPlaceholder");
-  const tracks = tanda.trackSlots.map((trackId) =>
-    trackId ? trackCache.get(trackId) ?? null : null,
-  );
-  const summary = summarizeTandaTracks(
-    tracks.map((track) => {
-      if (!track) {
-        return null;
-      }
-      const artist =
-        track.artist_summary || summarizeArtistName(track.artist);
-      return {
-        artist,
-        year: track.year,
-        instrumental: track.instrumental ?? null,
-      };
-    }),
-  );
-  const artistLabel =
-    summary.artists.length > 0
-      ? summary.artists.map((artist) => `${artist.name}(${artist.count})`).join(", ")
-      : t("tandaUnknownArtist");
-  const yearLabel =
-    summary.years.length > 0 ? summary.years.join(",") : t("tandaUnknownYear");
-  const instrumentalLabel = summary.instrumental
-    ? t("tandaInstrumentalLabel")
-    : t("tandaNonInstrumental");
-  return `${name} - ${artistLabel} - ${instrumentalLabel} - ${yearLabel}`;
+const getInstrumentalLabel = (status: string) => {
+  if (status === "instrumental") {
+    return t("tandaInstrumentalLabel");
+  }
+  if (status === "mixed") {
+    return t("tandaMixedLabel");
+  }
+  return t("tandaNonInstrumental");
 };
 
-const buildTandaMetaText = (tanda: TandaDraft) => {
+const buildTandaSummaryText = (tanda: TandaDraft, fallbackName?: string) => {
+  const name = (tanda.name || fallbackName || "").trim();
   const tracks = tanda.trackSlots.map((trackId) =>
     trackId ? trackCache.get(trackId) ?? null : null,
   );
@@ -4052,47 +4196,64 @@ const buildTandaMetaText = (tanda: TandaDraft) => {
   );
   const artistLabel =
     summary.artists.length > 0
-      ? summary.artists.map((artist) => `${artist.name}(${artist.count})`).join(", ")
+      ? summary.artists
+          .map((artist) =>
+            artist.count > 1 ? `${artist.name}(${artist.count})` : artist.name,
+          )
+          .join(" / ")
       : t("tandaUnknownArtist");
   const yearLabel =
     summary.years.length > 0 ? summary.years.join(",") : t("tandaUnknownYear");
-  const instrumentalLabel = summary.instrumental
-    ? t("tandaInstrumentalLabel")
-    : t("tandaNonInstrumental");
-  return `${artistLabel} - ${instrumentalLabel} - ${yearLabel}`;
+  const instrumentalLabel = getInstrumentalLabel(summary.instrumentalStatus);
+  const bpmValues = tracks
+    .map((track) => (track?.bpm && track.bpm > 0 ? Math.round(track.bpm) : null))
+    .filter((value): value is number => value !== null);
+  const bpmLabel =
+    bpmValues.length === 0
+      ? ""
+      : Math.min(...bpmValues) === Math.max(...bpmValues)
+        ? `${Math.min(...bpmValues)} bpm`
+        : `${Math.min(...bpmValues)}-${Math.max(...bpmValues)} bpm`;
+  const durationLabel = formatTime(sumEffectiveDurationMs(tracks) / 1000);
+  const ratingLabel =
+    tanda.rating > 0 ? `${"\u2605".repeat(Math.min(5, tanda.rating))}` : "";
+  const details = [
+    artistLabel,
+    instrumentalLabel,
+    yearLabel,
+    bpmLabel,
+    durationLabel,
+    ratingLabel,
+  ].filter((part) => part && part.trim().length > 0);
+  return name ? `${name} - ${details.join(" - ")}` : details.join(" - ");
+};
+
+const getTandaSortKey = (tanda: TandaDraft) => {
+  const tracks = tanda.trackSlots.map((trackId) =>
+    trackId ? trackCache.get(trackId) ?? null : null,
+  );
+  const summary = summarizeTandaTracks(
+    tracks.map((track) => {
+      if (!track) {
+        return null;
+      }
+      const artist =
+        track.artist_summary || summarizeArtistName(track.artist);
+      return {
+        artist,
+        year: track.year,
+        instrumental: track.instrumental ?? null,
+      };
+    }),
+  );
+  return buildTandaArtistSortKey(summary, t("tandaUnknownArtist"));
 };
 
 const buildTandaExpandedSummaryText = (
   tanda: TandaDraft,
   fallbackName?: string,
 ) => {
-  const name = tanda.name || fallbackName || t("tandaPlaceholder");
-  const tracks = tanda.trackSlots.map((trackId) =>
-    trackId ? trackCache.get(trackId) ?? null : null,
-  );
-  const summary = summarizeTandaTracks(
-    tracks.map((track) => {
-      if (!track) {
-        return null;
-      }
-      const artist =
-        track.artist_summary || summarizeArtistName(track.artist);
-      return {
-        artist,
-        year: track.year,
-        instrumental: track.instrumental ?? null,
-      };
-    }),
-  );
-  const yearLabel = getTandaYearRange(summary.years);
-  const instrumentalLabel = summary.instrumental
-    ? t("tandaInstrumentalLabel")
-    : t("tandaNonInstrumental");
-  const styleBadge = getTandaStyleBadge(tanda);
-  const styleLabel = styleBadge === "?" ? t("tandaAnyStyle") : styleBadge;
-  const totalDurationMs = sumEffectiveDurationMs(tracks);
-  const durationLabel = formatTime(totalDurationMs / 1000);
-  return `${name} - ${styleLabel} - ${instrumentalLabel} - ${yearLabel} - ${durationLabel}`;
+  return buildTandaSummaryText(tanda, fallbackName);
 };
 
 type TandaDetailLine = {
@@ -4145,6 +4306,35 @@ const runSearchQuery = (query: string, allowEmpty = false) => {
 
 const buildSearchQueryForTrack = (track: TrackRow) => {
   return buildTrackSearchQuery(track);
+};
+
+const normalizeClipboardFilter = (value: string) => value.trim().toLowerCase();
+
+const getClipboardTrackFilterText = (track: TrackRow) =>
+  buildTrackSearchQuery(track).toLowerCase();
+
+const getClipboardTandaFilterText = (tanda: TandaDraft) => {
+  const parts: string[] = [];
+  if (tanda.name) {
+    parts.push(tanda.name);
+  }
+  if (tanda.styles.length > 0) {
+    parts.push(tanda.styles.join(" "));
+  }
+  tanda.trackSlots.forEach((trackId) => {
+    if (!trackId) {
+      return;
+    }
+    const track = trackCache.get(trackId);
+    if (!track) {
+      return;
+    }
+    const trackText = buildTrackSearchQuery(track);
+    if (trackText) {
+      parts.push(trackText);
+    }
+  });
+  return parts.join(" ").toLowerCase();
 };
 
 const buildSearchQueryForTanda = (tanda: TandaDraft) => {
@@ -4296,17 +4486,9 @@ const renderTandaRow = (
     const titleLine = document.createElement("div");
     titleLine.className = "tanda-title-line";
     const startText = isCortinaEnabled() ? "" : options?.playlistStartTime ?? "";
-    const durationText = options?.playlistDuration ?? "";
-    const name = tanda.name || nameOverride || t("tandaPlaceholder");
-    const metaParts = [durationText].filter(
-      (value) => value && value.trim().length > 0,
-    );
-    const metaSuffix = metaParts.length > 0 ? ` · ${metaParts.join(" · ")}` : "";
-    titleLine.textContent = `${startText ? `${startText} ` : ""}${name}${metaSuffix}`;
-    const metaLine = document.createElement("div");
-    metaLine.className = "tanda-meta-line";
-    metaLine.textContent = buildTandaMetaText(tanda);
-    summary.append(titleLine, metaLine);
+    const summaryText = buildTandaSummaryText(tanda, nameOverride);
+    titleLine.textContent = `${startText ? `${startText} ` : ""}${summaryText}`;
+    summary.append(titleLine);
   } else {
     summary.textContent = expanded
       ? buildTandaExpandedSummaryText(tanda, nameOverride)
@@ -4395,19 +4577,13 @@ const toggleTandaRow = (row: HTMLElement) => {
   summaryEl.innerHTML = "";
   if (isPlaylist && !expanded) {
     const startText = isCortinaEnabled() ? "" : row.dataset.playlistStartTime ?? "";
-    const durationText = row.dataset.playlistDuration ?? "";
-    const name = tanda.name || fallbackName || t("tandaPlaceholder");
-    const metaParts = [durationText].filter(
-      (value) => value && value.trim().length > 0,
-    );
-    const metaSuffix = metaParts.length > 0 ? ` · ${metaParts.join(" · ")}` : "";
     const titleLine = document.createElement("div");
     titleLine.className = "tanda-title-line";
-    titleLine.textContent = `${startText ? `${startText} ` : ""}${name}${metaSuffix}`;
-    const metaLine = document.createElement("div");
-    metaLine.className = "tanda-meta-line";
-    metaLine.textContent = buildTandaMetaText(tanda);
-    summaryEl.append(titleLine, metaLine);
+    titleLine.textContent = `${startText ? `${startText} ` : ""}${buildTandaSummaryText(
+      tanda,
+      fallbackName,
+    )}`;
+    summaryEl.append(titleLine);
   } else {
     summaryEl.textContent = expanded
       ? buildTandaExpandedSummaryText(tanda, fallbackName)
@@ -4513,6 +4689,7 @@ const renderClipboard = async () => {
     );
   }
   const forcedStyles = getActiveStyleFilter();
+  const filterText = normalizeClipboardFilter(clipboardFilterText);
   const duplicateIndex = buildPlaylistDuplicateIndexFromState();
   clipTracksEl.innerHTML = "";
   const selectedId = selectedClipboardTrackId;
@@ -4522,7 +4699,12 @@ const renderClipboard = async () => {
           forcedStyles.includes(normalizeStyleName(track.genre)),
         )
       : clipboardTracks;
-  filteredTracks.forEach((track, index) => {
+  const matchedTracks = filterText
+    ? filteredTracks.filter((track) =>
+        getClipboardTrackFilterText(track).includes(filterText),
+      )
+    : filteredTracks;
+  matchedTracks.forEach((track, index) => {
     const row = renderTrackRow(
       track,
       "clipboard",
@@ -4535,7 +4717,7 @@ const renderClipboard = async () => {
   updateTabCount(
     clipTracksEl.closest(".panel"),
     "clip-tracks",
-    filteredTracks.length,
+    matchedTracks.length,
   );
   if (clipTandasEl) {
     clipTandasEl.innerHTML = "";
@@ -4558,7 +4740,15 @@ const renderClipboard = async () => {
         normalizedTandaStyles.includes(style),
       );
     });
-    filteredTandas.forEach((tanda) => {
+    const matchedTandas = filterText
+      ? filteredTandas.filter((tanda) =>
+          getClipboardTandaFilterText(tanda).includes(filterText),
+        )
+      : filteredTandas;
+    matchedTandas
+      .slice()
+      .sort((a, b) => getTandaSortKey(a).localeCompare(getTandaSortKey(b)))
+      .forEach((tanda) => {
       const row = renderTandaRow(tanda, "clipboard", undefined, {
         duplicateIndex,
       });
@@ -4571,7 +4761,7 @@ const renderClipboard = async () => {
     updateTabCount(
       clipTandasEl.closest(".panel"),
       "clip-tandas",
-      filteredTandas.length,
+      matchedTandas.length,
     );
   }
 };
@@ -4670,6 +4860,7 @@ const renderPlaylist = () => {
   normalizePlaylist();
   savePlaylistToStorage();
   const fragment = document.createDocumentFragment();
+  const openIndex = getOpenPlaylistTandaIndex();
   if (isCortinaEnabled()) {
     const indices = getCortinaRowIndices(playlistItems).filter(
       (index) => !getCortinaRowTrack(index),
@@ -4751,6 +4942,9 @@ const renderPlaylist = () => {
         playlistStartTime: startLabel,
         playlistDuration: durationLabel,
       });
+      if (openIndex !== null && openIndex === index) {
+        row.classList.add("playlist-open");
+      }
       row.dataset.playlistStartTime = startLabel ?? "";
       row.dataset.playlistDuration = durationLabel ?? "";
       if (item.mismatch) {
@@ -5032,6 +5226,9 @@ const playCortina = async (runId: number, targetIndex: number) => {
     renderPlaylist();
     return false;
   }
+  // Re-render after playback starts so the active cortina row reflects the
+  // actual track now playing instead of any previously active main track.
+  renderPlaylist();
   const activeAudio = playback.main.active;
   if (!activeAudio) {
     cortinaPlaying = false;
@@ -5083,6 +5280,7 @@ const runPlaylistPlayback = async (
   );
   renderPlaylist();
   const skipInitialGap = options?.skipInitialCortinaGap ?? false;
+  let continuedFromEndCortina = false;
 
   const hasPlayableItems = playlistItems.some((item) => {
     if (!item) {
@@ -5121,6 +5319,7 @@ const runPlaylistPlayback = async (
             playlistItems.length,
           )
         ) {
+          continuedFromEndCortina = true;
           continue;
         }
       }
@@ -5153,11 +5352,16 @@ const runPlaylistPlayback = async (
       resumeState &&
       resumeState.itemIndex === playlistPlayback.currentIndex &&
       resumeState.trackIndex === playlistPlayback.currentTrackIndex;
+    const isResumeWithOffset =
+      Boolean(isResumeSameItem) && (resumeState?.resumeTime ?? 0) > 0;
     if (
-      playlistPlayback.currentTrackIndex === 0 &&
-      playlistPlayback.currentIndex > 0 &&
-      isCortinaEnabled() &&
-      !(isResumeSameItem && (resumeState?.resumeTime ?? 0) > 0)
+      shouldInsertCortinaBeforeTanda(
+        isCortinaEnabled(),
+        playlistPlayback.currentIndex,
+        playlistPlayback.currentTrackIndex,
+        isResumeWithOffset,
+        continuedFromEndCortina,
+      )
     ) {
       if (!skipInitialGap) {
         const gapOk = await waitBeforeCortina(runId);
@@ -5176,10 +5380,11 @@ const runPlaylistPlayback = async (
         }
       }
     }
+    continuedFromEndCortina = false;
     if (
       playlistPlayback.currentTrackIndex === 0 &&
       playlistPlayback.currentIndex > 0 &&
-      !(isResumeSameItem && (resumeState?.resumeTime ?? 0) > 0)
+      !isResumeWithOffset
     ) {
       if (!isCortinaEnabled() && !skipInitialGap) {
         const ok = await waitBeforeTanda(runId);
@@ -5373,7 +5578,7 @@ const renderAllLists = () => {
 };
 
 const renderTandaDesigner = () => {
-  if (!tandaListEl) {
+  if (!tandaListEl && !playlistTandaEditorEl) {
     return;
   }
   const selected = selectedTandaId
@@ -5390,90 +5595,102 @@ const renderTandaDesigner = () => {
   if (activeId && activeId !== selectedTandaId) {
     selectedTandaId = activeId;
   }
-  tandaListEl.innerHTML = "";
-  tandaDrafts.forEach((tanda) => {
-    const locked = isTandaLocked(tanda.id);
-    const card = document.createElement("div");
-    card.className = `tanda-card${tanda.id === selectedTandaId ? " selected" : ""}`;
-    if (locked) {
-      card.classList.add("locked");
-    }
-    card.dataset.tandaId = tanda.id;
+  const renderInto = (container: HTMLDivElement, drafts: TandaDraft[]) => {
+    container.innerHTML = "";
+    drafts.forEach((tanda) => {
+      const locked = isTandaLocked(tanda.id);
+      const card = document.createElement("div");
+      card.className = `tanda-card${tanda.id === selectedTandaId ? " selected" : ""}`;
+      if (locked) {
+        card.classList.add("locked");
+      }
+      card.dataset.tandaId = tanda.id;
 
-    const header = document.createElement("div");
-    header.className = "tanda-header";
+      const header = document.createElement("div");
+      header.className = "tanda-header";
 
-    const nameRow = document.createElement("div");
-    nameRow.className = "tanda-row";
-    const nameInput = document.createElement("input");
-    nameInput.className = "tanda-name";
-    nameInput.value = tanda.name;
-    nameInput.placeholder = t("tandaNameLabel");
-    nameInput.disabled = locked;
-    nameInput.addEventListener("input", () => {
-      tanda.name = nameInput.value;
-    });
-    const ratingLabel = document.createElement("span");
-    ratingLabel.className = "tanda-meta";
-    ratingLabel.textContent = t("tandaRatingLabel");
-    const ratingSelect = document.createElement("select");
-    ratingSelect.className = "tanda-rating";
-    ratingSelect.setAttribute("aria-label", t("tandaRatingLabel"));
-    ratingSelect.disabled = locked;
-    for (let rating = 0; rating <= 5; rating += 1) {
-      const option = document.createElement("option");
-      option.value = rating.toString();
-      option.textContent = rating.toString();
-      ratingSelect.appendChild(option);
-    }
-    ratingSelect.value = tanda.rating.toString();
-    ratingSelect.addEventListener("change", () => {
-      tanda.rating = Number.parseInt(ratingSelect.value, 10);
-    });
-    nameRow.append(nameInput, ratingLabel, ratingSelect);
+      const nameRow = document.createElement("div");
+      nameRow.className = "tanda-row";
+      const nameInput = document.createElement("input");
+      nameInput.className = "tanda-name";
+      nameInput.value = tanda.name;
+      nameInput.placeholder = t("tandaNameLabel");
+      nameInput.disabled = locked;
+      nameInput.addEventListener("input", () => {
+        tanda.name = nameInput.value;
+      });
+      const ratingLabel = document.createElement("span");
+      ratingLabel.className = "tanda-meta";
+      ratingLabel.textContent = t("tandaRatingLabel");
+      const ratingSelect = document.createElement("select");
+      ratingSelect.className = "tanda-rating";
+      ratingSelect.setAttribute("aria-label", t("tandaRatingLabel"));
+      ratingSelect.disabled = locked;
+      for (let rating = 0; rating <= 5; rating += 1) {
+        const option = document.createElement("option");
+        option.value = rating.toString();
+        option.textContent = rating.toString();
+        ratingSelect.appendChild(option);
+      }
+      ratingSelect.value = tanda.rating.toString();
+      ratingSelect.addEventListener("change", () => {
+        tanda.rating = Number.parseInt(ratingSelect.value, 10);
+      });
+      nameRow.append(nameInput, ratingLabel, ratingSelect);
 
-    const styleRow = document.createElement("div");
-    styleRow.className = "tanda-row";
-    const styleLabel = document.createElement("span");
-    styleLabel.textContent = t("tandaStylesLabel");
-    styleLabel.className = "tanda-meta";
-    const styleOptions = document.createElement("div");
-    styleOptions.className = "tanda-style-options";
-    const anyButton = document.createElement("button");
-    anyButton.textContent = t("tandaAnyStyle");
-    anyButton.classList.toggle("active", tanda.styles.length === 0);
-    anyButton.disabled = locked;
-    anyButton.addEventListener("click", () => {
-      tanda.styles = [];
-      selectedStyles = [...tanda.styles];
-      setActiveTanda(tanda.id);
-    });
-    styleOptions.appendChild(anyButton);
-    availableStyles.forEach((style) => {
-      const button = document.createElement("button");
-      button.textContent = style;
-      button.classList.toggle("active", tanda.styles.includes(style));
-      button.disabled = locked;
-      button.addEventListener("click", () => {
-        if (tanda.styles.includes(style)) {
-          tanda.styles = tanda.styles.filter((value) => value !== style);
-        } else {
-          tanda.styles = [...tanda.styles, style];
-        }
+      const styleRow = document.createElement("div");
+      styleRow.className = "tanda-row";
+      const styleLabel = document.createElement("span");
+      styleLabel.textContent = t("tandaStylesLabel");
+      styleLabel.className = "tanda-meta";
+      const styleOptions = document.createElement("div");
+      styleOptions.className = "tanda-style-options";
+      const anyButton = document.createElement("button");
+      anyButton.textContent = t("tandaAnyStyle");
+      anyButton.classList.toggle("active", tanda.styles.length === 0);
+      anyButton.disabled = locked;
+      anyButton.addEventListener("click", () => {
+        tanda.styles = [];
         selectedStyles = [...tanda.styles];
         setActiveTanda(tanda.id);
       });
-      styleOptions.appendChild(button);
-    });
-    styleRow.append(styleLabel, styleOptions);
+      styleOptions.appendChild(anyButton);
+      availableStyles.forEach((style) => {
+        const button = document.createElement("button");
+        button.textContent = style;
+        button.classList.toggle("active", tanda.styles.includes(style));
+        button.disabled = locked;
+        button.addEventListener("click", () => {
+          if (tanda.styles.includes(style)) {
+            tanda.styles = tanda.styles.filter((value) => value !== style);
+          } else {
+            tanda.styles = [...tanda.styles, style];
+          }
+          selectedStyles = [...tanda.styles];
+          setActiveTanda(tanda.id);
+        });
+        styleOptions.appendChild(button);
+      });
+      styleRow.append(styleLabel, styleOptions);
 
-    const metaRow = document.createElement("div");
-    metaRow.className = "tanda-row";
-    const tracks = tanda.trackSlots.map((trackId) =>
-      trackId ? trackCache.get(trackId) ?? null : null,
+      const metaRow = document.createElement("div");
+      metaRow.className = "tanda-row";
+      const tracks = tanda.trackSlots.map((trackId) =>
+        trackId ? trackCache.get(trackId) ?? null : null,
+      );
+      const totalDurationMs = sumEffectiveDurationMs(tracks);
+    const summary = summarizeTandaTracks(
+      tracks.map((track) => {
+        if (!track) {
+          return null;
+        }
+        return {
+          artist: track.artist_summary || summarizeArtistName(track.artist),
+          year: track.year,
+          instrumental: track.instrumental ?? null,
+        };
+      }),
     );
-    const totalDurationMs = sumEffectiveDurationMs(tracks);
-    const instrumental = deriveInstrumental(tracks);
     const countMeta = document.createElement("span");
     countMeta.className = "tanda-meta";
     countMeta.textContent = `${t("tandaTrackCountLabel")}: ${tanda.trackSlots.filter(
@@ -5481,9 +5698,9 @@ const renderTandaDesigner = () => {
     ).length}`;
     const instrumentalMeta = document.createElement("span");
     instrumentalMeta.className = "tanda-meta";
-    instrumentalMeta.textContent = instrumental
-      ? t("tandaInstrumentalYes")
-      : t("tandaNonInstrumental");
+    instrumentalMeta.textContent = getInstrumentalLabel(
+      summary.instrumentalStatus,
+    );
     const durationMeta = document.createElement("span");
     durationMeta.className = "tanda-meta";
     durationMeta.textContent = `${t("tandaDurationLabel")}: ${formatTime(
@@ -5581,8 +5798,36 @@ const renderTandaDesigner = () => {
       }
       setActiveTanda(tanda.id);
     });
-    tandaListEl.appendChild(card);
-  });
+      container.appendChild(card);
+    });
+  };
+  if (tandaListEl) {
+    renderInto(tandaListEl, tandaDrafts);
+  }
+  if (playlistTandaEditorEl) {
+    const openIndex = getOpenPlaylistTandaIndex();
+    let playlistDrafts: TandaDraft[] = [];
+    if (
+      openIndex !== null &&
+      tandaEditorHostTab === "playlist-tab" &&
+      activeRightTab === "playlist-tab"
+    ) {
+      const openItem = playlistItems[openIndex];
+      if (openItem?.kind === "tanda") {
+        const openDraft = resolveTandaDraft(openItem.tandaId);
+        if (openDraft) {
+          playlistDrafts = [openDraft];
+        }
+      }
+    }
+    renderInto(playlistTandaEditorEl, playlistDrafts);
+    const shouldShow =
+      tandaEditorHostTab === "playlist-tab" &&
+      activeRightTab === "playlist-tab" &&
+      playlistOpenTandaIndex !== null &&
+      playlistDrafts.length > 0;
+    playlistTandaEditorEl.classList.toggle("hidden", !shouldShow);
+  }
 };
 
 const addTrackToClipboard = (track: TrackRow) => {
@@ -5671,6 +5916,39 @@ const clearPlaylistTarget = () => {
   playlistTargetIndex = null;
 };
 
+const clearPlaylistOpenTanda = () => {
+  playlistOpenTandaIndex = null;
+};
+
+const isTandaInClipboard = (tandaId: string) =>
+  clipboardCollections.some((collection) => collection.tandaIds.includes(tandaId));
+
+const cloneTandaWithNewId = (tanda: TandaDraft): TandaDraft => ({
+  ...cloneTanda(tanda),
+  id: crypto.randomUUID(),
+});
+
+const ensurePlaylistEditableTanda = (tandaId: string, index: number) => {
+  const original = resolveTandaDraft(tandaId);
+  if (!original) {
+    return null;
+  }
+  if (!isTandaInClipboard(tandaId)) {
+    return original;
+  }
+  const draft = cloneTandaWithNewId(original);
+  ensureTandaDraft(draft);
+  const existing = playlistItems[index];
+  if (existing?.kind === "tanda") {
+    playlistItems[index] = {
+      kind: "tanda",
+      tandaId: draft.id,
+      mismatch: existing.mismatch,
+    };
+  }
+  return draft;
+};
+
 const applyPlaylistTargetStyles = (index: number) => {
   const item = playlistItems[index] ?? null;
   if (item?.kind === "tanda") {
@@ -5703,10 +5981,39 @@ const getPlaylistTargetIndex = () => {
   return playlistTargetIndex;
 };
 
-const appendTrackToPlaylist = (track: TrackRow) => {
+const getOpenPlaylistTandaIndex = () => {
+  if (playlistOpenTandaIndex === null) {
+    return null;
+  }
+  if (
+    playlistOpenTandaIndex < 0 ||
+    playlistOpenTandaIndex >= playlistItems.length
+  ) {
+    clearPlaylistOpenTanda();
+    return null;
+  }
+  const item = playlistItems[playlistOpenTandaIndex];
+  if (!item || item.kind !== "tanda") {
+    clearPlaylistOpenTanda();
+    return null;
+  }
+  const tanda = resolveTandaDraft(item.tandaId);
+  if (!tanda || !tanda.trackSlots.some((slot) => !slot)) {
+    clearPlaylistOpenTanda();
+    return null;
+  }
+  return playlistOpenTandaIndex;
+};
+
+const appendTrackToPlaylist = (
+  track: TrackRow,
+  options?: { allowStyleMismatch?: boolean; forcedIndex?: number },
+) => {
   normalizePlaylist();
   const targetIndex = getPlaylistTargetIndex();
-  const insertIndex = targetIndex ?? findFirstEmptyPlaylistSlot();
+  const openIndex = getOpenPlaylistTandaIndex();
+  const insertIndex =
+    options?.forcedIndex ?? targetIndex ?? openIndex ?? findFirstEmptyPlaylistSlot();
   if (insertIndex < 0) {
     setStatus(t("statusPlaylistNoEmptySlot"));
     return;
@@ -5726,11 +6033,12 @@ const appendTrackToPlaylist = (track: TrackRow) => {
       setStatus(t("statusPlaylistNoEmptySlot"));
       return;
     }
-    tanda.trackSlots[emptyIndex] = track.id;
-    const tracks = tanda.trackSlots.map((id) =>
+    const previewTrackSlots = [...tanda.trackSlots];
+    previewTrackSlots[emptyIndex] = track.id;
+    const previewTracks = previewTrackSlots.map((id) =>
       id ? trackCache.get(id) ?? null : null,
     );
-    const derivedStyles = collectStylesFromTracks(tracks, availableStyles);
+    const derivedStyles = collectStylesFromTracks(previewTracks, availableStyles);
     const normalizedExisting = tanda.styles
       .map((style) => normalizeStyleName(style))
       .map((normalized) =>
@@ -5739,9 +6047,38 @@ const appendTrackToPlaylist = (track: TrackRow) => {
         ),
       )
       .filter(Boolean) as string[];
-    tanda.styles = Array.from(new Set([...normalizedExisting, ...derivedStyles]));
+    const previewStyles = Array.from(
+      new Set([...normalizedExisting, ...derivedStyles]),
+    );
+    const previewTanda: TandaDraft = {
+      ...tanda,
+      styles: previewStyles,
+      trackSlots: previewTrackSlots,
+    };
+    const validation = validateTandaForSlot(previewTanda, insertIndex);
+    if (
+      validation.reason === "style" &&
+      validation.rule &&
+      !options?.allowStyleMismatch
+    ) {
+      showAlertAction(
+        t("confirmPlaylistSequenceStyleOverride", {
+          rule: getSequenceLabel(validation.rule),
+          tanda: getTandaSequenceLabel(previewTanda),
+        }),
+        t("allowOverride"),
+        () => {
+          appendTrackToPlaylist(track, {
+            allowStyleMismatch: true,
+            forcedIndex: insertIndex,
+          });
+        },
+      );
+      return;
+    }
+    tanda.trackSlots = previewTrackSlots;
+    tanda.styles = previewStyles;
     trackCache.set(track.id, track);
-    const validation = validateTandaForSlot(tanda, insertIndex);
     const mismatch =
       validation.reason === "style" || validation.reason === "count"
         ? validation.reason
@@ -5754,6 +6091,10 @@ const appendTrackToPlaylist = (track: TrackRow) => {
     normalizePlaylist();
     activatePanelTab(playlistPanel, "playlist-tab");
     markPlaylistPulse(insertIndex);
+    playlistOpenTandaIndex = insertIndex;
+    if (!tanda.trackSlots.some((slot) => !slot)) {
+      clearPlaylistOpenTanda();
+    }
     if (targetIndex !== null) {
       clearPlaylistTarget();
     }
@@ -5762,11 +6103,25 @@ const appendTrackToPlaylist = (track: TrackRow) => {
   }
   const tanda = createPlaylistTandaForSlot(insertIndex, track);
   ensureTandaDraft(tanda);
-  const mismatch = getStyleMismatchForTrack(insertIndex, track)
-    ? "style"
-    : undefined;
+  const rule = getRuleForSlot(insertIndex);
+  const mismatch = getStyleMismatchForTrack(insertIndex, track) ? "style" : undefined;
+  if (mismatch && rule && !options?.allowStyleMismatch) {
+    showAlertAction(
+      t("confirmPlaylistSequenceStyleOverride", {
+        rule: getSequenceLabel(rule),
+        tanda: getTandaSequenceLabel(tanda),
+      }),
+      t("allowOverride"),
+      () => {
+        appendTrackToPlaylist(track, {
+          allowStyleMismatch: true,
+          forcedIndex: insertIndex,
+        });
+      },
+    );
+    return;
+  }
   if (mismatch) {
-    const rule = getRuleForSlot(insertIndex);
     if (rule) {
       setStatus(
         t("statusPlaylistSequenceMismatch", {
@@ -5779,6 +6134,7 @@ const appendTrackToPlaylist = (track: TrackRow) => {
   normalizePlaylist();
   trackCache.set(track.id, track);
   activatePanelTab(playlistPanel, "playlist-tab");
+  playlistOpenTandaIndex = insertIndex;
   openTandaInDesigner(tanda.id, tanda, "playlist-tab");
   markPlaylistPulse(insertIndex);
   if (targetIndex !== null) {
@@ -6055,6 +6411,9 @@ const ensureCortinaPlans = async (indices: number[]) => {
 const setCortinaModalVisible = (visible: boolean) => {
   if (!cortinaModal) {
     return;
+  }
+  if (!visible || appMode !== "edit") {
+    resetModalCardPosition(cortinaModal);
   }
   cortinaModal.classList.toggle("open", visible);
   cortinaModal.setAttribute("aria-hidden", visible ? "false" : "true");
@@ -6380,6 +6739,17 @@ const addTandaToPlaylist = (tandaId: string, source?: TandaDraft | null) => {
   }
   if (!tandaDrafts.some((item) => item.id === tandaId)) {
     return;
+  }
+  const openIndex = getOpenPlaylistTandaIndex();
+  if (openIndex !== null) {
+    const openItem = playlistItems[openIndex];
+    if (openItem?.kind === "tanda") {
+      const openTanda = resolveTandaDraft(openItem.tandaId);
+      if (openTanda) {
+        finalizeTandaDraft(openTanda, "playlist-tab");
+      }
+    }
+    clearPlaylistOpenTanda();
   }
   normalizePlaylist();
   const targetIndex = getPlaylistTargetIndex();
@@ -7627,6 +7997,14 @@ const init = async () => {
     clearGeneralClipboard();
   });
 
+  if (clipboardFilterInput) {
+    clipboardFilterInput.value = clipboardFilterText;
+    clipboardFilterInput.addEventListener("input", () => {
+      clipboardFilterText = clipboardFilterInput.value;
+      void renderClipboard();
+    });
+  }
+
   playlistClearBtn?.addEventListener("click", async () => {
     const confirmed = window.confirm(t("confirmPlaylistClear"));
     if (!confirmed) {
@@ -7963,6 +8341,7 @@ const init = async () => {
     }
     cortinaAllowFull = false;
     cortinaStopRequested = true;
+    updateNowPlayingDisplay();
   });
   cortinaPlayBtn?.addEventListener("click", () => {
     if (!cortinaPlaying) {
@@ -7970,6 +8349,7 @@ const init = async () => {
     }
     cortinaStopRequested = false;
     cortinaAllowFull = true;
+    updateNowPlayingDisplay();
   });
   cortinaModalClose?.addEventListener("click", () => {
     setCortinaModalVisible(false);
@@ -7999,6 +8379,11 @@ const init = async () => {
             : "prep";
       localStorage.setItem("tanda-mode", appMode);
       document.body.classList.toggle("mode-live", appMode === "live");
+      if (appMode === "edit") {
+        setTrackEditorOpen(false);
+        trackEditorState.track = null;
+        setCortinaModalVisible(false);
+      }
       updateTrackEditorPresentation();
       renderPlaylist();
       renderTandaDesigner();
@@ -8063,6 +8448,17 @@ const init = async () => {
   trackEditorTapBtn?.addEventListener("click", () => {
     handleTapTempo();
   });
+  trackEditorSingerInput?.addEventListener("input", () => {
+    if (!trackEditorVocalInput) {
+      return;
+    }
+    if (
+      trackEditorSingerInput.value.trim().length > 0 &&
+      trackEditorVocalInput.value === "instrumental"
+    ) {
+      trackEditorVocalInput.value = "sung";
+    }
+  });
   trackEditorResetBtn?.addEventListener("click", () => {
     resetTrackEditorFields();
   });
@@ -8080,6 +8476,7 @@ const init = async () => {
       title: trackEditorTitleInput?.value ?? "",
       artist: trackEditorArtistInput?.value ?? "",
       singer: trackEditorSingerInput?.value ?? "",
+      instrumental: trackEditorVocalInput?.value === "instrumental",
       album: trackEditorAlbumInput?.value ?? "",
       year: trackEditorYearInput?.value ?? "",
       genre: trackEditorGenreInput?.value ?? "",
@@ -8107,6 +8504,9 @@ const init = async () => {
       setStatus(t("statusTrackUpdateFailed"));
     }
   });
+
+  attachModalDrag(trackEditor);
+  attachModalDrag(cortinaModal);
 
   window.tanda.onScanProgress((progress) => {
     if (progressEl) {
@@ -8311,6 +8711,17 @@ const init = async () => {
   });
 
   const runScan = async (kind: "music" | "cortina") => {
+    if (scanRequestInFlight) {
+      setStatus(t("statusScanInProgress"));
+      return;
+    }
+    scanRequestInFlight = true;
+    if (scanMusicBtn) {
+      scanMusicBtn.disabled = true;
+    }
+    if (scanCortinasBtn) {
+      scanCortinasBtn.disabled = true;
+    }
     clearAlert();
     setStatus(t("statusScanning"));
     if (progressLabel) {
@@ -8331,6 +8742,10 @@ const init = async () => {
       const summary = await window.tanda?.scanKind(kind);
       if (!summary) {
         setStatus(t("statusScanFailedNoResponse"));
+        return;
+      }
+      if (summary.inProgress) {
+        setStatus(t("statusScanInProgress"));
         return;
       }
       setStatus(
@@ -8383,6 +8798,14 @@ const init = async () => {
           ? t("statusScanFailedDetail", { message: error.message })
           : t("statusScanFailed"),
       );
+    } finally {
+      scanRequestInFlight = false;
+      if (scanMusicBtn) {
+        scanMusicBtn.disabled = false;
+      }
+      if (scanCortinasBtn) {
+        scanCortinasBtn.disabled = false;
+      }
     }
   };
 
@@ -8649,6 +9072,7 @@ const init = async () => {
       }
       if (tabId === "tanda-designer-tab" || tabId === "playlist-tab") {
         activeRightTab = tabId as RightPanelTab;
+        renderTandaDesigner();
       }
     });
   });
@@ -8798,6 +9222,12 @@ const init = async () => {
     if (action === "tanda-toggle") {
       const source = tandaCache.get(tandaId) ?? null;
       openTandaInDesigner(tandaId, source, "playlist-tab");
+      closeRowMenus();
+      return;
+    }
+    if (action === "tanda-edit") {
+      const source = resolveTandaForSearch(tandaId);
+      openTandaInDesigner(tandaId, source);
       closeRowMenus();
       return;
     }
@@ -9061,8 +9491,14 @@ const init = async () => {
         return;
       }
       const source =
-        resolveTandaDraft(tandaId) ?? createPlaceholderTanda(tandaId);
-      openTandaInDesigner(tandaId, source);
+        index >= 0
+          ? ensurePlaylistEditableTanda(tandaId, index)
+          : resolveTandaDraft(tandaId) ?? createPlaceholderTanda(tandaId);
+      if (!source) {
+        return;
+      }
+      const effectiveId = source.id;
+      openTandaInDesigner(effectiveId, source);
       closeRowMenus();
       return;
     }
@@ -9110,6 +9546,7 @@ const init = async () => {
       ensureTandaDraft(tanda);
       playlistItems[index] = { kind: "tanda", tandaId: tanda.id };
       normalizePlaylist();
+      playlistOpenTandaIndex = index;
       openTandaInDesigner(tanda.id, tanda, "playlist-tab");
       markPlaylistPulse(index);
       renderPlaylist();
@@ -9195,7 +9632,12 @@ const init = async () => {
       if (slotIndex < 0) {
         return;
       }
-      const tanda = resolveTandaDraft(tandaId);
+      const resolvedIndex =
+        row.dataset.index ? Number.parseInt(row.dataset.index, 10) : -1;
+      const tanda =
+        resolvedIndex >= 0
+          ? ensurePlaylistEditableTanda(tandaId, resolvedIndex)
+          : resolveTandaDraft(tandaId);
       if (!tanda) {
         return;
       }
@@ -9229,9 +9671,10 @@ const init = async () => {
         updateSearchTabVisibility();
         refreshSearch();
       }
-      if (index >= 0) {
-        playlistTargetIndex = index;
-        applyPlaylistTargetStyles(index);
+      if (resolvedIndex >= 0) {
+        playlistTargetIndex = resolvedIndex;
+        playlistOpenTandaIndex = resolvedIndex;
+        applyPlaylistTargetStyles(resolvedIndex);
         openTandaInDesigner(tanda.id, tanda, "playlist-tab");
       }
       renderPlaylist();

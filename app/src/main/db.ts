@@ -37,6 +37,7 @@ const createSchema = (database: Database.Database) => {
       genre text,
       bpm real,
       notes text,
+      instrumental integer,
       duration_ms integer,
       start_offset_ms integer,
       end_trim_ms integer,
@@ -129,6 +130,9 @@ export const initDb = () => {
   } catch {}
   try {
     db.exec("alter table tracks add column notes text");
+  } catch {}
+  try {
+    db.exec("alter table tracks add column instrumental integer");
   } catch {}
   try {
     db.exec(

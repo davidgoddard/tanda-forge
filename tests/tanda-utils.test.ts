@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   collectStylesFromTracks,
+  buildTandaArtistSortKey,
   deriveInstrumental,
   effectiveDurationMs,
   sumEffectiveDurationMs,
@@ -58,6 +59,18 @@ describe("tanda utils", () => {
     ]);
     expect(summary.years).toEqual(["1940", "1941"]);
     expect(summary.instrumental).toBe(true);
+    expect(summary.instrumentalStatus).toBe("instrumental");
+  });
+
+  it("builds artist sort keys from summary data", () => {
+    const summary = summarizeTandaTracks([
+      { artist: "Di Sarli", year: "1941", instrumental: true },
+      { artist: "Di Sarli", year: "1940", instrumental: true },
+      { artist: "Troilo", year: "1940", instrumental: true },
+    ]);
+    expect(buildTandaArtistSortKey(summary, "Unknown")).toBe("di sarli, troilo");
+    const emptySummary = summarizeTandaTracks([]);
+    expect(buildTandaArtistSortKey(emptySummary, "Unknown")).toBe("unknown");
   });
 
   it("normalizes artist names for summaries", () => {

@@ -7,19 +7,22 @@ type DataLocationConfig = {
 };
 
 const CONFIG_FILE = "tanda-player-config.json";
+const LEGACY_APP_NAME = "Tanda Player 2";
 let cachedDataRoot: string | null = null;
 
 const getConfigPath = () =>
   path.join(app.getPath("userData"), CONFIG_FILE);
 
-const readConfig = (): DataLocationConfig => {
+const readConfigAt = (configPath: string): DataLocationConfig => {
   try {
-    const raw = fs.readFileSync(getConfigPath(), "utf-8");
+    const raw = fs.readFileSync(configPath, "utf-8");
     return JSON.parse(raw) as DataLocationConfig;
   } catch {
     return {};
   }
 };
+
+const readConfig = (): DataLocationConfig => readConfigAt(getConfigPath());
 
 const writeConfig = (config: DataLocationConfig) => {
   try {
@@ -40,12 +43,36 @@ const resolveStoredDataRoot = () => {
   return config.dataRoot;
 };
 
+export const resolveLegacyDataRoot = (appDataPath: string) => {
+  const legacyUserData = path.join(appDataPath, LEGACY_APP_NAME);
+  const legacyConfigPath = path.join(legacyUserData, CONFIG_FILE);
+  const legacyConfig = readConfigAt(legacyConfigPath);
+  if (legacyConfig.dataRoot && fs.existsSync(legacyConfig.dataRoot)) {
+    return legacyConfig.dataRoot;
+  }
+  const legacyDbPath = path.join(legacyUserData, "tanda-player.db");
+  if (fs.existsSync(legacyDbPath)) {
+    return legacyUserData;
+  }
+  return null;
+};
+
 export const getDataRoot = () => {
   if (cachedDataRoot) {
     return cachedDataRoot;
   }
   const stored = resolveStoredDataRoot();
-  cachedDataRoot = stored ?? getDefaultDataRoot();
+  if (stored) {
+    cachedDataRoot = stored;
+  } else {
+    const legacyRoot = resolveLegacyDataRoot(app.getPath("appData"));
+    if (legacyRoot) {
+      cachedDataRoot = legacyRoot;
+      writeConfig({ dataRoot: legacyRoot });
+    } else {
+      cachedDataRoot = getDefaultDataRoot();
+    }
+  }
   fs.mkdirSync(cachedDataRoot, { recursive: true });
   return cachedDataRoot;
 };

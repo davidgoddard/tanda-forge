@@ -241,6 +241,36 @@ Code diffs are omitted; only intent and outcomes are captured.
   Assistant: When adding a track, fill the first empty slot in a targeted tanda (instead of always creating a new
   tanda), and after removing a track from a playlist tanda, target that slot, apply styles, and open the editor;
   tests/build pass.
+- User: Sending a track to the playlist should not force the Tanda Designer tab; it should stay in the playlist tab.
+  Assistant: After preparing the tanda in the designer, switch the right panel back to the playlist tab; tests/build pass.
+- User: The playlist mismatch warning icon overlapped the menu buttons.
+  Assistant: Moved the warning badge up to clear the menu buttons; tests/build pass.
+- User: Wanted the waveform to be at least half width, not capped at half.
+  Assistant: Set the now-playing grid so the waveform column has a 50% minimum; tests/build pass.
+- User: Reported waveform still capped at half width and cortina control icons rendering incorrectly.
+  Assistant: Switched now-playing to flex to allow waveform to grow beyond half width, set waveform to flex with 50% min, and tuned cortina icon sizing; tests/build pass.
+- User: Requested a package.json task for deployment-ready builds and GitHub release setup guidance.
+  Assistant: Added `npm run package` (build + electron-builder) and provided GitHub release workflow instructions; tests/build pass.
+- User: Dropping a track into the playlist created a tanda but didn’t open the editor in the playlist flow, and Done didn’t update the playlist.
+  Assistant: Keep the editor open for playlist-created tandas and refresh the playlist on Done; tests/build pass.
+- User: Requested classic CD/tape-style cortina stop/play buttons.
+  Assistant: Updated cortina control SVGs to circular disc-style icons and adjusted sizing; tests/build pass.
+- User: Asked to change the playlist hint text.
+  Assistant: Updated playlist hint translations to the new wording; tests/build pass.
+- User: Asked for edit-mode popups to be draggable.
+  Assistant: Added header drag support for modal cards in edit mode and reset positions outside edit; tests/build pass.
+- User: Asked for waveform clicking to seek in edit mode.
+  Assistant: Allowed waveform seeking in edit mode (prep + edit); tests/build pass.
+- User: Wanted a way to mark tracks as sung vs instrumental in the track editor so tanda status can be sung/instrumental/mixed.
+  Assistant: Added a vocal selector to the track editor, persisted instrumental flags, and updated tanda summaries to show sung/mixed/instrumental; tests/build pass.
+- User: Reported build/runtime errors due to missing instrumental column in existing databases.
+  Assistant: Added a migration to add the instrumental column on startup; tests/build pass.
+- User: In edit mode, popups should not auto-open and should drag without expanding to full width.
+  Assistant: Closed modals on entering edit mode and fixed drag sizing/position reset; tests/build pass.
+- User: Clarified playlist behavior: track sends should keep filling the active playlist tanda until done; adding a tanda should close it.
+  Assistant: Added an active playlist tanda index, fill empty slots on P sends, close active tanda when adding a full tanda, and update Done flow; tests/build pass.
+- User: Asked for waveform seeking to work while the edit window is open.
+  Assistant: Allowed pointer events to pass through non-modal overlays so waveform remains clickable; tests/build pass.
 
 - User: Requested playlist summary-line clicks toggle expand/collapse like the E action.
   Assistant: Routed playlist summary click handling through the same toggle path.
@@ -481,3 +511,68 @@ Code diffs are omitted; only intent and outcomes are captured.
 - User: Asked for a multi-column layout on the Settings page for System and Playlist.
   Assistant: Implemented a responsive two-column grid for those tabs and documented
   the requirement.
+- User: Requested tandas in clipboard collections be sorted by artist names.
+  Assistant: Added a shared artist sort key helper, sorted clipboard tandas by it,
+  and added a unit test.
+- User: Reported tracks sent to playlist still open the tanda designer tab and asked
+  for in-progress tanda highlighting.
+  Assistant: Added a playlist-tab tanda editor container, kept the playlist tab
+  active for open playlist tandas, and highlighted in-progress tandas with a
+  pulsing border.
+- User: Requested a simple clipboard text filter between the header and clear button.
+  Assistant: Added a clipboard filter input with i18n placeholder and immediate
+  substring filtering for tracks and tandas.
+- User: Asked that entering a singer should force vocal to Sung if Instrumental
+  was selected.
+  Assistant: Updated the track editor to auto-switch the vocal selector to Sung
+  when a singer name is entered.
+- User: Asked to omit the "Empty slot" prefix when a tanda has no name.
+  Assistant: Updated tanda summaries to skip the name prefix when it is blank.
+- User: Reported removing a track from a playlist tanda also altered the clipboard tanda.
+  Assistant: Clone playlist tandas when editing from the playlist to avoid mutating
+  clipboard tandas, so only the single track is sent to the clipboard.
+- User: Asked for a clear “x” affordance in the clipboard filter input.
+  Assistant: Switched the clipboard filter input to type="search" so it shows
+  the native clear control.
+- User: Requested renaming the project to "Tanda Player Lite".
+  Assistant: Updated package metadata, app title strings, and documentation to
+  use the new name.
+- User: Reported packaging warnings and an electron-builder deadlock on unpack.
+  Assistant: Added description/author, postinstall install-app-deps, and removed
+  electron-rebuild to align with electron-builder guidance.
+- User: Reported missing data and a blank config after renaming.
+  Assistant: Added legacy data-root migration using the old userData path and
+  covered it with unit tests.
+- User: Reported missing language/styles/audio/data location despite latest build.
+  Assistant: Fixed a renderer init bug from `data-i18n-attr` handling by
+  supporting comma-separated attribute names in translations.
+- User: Asked to darken the config window background so inputs stand out.
+  Assistant: Slightly darkened the settings panel background in light and dark themes.
+- User: Reported low contrast text on the "General" collection button in dark mode.
+  Assistant: Increased active collection tab text contrast in dark mode.
+- User: Reported SCAN_IN_PROGRESS errors during library scan.
+  Assistant: Handled scan-in-progress as a normal IPC response and guarded scan
+  requests in the renderer to avoid concurrent scan calls.
+- User: Reported playlist single-track send still showing duplicated tanda designer
+  content instead of one in-progress tanda.
+  Assistant: Limited playlist editor rendering to the active open playlist tanda only.
+- User: Asked to keep the playlist editor visible at the bottom and restore style
+  mismatch warnings when sending tracks to playlist tandas.
+  Assistant: Made playlist list independently scrollable with editor pinned below,
+  and added mismatch warning confirmations for track-to-playlist sends.
+- User: Reported cortina row showing a tanda track while now-playing showed the
+  real cortina track.
+  Assistant: Re-render playlist after cortina playback starts so the cortina row
+  always reflects the actual current cortina track.
+- User: Requested tanda summaries without placeholder names plus richer summary
+  metadata, and asked search-result tanda `T` to open the designer tab.
+  Assistant: Updated tanda summary format globally and wired search tanda edit
+  action to open in Tanda Designer.
+- User: Reported that appending a tanda while the terminal cortina was playing
+  caused another cortina to play before the new tanda.
+  Assistant: Updated playlist flow to carry terminal-cortina continuation state
+  and skip inserting an extra pre-tanda cortina in that case.
+- User: Requested now-playing cortina duration to show configured cortina length
+  unless "play all" is active.
+  Assistant: Updated now-playing timing display to switch between playlist cortina
+  duration and full-track duration, with immediate feedback on button press.

@@ -12,9 +12,9 @@ identified as `DATA-<section>.R<n>` in order under each section. Sub-bullets use
 
 ## DATA-002 — App Data Locations
 
-- DATA-002.R1: macOS: `~/Library/Application Support/Tanda Player 2/`
-- DATA-002.R2: Windows: `%APPDATA%\\Tanda Player 2\\`
-- DATA-002.R3: Linux: `~/.config/Tanda Player 2/`
+- DATA-002.R1: macOS: `~/Library/Application Support/Tanda Player Lite/`
+- DATA-002.R2: Windows: `%APPDATA%\\Tanda Player Lite\\`
+- DATA-002.R3: Linux: `~/.config/Tanda Player Lite/`
 
 ## DATA-003 — Database Files
 

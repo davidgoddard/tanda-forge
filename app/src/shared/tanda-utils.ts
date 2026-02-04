@@ -328,12 +328,29 @@ export const summarizeTandaTracks = (tracks: (TandaSummaryTrack | null)[]) => {
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   const yearList = Array.from(years).sort((a, b) => a.localeCompare(b));
-  const instrumental =
-    populated.length > 0 &&
-    populated.every((track) => track.instrumental === true);
+  const hasInstrumental = populated.some((track) => track.instrumental === true);
+  const hasSung = populated.some((track) => track.instrumental !== true);
+  const instrumental = populated.length > 0 && hasInstrumental && !hasSung;
+  const instrumentalStatus = hasInstrumental && hasSung
+    ? "mixed"
+    : hasInstrumental
+      ? "instrumental"
+      : "sung";
   return {
     artists,
     years: yearList,
     instrumental,
+    instrumentalStatus,
   };
+};
+
+export const buildTandaArtistSortKey = (
+  summary: ReturnType<typeof summarizeTandaTracks>,
+  unknownLabel: string,
+) => {
+  const label =
+    summary.artists.length > 0
+      ? summary.artists.map((artist) => artist.name).join(", ")
+      : unknownLabel;
+  return label.toLowerCase();
 };

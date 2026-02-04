@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { shouldContinueAfterEndCortina } from "../app/src/shared/playlist-flow.js";
+import {
+  shouldContinueAfterEndCortina,
+  shouldInsertCortinaBeforeTanda,
+} from "../app/src/shared/playlist-flow.js";
 
 describe("shouldContinueAfterEndCortina", () => {
   it("returns true when new items were appended after the end cortina", () => {
@@ -8,5 +11,15 @@ describe("shouldContinueAfterEndCortina", () => {
 
   it("returns false when still at the end of the playlist", () => {
     expect(shouldContinueAfterEndCortina(3, 3)).toBe(false);
+  });
+});
+
+describe("shouldInsertCortinaBeforeTanda", () => {
+  it("returns false when continuing from a terminal cortina into newly appended tanda", () => {
+    expect(shouldInsertCortinaBeforeTanda(true, 3, 0, false, true)).toBe(false);
+  });
+
+  it("returns true for normal tanda transitions with cortinas enabled", () => {
+    expect(shouldInsertCortinaBeforeTanda(true, 2, 0, false, false)).toBe(true);
   });
 });

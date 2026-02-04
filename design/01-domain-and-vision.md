@@ -1,8 +1,8 @@
-# Tanda Player 2 — Domain and Vision
+# Tanda Player Lite — Domain and Vision
 
 ## Purpose
 
-Tanda Player 2 is a music playback and preparation system designed specifically
+Tanda Player Lite is a music playback and preparation system designed specifically
 for DJs playing milongas, where the primary unit of musical intent is the tanda,
 not the individual track.
 

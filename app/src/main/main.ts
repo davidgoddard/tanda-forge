@@ -303,6 +303,16 @@ const registerIpc = () => {
       ).run(completedAt);
       return summary;
     } catch (error) {
+      if (error instanceof Error && error.message === "SCAN_IN_PROGRESS") {
+        return {
+          scanned: 0,
+          added: 0,
+          updated: 0,
+          removed: 0,
+          errors: [],
+          inProgress: true,
+        };
+      }
       const message =
         error instanceof Error ? error.message : "Scan failed.";
       db.prepare(
@@ -329,6 +339,16 @@ const registerIpc = () => {
       ).run(completedAt, kind);
       return summary;
     } catch (error) {
+      if (error instanceof Error && error.message === "SCAN_IN_PROGRESS") {
+        return {
+          scanned: 0,
+          added: 0,
+          updated: 0,
+          removed: 0,
+          errors: [],
+          inProgress: true,
+        };
+      }
       const message =
         error instanceof Error ? error.message : "Scan failed.";
       db.prepare(
@@ -338,17 +358,28 @@ const registerIpc = () => {
     }
   });
 
+  const normalizeTrackRow = (row: any) =>
+    row
+      ? {
+          ...row,
+          instrumental:
+            row.instrumental === null ? null : Boolean(row.instrumental),
+        }
+      : row;
+  const normalizeTrackRows = (rows: any[]) => rows.map(normalizeTrackRow);
+
   ipcMain.handle("library:listTracks", async () => {
     const db = getDb();
-    return db
+    const rows = db
       .prepare(
         `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
-          year, genre, bpm, notes, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+          year, genre, bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
           tag_error, analysis_error
          from tracks
          order by artist, title`,
       )
       .all();
+    return normalizeTrackRows(rows);
   });
 
   ipcMain.handle(
@@ -370,16 +401,17 @@ const registerIpc = () => {
       const sortSql = getSortSql(sortBy);
       const extraSort =
         sortBy === "artist" ? `, artist ${sortDir}` : "";
-      return db
+      const rows = db
         .prepare(
           `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
-            year, genre, bpm, notes, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+            year, genre, bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
             loudness_db, gain_db, tag_error, analysis_error
            from tracks
            order by ${sortSql} ${sortDir}${extraSort}, id ${sortDir}
            limit ? offset ?`,
         )
         .all(limit, offset);
+      return normalizeTrackRows(rows);
     },
   );
 
@@ -415,10 +447,10 @@ const registerIpc = () => {
         const sortSql = getSortSql(normalizeSortColumn(sortBy));
         const extraSort =
           sortBy === "artist" ? `, artist ${sortDir}` : "";
-        return db
+        const rows = db
           .prepare(
             `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
-              year, genre, bpm, notes, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+              year, genre, bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
               loudness_db, gain_db, tag_error, analysis_error
              from tracks
              ${whereSql}
@@ -426,6 +458,7 @@ const registerIpc = () => {
              limit ? offset ?`,
           )
           .all(...values, limit, offset);
+        return normalizeTrackRows(rows);
       }
       const result = fuzzySearchTracks(
         db,
@@ -435,7 +468,7 @@ const registerIpc = () => {
         sortBy,
         sortDir,
       );
-      return result.page;
+      return normalizeTrackRows(result.page);
     },
   );
 
@@ -617,7 +650,7 @@ const registerIpc = () => {
       const rows = db
         .prepare(
           `select t.id, t.full_path, t.relative_path, t.title, t.artist, t.artist_summary, t.singer,
-            t.album, t.year, t.genre, t.bpm, t.duration_ms,
+            t.album, t.year, t.genre, t.bpm, t.instrumental, t.duration_ms,
             t.start_offset_ms, t.end_trim_ms, t.analysis_json, t.loudness_db, t.gain_db,
             t.tag_error, t.analysis_error, r.label as root_label, r.path as root_path
            from tracks t
@@ -625,7 +658,11 @@ const registerIpc = () => {
            where r.kind = 'cortina'`,
         )
         .all() as (CortinaTrackRow & { root_label?: string | null; root_path?: string | null })[];
-      return rows
+      const normalized = normalizeTrackRows(rows) as (CortinaTrackRow & {
+        root_label?: string | null;
+        root_path?: string | null;
+      })[];
+      return normalized
         .map((row) => ({
           ...row,
           cortina_set: getCortinaSetName(
@@ -649,7 +686,7 @@ const registerIpc = () => {
       const rows = db
         .prepare(
           `select t.id, t.full_path, t.relative_path, t.title, t.artist, t.artist_summary, t.singer,
-            t.album, t.year, t.genre, t.bpm, t.duration_ms,
+            t.album, t.year, t.genre, t.bpm, t.instrumental, t.duration_ms,
             t.start_offset_ms, t.end_trim_ms, t.analysis_json, t.loudness_db, t.gain_db,
             t.tag_error, t.analysis_error, r.label as root_label, r.path as root_path
            from tracks t
@@ -657,7 +694,11 @@ const registerIpc = () => {
            where r.kind = 'cortina'`,
         )
         .all() as (CortinaTrackRow & { root_label?: string | null; root_path?: string | null })[];
-      const filtered = rows
+      const normalized = normalizeTrackRows(rows) as (CortinaTrackRow & {
+        root_label?: string | null;
+        root_path?: string | null;
+      })[];
+      const filtered = normalized
         .map((row) => ({
           ...row,
           cortina_set: getCortinaSetName(
@@ -838,6 +879,7 @@ const registerIpc = () => {
         genre?: string | null;
         bpm?: number | null;
         notes?: string | null;
+        instrumental?: boolean | null;
       },
     ) => {
       const db = getDb();
@@ -861,10 +903,16 @@ const registerIpc = () => {
       const notes = payload.notes?.trim() ?? "";
       const artistSummary = artist ? summarizeArtistName(artist) : "";
       const updatedAt = new Date().toISOString();
+      const instrumental =
+        payload.instrumental === null || payload.instrumental === undefined
+          ? null
+          : payload.instrumental
+            ? 1
+            : 0;
       db.prepare(
         `update tracks
           set title = ?, artist = ?, artist_summary = ?, singer = ?, album = ?,
-              year = ?, genre = ?, bpm = ?, notes = ?, updated_at = ?
+              year = ?, genre = ?, bpm = ?, notes = ?, instrumental = ?, updated_at = ?
           where id = ?`,
       ).run(
         title || null,
@@ -876,18 +924,19 @@ const registerIpc = () => {
         genre || null,
         bpm,
         notes || null,
+        instrumental,
         updatedAt,
         payload.id,
       );
       const row = db
         .prepare(
           `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
-            year, genre, bpm, notes, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
+            year, genre, bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
             loudness_db, gain_db, tag_error, analysis_error
            from tracks where id = ?`,
         )
         .get(payload.id);
-      return row ?? null;
+      return row ? normalizeTrackRow(row) : null;
     },
   );
 
@@ -951,15 +1000,16 @@ const registerIpc = () => {
     }
     const db = getDb();
     const placeholders = ids.map(() => "?").join(", ");
-    return db
+    const rows = db
       .prepare(
         `select id, full_path, relative_path, title, artist, artist_summary, singer,
-                album, year, genre, bpm, notes, duration_ms,
+                album, year, genre, bpm, notes, instrumental, duration_ms,
                 start_offset_ms, end_trim_ms, analysis_json, loudness_db,
                 gain_db, tag_error, analysis_error
          from tracks where id in (${placeholders})`,
       )
       .all(...ids);
+    return normalizeTrackRows(rows);
   });
 
   ipcMain.handle(

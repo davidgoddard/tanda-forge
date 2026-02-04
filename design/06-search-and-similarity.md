@@ -5,7 +5,7 @@ identified as `FR-<section>.R<n>` or `NFR-<section>.R<n>` in order under each
 section. Sub-bullets use `.<letter>` suffixes.
 
 This document defines how search, sorting, navigation, and similarity work in
-Tanda Player 2. Search is a primary interaction model and must remain fast,
+Tanda Player Lite. Search is a primary interaction model and must remain fast,
 fault-tolerant, and consistent across devices.
 
 ## FR-089 — Search Fundamentals

@@ -1,4 +1,4 @@
-# Tanda Player 2
+# Tanda Player Lite
 
 Electron-based DJ tool for managing tango tandas, playlists, and playback.
 
