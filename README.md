@@ -49,7 +49,13 @@ npm install
 2) Ensure ffmpeg binaries are present (see above). The `build.extraResources`
    section in `package.json` will bundle `app/resources/ffmpeg` into the app.
 
-3) Build the app bundles with Electron Builder (download on demand):
+3) Build the app bundles with Electron Builder:
+
+```bash
+npm run package
+```
+
+Or target a specific OS:
 
 ```bash
 npx electron-builder --mac

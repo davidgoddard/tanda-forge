@@ -18,6 +18,9 @@
   --warning-border: rgba(171, 126, 57, 0.4);
   --error-bg: rgba(255, 240, 230, 0.8);
   --error-text: #6a2d23;
+  --playing-bg: rgba(176, 138, 90, 0.28);
+  --playing-accent: rgba(176, 138, 90, 0.75);
+  --playing-outline: rgba(176, 138, 90, 0.32);
   color: var(--text);
 }
 
@@ -36,6 +39,9 @@ body.theme-dark {
   --warning-border: rgba(180, 140, 70, 0.45);
   --error-bg: rgba(80, 40, 32, 0.75);
   --error-text: #f3c6b6;
+  --playing-bg: rgba(248, 233, 210, 0.12);
+  --playing-accent: rgba(248, 233, 210, 0.7);
+  --playing-outline: rgba(248, 233, 210, 0.45);
 }
 
 * {
@@ -1223,13 +1229,27 @@ body.theme-dark .collection-tabs button.active {
 }
 
 .list-row.playing {
-  background: rgba(176, 138, 90, 0.28);
+  background: var(--playing-bg);
   border-radius: 8px;
-  box-shadow: inset 4px 0 0 rgba(176, 138, 90, 0.75);
+  box-shadow:
+    inset 4px 0 0 var(--playing-accent),
+    0 0 0 1px var(--playing-outline);
 }
 
 .list-row.playing-headphone {
-  box-shadow: inset 0 0 0 1px rgba(176, 138, 90, 0.6);
+  box-shadow: inset 0 0 0 1px var(--playing-accent);
+}
+
+body.theme-dark .list-row.playing {
+  color: #ffffff;
+  background: rgba(248, 233, 210, 0.22);
+  box-shadow:
+    inset 4px 0 0 rgba(248, 233, 210, 0.9),
+    0 0 0 1px rgba(248, 233, 210, 0.7);
+}
+
+body.theme-dark .list-row.playing .meta {
+  color: #ffffff;
 }
 
 .list-row.played {
@@ -1268,6 +1288,11 @@ body.theme-dark .collection-tabs button.active {
   background: var(--panel);
   display: grid;
   gap: 0.6rem;
+}
+
+body.theme-dark .tanda-card {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .tanda-card.selected {

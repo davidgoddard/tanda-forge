@@ -201,6 +201,7 @@ export type AppApi = {
   respondToCloseRequest: (allowed: boolean) => Promise<void>;
   onAppCloseRequest: (handler: () => void) => () => void;
   logClientError: (params: { message: string; stack?: string }) => Promise<void>;
+  toggleFullscreen: () => Promise<{ fullscreen: boolean }>;
 };
 
 declare global {

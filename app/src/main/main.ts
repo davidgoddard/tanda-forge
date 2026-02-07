@@ -1,4 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
+
+if (process.platform === "darwin" && process.arch === "x64") {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch("disable-gpu");
+}
 import fs from "fs";
 import os from "os";
 import { randomUUID } from "crypto";
@@ -106,9 +111,10 @@ const normalizeSearchConfig = (params: {
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
-    width: 1920,
-    height: 1080,
+    width: 1440,
+    height: 900,
     fullscreen: false,
+    fullscreenable: true,
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),
       contextIsolation: true,
@@ -164,6 +170,21 @@ const createWindow = () => {
     closeState.allowClose = true;
     closeState.closeRequested = false;
     mainWindow.close();
+  });
+
+  ipcMain.handle("app:toggleFullscreen", async () => {
+    const window = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    if (process.platform === "darwin") {
+      if (window.isMaximized()) {
+        window.unmaximize();
+      } else {
+        window.maximize();
+      }
+      return { fullscreen: window.isMaximized() };
+    }
+    const next = !window.isFullScreen();
+    window.setFullScreen(next);
+    return { fullscreen: window.isFullScreen() };
   });
 };
 

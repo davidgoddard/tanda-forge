@@ -1,10 +1,8 @@
 import {
   buildTandaArtistSortKey,
   deriveInstrumental,
-  effectiveDurationMs,
   normalizeStyleName,
   summarizeArtistName,
-  sumEffectiveDurationMs,
   summarizeTandaTracks,
   collectStylesFromTracks,
 } from "../shared/tanda-utils.js";
@@ -46,6 +44,7 @@ import { reorderClipboardCollections } from "../shared/clipboard-order.js";
 import { moveTrackToCollection } from "../shared/clipboard-move.js";
 import { computeTrimmedEnd } from "../shared/audio-trim.js";
 import {
+  resolveContinuationIndexAfterEndCortina,
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
 } from "../shared/playlist-flow.js";
@@ -176,6 +175,8 @@ const searchMinScoreInput =
   document.querySelector<HTMLInputElement>("#search-min-score");
 const searchBpmRangeInput =
   document.querySelector<HTMLInputElement>("#search-bpm-range");
+const trimPaddingInput =
+  document.querySelector<HTMLInputElement>("#trim-padding");
 const gapBetweenTracksInput = document.querySelector<HTMLInputElement>(
   "#gap-between-tracks",
 );
@@ -327,6 +328,7 @@ const DEFAULT_STYLE_LANG_KEY = "tanda-default-style-lang";
 const DEFAULT_STYLE_NAMES_KEY = "tanda-default-style-names";
 const SEARCH_MIN_SCORE_KEY = "tanda-search-min-score";
 const SEARCH_BPM_RANGE_KEY = "tanda-search-bpm-range";
+const TRIM_PADDING_KEY = "tanda-trim-padding";
 const PLAYLIST_STORAGE_KEY = "tanda-playlist-items";
 const PLAYLIST_AUTO_CENTER_IDLE_MS = 2 * 60 * 1000;
 const DEFAULT_SEARCH_MIN_SCORE = 0.25;
@@ -675,6 +677,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardNewLimitLabel: "New collection size",
     searchMinScoreLabel: "Search minimum score",
     searchBpmRangeLabel: "BPM search range",
+    trimPaddingLabel: "Trim padding (sec)",
+    trimPaddingHelp: "Reduces auto-detected start/end trims by this amount.",
     playlistSettingsTitle: "Playlist Settings",
     playlistStartTimeLabel: "Playlist start time",
     playlistSequenceLabel: "Tanda sequence",
@@ -708,6 +712,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanFailed: "Scan failed.",
     statusScanFailedDetail: "Scan failed: {message}",
     statusScanFailedNoResponse: "Scan failed: no response from main process.",
+    statusFullscreenUnavailable: "Fullscreen is unavailable.",
+    statusFullscreenFailed: "Fullscreen toggle failed.",
+    statusFullscreenFailedDetail: "Fullscreen toggle failed: {message}",
     statusMainProcess: "Main process says: {message}",
     statusNoApi: "API bridge not available.",
     statusUnknownError: "Unknown error.",
@@ -973,6 +980,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardNewLimitLabel: "Tamano de la coleccion nueva",
     searchMinScoreLabel: "Puntuacion minima de busqueda",
     searchBpmRangeLabel: "Rango de BPM",
+    trimPaddingLabel: "Ajuste de recorte (s)",
+    trimPaddingHelp:
+      "Reduce los recortes de inicio/fin detectados automaticamente.",
     playlistSettingsTitle: "Ajustes de playlist",
     playlistStartTimeLabel: "Hora de inicio de la playlist",
     playlistSequenceLabel: "Secuencia de tandas",
@@ -1006,6 +1016,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanFailed: "Fallo de escaneo.",
     statusScanFailedDetail: "Fallo de escaneo: {message}",
     statusScanFailedNoResponse: "Fallo de escaneo: sin respuesta.",
+    statusFullscreenUnavailable: "Pantalla completa no disponible.",
+    statusFullscreenFailed: "Fallo al activar pantalla completa.",
+    statusFullscreenFailedDetail: "Fallo en pantalla completa: {message}",
     statusMainProcess: "Proceso principal: {message}",
     statusNoApi: "Puente API no disponible.",
     statusUnknownError: "Error desconocido.",
@@ -1273,6 +1286,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardNewLimitLabel: "Taille de la collection nouvelle",
     searchMinScoreLabel: "Score minimum de recherche",
     searchBpmRangeLabel: "Plage BPM",
+    trimPaddingLabel: "Marge de coupe (s)",
+    trimPaddingHelp:
+      "Reduit les coupes debut/fin detectees automatiquement.",
     playlistSettingsTitle: "Reglages de playlist",
     playlistStartTimeLabel: "Heure de debut de la playlist",
     playlistSequenceLabel: "Sequence de tandas",
@@ -1306,6 +1322,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanFailed: "Echec du scan.",
     statusScanFailedDetail: "Echec du scan: {message}",
     statusScanFailedNoResponse: "Echec du scan: aucune reponse.",
+    statusFullscreenUnavailable: "Plein ecran indisponible.",
+    statusFullscreenFailed: "Echec du plein ecran.",
+    statusFullscreenFailedDetail: "Echec du plein ecran: {message}",
     statusMainProcess: "Processus principal: {message}",
     statusNoApi: "Pont API indisponible.",
     statusUnknownError: "Erreur inconnue.",
@@ -1573,6 +1592,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardNewLimitLabel: "Neue Sammlungsgröße",
     searchMinScoreLabel: "Minimale Suchbewertung",
     searchBpmRangeLabel: "BPM-Bereich",
+    trimPaddingLabel: "Trim-Puffer (s)",
+    trimPaddingHelp:
+      "Reduziert automatisch erkannte Start/End-Trims um diesen Wert.",
     playlistSettingsTitle: "Playlist-Einstellungen",
     playlistStartTimeLabel: "Playlist-Startzeit",
     playlistSequenceLabel: "Tanda-Sequenz",
@@ -1606,6 +1628,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanFailed: "Scan fehlgeschlagen.",
     statusScanFailedDetail: "Scan fehlgeschlagen: {message}",
     statusScanFailedNoResponse: "Scan fehlgeschlagen: keine Antwort.",
+    statusFullscreenUnavailable: "Vollbild nicht verfuegbar.",
+    statusFullscreenFailed: "Vollbild fehlgeschlagen.",
+    statusFullscreenFailedDetail: "Vollbild fehlgeschlagen: {message}",
     statusMainProcess: "Hauptprozess: {message}",
     statusNoApi: "API-Bruecke nicht verfuegbar.",
     statusUnknownError: "Unbekannter Fehler.",
@@ -1871,6 +1896,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardNewLimitLabel: "Tamanho da colecao nova",
     searchMinScoreLabel: "Pontuacao minima de busca",
     searchBpmRangeLabel: "Intervalo de BPM",
+    trimPaddingLabel: "Ajuste de corte (s)",
+    trimPaddingHelp:
+      "Reduz os cortes de inicio/fim detectados automaticamente.",
     playlistSettingsTitle: "Ajustes da playlist",
     playlistStartTimeLabel: "Hora de inicio da playlist",
     playlistSequenceLabel: "Sequencia de tandas",
@@ -1904,6 +1932,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanFailed: "Falha no scan.",
     statusScanFailedDetail: "Falha no scan: {message}",
     statusScanFailedNoResponse: "Falha no scan: sem resposta.",
+    statusFullscreenUnavailable: "Tela cheia indisponivel.",
+    statusFullscreenFailed: "Falha ao alternar tela cheia.",
+    statusFullscreenFailedDetail: "Falha ao alternar tela cheia: {message}",
     statusMainProcess: "Processo principal: {message}",
     statusNoApi: "Ponte de API indisponivel.",
     statusUnknownError: "Erro desconhecido.",
@@ -2171,6 +2202,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardNewLimitLabel: "Dimensione nuova collezione",
     searchMinScoreLabel: "Punteggio minimo ricerca",
     searchBpmRangeLabel: "Intervallo BPM",
+    trimPaddingLabel: "Margine taglio (s)",
+    trimPaddingHelp:
+      "Riduce i tagli inizio/fine rilevati automaticamente.",
     playlistSettingsTitle: "Impostazioni playlist",
     playlistStartTimeLabel: "Ora inizio playlist",
     playlistSequenceLabel: "Sequenza tanda",
@@ -2205,6 +2239,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanFailedDetail: "Scansione fallita: {message}",
     statusScanFailedNoResponse:
       "Scansione fallita: nessuna risposta dal processo principale.",
+    statusFullscreenUnavailable: "Schermo intero non disponibile.",
+    statusFullscreenFailed: "Schermo intero non riuscito.",
+    statusFullscreenFailedDetail: "Schermo intero non riuscito: {message}",
     statusMainProcess: "Processo principale: {message}",
     statusNoApi: "Ponte API non disponibile.",
     statusUnknownError: "Errore sconosciuto.",
@@ -2583,13 +2620,38 @@ const formatClockTime = (totalMinutes: number) => {
 const getTrackCount = (tanda: TandaDraft) =>
   tanda.trackSlots.filter(Boolean).length;
 
+const getTrimPaddingSeconds = () =>
+  parseSettingNumber(TRIM_PADDING_KEY, 0, 0, 5);
+
+const getAdjustedTrimValues = (track: TrackRow | null) => {
+  const paddingMs = getTrimPaddingSeconds() * 1000;
+  const startOffsetMs = Math.max(
+    0,
+    (track?.start_offset_ms ?? 0) - paddingMs,
+  );
+  const endTrimMs = Math.max(0, (track?.end_trim_ms ?? 0) - paddingMs);
+  return { startOffsetMs, endTrimMs };
+};
+
+const getEffectiveTrackDurationMs = (track: TrackRow | null) => {
+  if (!track) {
+    return 0;
+  }
+  const { startOffsetMs, endTrimMs } = getAdjustedTrimValues(track);
+  return Math.max(0, track.duration_ms - startOffsetMs - endTrimMs);
+};
+
 const getTandaDurationMs = (tanda: TandaDraft) => {
   const tracks = tanda.trackSlots.map((trackId) =>
     trackId ? trackCache.get(trackId) ?? null : null,
   );
   const trackCount = tracks.filter(Boolean).length;
   const gaps = Math.max(0, trackCount - 1) * getGapBetweenTracks() * 1000;
-  return sumEffectiveDurationMs(tracks) + gaps;
+  const durationMs = tracks.reduce(
+    (sum, track) => sum + getEffectiveTrackDurationMs(track),
+    0,
+  );
+  return durationMs + gaps;
 };
 
 const buildPlaylistTimeline = () => {
@@ -2599,7 +2661,7 @@ const buildPlaylistTimeline = () => {
       return;
     }
     if (item.kind === "track") {
-      const durationMs = effectiveDurationMs(item.track);
+      const durationMs = getEffectiveTrackDurationMs(item.track);
       entries.push({
         index,
         durationMs,
@@ -2611,7 +2673,7 @@ const buildPlaylistTimeline = () => {
     if (tracks.length === 0) {
       return;
     }
-    const trackDurationsMs = tracks.map((track) => effectiveDurationMs(track));
+    const trackDurationsMs = tracks.map((track) => getEffectiveTrackDurationMs(track));
     const gaps =
       Math.max(0, trackDurationsMs.length - 1) * getGapBetweenTracks() * 1000;
     const durationMs =
@@ -2897,9 +2959,6 @@ const getCortinaRowTrack = (index: number) => {
   return null;
 };
 
-const getEffectiveTrackDurationMs = (track: TrackRow | null) =>
-  track ? effectiveDurationMs(track) : 0;
-
 const updateWaveformSource = async (trackId: string | null) => {
   if (!waveformImage || !waveformContainer) {
     return;
@@ -2968,8 +3027,7 @@ const updateNowPlayingDisplay = () => {
 
   const { channel, state } = active;
   const track = state.track;
-  const startOffsetMs = track?.start_offset_ms ?? 0;
-  const endTrimMs = track?.end_trim_ms ?? 0;
+  const { startOffsetMs, endTrimMs } = getAdjustedTrimValues(track ?? null);
   const baseDurationMs = track?.duration_ms ?? 0;
   const audioDurationSeconds = Number.isFinite(state.active?.duration)
     ? state.active?.duration ?? 0
@@ -3127,11 +3185,12 @@ const handleTandaAction = async (event: Event) => {
       }
     }
     tanda.trackSlots = cleanedSlots;
-    const totalDurationMs = sumEffectiveDurationMs(
-      tanda.trackSlots.map((trackId) =>
-        trackId ? trackCache.get(trackId) ?? null : null,
-      ),
-    );
+    const totalDurationMs = tanda.trackSlots.reduce((sum, trackId) => {
+      if (!trackId) {
+        return sum;
+      }
+      return sum + getEffectiveTrackDurationMs(trackCache.get(trackId) ?? null);
+    }, 0);
     const instrumental = deriveInstrumental(
       tanda.trackSlots.map((trackId) =>
         trackId ? trackCache.get(trackId) ?? null : null,
@@ -3159,6 +3218,11 @@ const handleTandaAction = async (event: Event) => {
   if (action === "tanda-done") {
     finalizeTandaDraft(tanda, tandaEditorReturnTab);
     tandaEditorReturnTab = null;
+    if (tandaEditorHostTab === "playlist-tab") {
+      clearPlaylistOpenTanda();
+      renderPlaylist();
+      renderTandaDesigner();
+    }
     return;
   }
   if (action === "tanda-delete") {
@@ -3284,26 +3348,26 @@ const fadeBetween = (
   targetVolume: number,
   durationMs = 600,
 ) => {
-  const steps = 12;
-  const stepMs = durationMs / steps;
-  let currentStep = 0;
   const fromStart = from ? Math.max(0, from.volume) : 0;
   to.volume = 0;
-  const interval = window.setInterval(() => {
-    currentStep += 1;
-    const t = currentStep / steps;
+  const start = performance.now();
+  const step = () => {
+    const elapsed = performance.now() - start;
+    const t = Math.min(1, durationMs > 0 ? elapsed / durationMs : 1);
     if (from) {
       from.volume = Math.max(0, fromStart * (1 - t));
     }
     to.volume = Math.min(targetVolume, targetVolume * t);
-    if (currentStep >= steps) {
-      window.clearInterval(interval);
+    if (t >= 1) {
       if (from) {
         from.pause();
         from.currentTime = 0;
       }
+      return;
     }
-  }, stepMs);
+    window.requestAnimationFrame(step);
+  };
+  window.requestAnimationFrame(step);
 };
 
 const applyOutputDevice = async (
@@ -3387,12 +3451,9 @@ const playOnChannel = async (
   state.currentTrackId = trackId;
   state.track = track ?? undefined;
   void updateWaveformSource(trackId);
-  const startOffsetSeconds =
-    track?.start_offset_ms && track.start_offset_ms > 0
-      ? track.start_offset_ms / 1000
-      : 0;
-  const endTrimSeconds =
-    track?.end_trim_ms && track.end_trim_ms > 0 ? track.end_trim_ms / 1000 : 0;
+  const { startOffsetMs, endTrimMs } = getAdjustedTrimValues(track);
+  const startOffsetSeconds = startOffsetMs > 0 ? startOffsetMs / 1000 : 0;
+  const endTrimSeconds = endTrimMs > 0 ? endTrimMs / 1000 : 0;
   const startAt =
     Number.isFinite(options?.startAtSeconds) && (options?.startAtSeconds ?? 0) > 0
       ? options?.startAtSeconds ?? 0
@@ -3433,7 +3494,7 @@ const playOnChannel = async (
     if (
       !trimHandled &&
       trimmedEndSeconds !== null &&
-      next.currentTime >= trimmedEndSeconds - 0.01
+      next.currentTime >= trimmedEndSeconds - 0.15
     ) {
       trimHandled = true;
       next.currentTime = trimmedEndSeconds;
@@ -3482,20 +3543,20 @@ const playTrackForMode = async (
 };
 
 const fadeOutAudio = async (audio: HTMLAudioElement, durationMs: number) => {
-  const steps = 12;
-  const stepMs = durationMs / steps;
   const startVolume = Math.max(0, audio.volume);
-  let currentStep = 0;
+  const start = performance.now();
   return new Promise<void>((resolve) => {
-    const interval = window.setInterval(() => {
-      currentStep += 1;
-      const t = Math.min(1, currentStep / steps);
+    const step = () => {
+      const elapsed = performance.now() - start;
+      const t = Math.min(1, durationMs > 0 ? elapsed / durationMs : 1);
       audio.volume = Math.max(0, startVolume * (1 - t));
-      if (currentStep >= steps) {
-        window.clearInterval(interval);
+      if (t >= 1) {
         resolve();
+        return;
       }
-    }, stepMs);
+      window.requestAnimationFrame(step);
+    };
+    window.requestAnimationFrame(step);
   });
 };
 
@@ -3928,6 +3989,9 @@ const finalizeTandaDraft = (
   if (returnTab) {
     activateRightTab(returnTab);
   }
+  if (returnTab === "playlist-tab") {
+    clearPlaylistOpenTanda();
+  }
   const openIndex = getOpenPlaylistTandaIndex();
   if (openIndex !== null) {
     const item = playlistItems[openIndex];
@@ -4214,7 +4278,10 @@ const buildTandaSummaryText = (tanda: TandaDraft, fallbackName?: string) => {
       : Math.min(...bpmValues) === Math.max(...bpmValues)
         ? `${Math.min(...bpmValues)} bpm`
         : `${Math.min(...bpmValues)}-${Math.max(...bpmValues)} bpm`;
-  const durationLabel = formatTime(sumEffectiveDurationMs(tracks) / 1000);
+  const durationLabel = formatTime(
+    tracks.reduce((sum, track) => sum + getEffectiveTrackDurationMs(track), 0) /
+      1000,
+  );
   const ratingLabel =
     tanda.rating > 0 ? `${"\u2605".repeat(Math.min(5, tanda.rating))}` : "";
   const details = [
@@ -4279,7 +4346,7 @@ const buildTandaDetailLines = (tanda: TandaDraft): TandaDetailLine[] => {
       return [];
     }
     const year = track.year?.trim() || t("tandaUnknownYear");
-    const duration = formatTime(effectiveDurationMs(track) / 1000);
+    const duration = formatTime(getEffectiveTrackDurationMs(track) / 1000);
     return [
       {
         text: `${buildTrackLabel(track)} (${year}) · ${duration}`,
@@ -5256,7 +5323,7 @@ const playCortina = async (runId: number, targetIndex: number) => {
 
 const runPlaylistPlayback = async (
   resume: boolean,
-  options?: { skipInitialCortinaGap?: boolean },
+  options?: { skipInitialCortinaGap?: boolean; startFromIdle?: boolean },
 ) => {
   playlistPlayback.runId += 1;
   const runId = playlistPlayback.runId;
@@ -5280,7 +5347,10 @@ const runPlaylistPlayback = async (
   );
   renderPlaylist();
   const skipInitialGap = options?.skipInitialCortinaGap ?? false;
+  let skipInitialGapPending = skipInitialGap;
+  const startFromIdle = options?.startFromIdle ?? false;
   let continuedFromEndCortina = false;
+  let leadInCortinaPlayed = false;
 
   const hasPlayableItems = playlistItems.some((item) => {
     if (!item) {
@@ -5293,11 +5363,35 @@ const runPlaylistPlayback = async (
     if (!ok) {
       return;
     }
-    if (!options?.skipInitialCortinaGap) {
+    const postOk = await waitBeforeTanda(runId);
+    if (!postOk) {
+      return;
+    }
+  }
+  if (resume && startFromIdle && isCortinaEnabled()) {
+    const item = playlistItems[playlistPlayback.currentIndex];
+    if (
+      item?.kind === "tanda" &&
+      playlistPlayback.currentTrackIndex === 0 &&
+      !resumeState?.resumeTime
+    ) {
+      if (skipInitialGapPending) {
+        skipInitialGapPending = false;
+      } else {
+        const gapOk = await waitBeforeCortina(runId);
+        if (!gapOk) {
+          return;
+        }
+      }
+      const ok = await playCortina(runId, playlistPlayback.currentIndex);
+      if (!ok) {
+        return;
+      }
       const postOk = await waitBeforeTanda(runId);
       if (!postOk) {
         return;
       }
+      leadInCortinaPlayed = true;
     }
   }
 
@@ -5319,6 +5413,15 @@ const runPlaylistPlayback = async (
             playlistItems.length,
           )
         ) {
+          const hasPlayableByIndex = playlistItems.map((entry) =>
+            entry ? resolvePlaylistTracks(entry).length > 0 : false,
+          );
+          playlistPlayback.currentIndex = resolveContinuationIndexAfterEndCortina(
+            playlistPlayback.currentIndex,
+            playlistPlayback.playedThroughIndex,
+            hasPlayableByIndex,
+          );
+          playlistPlayback.currentTrackIndex = 0;
           continuedFromEndCortina = true;
           continue;
         }
@@ -5360,10 +5463,12 @@ const runPlaylistPlayback = async (
         playlistPlayback.currentIndex,
         playlistPlayback.currentTrackIndex,
         isResumeWithOffset,
-        continuedFromEndCortina,
+        continuedFromEndCortina || leadInCortinaPlayed,
       )
     ) {
-      if (!skipInitialGap) {
+      if (skipInitialGapPending) {
+        skipInitialGapPending = false;
+      } else {
         const gapOk = await waitBeforeCortina(runId);
         if (!gapOk) {
           return;
@@ -5373,14 +5478,19 @@ const runPlaylistPlayback = async (
       if (!ok) {
         return;
       }
-      if (!skipInitialGap) {
-        const postOk = await waitBeforeTanda(runId);
-        if (!postOk) {
-          return;
-        }
+      const postOk = await waitBeforeTanda(runId);
+      if (!postOk) {
+        return;
+      }
+    }
+    if (continuedFromEndCortina) {
+      const postOk = await waitBeforeTanda(runId);
+      if (!postOk) {
+        return;
       }
     }
     continuedFromEndCortina = false;
+    leadInCortinaPlayed = false;
     if (
       playlistPlayback.currentTrackIndex === 0 &&
       playlistPlayback.currentIndex > 0 &&
@@ -5566,7 +5676,10 @@ const startPlaylistFrom = (index: number, trackId?: string | null) => {
     resumeTime: 0,
   };
   const skipInitialCortinaGap = wasIdle || !playback.main.active;
-  void runPlaylistPlayback(true, { skipInitialCortinaGap });
+  void runPlaylistPlayback(true, {
+    skipInitialCortinaGap,
+    startFromIdle: wasIdle,
+  });
 };
 
 const renderAllLists = () => {
@@ -5678,7 +5791,10 @@ const renderTandaDesigner = () => {
       const tracks = tanda.trackSlots.map((trackId) =>
         trackId ? trackCache.get(trackId) ?? null : null,
       );
-      const totalDurationMs = sumEffectiveDurationMs(tracks);
+      const totalDurationMs = tracks.reduce(
+        (sum, track) => sum + getEffectiveTrackDurationMs(track),
+        0,
+      );
     const summary = summarizeTandaTracks(
       tracks.map((track) => {
         if (!track) {
@@ -5752,7 +5868,7 @@ const renderTandaDesigner = () => {
       downButton.disabled = locked;
       const removeButton = buildActionButton(
         "tandaRemoveTrack",
-        "tandaRemoveTrackShort",
+        "actionSendClipboardShort",
         "tanda-remove",
       );
       removeButton.disabled = locked;
@@ -6099,6 +6215,7 @@ const appendTrackToPlaylist = (
       clearPlaylistTarget();
     }
     renderPlaylist();
+    requestAnimationFrame(() => scrollPlaylistToIndex(insertIndex));
     return;
   }
   const tanda = createPlaylistTandaForSlot(insertIndex, track);
@@ -6141,6 +6258,7 @@ const appendTrackToPlaylist = (
     clearPlaylistTarget();
   }
   renderPlaylist();
+  requestAnimationFrame(() => scrollPlaylistToIndex(insertIndex));
 };
 
 const getDefaultTandaSize = () => {
@@ -8098,14 +8216,44 @@ const init = async () => {
     } else {
       searchTandaSizeInput.value = stored;
     }
-    searchTandaSizeInput.addEventListener("change", () => {
-      const normalized = normalizeTandaSearchSizeInput(
-        searchTandaSizeInput.value,
-      );
-      localStorage.setItem(TANDA_SEARCH_SIZE_KEY, normalized);
-      searchTandaSizeInput.value = normalized;
+    const applyTandaSizeFilter = (raw: string, finalize = false) => {
+      const trimmed = raw.trim();
+      if (trimmed === "") {
+        localStorage.setItem(TANDA_SEARCH_SIZE_KEY, "");
+        renderTandaSearchResults();
+        void renderClipboard();
+        return;
+      }
+      if (trimmed === "-") {
+        localStorage.setItem(TANDA_SEARCH_SIZE_KEY, "-");
+        renderTandaSearchResults();
+        void renderClipboard();
+        return;
+      }
+      const parsed = Number.parseInt(trimmed, 10);
+      if (!Number.isFinite(parsed) || parsed < 1) {
+        if (finalize) {
+          const normalized = normalizeTandaSearchSizeInput(raw);
+          localStorage.setItem(TANDA_SEARCH_SIZE_KEY, normalized);
+          searchTandaSizeInput.value = normalized;
+          renderTandaSearchResults();
+          void renderClipboard();
+        }
+        return;
+      }
+      const clamped = Math.min(parsed, 10);
+      localStorage.setItem(TANDA_SEARCH_SIZE_KEY, clamped.toString());
+      if (trimmed !== clamped.toString()) {
+        searchTandaSizeInput.value = clamped.toString();
+      }
       renderTandaSearchResults();
       void renderClipboard();
+    };
+    searchTandaSizeInput.addEventListener("input", () => {
+      applyTandaSizeFilter(searchTandaSizeInput.value);
+    });
+    searchTandaSizeInput.addEventListener("blur", () => {
+      applyTandaSizeFilter(searchTandaSizeInput.value, true);
     });
   }
 
@@ -8122,6 +8270,24 @@ const init = async () => {
         Math.min(next, 20).toString(),
       );
       refreshSearch();
+    });
+  }
+
+  if (trimPaddingInput) {
+    trimPaddingInput.value = getTrimPaddingSeconds().toString();
+    trimPaddingInput.addEventListener("change", () => {
+      const next = Number.parseFloat(trimPaddingInput.value);
+      if (Number.isNaN(next) || next < 0) {
+        trimPaddingInput.value = getTrimPaddingSeconds().toString();
+        return;
+      }
+      const clamped = Math.min(next, 5);
+      localStorage.setItem(TRIM_PADDING_KEY, clamped.toString());
+      trimPaddingInput.value = clamped.toString();
+      updateNowPlayingDisplay();
+      renderPlaylist();
+      renderTandaSearchResults();
+      renderClipboard();
     });
   }
 
@@ -8535,12 +8701,19 @@ const init = async () => {
 
   closeSettingsBtn?.addEventListener("click", () => setSettingsOpen(false));
   openSettingsBtn?.addEventListener("click", () => setSettingsOpen(true));
-  fullscreenToggle?.addEventListener("click", () => {
-    const isFullscreen = document.fullscreenElement !== null;
-    if (!isFullscreen) {
-      void document.documentElement.requestFullscreen();
-    } else {
-      void document.exitFullscreen();
+  fullscreenToggle?.addEventListener("click", async () => {
+    if (!window.tanda?.toggleFullscreen) {
+      setStatus(t("statusFullscreenUnavailable"));
+      return;
+    }
+    try {
+      await window.tanda.toggleFullscreen();
+    } catch (error) {
+      setStatus(
+        error instanceof Error
+          ? t("statusFullscreenFailedDetail", { message: error.message })
+          : t("statusFullscreenFailed"),
+      );
     }
   });
   nowPlayingSection?.addEventListener("click", async (event) => {
@@ -9002,7 +9175,30 @@ const init = async () => {
   tandaListEl?.addEventListener("click", (event) => {
     void handleTandaAction(event);
   });
+  playlistTandaEditorEl?.addEventListener("click", (event) => {
+    void handleTandaAction(event);
+  });
   tandaListEl?.addEventListener("click", async (event) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button")) {
+      return;
+    }
+    const row = target.closest<HTMLElement>(".tanda-track-row");
+    const trackId = row?.dataset.trackId;
+    if (!trackId) {
+      return;
+    }
+    const track = trackCache.get(trackId);
+    if (!track) {
+      return;
+    }
+    await playTrackForMode(track, {
+      filePath: track.full_path,
+      trackId: track.id,
+      gainDb: track.gain_db ?? null,
+    });
+  });
+  playlistTandaEditorEl?.addEventListener("click", async (event) => {
     const target = event.target as HTMLElement;
     if (target.closest("button")) {
       return;
@@ -9027,6 +9223,12 @@ const init = async () => {
     event.preventDefault();
   });
   tandaListEl?.addEventListener("drop", (event) => {
+    handleDropToTanda(event as DragEvent);
+  });
+  playlistTandaEditorEl?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+  });
+  playlistTandaEditorEl?.addEventListener("drop", (event) => {
     handleDropToTanda(event as DragEvent);
   });
 

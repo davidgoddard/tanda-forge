@@ -1,4 +1,4 @@
-# Tanda Player User Guide
+# Tanda Player Lite User Guide
 
 This guide introduces the layout, explains initial setup, and walks through searching, collecting, and building tandas and playlists.
 
@@ -40,14 +40,21 @@ You need at least one music folder, and optionally a cortina folder.
 
 ![System settings - language](images/user-guide/04-settings-language.png)
 
-### 4) Configure Playlist Defaults (Optional)
+### 4) Adjust Trim Padding (Optional)
+
+1. In **System**, set **Trim padding (sec)** to extend auto-detected track trims.
+2. Use this if song tails feel too short.
+
+![System settings - trim padding](images/user-guide/04b-settings-trim-padding.png)
+
+### 5) Configure Playlist Defaults (Optional)
 
 1. In **Playlist**, set your default tanda size and start time.
 2. Choose a **Cortina Set** and **Duration** if you use cortinas.
 
 ![Playlist settings](images/user-guide/05-settings-playlist.png)
 
-### 5) Manage Styles (Optional)
+### 6) Manage Styles (Optional)
 
 Use **Styles** in Settings to add or remove style labels used for filtering and sequence rules.
 
@@ -101,6 +108,13 @@ When a move succeeds, the target row pulses to confirm it arrived.
 
 ![Clipboard to playlist move](images/user-guide/11-clipboard-to-playlist.png)
 
+### Clipboard Filter
+
+Use the **Filter** field at the top of the clipboard panel to narrow both tracks and tandas.
+Filtering is immediate and exact (no fuzzy matching). Clear the field to restore all items.
+
+![Clipboard filter](images/user-guide/11b-clipboard-filter.png)
+
 ## Building Tandas
 
 ### Tanda Designer
@@ -125,9 +139,18 @@ Use the **Tanda Designer** tab to assemble a tanda:
 ### Add Tandas or Tracks
 
 - Add a tanda from the clipboard using the **Add to Playlist** action.
-- Add a track from search or clipboard to create a new tanda slot in the playlist.
+- Add a track from search or clipboard to create an in-progress tanda in the playlist.
+  The editor appears below the playlist so you can finish the tanda before collapsing it.
 
 ![Playlist with tandas](images/user-guide/14-playlist-tandas.png)
+
+### In-Playlist Tanda Editing
+
+When a track is sent to the playlist, an in-progress tanda editor appears below the
+playlist list. Fill the remaining slots, then click **Done** to collapse it into
+a normal playlist tanda. The editor stays pinned below the scrolling playlist list.
+
+![In-playlist tanda editor](images/user-guide/14b-playlist-tanda-editor.png)
 
 ### Cortinas in the Playlist
 
@@ -136,6 +159,8 @@ If cortinas are enabled:
 - Cortina rows appear between tandas with predicted start times.
 - Each cortina row shows the planned track and a headphone button to preview.
 - You can click a cortina row to choose a different cortina.
+  If you click **Play all** during a cortina, the now-playing duration switches
+  to the full track so you can see it is acknowledged.
 
 ![Playlist cortinas](images/user-guide/15-playlist-cortinas.png)
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  resolveContinuationIndexAfterEndCortina,
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
 } from "../app/src/shared/playlist-flow.js";
@@ -21,5 +22,15 @@ describe("shouldInsertCortinaBeforeTanda", () => {
 
   it("returns true for normal tanda transitions with cortinas enabled", () => {
     expect(shouldInsertCortinaBeforeTanda(true, 2, 0, false, false)).toBe(true);
+  });
+});
+
+describe("resolveContinuationIndexAfterEndCortina", () => {
+  it("continues at first unplayed playable tanda after appending during end cortina", () => {
+    expect(resolveContinuationIndexAfterEndCortina(2, 0, [true, true, false])).toBe(1);
+  });
+
+  it("falls back to current index when nothing playable was appended", () => {
+    expect(resolveContinuationIndexAfterEndCortina(3, 2, [true, true, true, false])).toBe(3);
   });
 });

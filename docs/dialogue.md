@@ -576,3 +576,86 @@ Code diffs are omitted; only intent and outcomes are captured.
   unless "play all" is active.
   Assistant: Updated now-playing timing display to switch between playlist cortina
   duration and full-track duration, with immediate feedback on button press.
+- User: Reported appending a tanda during terminal cortina could skip tanda and
+  replay end cortina.
+  Assistant: Fixed continuation indexing after end cortina to jump to first
+  newly playable unplayed item.
+- User: Reported missing pre-tanda silence after cortina when starting from a
+  tanda part way down playlist.
+  Assistant: Updated playback flow so post-cortina pre-tanda gap is always
+  applied, while initial pre-cortina gap can still be skipped for immediate start.
+- User: Reported missing pre-cortina gap when starting mid-playlist in live mode.
+  Assistant: Applied pre-cortina gap in live mode; skip-initial gap now only
+  applies to prep/edit for responsiveness.
+- User: Asked to update the user guide, README, and feature matrix to reflect
+  the current state.
+  Assistant: Updated `docs/user-guide.md`, `README.md`, and
+  `design/tracking-and-feature-matrix.md` with recent behaviors and packaging guidance.
+- User: Reported that clicking Done in the in-playlist tanda editor does not close it.
+  Assistant: Cleared the playlist open-tanda flag on Done so the editor hides even
+  when the tanda still has empty slots.
+- User: Asked for the tanda size input in search to apply immediately.
+  Assistant: Switched to input-driven updates with instant filtering and blur
+  normalization for invalid values.
+- User: Still cannot close the in-playlist tanda editor after adding one song.
+  Assistant: Added the same click/drag handlers to the playlist tanda editor
+  container so Done and other buttons work, plus track clicks and drops.
+- User: Reported “send to clipboard” short label shows wrong letter in the
+  tanda editor track rows.
+  Assistant: Switched the tanda editor track-row short label to reuse the
+  localized “send to clipboard” short key so it matches the current language.
+- User: Clicking a track in the playlist should start the preceding cortina
+  without a pre-cortina delay when nothing is playing.
+  Assistant: Skipped the initial pre-cortina gap when playback starts from idle.
+- User: In dark mode, the current song in the playlist does not stand out.
+  Assistant: Added dark-mode playing-row theme variables to boost contrast and
+  outline the playing row.
+- User: Playing row still looked dimmer than the next tanda in dark mode.
+  Assistant: Added a dark-mode override to brighten the playing row background
+  and force white text/metadata.
+- User: Requested the dark-mode track editor pop-up background be brighter.
+  Assistant: Brightened the dark-mode tanda editor card background and border.
+- User: When adding a song to the playlist, the new tanda should scroll into view.
+  Assistant: Auto-centered the inserted playlist row after render so it scrolls
+  into the middle above the editor.
+- User: Reported inter-track/cortina gaps do not follow the required rules.
+  Assistant: Added lead-in cortina handling when starting from idle on the first
+  track of a tanda, skipped cortina for mid-tanda starts, and applied the
+  gap-before-tanda after end cortinas.
+- User: Reported the last song before a cortina goes directly into the cortina.
+  Assistant: Made the initial pre-cortina gap skip apply only once so later
+  cortinas always get the configured delay.
+- User: Fade-outs are abrupt and end detection should stop a bit earlier.
+  Assistant: Switched fades to requestAnimationFrame for smoother ramps and
+  increased the trim-end epsilon to stop tracks cleanly.
+- User: Last notes are being cut and wants a config period to pad start/end trims.
+  Assistant: Added a system trim padding setting that reduces auto-detected
+  start/end trims and applies to playback/duration calculations.
+  Also documented the setting in the user guide.
+- User: Wants the app to open at a classic laptop full-screen resolution, with
+  fullscreen toggle still available.
+  Assistant: Set the default window size to 1440x900 while keeping fullscreen
+  toggle functionality unchanged.
+- User: Fullscreen toggle button does nothing.
+  Assistant: Switched the fullscreen button to call an Electron IPC handler to
+  toggle the BrowserWindow fullscreen state.
+- User: Fullscreen toggle still not working.
+  Assistant: Enabled fullscreenable explicitly and added a simple fullscreen
+  fallback plus status messaging if the toggle fails.
+- User: Packaging failed with ENOENT when renaming Electron binary.
+  Assistant: Set electron-builder to use the local Electron dist to avoid
+  missing Electron.app binaries during packaging.
+- User: Packaging failed because app.asar lacked dist/main/main.js.
+  Assistant: Added electron-builder files config to include dist outputs in
+  the packaged app.
+- User: Packaged app crashes on launch with SIGILL on Intel macOS.
+  Assistant: Disabled GPU acceleration on Intel macOS builds to avoid crash.
+- User: Fullscreen crash happens only on toggle after the app starts.
+  Assistant: Switched macOS fullscreen toggle to maximize/restore to avoid the
+  crash path.
+- User: Asked to add Apple Silicon build support.
+  Assistant: Configured electron-builder to output macOS DMG/ZIP for both x64
+  and arm64.
+- User: Asked to set up GitHub builder to avoid manual uploads.
+  Assistant: Added GitHub Actions workflow to build and publish release
+  artifacts on release publish or manual workflow run.

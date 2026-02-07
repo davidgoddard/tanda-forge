@@ -24,6 +24,29 @@
   },
   "build": {
     "productName": "Tanda Player Lite",
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
     "extraResources": [
       {
         "from": "app/resources/ffmpeg",

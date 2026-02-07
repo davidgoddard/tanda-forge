@@ -76,6 +76,7 @@ const api: AppApi = {
   },
   logClientError: async (params) =>
     ipcRenderer.invoke("app:logClientError", params),
+  toggleFullscreen: async () => ipcRenderer.invoke("app:toggleFullscreen"),
 };
 
 contextBridge.exposeInMainWorld("tanda", api);

@@ -29,12 +29,12 @@ and implementation status to prevent drift.
 | FR-001.3 | Progress + resume + deletion handling | Yes | Partial | Done: progress, skip unchanged, deletion cleanup. Missing: resumable job state across app restarts. |
 | FR-002 | Loudness normalization | Yes | Partial | Done: store loudness/gain and apply to preview/main. Missing: configurable reference loudness, cortina level handling. |
 | FR-011 | Tanda management | Yes | Partial | Done: tanda designer UI, save/delete to DB, search tab, legacy tandas import and metadata overrides. Missing: export, advanced validation rules. |
-| FR-020 | Playlist structure | Yes | Partial | Done: playlist UI, start/resume/stop, active tanda expansion, live-mode locking, auto-save/restore, cortina slots and playback integration. Missing: rule-based generation. |
+| FR-020 | Playlist structure | Yes | Partial | Done: playlist UI, start/resume/stop, active tanda expansion, live-mode locking, auto-save/restore, cortina slots and playback integration, in-playlist tanda editor for ad-hoc creation. Missing: rule-based generation. |
 | FR-021 | Rule-based playlists | Yes | No | Missing: rule parsing, generation engine, and save/export flows. |
 | FR-022 | Auto DJ / auto play | Yes | No | Missing: auto-play playlist flagging and unattended playback mode. |
 | FR-062 | Edit mode | Yes | Yes | Done: Edit mode added; clicking tracks plays and opens editor; playlist clicks avoid auto-start in edit. |
-| FR-030 | Cortina handling | Yes | Partial | Done: separate cortina roots, set naming incl. Default, playlist set selection, queue shuffle/refill, playback between tandas + start/end, picker modal. Missing: dedicated volume override. |
-| FR-040 | Gaps & overlaps | Yes | Partial | Done: configurable gaps between tracks, before tandas, before cortinas, stop fade, cortina duration. Missing: overlap rules, negative-gap fades. |
+| FR-030 | Cortina handling | Yes | Partial | Done: separate cortina roots, set naming incl. Default, playlist set selection, queue shuffle/refill, playback between tandas + start/end, picker modal, play-all/stop-now controls with duration feedback. Missing: dedicated volume override. |
+| FR-040 | Gaps & overlaps | Yes | Partial | Done: configurable gaps between tracks, before tandas, before cortinas, stop fade, cortina duration with live-mode handling. Missing: overlap rules, negative-gap fades. |
 | FR-050 | Playback state machine | Yes | Partial | Done: sequential renderer playback with resume state, start/end trims applied. Missing: deterministic engine, multi-client state sync, scheduling visibility. |
 | FR-056 | Close safety | Yes | Yes | Done: warn on close when audio is playing, allow cancel. |
 | FR-089 | Search fundamentals | Yes | Yes | Done: track/tanda search tabs, scoped actions, context menus, and S shortcut. |
@@ -53,12 +53,12 @@ and implementation status to prevent drift.
 
 | UI ID | Description | Spec’d | Implemented | Notes |
 |------|------------|:------:|:-----------:|------|
-| UI-014 | Three-column workspace | Yes | Partial | Done: search/clipboard/playlist columns, tabs, counts, add actions, playlist send-to-clipboard for tracks/tandas, first-free slot insertion, auto-restore playlist, track-to-playlist creates tanda, empty-slot click creates styled tanda, playlist clear confirmation, and tab focus on add. Missing: verify send-to-clipboard reliability and add-to-tanda tab focus (reported unreliable). |
+| UI-014 | Three-column workspace | Yes | Partial | Done: search/clipboard/playlist columns, tabs, counts, add actions, playlist send-to-clipboard for tracks/tandas, first-free slot insertion, auto-restore playlist, track-to-playlist creates tanda with in-playlist editor, empty-slot click creates styled tanda, playlist clear confirmation, clipboard filter, and tab focus on add. Missing: verify send-to-clipboard reliability and add-to-tanda tab focus (reported unreliable). |
 | UI-012 | Playlist timeline | Yes | Partial | Done: active tanda expansion, active track highlight, estimated start times, and idle auto-centering of the current tanda during playback. Missing: next-up visualization and multi-client state sync. |
 | UI-082 | Clipboard collections | Yes | Yes | Done: active collection tabs, include chips, local persistence, add/remove collections, system "New" collection with configurable size, clipboard tanda click selects only (edit via T or drag/drop), drag track to collection lozenge moves it. |
 | UI-015 | Now Playing strip | Yes | Yes | Done: single-row layout for label + metadata + waveform, artist/title, duration, waveform preview, seek in prep mode only, and waveform placeholder while generating. |
-| UI-016 | Tanda Designer | Yes | Partial | Done: draft editing, placeholders, save/delete, add slot, Done action, filtering, up/down controls, only drafts + single template listed. Missing: drag/drop reordering; send-to-clipboard action reliability (reported). |
-| UI-017 | Tanda Summary (planned) | Yes | No | Planned; not implemented beyond UI-011 row component. |
+| UI-016 | Tanda Designer | Yes | Partial | Done: draft editing, placeholders, save/delete, add slot, Done action, filtering, up/down controls, in-playlist editor view for ad-hoc tandas. Missing: drag/drop reordering; send-to-clipboard action reliability (reported). |
+| UI-017 | Tanda Summary (planned) | Yes | Partial | Done: shared summary format with artists, vocal status, years, BPM range, duration, rating display. Missing: dedicated summary config UI. |
 | UI-020 | Cortina selector | Yes | Partial | Done: fixed-size cortina picker modal with set selection/search and playlist rows show selected/playing cortina titles. Missing: keyboard shortcuts and audition workflow. |
 | UI-030 | Similarity visualization | Yes | No | Planned; not implemented. |
 | UI-040 | Waveform preview | Yes | Partial | Done: waveform display, placeholder on load, click-to-seek, on-demand caching, scan-time generation, diagnostics panel, explicit PNG encoder, resilient FFmpeg invocation. Missing: centralized retry policy for failed waveform generation. |

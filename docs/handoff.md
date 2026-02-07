@@ -5,8 +5,8 @@
 - Version: `0.1.0` (from `package.json`)
 
 ### What I was doing last
-- Updated now-playing cortina duration display: shows configured cortina length by
-  default and switches to full track duration when "play all" is selected.
+- Added GitHub Actions workflow to build and publish releases on tag publish
+  or manual run.
 - Tests and build are green (npm test, npm run build).
 
 ### Commands to run
