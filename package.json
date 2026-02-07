@@ -10,7 +10,7 @@
     "package": "npm run build && npx electron-builder",
     "start": "electron .",
     "preflight": "npm run test && npm run build",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "npx electron-builder install-app-deps",
     "test": "vitest run"
   },
   "dependencies": {

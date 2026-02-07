@@ -5,8 +5,8 @@
 - Version: `0.1.0` (from `package.json`)
 
 ### What I was doing last
-- Added GitHub Actions workflow to build and publish releases on tag publish
-  or manual run.
+- Fixed CI postinstall by switching to `npx electron-builder install-app-deps`
+  so workflows don't fail when electron-builder isn't on PATH.
 - Tests and build are green (npm test, npm run build).
 
 ### Commands to run

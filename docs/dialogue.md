@@ -659,3 +659,6 @@ Code diffs are omitted; only intent and outcomes are captured.
 - User: Asked to set up GitHub builder to avoid manual uploads.
   Assistant: Added GitHub Actions workflow to build and publish release
   artifacts on release publish or manual workflow run.
+- User: GitHub Actions failed on macOS with `electron-builder: command not found`.
+  Assistant: Updated `postinstall` to use `npx electron-builder install-app-deps`
+  so CI can run without a global electron-builder.
