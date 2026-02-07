@@ -1,7 +1,7 @@
 {
   "name": "tanda-player-lite",
   "description": "Tanda Player Lite desktop app for preparing and playing tandas.",
-  "author": "Tanda Player Lite",
+  "author": "Tanda Player Lite <support@tandaplayerlite.com>",
   "version": "0.1.0",
   "private": true,
   "main": "dist/main/main.js",
@@ -48,6 +48,7 @@
       ]
     },
     "linux": {
+      "maintainer": "Tanda Player Lite <support@tandaplayerlite.com>",
       "target": [
         "AppImage",
         "deb"

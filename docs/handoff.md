@@ -5,8 +5,7 @@
 - Version: `0.1.0` (from `package.json`)
 
 ### What I was doing last
-- Adjusted Linux packaging targets to AppImage + deb to avoid Snapcraft
-  requirement in CI.
+- Added author email and linux maintainer metadata so .deb packaging succeeds.
 - Tests and build are green (npm test, npm run build).
 
 ### Commands to run

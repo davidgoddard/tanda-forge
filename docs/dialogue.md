@@ -667,3 +667,5 @@ Code diffs are omitted; only intent and outcomes are captured.
   Assistant: Rewrote README accordingly and kept it concise for end users.
 - User: Ubuntu build failed due to Snapcraft not installed.
   Assistant: Removed Snap target and limited Linux packaging to AppImage + deb.
+- User: Ubuntu build still failed due to missing author email for deb maintainer.
+  Assistant: Added author email and linux maintainer metadata in package.json.
