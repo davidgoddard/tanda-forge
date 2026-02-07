@@ -662,3 +662,8 @@ Code diffs are omitted; only intent and outcomes are captured.
 - User: GitHub Actions failed on macOS with `electron-builder: command not found`.
   Assistant: Updated `postinstall` to use `npx electron-builder install-app-deps`
   so CI can run without a global electron-builder.
+- User: Asked to rewrite README with intro, releases/ffmpeg, configuration,
+  legacy import, and usage overview.
+  Assistant: Rewrote README accordingly and kept it concise for end users.
+- User: Ubuntu build failed due to Snapcraft not installed.
+  Assistant: Removed Snap target and limited Linux packaging to AppImage + deb.

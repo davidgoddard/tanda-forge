@@ -5,8 +5,8 @@
 - Version: `0.1.0` (from `package.json`)
 
 ### What I was doing last
-- Fixed CI postinstall by switching to `npx electron-builder install-app-deps`
-  so workflows don't fail when electron-builder isn't on PATH.
+- Adjusted Linux packaging targets to AppImage + deb to avoid Snapcraft
+  requirement in CI.
 - Tests and build are green (npm test, npm run build).
 
 ### Commands to run

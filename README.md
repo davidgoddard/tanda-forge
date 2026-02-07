@@ -1,28 +1,35 @@
 # Tanda Player Lite
 
-Electron-based DJ tool for managing tango tandas, playlists, and playback.
+Tanda Player Lite is a desktop tool for tango DJs who want to build tandas, plan a playlist, and run a set with cortinas, timing guidance, and headphone preview. It is designed for DJs who curate tandas and need predictable timing without giving up hands-on control.
 
-## Quick start
+## Download and Install (Releases)
 
-1) Install dependencies:
+### 1) Download the right build
 
-```bash
-npm install
-```
+Go to the GitHub **Releases** page and download the file that matches your system:
 
-2) Provide ffmpeg/ffprobe binaries (see below).
+- **macOS Intel**: `...-mac-x64.dmg` or `...-mac-x64.zip`
+- **macOS Apple Silicon**: `...-mac-arm64.dmg` or `...-mac-arm64.zip`
+- **Windows**: `...-windows.exe` (or zip if provided)
+- **Linux**: `...-linux.AppImage` or `...-linux.deb`
 
-3) Build and run:
+### 2) macOS Gatekeeper (unsigned app)
 
-```bash
-npm run build
-npm start
-```
+Because the app is not signed, macOS will block the first launch:
 
-## ffmpeg/ffprobe setup
+1. Open the `.dmg` or `.zip` and move **Tanda Player Lite.app** to Applications.
+2. Right‑click the app → **Open** → **Open** again.
+3. Alternatively: **System Settings → Privacy & Security → Open Anyway**.
 
-The app expects platform binaries in the following folders:
+Once opened once, it should launch normally.
 
+## ffmpeg / ffprobe Setup
+
+The app uses `ffmpeg` and `ffprobe` for analysis and waveform generation. Provide them in one of these ways:
+
+### Option A: Local binaries (recommended for packaged builds)
+
+Place binaries in:
 - `app/resources/ffmpeg/darwin/ffmpeg`
 - `app/resources/ffmpeg/darwin/ffprobe`
 - `app/resources/ffmpeg/win32/ffmpeg.exe`
@@ -30,89 +37,97 @@ The app expects platform binaries in the following folders:
 - `app/resources/ffmpeg/linux/ffmpeg`
 - `app/resources/ffmpeg/linux/ffprobe`
 
-These binaries are intentionally excluded from git to keep the repo small. You can:
-
-- Download platform binaries and place them in the folders above, or
-- Use the helper script: `scripts/fetch-ffmpeg.sh [macos|windows|linux|all]`, or
-- Install `ffmpeg`/`ffprobe` in your system `PATH` (the app will fall back to that).
-
-## Packaging and distribution (GitHub Releases)
-
-Recommended approach: publish packaged builds to GitHub Releases.
-
-1) Install dependencies:
-
-```bash
-npm install
+You can use:
+```
+scripts/fetch-ffmpeg.sh [macos|windows|linux|all]
 ```
 
-2) Ensure ffmpeg binaries are present (see above). The `build.extraResources`
-   section in `package.json` will bundle `app/resources/ffmpeg` into the app.
+### Option B: System PATH
 
-3) Build the app bundles with Electron Builder:
+If `ffmpeg` and `ffprobe` are already installed and available in `PATH`, the app will fall back to those.
 
-```bash
+## In‑App Configuration
+
+### 1) Library Roots
+Settings → **Library**
+1. Add **Music** folders.
+2. Add **Cortina** folders (optional).
+3. Scan music and cortinas.
+
+### 2) Audio Outputs
+Settings → **System**
+1. Choose **Main Output** and **Headphones Output**.
+2. Headphones output enables cueing.
+
+### 3) Language, Styles, and Defaults
+Settings → **System**
+- Set **Language**.
+- Manage **Styles** (tango/waltz/milonga, etc.).
+- Adjust **Trim padding**, **Search settings**, and **Default tanda size**.
+
+### 4) Playlist Timing and Cortinas
+Settings → **Playlist**
+- Set gaps between tracks, before tanda, and before cortina.
+- Select cortina set and duration.
+- Configure tanda sequence rules if you use them.
+
+## Import Legacy Data
+
+If you point your music/cortina folders at a legacy Tanda Player drive that contains:
+
+- `config.js`
+- `tandas.dat`
+- `library.dat`
+
+the app will offer an **Import** prompt. If you confirm, it will:
+- Recreate tandas from `tandas.dat`.
+- Use metadata from `library.dat` in preference to fresh analysis (when present).
+
+## How the App is Structured
+
+The main screen is split into three columns:
+
+- **Search (left)**: find tracks or tandas, filter by style, and send to clipboard/playlist.
+- **Clipboard (center)**: temporary collections and staging.
+- **Playlist (right)**: your running order with cortinas and predicted timing.
+
+There is also a **Tanda Designer** tab for building or editing tandas.
+
+### Typical Workflow
+
+1. Search for tracks/tandas.
+2. Add items to the clipboard.
+3. Build tandas in the Tanda Designer.
+4. Send tandas or tracks into the playlist.
+5. In live mode, start the playlist or click a tanda to jump in.
+
+## Detailed Usage Highlights
+
+- **Tanda sizes**: can be filtered in search and clipboard.
+- **Playlist timing**: predicted start times are based on track durations + gaps + cortina duration + cortina fade.
+- **Cortina preview**: headphone icon lets you cue.
+- **Legacy import**: keeps your curated metadata.
+- **Trim padding**: extend start/end trims if track tails are being cut too early.
+
+## Building Locally (for Developers)
+
+```
+npm install
+npm run build
+npm start
+```
+
+To package:
+```
 npm run package
 ```
 
-Or target a specific OS:
+Artifacts appear in `dist/` (do not commit).
 
-```bash
-npx electron-builder --mac
-npx electron-builder --win
-npx electron-builder --linux
-```
+## Repository Hygiene
 
-Artifacts will appear in `dist/` (do not commit to git). Upload the resulting
-installers to GitHub Releases.
-
-Notes:
-- If you prefer, add a `package` script in `package.json` that runs
-  `electron-builder` so it’s consistent for the team.
-- Packaging should be done on the target OS (macOS for `.dmg`, Windows for
-  `.exe`, Linux for `.AppImage`/`.deb`).
-
-## End-user install and run
-
-From GitHub Releases, download the installer for your platform:
-
-- macOS: open the `.dmg`, drag the app to Applications, then launch it.
-- Windows: run the `.exe` installer, then launch the app from the Start Menu.
-- Linux: run the `.AppImage` (make executable) or install the `.deb`.
-
-First-run checklist:
-1) Open Settings → Library and add your Music/Cortina folders.
-2) Scan Library.
-3) Set audio outputs in Settings → System if you want headphones preview.
-
-## Notes
-
-- The app runs fullscreen by default.
-- Settings and scan progress live inside the app; use the Settings button.
-
-## Repository size and hygiene
-
-This repo intentionally excludes large generated files and binaries.
-
-Do not commit:
+Do not commit large generated files or binaries:
 - `node_modules/`
 - `dist/`
-- `tmp/` or `.git/tmp/`
-- `app/resources/ffmpeg/` binaries
-
-If you accidentally commit a large temp folder (for example `tmp/clean.git`),
-remove it from the index and rewrite history before pushing:
-
-```bash
-git rm -r --cached tmp/clean.git
-git commit -m "Remove tmp/clean.git"
-```
-
-If GitHub still warns about large files, use a history rewrite tool (e.g.
-`git filter-repo`) to purge the folder from all commits.
-
-After removing large folders, run:
-
-```bash
-git gc --prune=now --aggressive
-```
+- `tmp/`
+- `app/resources/ffmpeg/*` binaries

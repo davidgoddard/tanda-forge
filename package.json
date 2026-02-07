@@ -47,6 +47,12 @@
         }
       ]
     },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    },
     "extraResources": [
       {
         "from": "app/resources/ffmpeg",
