@@ -5,7 +5,8 @@
 - Version: `0.1.0` (from `package.json`)
 
 ### What I was doing last
-- Added author email and linux maintainer metadata so .deb packaging succeeds.
+- Switched CI to upload release assets via GitHub Action instead of relying on
+  electron-builder publish (fixes missing assets).
 - Tests and build are green (npm test, npm run build).
 
 ### Commands to run

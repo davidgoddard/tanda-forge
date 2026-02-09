@@ -669,3 +669,6 @@ Code diffs are omitted; only intent and outcomes are captured.
   Assistant: Removed Snap target and limited Linux packaging to AppImage + deb.
 - User: Ubuntu build still failed due to missing author email for deb maintainer.
   Assistant: Added author email and linux maintainer metadata in package.json.
+- User: CI builds succeeded but no release assets appeared.
+  Assistant: Updated workflow to upload release assets with
+  `softprops/action-gh-release` and keep electron-builder publish disabled.
