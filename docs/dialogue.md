@@ -672,3 +672,13 @@ Code diffs are omitted; only intent and outcomes are captured.
 - User: CI builds succeeded but no release assets appeared.
   Assistant: Updated workflow to upload release assets with
   `softprops/action-gh-release` and keep electron-builder publish disabled.
+- User: Reported dotfiles being scanned and font too large in the default view.
+  Assistant: Skipped hidden dotfiles during scan and reduced base font size.
+- User: Reported AirPlay devices missing/duplicates and no headphone icon in
+  expanded playlist detail rows.
+  Assistant: Added a System Default output option, deduped audio outputs, and
+  showed headphone preview buttons in expanded playlist detail rows.
+- User: Reported main-process JS error about duplicate app:close-response handler
+  and ongoing duplicate AirPlay entries.
+  Assistant: Moved close/fullscreen IPC handlers to registerIpc with per-window
+  close-state map and tightened audio output dedupe to label-only.

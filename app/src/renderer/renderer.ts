@@ -167,6 +167,7 @@ const mainOutputSelect =
   document.querySelector<HTMLSelectElement>("#main-output-select");
 const headphoneOutputSelect =
   document.querySelector<HTMLSelectElement>("#headphone-output-select");
+const DEFAULT_OUTPUT_ID = "default";
 const tandaSizeInput =
   document.querySelector<HTMLInputElement>("#tanda-size-input");
 const searchTandaSizeInput =
@@ -3444,7 +3445,9 @@ const playOnChannel = async (
     channel === "main"
       ? localStorage.getItem("tanda-main-output")
       : localStorage.getItem("tanda-headphone-output");
-  await applyOutputDevice(next, deviceId);
+  const resolvedDeviceId =
+    deviceId && deviceId !== DEFAULT_OUTPUT_ID ? deviceId : null;
+  await applyOutputDevice(next, resolvedDeviceId);
 
   const previous = state.active;
   state.active = next;
@@ -3587,7 +3590,17 @@ const ensureAudioOutputs = async () => {
         devices = await navigator.mediaDevices.enumerateDevices();
       } catch {}
     }
-    audioOutputs = devices.filter((device) => device.kind === "audiooutput");
+    const outputs = devices.filter((device) => device.kind === "audiooutput");
+    const seen = new Set<string>();
+    audioOutputs = outputs.filter((device) => {
+      const label = device.label?.trim() || "";
+      const key = label ? label.toLowerCase() : `id::${device.deviceId}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
   } catch {
     audioOutputs = [];
   }
@@ -3612,6 +3625,9 @@ const ensureAudioOutputs = async () => {
     storedLabel: string | null,
     storedGroup: string | null,
   ) => {
+    if (storedId === DEFAULT_OUTPUT_ID) {
+      return DEFAULT_OUTPUT_ID;
+    }
     if (storedId) {
       const byId = audioOutputs.find((device) => device.deviceId === storedId);
       if (byId) {
@@ -3688,15 +3704,17 @@ const ensureAudioOutputs = async () => {
 
   if (mainOutputSelect) {
     mainOutputSelect.innerHTML = "";
+    const defaultOption = document.createElement("option");
+    defaultOption.value = DEFAULT_OUTPUT_ID;
+    defaultOption.textContent = t("outputDefault");
+    mainOutputSelect.appendChild(defaultOption);
     audioOutputs.forEach((device) => {
       const option = document.createElement("option");
       option.value = device.deviceId;
       option.textContent = device.label || t("outputDefault");
       mainOutputSelect.appendChild(option);
     });
-    if (mainId) {
-      mainOutputSelect.value = mainId;
-    }
+    mainOutputSelect.value = mainId ?? DEFAULT_OUTPUT_ID;
   }
 
   if (headphoneOutputSelect) {
@@ -4583,11 +4601,11 @@ const renderTandaRow = (
       const menuButton = buildDetailMenuButton();
       const menuWrap = document.createElement("div");
       menuWrap.className = "tanda-detail-menu";
-      if (headphoneAvailable) {
-        const headphoneButton = buildHeadphoneButton();
-        headphoneButton.classList.add("detail-headphone");
-        menuWrap.appendChild(headphoneButton);
-      }
+    if (headphoneAvailable) {
+      const headphoneButton = buildHeadphoneButton();
+      headphoneButton.classList.add("detail-headphone");
+      actionWrap.appendChild(headphoneButton);
+    }
       const editButton = buildActionButton(
         "actionEditTrack",
         "actionEditTrackShort",
@@ -8559,15 +8577,22 @@ const init = async () => {
 
   if (mainOutputSelect) {
     mainOutputSelect.addEventListener("change", async () => {
-      const device = audioOutputs.find(
-        (output) => output.deviceId === mainOutputSelect.value,
-      );
-      localStorage.setItem("tanda-main-output", mainOutputSelect.value);
-      if (device?.label) {
-        localStorage.setItem("tanda-main-output-label", device.label);
-      }
-      if (device?.groupId) {
-        localStorage.setItem("tanda-main-output-group", device.groupId);
+      const selected = mainOutputSelect.value || DEFAULT_OUTPUT_ID;
+      if (selected === DEFAULT_OUTPUT_ID) {
+        localStorage.setItem("tanda-main-output", DEFAULT_OUTPUT_ID);
+        localStorage.setItem("tanda-main-output-label", t("outputDefault"));
+        localStorage.removeItem("tanda-main-output-group");
+      } else {
+        const device = audioOutputs.find(
+          (output) => output.deviceId === selected,
+        );
+        localStorage.setItem("tanda-main-output", selected);
+        if (device?.label) {
+          localStorage.setItem("tanda-main-output-label", device.label);
+        }
+        if (device?.groupId) {
+          localStorage.setItem("tanda-main-output-group", device.groupId);
+        }
       }
       if (
         headphoneOutputSelect &&

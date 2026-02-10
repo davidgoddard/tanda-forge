@@ -64,6 +64,10 @@ const buildStyleWhere = (styles: string[]) => {
 
 let scanInProgress = false;
 let legacyOverridesByRootId = new Map<string, Map<string, LegacyTrackOverride>>();
+const closeStateByWebContentsId = new Map<
+  number,
+  { allowClose: boolean; closeRequested: boolean }
+>();
 
 const getSortKeyForTrack = (sortBy: string, track: { [key: string]: unknown }) => {
   if (sortBy === "artist") {
@@ -125,7 +129,7 @@ const createWindow = () => {
   mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
 
   const closeState = { allowClose: false, closeRequested: false };
-  const windowId = mainWindow.webContents.id;
+  closeStateByWebContentsId.set(mainWindow.webContents.id, closeState);
 
   mainWindow.on("close", (event) => {
     if (closeState.allowClose) {
@@ -142,26 +146,33 @@ const createWindow = () => {
   mainWindow.on("closed", () => {
     closeState.allowClose = true;
     closeState.closeRequested = false;
+    closeStateByWebContentsId.delete(mainWindow.webContents.id);
   });
+};
 
+const registerIpc = () => {
   ipcMain.handle("app:close-response", async (event, allowed: boolean) => {
-    if (event.sender.id !== windowId) {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const closeState = closeStateByWebContentsId.get(event.sender.id);
+    if (!window || !closeState) {
       return;
     }
     if (allowed) {
       closeState.allowClose = true;
       closeState.closeRequested = false;
-      mainWindow.close();
+      window.close();
     } else {
       closeState.closeRequested = false;
     }
   });
 
   ipcMain.handle("app:close", async (event) => {
-    if (event.sender.id !== windowId) {
-      const window = BrowserWindow.getFocusedWindow();
-      if (window) {
-        window.close();
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const closeState = closeStateByWebContentsId.get(event.sender.id);
+    if (!window || !closeState) {
+      const focused = BrowserWindow.getFocusedWindow();
+      if (focused) {
+        focused.close();
       } else {
         app.quit();
       }
@@ -169,11 +180,14 @@ const createWindow = () => {
     }
     closeState.allowClose = true;
     closeState.closeRequested = false;
-    mainWindow.close();
+    window.close();
   });
 
-  ipcMain.handle("app:toggleFullscreen", async () => {
-    const window = BrowserWindow.getFocusedWindow() ?? mainWindow;
+  ipcMain.handle("app:toggleFullscreen", async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow();
+    if (!window) {
+      return { fullscreen: false };
+    }
     if (process.platform === "darwin") {
       if (window.isMaximized()) {
         window.unmaximize();
@@ -186,9 +200,7 @@ const createWindow = () => {
     window.setFullScreen(next);
     return { fullscreen: window.isFullScreen() };
   });
-};
 
-const registerIpc = () => {
   ipcMain.handle("library:pickRoot", async (_event, kind: "music" | "cortina") => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory"],

@@ -5,9 +5,12 @@
 - Version: `0.1.0` (from `package.json`)
 
 ### What I was doing last
-- Switched CI to upload release assets via GitHub Action instead of relying on
-  electron-builder publish (fixes missing assets).
-- Tests and build are green (npm test, npm run build).
+- Moved app close/fullscreen IPC handlers out of `createWindow` and into
+  `registerIpc` with per-window close state map to avoid duplicate handler
+  registration (fixes main-process JS error).
+- Tightened audio output dedupe to label-only to reduce duplicate AirPlay
+  entries.
+- Tests/build not run after these changes.
 
 ### Commands to run
 - Install: `npm install`
@@ -20,6 +23,6 @@
 - None (all tests passing as of last run).
 
 ### Immediate next 3 tasks
-1) Verify removing a track from a playlist tanda no longer changes clipboard tandas.
-2) Capture screenshots for the user guide placeholders.
-3) Continue UI polish backlog (button sizing, menus, waveform layout tweaks).
+1) Verify AirPlay outputs list shows expected device(s) and duplicates are gone.
+2) Re-test close confirmation flow while playback is active (ensure app quits).
+3) Run `npm test` + `npm run build` to confirm build health.

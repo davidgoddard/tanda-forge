@@ -1,6 +1,7 @@
 :root {
   color-scheme: light;
   font-family: "Avenir", "Gill Sans", "Trebuchet MS", sans-serif;
+  font-size: 15px;
   --control-height: 28px;
   --control-padding-x: clamp(0.35rem, 1.4vw, 0.95rem);
   --icon-size: 22px;

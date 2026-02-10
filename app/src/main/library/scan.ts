@@ -48,6 +48,9 @@ const walkFiles = async (rootPath: string): Promise<string[]> => {
   const files: string[] = [];
 
   for (const entry of entries) {
+    if (entry.name.startsWith(".") || entry.name.startsWith("._")) {
+      continue;
+    }
     const fullPath = path.join(rootPath, entry.name);
     if (entry.isDirectory()) {
       files.push(...(await walkFiles(fullPath)));
