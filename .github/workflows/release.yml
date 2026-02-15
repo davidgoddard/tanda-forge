@@ -14,7 +14,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-13
+            target: mac-x64
+          - os: macos-14
+            target: mac-arm64
+          - os: windows-latest
+            target: windows
+          - os: ubuntu-latest
+            target: linux
 
     steps:
       - name: Checkout
@@ -33,7 +41,16 @@ jobs:
         run: npm run build
 
       - name: Package
-        run: npx electron-builder --publish=never
+        run: |
+          if [ "${{ matrix.target }}" = "mac-x64" ]; then
+            npx electron-builder --publish=never --mac --x64
+          elif [ "${{ matrix.target }}" = "mac-arm64" ]; then
+            npx electron-builder --publish=never --mac --arm64
+          elif [ "${{ matrix.target }}" = "windows" ]; then
+            npx electron-builder --publish=never --win
+          else
+            npx electron-builder --publish=never --linux
+          fi
 
       - name: Upload Release Assets
         if: github.event_name == 'release'

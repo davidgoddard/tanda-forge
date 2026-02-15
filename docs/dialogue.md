@@ -711,3 +711,6 @@ Code diffs are omitted; only intent and outcomes are captured.
 - User: Still getting "Object has been destroyed" on close in dev.
   Assistant: Cached window id in close handlers to avoid touching destroyed
   webContents; tests/build passed.
+- User: Intel build still arm64 after download.
+  Assistant: Split GitHub Actions mac builds to macos-13 (x64) and macos-14
+  (arm64) and forced per-arch packaging; tests/build passed.

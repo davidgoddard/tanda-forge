@@ -31,6 +31,8 @@
 - Forced dev close to call `app.exit(0)` on window close or IPC close to bypass
   Electron crash during shutdown.
 - Avoided touching destroyed webContents by caching window id in close handlers.
+- Split GitHub Actions mac builds: macos-13 builds x64 only, macos-14 builds
+  arm64 only, to ensure Intel DMGs are actually x64.
 - Tests/build green (`npm test`, `npm run build`).
 - Tests/build not run after these changes.
 
@@ -45,6 +47,6 @@
 - None (all tests passing as of last run).
 
 ### Immediate next 3 tasks
-1) Verify dev mode exits cleanly without "Object has been destroyed" on close.
+1) Verify macOS Intel DMG now installs on Intel hardware (x64 build from macos-13).
 2) Verify release assets are named with platform/arch and Intel DMG installs.
 3) Verify AirPlay outputs list shows expected device(s) and duplicates are gone.
