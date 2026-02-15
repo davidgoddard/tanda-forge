@@ -712,5 +712,7 @@ Code diffs are omitted; only intent and outcomes are captured.
   Assistant: Cached window id in close handlers to avoid touching destroyed
   webContents; tests/build passed.
 - User: Intel build still arm64 after download.
-  Assistant: Split GitHub Actions mac builds to macos-12 (x64) and macos-14
-  (arm64) and forced per-arch packaging; tests/build passed.
+  Assistant: Split GitHub Actions mac builds to macos-15-intel (x64) and
+  macos-14 (arm64) and forced per-arch packaging; tests/build passed.
+- User: Windows build failed due to bash syntax in PowerShell.
+  Assistant: Forced the Package step to use bash; tests/build passed.

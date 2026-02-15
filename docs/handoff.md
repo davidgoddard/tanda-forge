@@ -31,9 +31,10 @@
 - Forced dev close to call `app.exit(0)` on window close or IPC close to bypass
   Electron crash during shutdown.
 - Avoided touching destroyed webContents by caching window id in close handlers.
-- Split GitHub Actions mac builds: macos-12 builds x64 only, macos-14 builds
-  arm64 only, to ensure Intel DMGs are actually x64 (macos-13 unsupported in
-  current runner pool).
+- Split GitHub Actions mac builds: macos-15-intel builds x64 only, macos-14
+  builds arm64 only, to ensure Intel DMGs are actually x64.
+- Forced the packaging step to run under bash so the if/elif logic works on
+  Windows runners.
 - Tests/build green (`npm test`, `npm run build`).
 - Tests/build not run after these changes.
 
