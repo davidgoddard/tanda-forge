@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeImage } from "electron";
 
 if (process.platform === "darwin" && process.arch === "x64") {
   app.disableHardwareAcceleration();
@@ -113,7 +113,21 @@ const normalizeSearchConfig = (params: {
   return { minScore, bpmRange };
 };
 
+const setDockIcon = () => {
+  if (process.platform !== "darwin") {
+    return;
+  }
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, "icons", "icon.png")
+    : path.join(app.getAppPath(), "app", "resources", "icons", "icon.png");
+  if (!fs.existsSync(iconPath)) {
+    return;
+  }
+  app.dock.setIcon(nativeImage.createFromPath(iconPath));
+};
+
 const createWindow = () => {
+  setDockIcon();
   const mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -1214,7 +1228,5 @@ app.on("activate", () => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  app.quit();
 });

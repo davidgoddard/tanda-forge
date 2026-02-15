@@ -13,6 +13,19 @@ Go to the GitHub **Releases** page and download the file that matches your syste
 - **Windows**: `...-win-x64.exe`
 - **Linux**: `...-linux-x64.AppImage` or `...-linux-x64.deb`
 
+If you download the wrong macOS build, macOS will say the app is not supported.  
+You can confirm the architecture in Finder (**Get Info**) where it will show
+**Application (Intel)** or **Application (Apple silicon)**.
+
+### CI build note (macOS)
+
+We build macOS Intel and Apple Silicon on separate GitHub runners:
+- **Intel (x64)**: built on `macos-15-intel`
+- **Apple Silicon (arm64)**: built on `macos-14`
+
+If you update runner labels later, keep this section aligned with
+`.github/workflows/release.yml` so users know which assets are which.
+
 ### 2) macOS Gatekeeper (unsigned app)
 
 Because the app is not signed, macOS will block the first launch:

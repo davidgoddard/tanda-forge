@@ -55,7 +55,7 @@ and implementation status to prevent drift.
 |------|------------|:------:|:-----------:|------|
 | UI-014 | Three-column workspace | Yes | Partial | Done: search/clipboard/playlist columns, tabs, counts, add actions, playlist send-to-clipboard for tracks/tandas, first-free slot insertion, auto-restore playlist, track-to-playlist creates tanda with in-playlist editor, empty-slot click creates styled tanda, playlist clear confirmation, clipboard filter, and tab focus on add. Missing: verify send-to-clipboard reliability and add-to-tanda tab focus (reported unreliable). |
 | UI-012 | Playlist timeline | Yes | Partial | Done: active tanda expansion, active track highlight, estimated start times, and idle auto-centering of the current tanda during playback. Missing: next-up visualization and multi-client state sync. |
-| UI-082 | Clipboard collections | Yes | Yes | Done: active collection tabs, include chips, local persistence, add/remove collections, system "New" collection with configurable size, clipboard tanda click selects only (edit via T or drag/drop), drag track to collection lozenge moves it. |
+| UI-082 | Clipboard collections | Yes | Yes | Done: active collection tabs, include chips, local persistence, add/remove collections, system "New" collection with configurable size, clipboard tanda click selects only (edit via T or drag/drop), drag track to collection lozenge moves it, multi-collection clear dialog with optional empty-collection cleanup (excluding General/New). |
 | UI-015 | Now Playing strip | Yes | Yes | Done: single-row layout for label + metadata + waveform, artist/title, duration, waveform preview, seek in prep mode only, and waveform placeholder while generating. |
 | UI-016 | Tanda Designer | Yes | Partial | Done: draft editing, placeholders, save/delete, add slot, Done action, filtering, up/down controls, in-playlist editor view for ad-hoc tandas. Missing: drag/drop reordering; send-to-clipboard action reliability (reported). |
 | UI-017 | Tanda Summary (planned) | Yes | Partial | Done: shared summary format with artists, vocal status, years, BPM range, duration, rating display. Missing: dedicated summary config UI. |
@@ -72,3 +72,21 @@ and implementation status to prevent drift.
 ## Notes
 
 - Several planned UI components remain documented for future implementation.
+
+## Next Discussion Shortlist (Not Fully Implemented)
+
+The following items are still Partial or No in the matrix above:
+
+- FR-001.1, FR-001.2, FR-001.3: background analysis persistence and mount/change tracking.
+- FR-002: configurable loudness targets and cortina-level handling.
+- FR-021, FR-022: rule-based playlists and auto-play mode.
+- FR-030: dedicated cortina volume override.
+- FR-040: overlap and negative-gap fade rules.
+- FR-050: deterministic playback engine and multi-client sync.
+- FR-090 to FR-097: remaining search filters, alias metadata, and tanda jump index.
+- UI-012: next-up visualization and multi-client sync.
+- UI-016: drag/drop reordering + reliability polish.
+- UI-020: cortina keyboard shortcuts + audition workflow.
+- UI-030, UI-060: similarity visualization and display board UI.
+- UI-040: waveform generation retry policy.
+- UI-050: gain target controls + UI visibility toggles.

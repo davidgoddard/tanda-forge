@@ -158,6 +158,13 @@ Code diffs are omitted; only intent and outcomes are captured.
   Assistant: Routed actions via button[data-action] so S is honored, enabled fuzzy sort by selected column, and allowed jump index/prefix jumps for filtered queries.
 - User: Asked for a visible X in the close button and a magnifying glass icon for search.
   Assistant: Added explicit glyphs/icons inside the buttons and adjusted icon-button CSS to render them.
+- User: Reported mac builds still showing Intel, requested another dark theme, clearer active
+  collection in dark mode, faster trim fades, Close to always dismiss the Tanda Designer,
+  and dock icon to show app icon instead of Electron.
+  Assistant: Added a second dark theme and theme cycling, boosted dark-mode collection
+  active styling, enforced quick trim-end fade, renamed Done → Close and removed the
+  lock disable, set macOS dock icon and packaged icon resources, ensured macOS quits
+  when the last window closes, and added CI arch verification plus README guidance.
 - User: Requested search results default to score-desc ordering for non-empty queries, title for empty queries, and jump index only when sorting by a column.
   Assistant: Set dynamic default sorting based on query presence and disabled the jump index when sorting by relevance.
 - User: Requested larger icons within circular buttons.
@@ -695,6 +702,11 @@ Code diffs are omitted; only intent and outcomes are captured.
   and verified tests/build.
 - User: Asked to update README with download guidance and macOS allow steps.
   Assistant: Updated README to reflect new artifact naming and Gatekeeper steps.
+- User: Asked to update README with CI runner labels for macOS builds.
+  Assistant: Added a note about macos-15-intel vs macos-14 in README.
+- User: Requested clipboard clear dialog and feature matrix update.
+  Assistant: Added multi-collection clipboard clear modal with empty-collection
+  cleanup option, added unit tests, and expanded the feature matrix shortlist.
 - User: Reported Electron dev crash with "Object has been destroyed" in main
   process on quit.
   Assistant: Added destroyed-window guards in close/close-response/fullscreen

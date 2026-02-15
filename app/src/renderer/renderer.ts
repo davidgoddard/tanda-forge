@@ -42,6 +42,7 @@ import {
 } from "../shared/playlist-live.js";
 import { reorderClipboardCollections } from "../shared/clipboard-order.js";
 import { moveTrackToCollection } from "../shared/clipboard-move.js";
+import { applyClipboardClear } from "../shared/clipboard-clear.js";
 import { computeTrimmedEnd } from "../shared/audio-trim.js";
 import {
   resolveContinuationIndexAfterEndCortina,
@@ -71,6 +72,10 @@ let confirmModalMessage: HTMLDivElement | null = null;
 let confirmModalOk: HTMLButtonElement | null = null;
 let confirmModalCancel: HTMLButtonElement | null = null;
 let confirmModalResolve: ((value: boolean) => void) | null = null;
+let clipboardClearModalEl: HTMLDivElement | null = null;
+let clipboardClearModalResolve:
+  | ((value: { selectedIds: string[]; removeEmpty: boolean } | null) => void)
+  | null = null;
 const progressEl = document.querySelector<HTMLProgressElement>("#scan-progress");
 const progressLabel = document.querySelector<HTMLDivElement>("#progress-label");
 const progressElSettings =
@@ -150,8 +155,6 @@ const clipboardCollectionNameInput =
   document.querySelector<HTMLInputElement>("#clipboard-collection-name");
 const clipboardCollectionAddBtn =
   document.querySelector<HTMLButtonElement>("#clipboard-collection-add");
-const clipboardCollectionRemoveBtn =
-  document.querySelector<HTMLButtonElement>("#clipboard-collection-remove");
 const clipboardNewLimitInput =
   document.querySelector<HTMLInputElement>("#clipboard-new-limit");
 const panelTabButtons = Array.from(
@@ -553,13 +556,15 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionsLabel: "Collections",
     clipboardCollectionPlaceholder: "New collection",
     clipboardCollectionAdd: "Add",
-    clipboardCollectionRemove: "Remove",
     clipboardCollectionInclude: "Include",
     clipboardCollectionGeneral: "General",
     clipboardCollectionNew: "New",
     clipboardFilterPlaceholder: "Filter",
     confirmClipboardCollectionRemove: "Remove collection \"{name}\"?",
     clipboardClear: "Clear",
+    clipboardClearTitle: "Clear clipboard collections",
+    clipboardClearConfirm: "Clear selected",
+    clipboardClearRemoveEmpty: "Remove empty collections (except General/New)",
     playlistTitle: "Playlist",
     playlistHint: "Use tanda menu to mark for replacement and then choose a replacement in the clipboard.",
     playlistClear: "Clear",
@@ -770,7 +775,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusWaveformUnavailable: "Waveform unavailable for this track.",
     statusPlaylistLocked: "This playlist slot is locked during live playback.",
     statusPlaylistNoEmptySlot: "Add a blank slot before adding to the playlist.",
-    statusClipboardCleared: "General clipboard cleared.",
+    statusClipboardCleared: "Clipboard collections updated.",
     statusPlaylistCleared: "Playlist cleared.",
     confirmPlaylistClear: "Clear the playlist and remove all items?",
     outputSelectionFailed: "Output selection failed.",
@@ -811,7 +816,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaNonInstrumental: "Sung",
     tandaMixedLabel: "Mixed",
     tandaSave: "Save tanda",
-    tandaDone: "Done",
+    tandaDone: "Close",
     tandaDelete: "Delete tanda",
     tandaAddSlot: "Add slot",
     tandaToClipboard: "Send to clipboard",
@@ -856,13 +861,15 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionsLabel: "Colecciones",
     clipboardCollectionPlaceholder: "Nueva coleccion",
     clipboardCollectionAdd: "Agregar",
-    clipboardCollectionRemove: "Quitar",
     clipboardCollectionInclude: "Incluir",
     clipboardCollectionGeneral: "General",
     clipboardCollectionNew: "Nuevos",
     clipboardFilterPlaceholder: "Filtrar",
     confirmClipboardCollectionRemove: "Quitar la coleccion \"{name}\"?",
     clipboardClear: "Limpiar",
+    clipboardClearTitle: "Vaciar colecciones del portapapeles",
+    clipboardClearConfirm: "Vaciar seleccionadas",
+    clipboardClearRemoveEmpty: "Eliminar colecciones vacias (excepto General/Nuevos)",
     playlistTitle: "Lista",
     playlistHint:
       "Usa el menu de la tanda para marcar el reemplazo y luego elige en el portapapeles.",
@@ -1078,7 +1085,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusWaveformUnavailable: "Forma de onda no disponible para este tema.",
     statusPlaylistLocked: "Este slot esta bloqueado durante la reproduccion.",
     statusPlaylistNoEmptySlot: "Agregue un espacio vacio antes de anadir a la lista.",
-    statusClipboardCleared: "Portapapeles general vaciado.",
+    statusClipboardCleared: "Colecciones del portapapeles actualizadas.",
     statusPlaylistCleared: "Lista vaciada.",
     confirmPlaylistClear: "¿Borrar la lista y eliminar todos los elementos?",
     outputSelectionFailed: "Fallo al seleccionar salida.",
@@ -1119,7 +1126,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaNonInstrumental: "Cantado",
     tandaMixedLabel: "Mixto",
     tandaSave: "Guardar tanda",
-    tandaDone: "Listo",
+    tandaDone: "Cerrar",
     tandaDelete: "Borrar tanda",
     tandaAddSlot: "Agregar espacio",
     tandaToClipboard: "Enviar al portapapeles",
@@ -1164,13 +1171,15 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionsLabel: "Collections",
     clipboardCollectionPlaceholder: "Nouvelle collection",
     clipboardCollectionAdd: "Ajouter",
-    clipboardCollectionRemove: "Retirer",
     clipboardCollectionInclude: "Inclure",
     clipboardCollectionGeneral: "General",
     clipboardCollectionNew: "Nouveaux",
     clipboardFilterPlaceholder: "Filtrer",
     confirmClipboardCollectionRemove: "Retirer la collection \"{name}\" ?",
     clipboardClear: "Vider",
+    clipboardClearTitle: "Vider les collections du presse-papiers",
+    clipboardClearConfirm: "Vider la selection",
+    clipboardClearRemoveEmpty: "Supprimer les collections vides (sauf General/Nouveaux)",
     playlistTitle: "Playlist",
     playlistHint:
       "Utilisez le menu tanda pour marquer le remplacement puis choisissez dans le presse-papiers.",
@@ -1386,7 +1395,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusWaveformUnavailable: "Forme d'onde indisponible pour ce titre.",
     statusPlaylistLocked: "Ce slot est verrouille en lecture.",
     statusPlaylistNoEmptySlot: "Ajoutez un emplacement vide avant d'ajouter a la playlist.",
-    statusClipboardCleared: "Presse-papiers general vide.",
+    statusClipboardCleared: "Collections du presse-papiers mises a jour.",
     statusPlaylistCleared: "Playlist videe.",
     confirmPlaylistClear: "Effacer la playlist et supprimer tous les elements ?",
     outputSelectionFailed: "Selection de sortie impossible.",
@@ -1427,7 +1436,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaNonInstrumental: "Chante",
     tandaMixedLabel: "Mixte",
     tandaSave: "Enregistrer la tanda",
-    tandaDone: "Terminer",
+    tandaDone: "Fermer",
     tandaDelete: "Supprimer la tanda",
     tandaAddSlot: "Ajouter un slot",
     tandaToClipboard: "Envoyer au presse-papiers",
@@ -1472,13 +1481,15 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionsLabel: "Sammlungen",
     clipboardCollectionPlaceholder: "Neue Sammlung",
     clipboardCollectionAdd: "Hinzufugen",
-    clipboardCollectionRemove: "Entfernen",
     clipboardCollectionInclude: "Einblenden",
     clipboardCollectionGeneral: "Allgemein",
     clipboardCollectionNew: "Neu",
     clipboardFilterPlaceholder: "Filtern",
     confirmClipboardCollectionRemove: "Sammlung \"{name}\" entfernen?",
     clipboardClear: "Leeren",
+    clipboardClearTitle: "Zwischenablagen-Sammlungen leeren",
+    clipboardClearConfirm: "Auswahl leeren",
+    clipboardClearRemoveEmpty: "Leere Sammlungen entfernen (ausser Allgemein/Neu)",
     playlistTitle: "Playlist",
     playlistHint:
       "Tanda-Menue zum Ersetzen markieren, dann in der Zwischenablage auswaehlen.",
@@ -1694,7 +1705,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusWaveformUnavailable: "Wellenform fur diesen Titel nicht verfugbar.",
     statusPlaylistLocked: "Dieser Playlist-Slot ist im Live-Modus gesperrt.",
     statusPlaylistNoEmptySlot: "Fugen Sie einen leeren Slot hinzu, bevor Sie zur Playlist hinzufugen.",
-    statusClipboardCleared: "Allgemeine Zwischenablage geleert.",
+    statusClipboardCleared: "Zwischenablage-Sammlungen aktualisiert.",
     statusPlaylistCleared: "Playlist geleert.",
     confirmPlaylistClear: "Playlist leeren und alle Elemente entfernen?",
     outputSelectionFailed: "Auswahl fehlgeschlagen.",
@@ -1735,7 +1746,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaNonInstrumental: "Gesungen",
     tandaMixedLabel: "Gemischt",
     tandaSave: "Tanda speichern",
-    tandaDone: "Fertig",
+    tandaDone: "Schliessen",
     tandaDelete: "Tanda loschen",
     tandaAddSlot: "Slot hinzufugen",
     tandaToClipboard: "Zur Zwischenablage",
@@ -1780,13 +1791,15 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionsLabel: "Colecoes",
     clipboardCollectionPlaceholder: "Nova colecao",
     clipboardCollectionAdd: "Adicionar",
-    clipboardCollectionRemove: "Remover",
     clipboardCollectionInclude: "Incluir",
     clipboardCollectionGeneral: "Geral",
     clipboardCollectionNew: "Novos",
     clipboardFilterPlaceholder: "Filtrar",
     confirmClipboardCollectionRemove: "Remover a colecao \"{name}\"?",
     clipboardClear: "Limpar",
+    clipboardClearTitle: "Limpar colecoes da area de transferencia",
+    clipboardClearConfirm: "Limpar selecionadas",
+    clipboardClearRemoveEmpty: "Remover colecoes vazias (exceto Geral/Novos)",
     playlistTitle: "Playlist",
     playlistHint:
       "Use o menu da tanda para marcar a substituicao e depois escolha no bloco.",
@@ -2000,7 +2013,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusWaveformUnavailable: "Forma de onda indisponivel para esta faixa.",
     statusPlaylistLocked: "Este slot esta bloqueado durante a reproducao.",
     statusPlaylistNoEmptySlot: "Adicione um slot vazio antes de adicionar a playlist.",
-    statusClipboardCleared: "Area geral limpa.",
+    statusClipboardCleared: "Colecoes da area de transferencia atualizadas.",
     statusPlaylistCleared: "Playlist limpa.",
     confirmPlaylistClear: "Limpar a playlist e remover todos os itens?",
     outputSelectionFailed: "Falha ao selecionar saida.",
@@ -2041,7 +2054,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaNonInstrumental: "Cantado",
     tandaMixedLabel: "Misto",
     tandaSave: "Salvar tanda",
-    tandaDone: "Concluir",
+    tandaDone: "Fechar",
     tandaDelete: "Excluir tanda",
     tandaAddSlot: "Adicionar slot",
     tandaToClipboard: "Enviar ao bloco",
@@ -2086,13 +2099,15 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionsLabel: "Collezioni",
     clipboardCollectionPlaceholder: "Nuova collezione",
     clipboardCollectionAdd: "Aggiungi",
-    clipboardCollectionRemove: "Rimuovi",
     clipboardCollectionInclude: "Includi",
     clipboardCollectionGeneral: "Generale",
     clipboardCollectionNew: "Nuovo",
     clipboardFilterPlaceholder: "Filtra",
     confirmClipboardCollectionRemove: "Rimuovere la collezione \"{name}\"?",
     clipboardClear: "Svuota",
+    clipboardClearTitle: "Svuota collezioni appunti",
+    clipboardClearConfirm: "Svuota selezionate",
+    clipboardClearRemoveEmpty: "Rimuovi collezioni vuote (tranne Generale/Nuovo)",
     playlistTitle: "Playlist",
     playlistHint:
       "Usa il menu tanda per segnare la sostituzione e poi scegli negli appunti.",
@@ -2312,7 +2327,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "Questo slot playlist e bloccato durante la riproduzione live.",
     statusPlaylistNoEmptySlot:
       "Aggiungi uno slot vuoto prima di aggiungere alla playlist.",
-    statusClipboardCleared: "Appunti generali svuotati.",
+    statusClipboardCleared: "Collezioni appunti aggiornate.",
     statusPlaylistCleared: "Playlist svuotata.",
     confirmPlaylistClear: "Svuotare la playlist e rimuovere tutti gli elementi?",
     outputSelectionFailed: "Selezione uscita fallita.",
@@ -2354,7 +2369,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tandaNonInstrumental: "Cantato",
     tandaMixedLabel: "Misto",
     tandaSave: "Salva tanda",
-    tandaDone: "Fatto",
+    tandaDone: "Chiudi",
     tandaDelete: "Elimina tanda",
     tandaAddSlot: "Aggiungi slot",
     tandaToClipboard: "Invia agli appunti",
@@ -3480,6 +3495,7 @@ const playOnChannel = async (
       : startOffsetSeconds;
   let trimmedEndSeconds: number | null = null;
   let trimHandled = false;
+  let trackDurationSeconds = 0;
   if (Number.isFinite(startAt) && (startAt ?? 0) > 0) {
     next.addEventListener(
       "loadedmetadata",
@@ -3500,8 +3516,9 @@ const playOnChannel = async (
     }
   });
   next.addEventListener("loadedmetadata", () => {
+    trackDurationSeconds = Number.isFinite(next.duration) ? next.duration : 0;
     trimmedEndSeconds = computeTrimmedEnd(
-      Number.isFinite(next.duration) ? next.duration : 0,
+      trackDurationSeconds,
       startAt,
       endTrimSeconds,
     );
@@ -3517,9 +3534,18 @@ const playOnChannel = async (
       next.currentTime >= trimmedEndSeconds - 0.15
     ) {
       trimHandled = true;
-      next.currentTime = trimmedEndSeconds;
-      next.pause();
-      next.dispatchEvent(new Event("ended"));
+      const isTrimmedEarly =
+        trackDurationSeconds > 0 &&
+        trimmedEndSeconds < Math.max(0, trackDurationSeconds - 0.05);
+      const finalize = async () => {
+        if (isTrimmedEarly) {
+          await fadeOutAudio(next, 140);
+        }
+        next.currentTime = trimmedEndSeconds ?? next.currentTime;
+        next.pause();
+        next.dispatchEvent(new Event("ended"));
+      };
+      void finalize();
       return;
     }
     updateNowPlayingDisplay();
@@ -3826,6 +3852,121 @@ const showConfirmModal = async (
   confirmModalEl.classList.remove("hidden");
   return new Promise<boolean>((resolve) => {
     confirmModalResolve = resolve;
+  });
+};
+
+const ensureClipboardClearModal = () => {
+  if (clipboardClearModalEl) {
+    return;
+  }
+  const overlay = document.createElement("div");
+  overlay.className = "confirm-modal hidden clipboard-clear-modal";
+  const dialog = document.createElement("div");
+  dialog.className = "confirm-dialog clipboard-clear-dialog";
+  const title = document.createElement("div");
+  title.className = "clipboard-clear-title";
+  const list = document.createElement("div");
+  list.className = "clipboard-clear-list";
+  const options = document.createElement("label");
+  options.className = "clipboard-clear-option";
+  const removeEmptyInput = document.createElement("input");
+  removeEmptyInput.type = "checkbox";
+  removeEmptyInput.className = "clipboard-clear-remove-empty";
+  const removeEmptyLabel = document.createElement("span");
+  options.append(removeEmptyInput, removeEmptyLabel);
+  const actions = document.createElement("div");
+  actions.className = "confirm-actions";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "confirm-cancel";
+  cancelBtn.textContent = t("cancel");
+  const okBtn = document.createElement("button");
+  okBtn.type = "button";
+  okBtn.className = "confirm-ok";
+  okBtn.textContent = t("clipboardClearConfirm");
+  actions.append(cancelBtn, okBtn);
+  dialog.append(title, list, options, actions);
+  overlay.append(dialog);
+  document.body.appendChild(overlay);
+  clipboardClearModalEl = overlay;
+
+  const closeModal = (result: { selectedIds: string[]; removeEmpty: boolean } | null) => {
+    if (!clipboardClearModalEl) {
+      return;
+    }
+    clipboardClearModalEl.classList.add("hidden");
+    const resolve = clipboardClearModalResolve;
+    clipboardClearModalResolve = null;
+    if (resolve) {
+      resolve(result);
+    }
+  };
+
+  cancelBtn.addEventListener("click", () => closeModal(null));
+  okBtn.addEventListener("click", () => {
+    if (!clipboardClearModalEl) {
+      closeModal(null);
+      return;
+    }
+    const selected = Array.from(
+      clipboardClearModalEl.querySelectorAll<HTMLInputElement>(
+        ".clipboard-clear-list input[type=\"checkbox\"]",
+      ),
+    )
+      .filter((input) => input.checked)
+      .map((input) => input.value);
+    const removeEmpty = removeEmptyInput.checked;
+    closeModal({ selectedIds: selected, removeEmpty });
+  });
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      closeModal(null);
+    }
+  });
+};
+
+const showClipboardClearModal = async () => {
+  ensureClipboardClearModal();
+  if (!clipboardClearModalEl) {
+    return null;
+  }
+  if (clipboardClearModalResolve) {
+    return null;
+  }
+  const titleEl = clipboardClearModalEl.querySelector<HTMLElement>(".clipboard-clear-title");
+  const listEl = clipboardClearModalEl.querySelector<HTMLElement>(".clipboard-clear-list");
+  const removeEmptyLabel =
+    clipboardClearModalEl.querySelector<HTMLElement>(".clipboard-clear-option span");
+  const removeEmptyInput =
+    clipboardClearModalEl.querySelector<HTMLInputElement>(".clipboard-clear-remove-empty");
+  const confirmButton = clipboardClearModalEl.querySelector<HTMLButtonElement>(".confirm-ok");
+  const cancelButton = clipboardClearModalEl.querySelector<HTMLButtonElement>(".confirm-cancel");
+  if (!titleEl || !listEl || !removeEmptyLabel || !removeEmptyInput || !confirmButton || !cancelButton) {
+    return null;
+  }
+  titleEl.textContent = t("clipboardClearTitle");
+  removeEmptyLabel.textContent = t("clipboardClearRemoveEmpty");
+  confirmButton.textContent = t("clipboardClearConfirm");
+  cancelButton.textContent = t("cancel");
+  removeEmptyInput.checked = false;
+  listEl.innerHTML = "";
+  clipboardCollections
+    .filter((collection) => collection.id !== CLIPBOARD_NEW_ID)
+    .forEach((collection) => {
+      const row = document.createElement("label");
+      row.className = "clipboard-clear-row";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = collection.id;
+      input.checked = collection.id === activeClipboardCollectionId;
+      const name = document.createElement("span");
+      name.textContent = collection.name;
+      row.append(input, name);
+      listEl.appendChild(row);
+    });
+  clipboardClearModalEl.classList.remove("hidden");
+  return new Promise<{ selectedIds: string[]; removeEmpty: boolean } | null>((resolve) => {
+    clipboardClearModalResolve = resolve;
   });
 };
 
@@ -5998,7 +6139,7 @@ const renderTandaDesigner = () => {
     doneButton.textContent = t("tandaDone");
     doneButton.dataset.action = "tanda-done";
     doneButton.dataset.tandaId = tanda.id;
-    doneButton.disabled = locked;
+    doneButton.disabled = false;
     const deleteButton = document.createElement("button");
     deleteButton.textContent = t("tandaDelete");
     deleteButton.dataset.action = "tanda-delete";
@@ -8187,16 +8328,31 @@ const init = async () => {
   await renderClipboard();
 
   if (themeToggle) {
+    const themeOrder = ["light", "dark", "dark-alt"] as const;
+    const applyTheme = (theme: (typeof themeOrder)[number]) => {
+      document.body.classList.toggle("theme-dark", theme === "dark");
+      document.body.classList.toggle("theme-dark-alt", theme === "dark-alt");
+      localStorage.setItem("tanda-theme", theme);
+    };
     const savedTheme = localStorage.getItem("tanda-theme");
-    if (savedTheme === "dark") {
-      document.body.classList.add("theme-dark");
+    if (savedTheme === "dark" || savedTheme === "dark-alt") {
+      applyTheme(savedTheme);
+    } else {
+      applyTheme("light");
     }
     themeToggle.addEventListener("click", () => {
-      document.body.classList.toggle("theme-dark");
-      const next = document.body.classList.contains("theme-dark")
-        ? "dark"
-        : "light";
-      localStorage.setItem("tanda-theme", next);
+      const current =
+        themeOrder.find((theme) =>
+          theme === "dark"
+            ? document.body.classList.contains("theme-dark")
+            : theme === "dark-alt"
+              ? document.body.classList.contains("theme-dark-alt")
+              : !document.body.classList.contains("theme-dark") &&
+                !document.body.classList.contains("theme-dark-alt"),
+        ) ?? "light";
+      const next =
+        themeOrder[(themeOrder.indexOf(current) + 1) % themeOrder.length];
+      applyTheme(next);
     });
   }
 
@@ -8219,8 +8375,42 @@ const init = async () => {
     });
   }
 
-  clipboardClearBtn?.addEventListener("click", () => {
-    clearGeneralClipboard();
+  clipboardClearBtn?.addEventListener("click", async () => {
+    const result = await showClipboardClearModal();
+    if (!result) {
+      return;
+    }
+    const { collections: updated, removedIds } = applyClipboardClear(
+      clipboardCollections,
+      {
+        selectedIds: result.selectedIds,
+        removeEmpty: result.removeEmpty,
+        protectedIds: ["general", CLIPBOARD_NEW_ID],
+      },
+    );
+    clipboardCollections = updated;
+    includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
+      (id) => clipboardCollections.some((collection) => collection.id === id),
+    );
+    if (
+      activeClipboardCollectionId &&
+      !clipboardCollections.some((collection) => collection.id === activeClipboardCollectionId)
+    ) {
+      activeClipboardCollectionId = getGeneralCollection()?.id ?? "general";
+    }
+    if (
+      activeClipboardCollectionId === "general" ||
+      result.selectedIds.includes(activeClipboardCollectionId ?? "")
+    ) {
+      selectedClipboardTrackId = null;
+      selectedClipboardTandaId = null;
+    }
+    saveClipboardCollections();
+    renderClipboardCollections();
+    renderClipboard();
+    if (removedIds.length > 0 || result.selectedIds.length > 0) {
+      setStatus(t("statusClipboardCleared"));
+    }
   });
 
   if (clipboardFilterInput) {
@@ -8564,43 +8754,6 @@ const init = async () => {
     }
     event.preventDefault();
     clipboardCollectionAddBtn?.click();
-  });
-
-  clipboardCollectionRemoveBtn?.addEventListener("click", () => {
-    if (!activeClipboardCollectionId) {
-      return;
-    }
-    if (clipboardCollections.length <= 1) {
-      setStatus(t("statusClipboardCollectionLast"));
-      return;
-    }
-    if (
-      activeClipboardCollectionId === "general" ||
-      activeClipboardCollectionId === CLIPBOARD_NEW_ID
-    ) {
-      setStatus(t("statusClipboardCollectionProtected"));
-      return;
-    }
-    const activeCollection = getActiveCollection();
-    if (!activeCollection) {
-      return;
-    }
-    const confirmed = window.confirm(
-      t("confirmClipboardCollectionRemove", { name: activeCollection.name }),
-    );
-    if (!confirmed) {
-      return;
-    }
-    clipboardCollections = clipboardCollections.filter(
-      (item) => item.id !== activeClipboardCollectionId,
-    );
-    includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
-      (id) => id !== activeClipboardCollectionId,
-    );
-    activeClipboardCollectionId = clipboardCollections[0]?.id ?? "general";
-    saveClipboardCollections();
-    renderClipboardCollections();
-    renderClipboard();
   });
 
   if (playlistSequenceInput) {

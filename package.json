@@ -67,6 +67,10 @@
       {
         "from": "app/resources/ffmpeg",
         "to": "ffmpeg"
+      },
+      {
+        "from": "app/resources/icons",
+        "to": "icons"
       }
     ]
   }

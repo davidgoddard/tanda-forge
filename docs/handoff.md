@@ -2,41 +2,21 @@
 
 ### Current branch / version
 - Branch: `main`
-- Version: `0.1.0` (from `package.json`)
+- Version: `0.1.1` (from `package.json`)
 
 ### What I was doing last
-- Moved app close/fullscreen IPC handlers out of `createWindow` and into
-  `registerIpc` with per-window close state map to avoid duplicate handler
-  registration (fixes main-process JS error).
-- Tightened audio output dedupe to label-only to reduce duplicate AirPlay
-  entries.
-- Generated two tango-themed icon options as 1024x1024 PNGs for review:
-  `build/icons/options/option3.png` (vinyl + bandoneon) and
-  `build/icons/options/option4.png` (shield badge).
-- Added `build/icons/options/option5.png` with a large stylized T above a
-  bandoneon fan.
-- Generated final icon assets from the plain bandoneon option and stored them
-  in `app/resources/icons/` (png/ico/icns plus size variants). Icon options
-  moved to `docs/assets/icon-options/`.
-- Updated release artifact naming to include platform/arch so Intel mac DMGs
-  are clearly labeled.
-- Updated README download section with new artifact naming and detailed macOS
-  Gatekeeper steps.
-- Guarded main-process close/close-response/fullscreen handlers against
-  destroyed windows to avoid "Object has been destroyed" crashes during quit.
-- Replaced close confirmation `window.confirm` prompts with a custom in-app
-  confirm modal to avoid native NSAlert crashes in dev mode.
-- Skipped close-intercept logic entirely when running in dev (`app.isPackaged`
-  false) to avoid Electron SIGSEGV on quit.
-- Forced dev close to call `app.exit(0)` on window close or IPC close to bypass
-  Electron crash during shutdown.
-- Avoided touching destroyed webContents by caching window id in close handlers.
-- Split GitHub Actions mac builds: macos-15-intel builds x64 only, macos-14
-  builds arm64 only, to ensure Intel DMGs are actually x64.
-- Forced the packaging step to run under bash so the if/elif logic works on
-  Windows runners.
-- Tests/build green (`npm test`, `npm run build`).
-- Tests/build not run after these changes.
+- Added a second dark theme and updated the theme toggle to cycle
+  light → dark → dark-alt → light.
+- Strengthened dark-mode active collection styling so the selected collection
+  is more obvious.
+- Made Tanda Designer “Done” always enabled and renamed to “Close”.
+- Added a quick trim-end fade so early trims avoid clicks but still end fast.
+- Removed the clipboard collection remove button (clear dialog now handles it).
+- Ensured macOS quits fully when the last window closes.
+- Added macOS dock icon override and packaged icons into `extraResources`.
+- Added CI verification of macOS build architecture using `file`.
+- Updated README with macOS arch-selection guidance.
+- Tests not re-run after these edits.
 
 ### Commands to run
 - Install: `npm install`
@@ -49,6 +29,7 @@
 - None (all tests passing as of last run).
 
 ### Immediate next 3 tasks
-1) Verify macOS Intel DMG now installs on Intel hardware (x64 build from macos-13).
-2) Verify release assets are named with platform/arch and Intel DMG installs.
-3) Verify AirPlay outputs list shows expected device(s) and duplicates are gone.
+1) Verify the macOS arm64 and x64 release assets report the correct arch
+   (no Rosetta prompt on Apple Silicon for arm64).
+2) Sanity-check the new theme cycle and active-collection highlight in dark modes.
+3) Confirm “Close” in Tanda Designer dismisses even when locked.

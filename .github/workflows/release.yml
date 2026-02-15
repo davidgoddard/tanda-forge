@@ -53,6 +53,22 @@ jobs:
             npx electron-builder --publish=never --linux
           fi
 
+      - name: Verify macOS arch
+        if: startsWith(matrix.target, 'mac-')
+        shell: bash
+        run: |
+          APP_BIN=$(find dist -type f -path "*Tanda Player Lite.app/Contents/MacOS/Tanda Player Lite" | head -n 1)
+          if [ -z "$APP_BIN" ]; then
+            echo "App binary not found in dist."
+            exit 1
+          fi
+          file "$APP_BIN"
+          if [ "${{ matrix.target }}" = "mac-arm64" ]; then
+            file "$APP_BIN" | grep -q "arm64" || { echo "Expected arm64 build."; exit 1; }
+          else
+            file "$APP_BIN" | grep -q "x86_64" || { echo "Expected x86_64 build."; exit 1; }
+          fi
+
       - name: Upload Release Assets
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
