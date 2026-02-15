@@ -66,6 +66,11 @@ const diagnosticsWaveformResult =
   document.querySelector<HTMLDivElement>("#diagnostics-waveform-result");
 
 let allowAppClose = false;
+let confirmModalEl: HTMLDivElement | null = null;
+let confirmModalMessage: HTMLDivElement | null = null;
+let confirmModalOk: HTMLButtonElement | null = null;
+let confirmModalCancel: HTMLButtonElement | null = null;
+let confirmModalResolve: ((value: boolean) => void) | null = null;
 const progressEl = document.querySelector<HTMLProgressElement>("#scan-progress");
 const progressLabel = document.querySelector<HTMLDivElement>("#progress-label");
 const progressElSettings =
@@ -607,6 +612,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionMarkPlaylist: "Mark playlist target",
     actionMarkPlaylistShort: "M",
     cancelTarget: "Cancel target",
+    cancel: "Cancel",
+    confirmOk: "OK",
     actionSearch: "Search similar",
     actionSearchShort: "S",
     actionMore: "More actions",
@@ -910,6 +917,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionMarkPlaylist: "Marcar objetivo en playlist",
     actionMarkPlaylistShort: "M",
     cancelTarget: "Cancelar objetivo",
+    cancel: "Cancelar",
+    confirmOk: "OK",
     actionSearch: "Buscar similares",
     actionSearchShort: "S",
     actionMore: "Mas acciones",
@@ -1216,6 +1225,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionMarkPlaylist: "Marquer la cible de playlist",
     actionMarkPlaylistShort: "M",
     cancelTarget: "Annuler la cible",
+    cancel: "Annuler",
+    confirmOk: "OK",
     actionSearch: "Rechercher similaire",
     actionSearchShort: "S",
     actionMore: "Plus d'actions",
@@ -1522,6 +1533,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionMarkPlaylist: "Playlistziel markieren",
     actionMarkPlaylistShort: "M",
     cancelTarget: "Ziel aufheben",
+    cancel: "Abbrechen",
+    confirmOk: "OK",
     actionSearch: "Ahnliches suchen",
     actionSearchShort: "S",
     actionMore: "Mehr Aktionen",
@@ -1828,6 +1841,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionMarkPlaylist: "Marcar alvo da playlist",
     actionMarkPlaylistShort: "M",
     cancelTarget: "Cancelar alvo",
+    cancel: "Cancelar",
+    confirmOk: "OK",
     actionSearch: "Buscar similares",
     actionSearchShort: "S",
     actionMore: "Mais acoes",
@@ -2132,6 +2147,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionMarkPlaylist: "Segna obiettivo playlist",
     actionMarkPlaylistShort: "M",
     cancelTarget: "Annulla obiettivo",
+    cancel: "Annulla",
+    confirmOk: "OK",
     actionSearch: "Cerca simili",
     actionSearchShort: "S",
     actionMore: "Altre azioni",
@@ -3740,6 +3757,76 @@ const setStatus = (message: string) => {
   if (statusEl) {
     statusEl.textContent = message;
   }
+};
+
+const ensureConfirmModal = () => {
+  if (confirmModalEl) {
+    return;
+  }
+  const overlay = document.createElement("div");
+  overlay.className = "confirm-modal hidden";
+  const dialog = document.createElement("div");
+  dialog.className = "confirm-dialog";
+  const message = document.createElement("div");
+  message.className = "confirm-message";
+  const actions = document.createElement("div");
+  actions.className = "confirm-actions";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "confirm-cancel";
+  cancelBtn.textContent = t("cancel");
+  const okBtn = document.createElement("button");
+  okBtn.type = "button";
+  okBtn.className = "confirm-ok";
+  okBtn.textContent = t("confirmOk");
+  actions.append(cancelBtn, okBtn);
+  dialog.append(message, actions);
+  overlay.append(dialog);
+  document.body.appendChild(overlay);
+  confirmModalEl = overlay;
+  confirmModalMessage = message;
+  confirmModalOk = okBtn;
+  confirmModalCancel = cancelBtn;
+
+  const closeModal = (result: boolean) => {
+    if (!confirmModalEl) {
+      return;
+    }
+    confirmModalEl.classList.add("hidden");
+    const resolve = confirmModalResolve;
+    confirmModalResolve = null;
+    if (resolve) {
+      resolve(result);
+    }
+  };
+
+  cancelBtn.addEventListener("click", () => closeModal(false));
+  okBtn.addEventListener("click", () => closeModal(true));
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      closeModal(false);
+    }
+  });
+};
+
+const showConfirmModal = async (
+  message: string,
+  confirmLabel?: string,
+) => {
+  ensureConfirmModal();
+  if (!confirmModalEl || !confirmModalMessage || !confirmModalOk || !confirmModalCancel) {
+    return false;
+  }
+  if (confirmModalResolve) {
+    return false;
+  }
+  confirmModalMessage.textContent = message;
+  confirmModalOk.textContent = confirmLabel ?? t("confirmOk");
+  confirmModalCancel.textContent = t("cancel");
+  confirmModalEl.classList.remove("hidden");
+  return new Promise<boolean>((resolve) => {
+    confirmModalResolve = resolve;
+  });
 };
 
 const buildActionButton = (
@@ -8119,7 +8206,10 @@ const init = async () => {
         playback.headphone.active && !playback.headphone.active.paused;
       const isMainPlaying = playback.main.active && !playback.main.active.paused;
       if (isHeadphonePlaying || isMainPlaying) {
-        const confirmClose = window.confirm(t("confirmCloseWhilePlaying"));
+        const confirmClose = await showConfirmModal(
+          t("confirmCloseWhilePlaying"),
+          t("closeApp"),
+        );
         if (!confirmClose) {
           return;
         }
@@ -8154,11 +8244,18 @@ const init = async () => {
       playback.headphone.active && !playback.headphone.active.paused;
     const isMainPlaying = playback.main.active && !playback.main.active.paused;
     if (isHeadphonePlaying || isMainPlaying) {
-      const confirmClose = window.confirm(t("confirmCloseWhilePlaying"));
-      if (!confirmClose) {
-        void window.tanda?.respondToCloseRequest(false);
-        return;
-      }
+      void showConfirmModal(
+        t("confirmCloseWhilePlaying"),
+        t("closeApp"),
+      ).then((confirmClose) => {
+        if (!confirmClose) {
+          void window.tanda?.respondToCloseRequest(false);
+          return;
+        }
+        allowAppClose = true;
+        void window.tanda?.respondToCloseRequest(true);
+      });
+      return;
     }
     allowAppClose = true;
     void window.tanda?.respondToCloseRequest(true);

@@ -682,3 +682,32 @@ Code diffs are omitted; only intent and outcomes are captured.
   and ongoing duplicate AirPlay entries.
   Assistant: Moved close/fullscreen IPC handlers to registerIpc with per-window
   close-state map and tightened audio output dedupe to label-only.
+- User: Asked for tango-themed icon options.
+  Assistant: Generated two PNG options for review:
+  `build/icons/options/option3.png` and `build/icons/options/option4.png`.
+- User: Requested a large stylized T centered above a bandoneon.
+  Assistant: Generated `build/icons/options/option5.png` for review.
+- User: Asked for a plain bandoneon icon.
+  Assistant: Generated icon assets and stored them in
+  `app/resources/icons/`; icon options moved to `docs/assets/icon-options/`.
+- User: Intel Mac DMG still identified as Apple silicon.
+  Assistant: Updated electron-builder artifact naming to include platform/arch
+  and verified tests/build.
+- User: Asked to update README with download guidance and macOS allow steps.
+  Assistant: Updated README to reflect new artifact naming and Gatekeeper steps.
+- User: Reported Electron dev crash with "Object has been destroyed" in main
+  process on quit.
+  Assistant: Added destroyed-window guards in close/close-response/fullscreen
+  handlers; tests/build passed.
+- User: Still seeing Electron dev SIGSEGV on close.
+  Assistant: Replaced close confirmation `window.confirm` with a custom in-app
+  confirm modal; tests/build passed.
+- User: Dev mode still crashing on quit.
+  Assistant: Disabled close-intercept flow when not packaged to avoid
+  Electron SIGSEGV on dev exit; tests/build passed.
+- User: Dev mode still crashing on close.
+  Assistant: Forced dev close to call `app.exit(0)` on window close and IPC
+  close; tests/build passed.
+- User: Still getting "Object has been destroyed" on close in dev.
+  Assistant: Cached window id in close handlers to avoid touching destroyed
+  webContents; tests/build passed.

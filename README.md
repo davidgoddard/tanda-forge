@@ -10,8 +10,8 @@ Go to the GitHub **Releases** page and download the file that matches your syste
 
 - **macOS Intel**: `...-mac-x64.dmg` or `...-mac-x64.zip`
 - **macOS Apple Silicon**: `...-mac-arm64.dmg` or `...-mac-arm64.zip`
-- **Windows**: `...-windows.exe` (or zip if provided)
-- **Linux**: `...-linux.AppImage` or `...-linux.deb`
+- **Windows**: `...-win-x64.exe`
+- **Linux**: `...-linux-x64.AppImage` or `...-linux-x64.deb`
 
 ### 2) macOS Gatekeeper (unsigned app)
 
@@ -19,7 +19,8 @@ Because the app is not signed, macOS will block the first launch:
 
 1. Open the `.dmg` or `.zip` and move **Tanda Player Lite.app** to Applications.
 2. Right‑click the app → **Open** → **Open** again.
-3. Alternatively: **System Settings → Privacy & Security → Open Anyway**.
+3. If blocked: **System Settings → Privacy & Security** → scroll to the warning and click **Open Anyway**.
+4. Confirm the prompt. After the first launch, it should open normally.
 
 Once opened once, it should launch normally.
 

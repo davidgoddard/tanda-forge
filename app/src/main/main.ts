@@ -128,10 +128,19 @@ const createWindow = () => {
 
   mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
 
+  const windowId = mainWindow.webContents.id;
   const closeState = { allowClose: false, closeRequested: false };
-  closeStateByWebContentsId.set(mainWindow.webContents.id, closeState);
+  closeStateByWebContentsId.set(windowId, closeState);
 
   mainWindow.on("close", (event) => {
+    if (!app.isPackaged) {
+      event.preventDefault();
+      app.exit(0);
+      return;
+    }
+    if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+      return;
+    }
     if (closeState.allowClose) {
       return;
     }
@@ -140,13 +149,15 @@ const createWindow = () => {
       return;
     }
     closeState.closeRequested = true;
-    mainWindow.webContents.send("app:request-close");
+    if (!mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send("app:request-close");
+    }
   });
 
   mainWindow.on("closed", () => {
     closeState.allowClose = true;
     closeState.closeRequested = false;
-    closeStateByWebContentsId.delete(mainWindow.webContents.id);
+    closeStateByWebContentsId.delete(windowId);
   });
 };
 
@@ -154,22 +165,28 @@ const registerIpc = () => {
   ipcMain.handle("app:close-response", async (event, allowed: boolean) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     const closeState = closeStateByWebContentsId.get(event.sender.id);
-    if (!window || !closeState) {
+    if (!window || window.isDestroyed() || !closeState) {
       return;
     }
     if (allowed) {
       closeState.allowClose = true;
       closeState.closeRequested = false;
-      window.close();
+      if (!window.isDestroyed()) {
+        window.close();
+      }
     } else {
       closeState.closeRequested = false;
     }
   });
 
   ipcMain.handle("app:close", async (event) => {
+    if (!app.isPackaged) {
+      app.exit(0);
+      return;
+    }
     const window = BrowserWindow.fromWebContents(event.sender);
     const closeState = closeStateByWebContentsId.get(event.sender.id);
-    if (!window || !closeState) {
+    if (!window || window.isDestroyed() || !closeState) {
       const focused = BrowserWindow.getFocusedWindow();
       if (focused) {
         focused.close();
@@ -180,12 +197,14 @@ const registerIpc = () => {
     }
     closeState.allowClose = true;
     closeState.closeRequested = false;
-    window.close();
+    if (!window.isDestroyed()) {
+      window.close();
+    }
   });
 
   ipcMain.handle("app:toggleFullscreen", async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow();
-    if (!window) {
+    if (!window || window.isDestroyed()) {
       return { fullscreen: false };
     }
     if (process.platform === "darwin") {

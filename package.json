@@ -24,12 +24,15 @@
   },
   "build": {
     "productName": "Tanda Player Lite",
+    "icon": "app/resources/icons/icon.png",
     "electronDist": "node_modules/electron/dist",
     "files": [
       "dist/**/*",
       "package.json"
     ],
     "mac": {
+      "icon": "app/resources/icons/icon.icns",
+      "artifactName": "Tanda-Player-Lite-${version}-mac-${arch}.${ext}",
       "target": [
         {
           "target": "dmg",
@@ -47,8 +50,14 @@
         }
       ]
     },
+    "win": {
+      "icon": "app/resources/icons/icon.ico",
+      "artifactName": "Tanda-Player-Lite-${version}-win-${arch}.${ext}"
+    },
     "linux": {
       "maintainer": "Tanda Player Lite <support@tandaplayerlite.com>",
+      "icon": "app/resources/icons/icon.png",
+      "artifactName": "Tanda-Player-Lite-${version}-linux-${arch}.${ext}",
       "target": [
         "AppImage",
         "deb"

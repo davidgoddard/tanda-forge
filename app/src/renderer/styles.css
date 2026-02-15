@@ -1534,6 +1534,55 @@ body.theme-dark .settings-panel {
   gap: 1rem;
 }
 
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(12, 10, 8, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.confirm-modal.hidden {
+  display: none;
+}
+
+.confirm-dialog {
+  background: var(--panel-solid);
+  color: var(--text);
+  border-radius: 16px;
+  padding: 1rem 1.2rem;
+  width: min(420px, 86vw);
+  box-shadow: 0 22px 44px rgba(20, 16, 10, 0.25);
+  display: grid;
+  gap: 0.9rem;
+}
+
+.confirm-message {
+  font-size: 0.98rem;
+  line-height: 1.4;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.confirm-actions button {
+  border-radius: 14px;
+  padding: 0.45rem 1rem;
+  border: 1px solid var(--border);
+  background: var(--button);
+  color: var(--button-text);
+  font-weight: 600;
+}
+
+.confirm-actions .confirm-cancel {
+  background: transparent;
+}
+
 #cortina-modal .modal-card {
   width: min(720px, 90vw);
   height: min(70vh, 640px);
