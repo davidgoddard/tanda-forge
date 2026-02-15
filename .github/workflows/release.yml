@@ -17,8 +17,10 @@ jobs:
         include:
           - os: macos-15-intel
             target: mac-x64
+            arch: x64
           - os: macos-14
             target: mac-arm64
+            arch: arm64
           - os: windows-latest
             target: windows
           - os: ubuntu-latest
@@ -34,11 +36,24 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Report host arch
+        if: startsWith(matrix.target, 'mac-')
+        shell: bash
+        run: |
+          uname -m
+          node -p "process.platform + ' ' + process.arch"
+
       - name: Install Dependencies
         run: npm ci
+        env:
+          npm_config_arch: ${{ matrix.arch }}
+          npm_config_target_arch: ${{ matrix.arch }}
 
       - name: Build
         run: npm run build
+        env:
+          npm_config_arch: ${{ matrix.arch }}
+          npm_config_target_arch: ${{ matrix.arch }}
 
       - name: Package
         shell: bash
@@ -57,6 +72,10 @@ jobs:
         if: startsWith(matrix.target, 'mac-')
         shell: bash
         run: |
+          ELECTRON_BIN=$(find node_modules/electron/dist -type f -path "*Electron.app/Contents/MacOS/Electron" | head -n 1)
+          if [ -n "$ELECTRON_BIN" ]; then
+            file "$ELECTRON_BIN"
+          fi
           APP_BIN=$(find dist -type f -path "*Tanda Player Lite.app/Contents/MacOS/Tanda Player Lite" | head -n 1)
           if [ -z "$APP_BIN" ]; then
             echo "App binary not found in dist."

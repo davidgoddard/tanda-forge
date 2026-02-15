@@ -29,7 +29,6 @@
 - None (all tests passing as of last run).
 
 ### Immediate next 3 tasks
-1) Verify the macOS arm64 and x64 release assets report the correct arch
-   (no Rosetta prompt on Apple Silicon for arm64).
-2) Sanity-check the new theme cycle and active-collection highlight in dark modes.
-3) Confirm “Close” in Tanda Designer dismisses even when locked.
+1) Verify macOS arm64 CI build is actually arm64 (check `file` output in logs).
+2) Verify the arm64 DMG runs on Apple Silicon without Rosetta prompt.
+3) Sanity-check theme cycling and Tanda Designer Close behavior.
