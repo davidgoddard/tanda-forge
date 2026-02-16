@@ -18,13 +18,29 @@ jobs:
           - os: macos-15-intel
             target: mac-x64
             arch: x64
+            upload_glob: |
+              dist/*-mac-x64.dmg
+              dist/*-mac-x64.zip
+              dist/*-mac-x64.dmg.blockmap
+              dist/*-mac-x64.zip.blockmap
           - os: macos-14
             target: mac-arm64
             arch: arm64
+            upload_glob: |
+              dist/*-mac-arm64.dmg
+              dist/*-mac-arm64.zip
+              dist/*-mac-arm64.dmg.blockmap
+              dist/*-mac-arm64.zip.blockmap
           - os: windows-latest
             target: windows
+            upload_glob: |
+              dist/*.exe
+              dist/*.blockmap
           - os: ubuntu-latest
             target: linux
+            upload_glob: |
+              dist/*.AppImage
+              dist/*.deb
 
     steps:
       - name: Checkout
@@ -92,13 +108,7 @@ jobs:
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/*.dmg
-            dist/*.zip
-            dist/*.exe
-            dist/*.AppImage
-            dist/*.deb
-            dist/*.blockmap
+          files: ${{ matrix.upload_glob }}
 
       - name: Upload Workflow Artifacts
         if: github.event_name == 'workflow_dispatch'

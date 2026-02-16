@@ -34,20 +34,8 @@
       "icon": "app/resources/icons/icon.icns",
       "artifactName": "Tanda-Player-Lite-${version}-mac-${arch}.${ext}",
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
+        "dmg",
+        "zip"
       ]
     },
     "win": {

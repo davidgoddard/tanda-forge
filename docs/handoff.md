@@ -15,6 +15,8 @@
 - Ensured macOS quits fully when the last window closes.
 - Added macOS dock icon override and packaged icons into `extraResources`.
 - Added CI verification of macOS build architecture using `file`.
+- Removed mac build arch arrays from `package.json` so CLI flags control output.
+- Limited release asset uploads per job to avoid cross-arch overwrites.
 - Updated README with macOS arch-selection guidance.
 - Tests not re-run after these edits.
 
