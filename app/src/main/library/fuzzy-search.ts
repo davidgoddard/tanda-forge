@@ -207,7 +207,25 @@ export const scoreTrackAgainstQuery = (
     ...fields.map((field) => scoreText(trimmed, field)),
   );
   const tokenBonus = bestTokenSimilarity(trimmed, fields) * 0.2;
-  return Math.min(1, baseScore + tokenBonus);
+  const artistField = track.artist_summary || track.artist || "";
+  const titleField = track.title || "";
+  const fieldBoost =
+    Math.max(scoreText(trimmed, artistField), scoreText(trimmed, titleField)) * 0.15;
+  const tokens = getTokens(trimmed);
+  const numericTokens = tokens.filter((token) => /^\d+$/.test(token));
+  const yearTokens = numericTokens.filter((token) => token.length === 4);
+  const bpmTokens = numericTokens.filter((token) => token.length !== 4);
+  const yearBoost =
+    yearTokens.length > 0
+      ? Math.max(...yearTokens.map((token) => scoreYearMatch(Number.parseInt(token, 10), track.year ?? ""))) *
+        0.25
+      : 0;
+  const bpmBoost =
+    bpmTokens.length > 0
+      ? Math.max(...bpmTokens.map((token) => scoreBpmMatch(Number.parseInt(token, 10), track.bpm, bpmRange))) *
+        0.15
+      : 0;
+  return Math.min(1, baseScore + tokenBonus + fieldBoost + yearBoost + bpmBoost);
 };
 
 export const filterAndScoreTracks = (

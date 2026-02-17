@@ -435,6 +435,7 @@ type TandaDraft = {
   styles: string[];
   rating: number;
   trackSlots: (string | null)[];
+  origin?: "designer" | "playlist";
 };
 
 let tandaDrafts: TandaDraft[] = [];
@@ -585,7 +586,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     dataLocationChoose: "Choose…",
     dataLocationHelp: "Data is stored in a _tp_data folder at the selected location.",
     legacyImportTitle: "Legacy Import",
-    legacyImportButton: "Import legacy tandas",
+    legacyImportButton: "Import legacy library",
     close: "Close",
     idle: "Idle",
     starting: "Starting...",
@@ -605,7 +606,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     confirmDataLocationChange:
       "Change data location to {path}? This starts a fresh database.",
     confirmLegacyImport:
-      "Import tandas from {path}? This replaces existing tandas and applies legacy track metadata.",
+      "Import legacy library data from {path}? This replaces existing tandas and uses legacy metadata without a full scan.",
     actionAddClipboardShort: "C",
     actionAddTandaShort: "T",
     actionRemoveClipboard: "Remove from clipboard",
@@ -741,7 +742,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusDataLocationChanged: "Data location set to {path}. Database reset.",
     statusDataLocationDuringPlayback: "Stop playback before changing data location.",
     legacyImportDetected:
-      "Legacy files detected at {path}. Import tandas and legacy metadata?",
+      "Legacy files detected at {path}. Import library.dat and cortinas.dat (no full scan)?",
     statusLegacyImportDone:
       "Imported {tandas} tandas. Updated {tracks} tracks. Missing {missing} tracks.",
     statusMissingRoots:
@@ -3381,21 +3382,19 @@ const fadeBetween = (
   targetVolume: number,
   durationMs = 600,
 ) => {
-  const fromStart = from ? Math.max(0, from.volume) : 0;
-  to.volume = 0;
+  to.volume = targetVolume;
+  if (!from) {
+    return;
+  }
+  const fromStart = Math.max(0, from.volume);
   const start = performance.now();
   const step = () => {
     const elapsed = performance.now() - start;
     const t = Math.min(1, durationMs > 0 ? elapsed / durationMs : 1);
-    if (from) {
-      from.volume = Math.max(0, fromStart * (1 - t));
-    }
-    to.volume = Math.min(targetVolume, targetVolume * t);
+    from.volume = Math.max(0, fromStart * (1 - t));
     if (t >= 1) {
-      if (from) {
-        from.pause();
-        from.currentTime = 0;
-      }
+      from.pause();
+      from.currentTime = 0;
       return;
     }
     window.requestAnimationFrame(step);
@@ -4209,12 +4208,13 @@ const openTandaInDesigner = (
   const shouldHostInPlaylist =
     returnTab === "playlist-tab" && playlistOpenTandaIndex !== null;
   tandaEditorHostTab = shouldHostInPlaylist ? "playlist-tab" : "tanda-designer-tab";
+  const origin = shouldHostInPlaylist ? "playlist" : "designer";
   if (source) {
-    ensureTandaDraft(source);
-  } else if (!tandaDrafts.some((item) => item.id === tandaId)) {
+    ensureTandaDraft(source, origin);
+  } else {
     const cached = resolveTandaDraft(tandaId);
     if (cached) {
-      tandaDrafts = [...tandaDrafts, cached];
+      ensureTandaDraft(cached, origin);
     }
   }
   setActiveTanda(tandaId);
@@ -4226,7 +4226,7 @@ const finalizeTandaDraft = (
   tanda: TandaDraft,
   returnTab?: RightPanelTab | null,
 ) => {
-  tandaCache.set(tanda.id, cloneTanda(tanda));
+  tandaCache.set(tanda.id, { ...cloneTanda(tanda), origin: "designer" });
   tandaDrafts = tandaDrafts.filter((item) => item.id !== tanda.id);
   const fresh = createEmptyTanda();
   tandaDrafts = [...tandaDrafts, fresh];
@@ -4465,7 +4465,7 @@ const getTandaYearRange = (years: string[]) => {
     .map((year) => Number.parseInt(year, 10))
     .filter((year) => Number.isFinite(year));
   if (numericYears.length === 0) {
-    return years.length > 0 ? years.join(",") : t("tandaUnknownYear");
+    return years.length > 0 ? years.join(",") : "";
   }
   const min = Math.min(...numericYears);
   const max = Math.max(...numericYears);
@@ -4512,8 +4512,7 @@ const buildTandaSummaryText = (tanda: TandaDraft, fallbackName?: string) => {
           )
           .join(" / ")
       : t("tandaUnknownArtist");
-  const yearLabel =
-    summary.years.length > 0 ? summary.years.join(",") : t("tandaUnknownYear");
+  const yearLabel = summary.years.length > 0 ? summary.years.join(",") : "";
   const instrumentalLabel = getInstrumentalLabel(summary.instrumentalStatus);
   const bpmValues = tracks
     .map((track) => (track?.bpm && track.bpm > 0 ? Math.round(track.bpm) : null))
@@ -4566,7 +4565,42 @@ const buildTandaExpandedSummaryText = (
   tanda: TandaDraft,
   fallbackName?: string,
 ) => {
-  return buildTandaSummaryText(tanda, fallbackName);
+  const name = (tanda.name || fallbackName || "").trim();
+  const tracks = tanda.trackSlots.map((trackId) =>
+    trackId ? trackCache.get(trackId) ?? null : null,
+  );
+  const summary = summarizeTandaTracks(
+    tracks.map((track) => {
+      if (!track) {
+        return null;
+      }
+      return {
+        year: track.year,
+        instrumental: track.instrumental ?? null,
+      };
+    }),
+  );
+  const yearLabel =
+    summary.years.length > 0 ? getTandaYearRange(summary.years) : "";
+  const bpmValues = tracks
+    .map((track) => (track?.bpm && track.bpm > 0 ? Math.round(track.bpm) : null))
+    .filter((value): value is number => value !== null);
+  const bpmLabel =
+    bpmValues.length === 0
+      ? ""
+      : Math.min(...bpmValues) === Math.max(...bpmValues)
+        ? `${Math.min(...bpmValues)} bpm`
+        : `${Math.min(...bpmValues)}-${Math.max(...bpmValues)} bpm`;
+  const durationLabel = formatTime(
+    tracks.reduce((sum, track) => sum + getEffectiveTrackDurationMs(track), 0) /
+      1000,
+  );
+  const ratingLabel =
+    tanda.rating > 0 ? `${"\u2605".repeat(Math.min(5, tanda.rating))}` : "";
+  const details = [yearLabel, bpmLabel, durationLabel, ratingLabel].filter(
+    (part) => part && part.trim().length > 0,
+  );
+  return name ? (details.length > 0 ? `${name} - ${details.join(" - ")}` : name) : details.join(" - ");
 };
 
 type TandaDetailLine = {
@@ -4591,11 +4625,12 @@ const buildTandaDetailLines = (tanda: TandaDraft): TandaDetailLine[] => {
     if (!track) {
       return [];
     }
-    const year = track.year?.trim() || t("tandaUnknownYear");
+    const year = track.year?.trim() || "";
     const duration = formatTime(getEffectiveTrackDurationMs(track) / 1000);
+    const yearLabel = year ? ` (${year})` : "";
     return [
       {
-        text: `${buildTrackLabel(track)} (${year}) · ${duration}`,
+        text: `${buildTrackLabel(track)}${yearLabel} · ${duration}`,
         trackId: track.id,
         slotIndex,
       },
@@ -5940,26 +5975,44 @@ const renderTandaDesigner = () => {
   if (!tandaListEl && !playlistTandaEditorEl) {
     return;
   }
-  const selected = selectedTandaId
-    ? tandaDrafts.find((item) => item.id === selectedTandaId) ?? null
+  const designerDrafts = tandaDrafts.filter((item) => item.origin !== "playlist");
+  const selectedDesigner = selectedTandaId
+    ? designerDrafts.find((item) => item.id === selectedTandaId) ?? null
     : null;
-  const emptyDrafts = tandaDrafts.filter((item) => isTandaEmpty(item));
-  const chosenEmpty =
-    (selected && isTandaEmpty(selected) ? selected : emptyDrafts[0]) ??
-    createEmptyTanda();
-  const nonEmptyDrafts = tandaDrafts.filter((item) => !isTandaEmpty(item));
-  tandaDrafts = [chosenEmpty, ...nonEmptyDrafts];
-  selectedTandaId = selected?.id ?? chosenEmpty.id;
-  const activeId = selectedTandaId ?? tandaDrafts[0]?.id ?? null;
-  if (activeId && activeId !== selectedTandaId) {
-    selectedTandaId = activeId;
+  const emptyDesignerDrafts = designerDrafts.filter((item) => isTandaEmpty(item));
+  let chosenEmpty =
+    (selectedDesigner && isTandaEmpty(selectedDesigner)
+      ? selectedDesigner
+      : emptyDesignerDrafts[0]) ?? null;
+  if (!chosenEmpty) {
+    chosenEmpty = createEmptyTanda();
+    ensureTandaDraft(chosenEmpty, "designer");
+    designerDrafts.push(chosenEmpty);
   }
-  const renderInto = (container: HTMLDivElement, drafts: TandaDraft[]) => {
+  const nonEmptyDesignerDrafts = designerDrafts.filter(
+    (item) => !isTandaEmpty(item) && item.id !== chosenEmpty?.id,
+  );
+  const orderedDesignerDrafts = chosenEmpty
+    ? [chosenEmpty, ...nonEmptyDesignerDrafts]
+    : nonEmptyDesignerDrafts;
+  const designerSelectedId = selectedDesigner?.id ?? chosenEmpty?.id ?? null;
+  if (
+    activeRightTab === "tanda-designer-tab" &&
+    designerSelectedId &&
+    selectedTandaId !== designerSelectedId
+  ) {
+    selectedTandaId = designerSelectedId;
+  }
+  const renderInto = (
+    container: HTMLDivElement,
+    drafts: TandaDraft[],
+    selectedId: string | null,
+  ) => {
     container.innerHTML = "";
     drafts.forEach((tanda) => {
       const locked = isTandaLocked(tanda.id);
       const card = document.createElement("div");
-      card.className = `tanda-card${tanda.id === selectedTandaId ? " selected" : ""}`;
+      card.className = `tanda-card${tanda.id === selectedId ? " selected" : ""}`;
       if (locked) {
         card.classList.add("locked");
       }
@@ -6164,10 +6217,31 @@ const renderTandaDesigner = () => {
     });
   };
   if (tandaListEl) {
-    renderInto(tandaListEl, tandaDrafts);
+    renderInto(tandaListEl, orderedDesignerDrafts, designerSelectedId);
   }
   if (playlistTandaEditorEl) {
-    const openIndex = getOpenPlaylistTandaIndex();
+    const resolvePlaylistEditorIndex = () => {
+      if (playlistOpenTandaIndex === null) {
+        return null;
+      }
+      if (
+        playlistOpenTandaIndex < 0 ||
+        playlistOpenTandaIndex >= playlistItems.length
+      ) {
+        clearPlaylistOpenTanda();
+        return null;
+      }
+      const item = playlistItems[playlistOpenTandaIndex];
+      if (!item || item.kind !== "tanda") {
+        clearPlaylistOpenTanda();
+        return null;
+      }
+      return playlistOpenTandaIndex;
+    };
+    const openIndex =
+      tandaEditorHostTab === "playlist-tab"
+        ? resolvePlaylistEditorIndex()
+        : getOpenPlaylistTandaIndex();
     let playlistDrafts: TandaDraft[] = [];
     if (
       openIndex !== null &&
@@ -6182,11 +6256,12 @@ const renderTandaDesigner = () => {
         }
       }
     }
-    renderInto(playlistTandaEditorEl, playlistDrafts);
+    const playlistSelectedId = playlistDrafts[0]?.id ?? null;
+    renderInto(playlistTandaEditorEl, playlistDrafts, playlistSelectedId);
     const shouldShow =
       tandaEditorHostTab === "playlist-tab" &&
       activeRightTab === "playlist-tab" &&
-      playlistOpenTandaIndex !== null &&
+      openIndex !== null &&
       playlistDrafts.length > 0;
     playlistTandaEditorEl.classList.toggle("hidden", !shouldShow);
   }
@@ -6285,9 +6360,13 @@ const clearPlaylistOpenTanda = () => {
 const isTandaInClipboard = (tandaId: string) =>
   clipboardCollections.some((collection) => collection.tandaIds.includes(tandaId));
 
-const cloneTandaWithNewId = (tanda: TandaDraft): TandaDraft => ({
+const cloneTandaWithNewId = (
+  tanda: TandaDraft,
+  origin?: TandaDraft["origin"],
+): TandaDraft => ({
   ...cloneTanda(tanda),
   id: crypto.randomUUID(),
+  origin: origin ?? tanda.origin,
 });
 
 const ensurePlaylistEditableTanda = (tandaId: string, index: number) => {
@@ -6298,8 +6377,8 @@ const ensurePlaylistEditableTanda = (tandaId: string, index: number) => {
   if (!isTandaInClipboard(tandaId)) {
     return original;
   }
-  const draft = cloneTandaWithNewId(original);
-  ensureTandaDraft(draft);
+  const draft = cloneTandaWithNewId(original, "playlist");
+  ensureTandaDraft(draft, "playlist");
   const existing = playlistItems[index];
   if (existing?.kind === "tanda") {
     playlistItems[index] = {
@@ -6586,6 +6665,7 @@ const createPlaylistTandaForSlot = (
     styles,
     rating: 0,
     trackSlots,
+    origin: "playlist",
   };
 };
 
@@ -6892,6 +6972,7 @@ const createEmptyTanda = (): TandaDraft => {
     styles: [],
     rating: 0,
     trackSlots: Array.from({ length: size }, () => null),
+    origin: "designer",
   };
 };
 
@@ -6901,6 +6982,7 @@ const cloneTanda = (tanda: TandaDraft): TandaDraft => ({
   styles: [...tanda.styles],
   rating: tanda.rating,
   trackSlots: [...tanda.trackSlots],
+  origin: tanda.origin,
 });
 
 const isTandaEmpty = (tanda: TandaDraft | null | undefined) => {
@@ -6916,6 +6998,7 @@ const createPlaceholderTanda = (tandaId: string): TandaDraft => ({
   styles: [],
   rating: 0,
   trackSlots: Array.from({ length: getDefaultTandaSize() }, () => null),
+  origin: "playlist",
 });
 
 const upsertTandaCache = (tanda: TandaDetail) => {
@@ -6926,6 +7009,7 @@ const upsertTandaCache = (tanda: TandaDetail) => {
     styles: [...tanda.styles],
     rating: tanda.rating,
     trackSlots: [...tanda.track_slots],
+    origin: "designer",
   });
 };
 
@@ -6934,10 +7018,16 @@ const resolveTandaDraft = (tandaId: string) =>
   tandaCache.get(tandaId) ??
   null;
 
-const ensureTandaDraft = (tanda: TandaDraft) => {
-  if (!tandaDrafts.some((item) => item.id === tanda.id)) {
-    tandaDrafts = [...tandaDrafts, tanda];
+const ensureTandaDraft = (tanda: TandaDraft, origin?: TandaDraft["origin"]) => {
+  const existing = tandaDrafts.find((item) => item.id === tanda.id);
+  if (existing) {
+    if (origin && !existing.origin) {
+      existing.origin = origin;
+    }
+    return;
   }
+  const draft = origin ? { ...tanda, origin } : tanda;
+  tandaDrafts = [...tandaDrafts, draft];
 };
 
 const isPlaylistIndexLocked = (index: number) => {
@@ -8652,8 +8742,10 @@ const init = async () => {
       cortinaQueue = [];
       lastCortinaId = null;
       cortinaTracksBySet.clear();
+      cortinaOverrideByIndex.clear();
       resetCortinaPlans();
       await resetCortinaQueue();
+      await ensureCortinaPlans(getCortinaRowIndices(playlistItems));
       renderPlaylist();
       if (cortinaModalSet) {
         cortinaModalSet.value = next;
@@ -9136,6 +9228,34 @@ const init = async () => {
     refreshSearch();
   });
 
+  const updateScanIssues = (errors: { filePath: string; message: string }[]) => {
+    if (progressLabel) {
+      progressLabel.textContent = t("statusScanIssues", {
+        count: errors.length,
+      });
+    }
+    if (progressLabelSettings) {
+      progressLabelSettings.textContent = t("statusScanIssues", {
+        count: errors.length,
+      });
+    }
+    if (errorList) {
+      errorList.innerHTML = "";
+      errors.slice(0, 50).forEach((error) => {
+        const li = document.createElement("li");
+        li.textContent = `${error.filePath}: ${error.message}`;
+        errorList.appendChild(li);
+      });
+      if (errors.length > 50) {
+        const li = document.createElement("li");
+        li.textContent = t("scanIssuesMore", {
+          count: errors.length - 50,
+        });
+        errorList.appendChild(li);
+      }
+    }
+  };
+
   legacyImportButton?.addEventListener("click", async () => {
     if (!window.tanda || !legacyImportRootPath) {
       return;
@@ -9154,6 +9274,9 @@ const init = async () => {
         missing: result.missingTracks,
       }),
     );
+    if (result.missingFiles) {
+      updateScanIssues(result.missingFiles);
+    }
     await updateLegacyImport(result.rootPath);
     refreshSearch();
   });
@@ -9204,31 +9327,7 @@ const init = async () => {
           removed: summary.removed,
         }),
       );
-      if (progressLabel) {
-        progressLabel.textContent = t("statusScanIssues", {
-          count: summary.errors.length,
-        });
-      }
-      if (progressLabelSettings) {
-        progressLabelSettings.textContent = t("statusScanIssues", {
-          count: summary.errors.length,
-        });
-      }
-      if (errorList) {
-        errorList.innerHTML = "";
-        summary.errors.slice(0, 50).forEach((error) => {
-          const li = document.createElement("li");
-          li.textContent = `${error.filePath}: ${error.message}`;
-          errorList.appendChild(li);
-        });
-        if (summary.errors.length > 50) {
-          const li = document.createElement("li");
-          li.textContent = t("scanIssuesMore", {
-            count: summary.errors.length - 50,
-          });
-          errorList.appendChild(li);
-        }
-      }
+      updateScanIssues(summary.errors);
       await loadStyles();
       await loadCortinaSets();
       if (kind === "music") {
@@ -9974,8 +10073,11 @@ const init = async () => {
       if (!source) {
         return;
       }
+      if (index >= 0) {
+        playlistOpenTandaIndex = index;
+      }
       const effectiveId = source.id;
-      openTandaInDesigner(effectiveId, source);
+      openTandaInDesigner(effectiveId, source, "playlist-tab");
       closeRowMenus();
       return;
     }

@@ -112,6 +112,7 @@ export type AppApi = {
     tandasImported: number;
     tracksUpdated: number;
     missingTracks: number;
+    missingFiles: { filePath: string; message: string }[];
     rootPath: string;
   }>;
   scanAll: () => Promise<ScanSummary>;

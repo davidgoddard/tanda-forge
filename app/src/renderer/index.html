@@ -237,14 +237,16 @@
                   placeholder="Filter"
                   aria-label="Filter clipboard"
                 />
-                <button id="clipboard-clear" data-i18n="clipboardClear">
-                  Clear
-                </button>
               </div>
             </div>
             <div class="clipboard-collections">
               <div class="clipboard-collections-header">
-                <span data-i18n="clipboardCollectionsLabel">Collections</span>
+                <div class="clipboard-collections-title">
+                  <span data-i18n="clipboardCollectionsLabel">Collections</span>
+                  <button id="clipboard-clear" data-i18n="clipboardClear">
+                    Clear
+                  </button>
+                </div>
                 <div class="clipboard-collections-controls">
                   <input
                     id="clipboard-collection-name"
@@ -332,9 +334,6 @@
         <div class="modal-card">
           <header class="modal-header">
             <h2 data-i18n="trackEditorTitle">Edit track</h2>
-            <button id="track-editor-cancel" data-i18n="trackEditorCancel">
-              Cancel
-            </button>
           </header>
           <div class="modal-body">
             <div class="modal-field">
@@ -410,6 +409,9 @@
             </div>
           </div>
           <footer class="modal-footer">
+            <button id="track-editor-cancel" data-i18n="trackEditorCancel">
+              Cancel
+            </button>
             <button id="track-editor-reset" data-i18n="trackEditorReset">
               Reset
             </button>

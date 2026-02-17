@@ -158,6 +158,12 @@ Code diffs are omitted; only intent and outcomes are captured.
   Assistant: Routed actions via button[data-action] so S is honored, enabled fuzzy sort by selected column, and allowed jump index/prefix jumps for filtered queries.
 - User: Asked for a visible X in the close button and a magnifying glass icon for search.
   Assistant: Added explicit glyphs/icons inside the buttons and adjusted icon-button CSS to render them.
+- User: Requested legacy import without a full scan, no fade-in on playback, clearer
+  clipboard clear placement, simpler tanda summaries, playlist/designer separation,
+  and cortina reassignment on set change.
+  Assistant: Reworked legacy import to use legacy data + waveform PNGs with file checks,
+  removed fade-in, moved the clear button, simplified summaries, separated playlist
+  tandas from the designer list, and randomized cortinas on set switch.
 - User: Reported mac builds still showing Intel, requested another dark theme, clearer active
   collection in dark mode, faster trim fades, Close to always dismiss the Tanda Designer,
   and dock icon to show app icon instead of Electron.

@@ -5,19 +5,17 @@
 - Version: `0.1.1` (from `package.json`)
 
 ### What I was doing last
-- Added a second dark theme and updated the theme toggle to cycle
-  light → dark → dark-alt → light.
-- Strengthened dark-mode active collection styling so the selected collection
-  is more obvious.
-- Made Tanda Designer “Done” always enabled and renamed to “Close”.
-- Added a quick trim-end fade so early trims avoid clicks but still end fast.
-- Removed the clipboard collection remove button (clear dialog now handles it).
-- Ensured macOS quits fully when the last window closes.
-- Added macOS dock icon override and packaged icons into `extraResources`.
-- Added CI verification of macOS build architecture using `file`.
-- Removed mac build arch arrays from `package.json` so CLI flags control output.
-- Limited release asset uploads per job to avoid cross-arch overwrites.
-- Updated README with macOS arch-selection guidance.
+- Reworked legacy import to avoid full scans: imports `library.dat`/`cortinas.dat`,
+  verifies file existence, loads waveform `.png` files, and reports missing files.
+- Moved clipboard clear button into its own toolbar (away from the filter).
+- Removed fade-in on transitions; only fast fade-out remains.
+- Simplified expanded tanda summaries (name/year/bpm/duration only) and hid
+  unknown years.
+- Moved track editor Cancel button into the footer with Reset/Save.
+- Randomized cortina assignments when switching cortina sets in playlist config.
+- Separated playlist-origin tandas from the Tanda Designer list so playlist
+  edits don’t clutter the designer tab.
+- Boosted search scoring for exact artist/year/BPM matches.
 - Tests not re-run after these edits.
 
 ### Commands to run
@@ -31,6 +29,7 @@
 - None (all tests passing as of last run).
 
 ### Immediate next 3 tasks
-1) Verify macOS arm64 CI build is actually arm64 (check `file` output in logs).
-2) Verify the arm64 DMG runs on Apple Silicon without Rosetta prompt.
-3) Sanity-check theme cycling and Tanda Designer Close behavior.
+1) Sanity-check legacy import: no scan, missing file list, waveform `.png` load.
+2) Verify playlist-origin tandas don’t appear in the designer list, and playlist
+   edits still open/close correctly.
+3) Confirm cortina re-assignment and no fade-in on playback starts.

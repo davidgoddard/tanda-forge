@@ -315,12 +315,14 @@ const registerIpc = () => {
     const roots = db
       .prepare("select id, kind, path, label from library_roots")
       .all() as LibraryRoot[];
-    const result = importLegacyData(rootPath, roots);
+    const { waveformsDir } = getDataPaths();
+    const result = await importLegacyData(rootPath, roots, { waveformsDir });
     legacyOverridesByRootId = result.overridesByRootId;
     return {
       tandasImported: result.tandasImported,
       tracksUpdated: result.tracksUpdated,
       missingTracks: result.missingTracks,
+      missingFiles: result.missingFiles,
       rootPath: result.rootPath,
     };
   });

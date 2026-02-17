@@ -103,6 +103,7 @@ body {
   gap: 1rem;
   align-items: center;
   min-width: 0;
+  min-height: 78px;
 }
 
 .now-playing-text {
@@ -635,6 +636,12 @@ body.theme-dark-alt .tab-bar button.active {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+}
+
+.clipboard-collections-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .clipboard-collections-controls {
