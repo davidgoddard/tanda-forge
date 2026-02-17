@@ -30,7 +30,7 @@ import {
   fetchSearchCandidates,
   fuzzySearchTracks,
 } from "./library/search";
-import type { CortinaTrackRow } from "../shared/types";
+import type { CortinaTrackRow, DisplayUpdatePayload } from "../shared/types";
 import { filterAndScoreTracks } from "./library/fuzzy-search";
 import {
   DEFAULT_CORTINA_SET_ID,
@@ -40,6 +40,7 @@ import { normalizeStyleName, summarizeArtistName } from "../shared/tanda-utils";
 import {
   deleteTanda,
   getTandasByIds,
+  listRecentTandaIds,
   listTandas,
   saveTanda,
   searchTandas,
@@ -68,6 +69,50 @@ const closeStateByWebContentsId = new Map<
   number,
   { allowClose: boolean; closeRequested: boolean }
 >();
+let mainAppWindow: BrowserWindow | null = null;
+let displayWindow: BrowserWindow | null = null;
+let lastDisplayPayload: DisplayUpdatePayload = {};
+
+const imageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"]);
+
+const toDataUrl = (filePath: string) => {
+  const ext = path.extname(filePath).toLowerCase();
+  const mime =
+    ext === ".png"
+      ? "image/png"
+      : ext === ".webp"
+        ? "image/webp"
+        : ext === ".gif"
+          ? "image/gif"
+          : ext === ".bmp"
+            ? "image/bmp"
+            : "image/jpeg";
+  const data = fs.readFileSync(filePath);
+  return `data:${mime};base64,${data.toString("base64")}`;
+};
+
+const walkImageFiles = async (rootPath: string): Promise<string[]> => {
+  const entries = await fs.promises.readdir(rootPath, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) {
+      continue;
+    }
+    const fullPath = path.join(rootPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await walkImageFiles(fullPath)));
+      continue;
+    }
+    if (!entry.isFile()) {
+      continue;
+    }
+    const ext = path.extname(entry.name).toLowerCase();
+    if (imageExtensions.has(ext)) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+};
 
 const getSortKeyForTrack = (sortBy: string, track: { [key: string]: unknown }) => {
   if (sortBy === "artist") {
@@ -139,6 +184,7 @@ const createWindow = () => {
       nodeIntegration: false,
     },
   });
+  mainAppWindow = mainWindow;
 
   mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
 
@@ -172,7 +218,45 @@ const createWindow = () => {
     closeState.allowClose = true;
     closeState.closeRequested = false;
     closeStateByWebContentsId.delete(windowId);
+    if (mainAppWindow === mainWindow) {
+      mainAppWindow = null;
+    }
   });
+};
+
+const ensureDisplayWindow = () => {
+  if (displayWindow && !displayWindow.isDestroyed()) {
+    return displayWindow;
+  }
+  displayWindow = new BrowserWindow({
+    width: 1280,
+    height: 720,
+    show: false,
+    frame: false,
+    titleBarStyle: process.platform === "darwin" ? "hidden" : undefined,
+    fullscreenable: true,
+    autoHideMenuBar: true,
+    backgroundColor: "#0b0d12",
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  displayWindow.loadFile(path.join(__dirname, "../renderer/display.html"));
+  displayWindow.once("ready-to-show", () => {
+    if (!displayWindow || displayWindow.isDestroyed()) {
+      return;
+    }
+    displayWindow.show();
+    if (Object.keys(lastDisplayPayload).length > 0) {
+      displayWindow.webContents.send("display:update", lastDisplayPayload);
+    }
+  });
+  displayWindow.on("closed", () => {
+    displayWindow = null;
+  });
+  return displayWindow;
 };
 
 const registerIpc = () => {
@@ -234,16 +318,24 @@ const registerIpc = () => {
     return { fullscreen: window.isFullScreen() };
   });
 
-  ipcMain.handle("library:pickRoot", async (_event, kind: "music" | "cortina") => {
+  ipcMain.handle(
+    "library:pickRoot",
+    async (_event, kind: "music" | "cortina" | "background") => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory"],
-      title: kind === "music" ? "Select Music Folder" : "Select Cortina Folder",
+      title:
+        kind === "music"
+          ? "Select Music Folder"
+          : kind === "cortina"
+            ? "Select Cortina Folder"
+            : "Select Background Folder",
     });
     if (result.canceled || result.filePaths.length === 0) {
       return null;
     }
     return result.filePaths[0];
-  });
+    },
+  );
 
   ipcMain.handle("data:pickLocation", async () => {
     const result = await dialog.showOpenDialog({
@@ -270,7 +362,7 @@ const registerIpc = () => {
 
   ipcMain.handle(
     "library:addRoot",
-    async (_event, kind: "music" | "cortina", rootPath: string) => {
+    async (_event, kind: "music" | "cortina" | "background", rootPath: string) => {
       const db = getDb();
       const now = new Date().toISOString();
       const id = randomUUID();
@@ -358,16 +450,19 @@ const registerIpc = () => {
     const roots = db
       .prepare("select id, kind, path, label from library_roots")
       .all() as LibraryRoot[];
+    const scanRoots = roots.filter(
+      (root) => root.kind === "music" || root.kind === "cortina",
+    );
     const startedAt = new Date().toISOString();
     db.prepare(
-      "update library_roots set last_scan_started_at = ?, last_scan_error = null",
+      "update library_roots set last_scan_started_at = ?, last_scan_error = null where kind in ('music','cortina')",
     ).run(startedAt);
 
     try {
-      const summary = await runScan(roots);
+      const summary = await runScan(scanRoots);
       const completedAt = new Date().toISOString();
       db.prepare(
-        "update library_roots set last_scan_completed_at = ?",
+        "update library_roots set last_scan_completed_at = ? where kind in ('music','cortina')",
       ).run(completedAt);
       return summary;
     } catch (error) {
@@ -384,7 +479,7 @@ const registerIpc = () => {
       const message =
         error instanceof Error ? error.message : "Scan failed.";
       db.prepare(
-        "update library_roots set last_scan_error = ?",
+        "update library_roots set last_scan_error = ? where kind in ('music','cortina')",
       ).run(message);
       throw error;
     }
@@ -1062,6 +1157,43 @@ const registerIpc = () => {
     };
   });
 
+  ipcMain.handle("backgrounds:list", async (): Promise<string[]> => {
+    const db = getDb();
+    const roots = db
+      .prepare("select path from library_roots where kind = 'background'")
+      .all() as { path: string }[];
+    const imageFiles: string[] = [];
+    for (const root of roots) {
+      if (!root.path || !fs.existsSync(root.path)) {
+        continue;
+      }
+      try {
+        imageFiles.push(...(await walkImageFiles(root.path)));
+      } catch {
+        // Continue with other roots when one path is not readable.
+      }
+    }
+    const uniqueFiles = Array.from(new Set(imageFiles));
+    return uniqueFiles.map((filePath) => toDataUrl(filePath));
+  });
+
+  ipcMain.handle("display:open", async () => {
+    const window = ensureDisplayWindow();
+    if (!window.isVisible()) {
+      window.show();
+    }
+    window.focus();
+    return { ok: true };
+  });
+
+  ipcMain.handle("display:update", async (_event, payload: DisplayUpdatePayload) => {
+    lastDisplayPayload = payload ?? {};
+    if (!displayWindow || displayWindow.isDestroyed()) {
+      return;
+    }
+    displayWindow.webContents.send("display:update", lastDisplayPayload);
+  });
+
   ipcMain.handle("tracks:getByIds", async (_event, ids: string[]) => {
     if (!Array.isArray(ids) || ids.length === 0) {
       return [];
@@ -1108,6 +1240,19 @@ const registerIpc = () => {
     async () => {
       const db = getDb();
       return listTandas(db);
+    },
+  );
+
+  ipcMain.handle(
+    "tandas:listRecent",
+    async (_event, limit: number): Promise<string[]> => {
+      const db = getDb();
+      const safeLimit =
+        Number.isFinite(limit) && limit > 0 ? Math.min(200, Math.floor(limit)) : 0;
+      if (safeLimit <= 0) {
+        return [];
+      }
+      return listRecentTandaIds(db, safeLimit);
     },
   );
 
@@ -1224,7 +1369,7 @@ app.whenReady().then(() => {
 });
 
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
+  if (!mainAppWindow || mainAppWindow.isDestroyed()) {
     createWindow();
   }
 });

@@ -1,0 +1,154 @@
+@font-face {
+  font-family: "DM Serif Display";
+  src: local("DM Serif Display"), local("DMSerifDisplay-Regular");
+  font-weight: 400;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: #0b0d12;
+  color: #f5f2ee;
+  font-family: "DM Serif Display", "Georgia", "Times New Roman", serif;
+  -webkit-app-region: no-drag;
+}
+
+.display-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.drag-strip {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 22px;
+  -webkit-app-region: drag;
+  z-index: 4;
+}
+
+.display-background {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.swirl-layer {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(circle at 24% 28%, rgba(90, 126, 194, 0.16), transparent 50%),
+    radial-gradient(circle at 74% 70%, rgba(188, 116, 132, 0.12), transparent 56%),
+    radial-gradient(circle at 52% 44%, rgba(94, 94, 120, 0.1), transparent 60%);
+  filter: blur(8px) saturate(1.03);
+}
+
+.ambient-orb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52vmin;
+  height: 52vmin;
+  border-radius: 50%;
+  filter: blur(14px);
+  opacity: 0;
+  mix-blend-mode: screen;
+  transform: translate(-50%, -50%) scale(0.96);
+  transition:
+    opacity 10s ease,
+    transform 10s ease;
+  will-change: opacity, transform;
+}
+
+.ambient-orb.visible {
+  opacity: 0.74;
+}
+
+.bg-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 2.5s ease-in-out;
+  will-change: opacity;
+}
+
+.bg-image.visible {
+  opacity: 1;
+}
+
+.bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.2));
+}
+
+.display-content {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  padding: clamp(2rem, 6vw, 6rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+}
+
+.display-content.cortina-mode {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: clamp(0.6rem, 2vw, 1.4rem);
+}
+
+.display-content.cortina-mode .display-title {
+  font-size: clamp(4.8rem, 16vw, 14rem);
+  line-height: 0.95;
+  max-width: 96%;
+}
+
+.display-content.cortina-mode .display-artist {
+  font-size: clamp(1.8rem, 4vw, 3.4rem);
+  max-width: 94%;
+}
+
+.display-content.cortina-mode .display-progress,
+.display-content.cortina-mode .display-next {
+  display: none;
+}
+
+.display-title {
+  font-size: clamp(2.4rem, 6vw, 5.5rem);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  max-width: 85%;
+}
+
+.display-artist {
+  font-size: clamp(1.6rem, 4.6vw, 3.8rem);
+  line-height: 1.1;
+  opacity: 0.88;
+  max-width: 80%;
+}
+
+.display-progress {
+  font-size: clamp(1.2rem, 2.6vw, 2rem);
+  opacity: 0.75;
+  margin-top: 1.5rem;
+}
+
+.display-next {
+  font-size: clamp(1.3rem, 2.8vw, 2.2rem);
+  text-align: right;
+  opacity: 0.85;
+  align-self: flex-end;
+  max-width: 50%;
+}

@@ -104,11 +104,17 @@ Global settings including:
 
 - Durations are stored as floats in seconds; new model should store milliseconds
   for precision, with conversion at ingest.
+- The legacy `analysis.start` maps to trimmed start offset, and `analysis.silence`
+  can be used to derive end trim (`duration - silence`) when importing.
+- Legacy libraries may include waveform PNGs alongside audio files
+  (`track.ext.png` or `track.png`); import should reuse these when present.
 - Auto-generated tandas are mixed with saved tandas; new model should allow a
   `source` or `is_generated` flag.
 - Classifiers are configurable; new model should store classifier definitions
   separately from per-track values.
 - Legacy import must preserve tandas and playlists and map track references to
   the new library roots where possible.
+- Legacy notes sometimes encode year values; import should treat a 4-digit year
+  or a year range in notes (e.g., `1998-2002`) as year metadata when no year is set.
 - Legacy artist normalization logic in `similar.js` informs the
   `artist_summary` field used for sorting and tanda summaries.

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Tanda Player Display</title>
+    <link rel="stylesheet" href="./display.css" />
+  </head>
+  <body>
+    <div class="display-root">
+      <div class="drag-strip" aria-hidden="true"></div>
+      <div class="display-background">
+        <div class="swirl-layer">
+          <div class="ambient-orb orb-a"></div>
+          <div class="ambient-orb orb-b"></div>
+        </div>
+        <div class="bg-image bg-image-a"></div>
+        <div class="bg-image bg-image-b"></div>
+        <div class="bg-overlay"></div>
+      </div>
+      <div class="display-content">
+        <div class="display-title" id="display-title"></div>
+        <div class="display-artist" id="display-artist"></div>
+        <div class="display-progress" id="display-progress"></div>
+        <div class="display-next" id="display-next"></div>
+      </div>
+    </div>
+    <script src="./display.js"></script>
+  </body>
+</html>

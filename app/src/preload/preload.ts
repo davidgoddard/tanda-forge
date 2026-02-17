@@ -36,6 +36,8 @@ const api: AppApi = {
   getTracksByIds: async (ids) => ipcRenderer.invoke("tracks:getByIds", ids),
   listRecentTracks: async (limit) =>
     ipcRenderer.invoke("tracks:listRecent", limit),
+  listRecentTandas: async (limit) =>
+    ipcRenderer.invoke("tandas:listRecent", limit),
   searchJumpIndex: async (params) =>
     ipcRenderer.invoke("tracks:searchJumpIndex", params),
   searchJumpToPrefix: async (params) =>
@@ -62,6 +64,18 @@ const api: AppApi = {
     ipcRenderer.invoke("cortinas:listTracks", setName),
   searchCortinas: async (params) =>
     ipcRenderer.invoke("cortinas:searchTracks", params),
+  listBackgroundImages: async () => ipcRenderer.invoke("backgrounds:list"),
+  openDisplay: async () => ipcRenderer.invoke("display:open"),
+  updateDisplay: async (payload) => ipcRenderer.invoke("display:update", payload),
+  onDisplayUpdate: (handler) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+      handler(payload as never);
+    };
+    ipcRenderer.on("display:update", listener);
+    return () => {
+      ipcRenderer.removeListener("display:update", listener);
+    };
+  },
   closeApp: async () => ipcRenderer.invoke("app:close"),
   respondToCloseRequest: async (allowed) =>
     ipcRenderer.invoke("app:close-response", allowed),

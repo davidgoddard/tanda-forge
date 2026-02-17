@@ -47,6 +47,22 @@
             </span>
           </button>
           <button
+            id="open-display"
+            class="icon-button display-button has-glyph"
+            data-i18n-attr="aria-label,title"
+            data-i18n="openDisplay"
+            aria-label="Open display"
+            title="Open display"
+          >
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M4 5.5C4 4.7 4.7 4 5.5 4h13c.8 0 1.5.7 1.5 1.5v9c0 .8-.7 1.5-1.5 1.5h-5.2l.9 2H17a1 1 0 1 1 0 2H7a1 1 0 1 1 0-2h2.8l.9-2H5.5C4.7 16 4 15.3 4 14.5zm2 .5v8h12V6z"
+              />
+            </svg>
+            <span class="sr-only" data-i18n="openDisplay">Open display</span>
+          </button>
+          <button
             id="theme-toggle"
             class="icon-button"
             data-i18n-attr="aria-label"
@@ -143,7 +159,7 @@
       <section class="alert-banner" id="alert-banner" aria-live="polite"></section>
       <section class="workspace">
         <div class="column">
-          <div class="panel">
+          <div class="panel playlist-panel">
             <h2 data-i18n="searchTitle">Search</h2>
             <div class="search-row">
               <input
@@ -194,9 +210,6 @@
               <button data-tab="search-tandas" data-i18n="tabTandas">
                 Tandas
               </button>
-            </div>
-            <div class="result-count" id="search-count" data-i18n="searchResultsCount">
-              Results: 0
             </div>
             <nav class="jump-index" id="search-jump-index"></nav>
             <div class="search-header track" id="search-track-header">
@@ -332,8 +345,27 @@
         aria-hidden="true"
       >
         <div class="modal-card">
-          <header class="modal-header">
+          <header class="modal-header track-editor-header">
             <h2 data-i18n="trackEditorTitle">Edit track</h2>
+            <div
+              class="waveform track-editor-waveform hidden"
+              id="track-editor-waveform-container"
+              role="img"
+              data-i18n-attr="aria-label"
+              data-i18n="waveformLabel"
+              aria-label="Waveform timeline"
+            >
+              <img id="track-editor-waveform-image" alt="" />
+              <div
+                id="track-editor-waveform-placeholder"
+                class="waveform-placeholder"
+                data-i18n="waveformUnavailable"
+              >
+                Waveform unavailable
+              </div>
+              <div id="track-editor-waveform-progress" class="waveform-progress"></div>
+              <div id="track-editor-waveform-playhead" class="waveform-playhead"></div>
+            </div>
           </header>
           <div class="modal-body">
             <div class="modal-field">
@@ -409,8 +441,8 @@
             </div>
           </div>
           <footer class="modal-footer">
-            <button id="track-editor-cancel" data-i18n="trackEditorCancel">
-              Cancel
+            <button id="track-editor-close" data-i18n="close">
+              Close
             </button>
             <button id="track-editor-reset" data-i18n="trackEditorReset">
               Reset
@@ -469,6 +501,9 @@
               </button>
               <button id="add-cortina" data-i18n="addCortinaFolder">
                 Add Cortina Folder
+              </button>
+              <button id="add-backgrounds" data-i18n="addBackgroundFolder">
+                Add Background Folder
               </button>
               <button id="scan-music" data-i18n="scanMusic">
                 Scan Music
@@ -679,6 +714,18 @@
                   type="number"
                   min="0"
                   max="500"
+                  step="1"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="display-background-interval" data-i18n="displayBackgroundInterval">
+                  Display background rotation (sec)
+                </label>
+                <input
+                  id="display-background-interval"
+                  type="number"
+                  min="5"
+                  max="300"
                   step="1"
                 />
               </div>

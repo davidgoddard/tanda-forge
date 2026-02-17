@@ -13,7 +13,7 @@ import type { LegacyTrackOverride } from "../legacy-import";
 export type LibraryRoot = {
   id: string;
   path: string;
-  kind: "music" | "cortina";
+  kind: "music" | "cortina" | "background";
   label: string;
 };
 

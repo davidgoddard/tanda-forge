@@ -116,6 +116,21 @@ export const listTandas = (db: Database.Database): TandaDetail[] => {
     .filter((row): row is TandaDetail => row !== null);
 };
 
+export const listRecentTandaIds = (
+  db: Database.Database,
+  limit: number,
+): string[] => {
+  const rows = db
+    .prepare(
+      `select id
+       from tandas
+       order by updated_at desc
+       limit ?`,
+    )
+    .all(limit) as { id: string }[];
+  return rows.map((row) => row.id);
+};
+
 export const getTandasByIds = (
   db: Database.Database,
   ids: string[],

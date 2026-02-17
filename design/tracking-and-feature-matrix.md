@@ -28,8 +28,8 @@ and implementation status to prevent drift.
 | FR-001.2 | Background analysis | Yes | Partial | Done: tags, silence offsets, loudness (loudnorm) with tolerant parsing of malformed output. Missing: batch queue persistence, retry policy, analysis scheduling. |
 | FR-001.3 | Progress + resume + deletion handling | Yes | Partial | Done: progress, skip unchanged, deletion cleanup. Missing: resumable job state across app restarts. |
 | FR-002 | Loudness normalization | Yes | Partial | Done: store loudness/gain and apply to preview/main. Missing: configurable reference loudness, cortina level handling. |
-| FR-011 | Tanda management | Yes | Partial | Done: tanda designer UI, save/delete to DB, search tab, legacy tandas import and metadata overrides. Missing: export, advanced validation rules. |
-| FR-020 | Playlist structure | Yes | Partial | Done: playlist UI, start/resume/stop, active tanda expansion, live-mode locking, auto-save/restore, cortina slots and playback integration, in-playlist tanda editor for ad-hoc creation. Missing: rule-based generation. |
+| FR-011 | Tanda management | Yes | Partial | Done: tanda designer UI, save/delete to DB, search tab, legacy tandas import without full scan (library.dat + cortinas.dat), waveform PNG reuse, and metadata overrides. Missing: export, advanced validation rules. |
+| FR-020 | Playlist structure | Yes | Partial | Done: playlist UI, start/resume/stop, active tanda expansion, live-mode locking, auto-save/restore, cortina slots and playback integration, in-playlist tanda editor for ad-hoc creation, target-mark replacement and cross-swap with warnings. Missing: rule-based generation. |
 | FR-021 | Rule-based playlists | Yes | No | Missing: rule parsing, generation engine, and save/export flows. |
 | FR-022 | Auto DJ / auto play | Yes | No | Missing: auto-play playlist flagging and unattended playback mode. |
 | FR-062 | Edit mode | Yes | Yes | Done: Edit mode added; clicking tracks plays and opens editor; playlist clicks avoid auto-start in edit. |
@@ -53,18 +53,18 @@ and implementation status to prevent drift.
 
 | UI ID | Description | Spec’d | Implemented | Notes |
 |------|------------|:------:|:-----------:|------|
-| UI-014 | Three-column workspace | Yes | Partial | Done: search/clipboard/playlist columns, tabs, counts, add actions, playlist send-to-clipboard for tracks/tandas, first-free slot insertion, auto-restore playlist, track-to-playlist creates tanda with in-playlist editor, empty-slot click creates styled tanda, playlist clear confirmation, clipboard filter, and tab focus on add. Missing: verify send-to-clipboard reliability and add-to-tanda tab focus (reported unreliable). |
+| UI-014 | Three-column workspace | Yes | Partial | Done: search/clipboard/playlist columns, tabs, counts, add actions, playlist send-to-clipboard for tracks/tandas, first-free slot insertion, auto-restore playlist, track-to-playlist creates tanda with in-playlist editor, empty-slot click creates styled tanda, playlist clear confirmation, clipboard filter, tab focus on add, and target-mark swap actions. Missing: verify send-to-clipboard reliability and add-to-tanda tab focus (reported unreliable). |
 | UI-012 | Playlist timeline | Yes | Partial | Done: active tanda expansion, active track highlight, estimated start times, and idle auto-centering of the current tanda during playback. Missing: next-up visualization and multi-client state sync. |
 | UI-082 | Clipboard collections | Yes | Yes | Done: active collection tabs, include chips, local persistence, add/remove collections, system "New" collection with configurable size, clipboard tanda click selects only (edit via T or drag/drop), drag track to collection lozenge moves it, multi-collection clear dialog with optional empty-collection cleanup (excluding General/New). |
 | UI-015 | Now Playing strip | Yes | Yes | Done: single-row layout for label + metadata + waveform, artist/title, duration, waveform preview, seek in prep mode only, and waveform placeholder while generating. |
-| UI-016 | Tanda Designer | Yes | Partial | Done: draft editing, placeholders, save/delete, add slot, Done action, filtering, up/down controls, in-playlist editor view for ad-hoc tandas. Missing: drag/drop reordering; send-to-clipboard action reliability (reported). |
+| UI-016 | Tanda Designer | Yes | Partial | Done: draft editing, placeholders, save/delete, add slot, Done action, filtering, up/down controls, in-playlist editor view for ad-hoc tandas, and separation of playlist-origin drafts from the designer list. Missing: drag/drop reordering; send-to-clipboard action reliability (reported). |
 | UI-017 | Tanda Summary (planned) | Yes | Partial | Done: shared summary format with artists, vocal status, years, BPM range, duration, rating display. Missing: dedicated summary config UI. |
 | UI-020 | Cortina selector | Yes | Partial | Done: fixed-size cortina picker modal with set selection/search and playlist rows show selected/playing cortina titles. Missing: keyboard shortcuts and audition workflow. |
 | UI-030 | Similarity visualization | Yes | No | Planned; not implemented. |
 | UI-040 | Waveform preview | Yes | Partial | Done: waveform display, placeholder on load, click-to-seek, on-demand caching, scan-time generation, diagnostics panel, explicit PNG encoder, resilient FFmpeg invocation. Missing: centralized retry policy for failed waveform generation. |
 | UI-050 | Configuration panel | Yes | Partial | Done: Library/System/Playlist tabs, diagnostics paths and waveform test. Missing: gain target controls and UI visibility toggles. |
-| UI-060 | Display board UI | Yes | No | Planned; not implemented. |
-| UI-070 | Playlist integrity enforcement | Yes | Partial | Done: style mismatch warnings, count confirmation, mismatch badges. Missing: search-and-replace enforcement hooks. |
+| UI-060 | Display board UI | Yes | Partial | Done: separate display window, top-right launcher, fullscreen support, now-playing metadata, randomized background-image rotation with abstract animated fallback, and cortina-focused headline mode. Missing: dedicated display-window controls panel (monitor targeting/preview) and explicit font-scale presets for venue distance tuning. |
+| UI-070 | Playlist integrity enforcement | Yes | Partial | Done: style mismatch warnings, count confirmation, mismatch badges, swap warnings when style/count changes. Missing: search-and-replace enforcement hooks. |
 | UI-080 | Scratch pad | Yes | Partial | Done: clipboard tabs and add/remove. Missing: explicit cross-playlist drag/drop from playlist into scratch pad. |
 
 ---
@@ -87,6 +87,6 @@ The following items are still Partial or No in the matrix above:
 - UI-012: next-up visualization and multi-client sync.
 - UI-016: drag/drop reordering + reliability polish.
 - UI-020: cortina keyboard shortcuts + audition workflow.
-- UI-030, UI-060: similarity visualization and display board UI.
+- UI-030: similarity visualization.
 - UI-040: waveform generation retry policy.
 - UI-050: gain target controls + UI visibility toggles.

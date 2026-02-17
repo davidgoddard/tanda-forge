@@ -106,4 +106,32 @@ describe("fuzzy search helpers", () => {
     });
     expect(result[0].track.artist).toBe("Julio De Caro");
   });
+
+  it("prioritizes exact artist+title+year+bpm match over partial artist matches", () => {
+    const exact = buildTrack({
+      id: "exact",
+      artist: "Enrique Alessio",
+      singer: "Alberto Castillo",
+      title: "Recuerdo",
+      year: "1937",
+      bpm: 62,
+    });
+    const partial = buildTrack({
+      id: "partial",
+      artist: "Enrique Alessio",
+      singer: "Alberto Castillo",
+      title: "Remolino",
+      year: "2013",
+      bpm: 88,
+    });
+    const result = filterAndScoreTracks([partial, exact], {
+      query: "Enrique Alessio Alberto Castillo Recuerdo 1937 62",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("exact");
+    expect(result[0].score).toBeGreaterThan(result[1].score);
+  });
 });

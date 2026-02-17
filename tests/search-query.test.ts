@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildTrackSearchQuery } from "../app/src/shared/search-query";
+import {
+  buildTrackSearchQuery,
+  dedupeQueryTokens,
+} from "../app/src/shared/search-query";
 
 describe("buildTrackSearchQuery", () => {
   it("includes key metadata fields", () => {
@@ -23,5 +26,19 @@ describe("buildTrackSearchQuery", () => {
     expect(query).toContain("Tango");
     expect(query).toContain("99");
     expect(query).toContain("test note");
+  });
+});
+
+describe("dedupeQueryTokens", () => {
+  it("removes repeated tokens while preserving first-seen order", () => {
+    const query = dedupeQueryTokens(
+      "Francisco Canaro Francisco 1935 canaro 1935",
+    );
+    expect(query).toBe("Francisco Canaro 1935");
+  });
+
+  it("treats punctuation variants as the same token", () => {
+    const query = dedupeQueryTokens("Canaro, Canaro canaro.");
+    expect(query).toBe("Canaro,");
   });
 });

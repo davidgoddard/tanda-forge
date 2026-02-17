@@ -237,6 +237,8 @@ Behavior:
 - UI-011.R22: When expanded, the style badge and action menu remain aligned with the summary line (top-aligned).
 - UI-011.R23: Tanda rows include a search (S) action that launches a similarity search for related tracks.
 - UI-011.R24: Tanda track action buttons align to the far right edge of the tanda row.
+- UI-011.R25: In expanded search results, tanda track detail menus include a localized
+  search action (label uses the current language) to launch a similar-track search.
 
 ---
 
@@ -507,6 +509,14 @@ Features:
 - UI-060.R1: Current track / tanda.
 - UI-060.R2: Next upcoming item.
 - UI-060.R3: Optional background imagery.
+- UI-060.R7: During cortina lead-in, playback, and immediate post-cortina gap,
+  the display headline shows "Cortina" and secondary line shows "This tanda: {style}".
+- UI-060.R8: Between tracks, the display must retain the last non-empty now-playing
+  text instead of showing an "idle" placeholder.
+- UI-060.R9: When no background images are available, use a subtle animated abstract
+  background with slow color/shape motion that preserves text readability.
+- UI-060.R10: In cortina mode, content is centered and the "Cortina" headline is
+  rendered as large as possible while still fitting on screen.
 
 Rules:
 - UI-060.R4: No control affordances.

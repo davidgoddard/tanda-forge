@@ -19,6 +19,8 @@ Lighting, Network, etc.).
 ## Library Configuration
 
 - CFG-LIB-001: Users can add one or more Music roots and one or more Cortina roots.
+- CFG-LIB-010: Users can optionally add one or more Background roots used by the
+  external display board image rotation.
 - CFG-LIB-002: Each root shows availability status (connected/missing).
 - CFG-LIB-003: Changes to roots are applied immediately and do not require a restart.
 - CFG-LIB-004: Library scanning is initiated from the Library tab.
@@ -26,11 +28,13 @@ Lighting, Network, etc.).
   beside the scan-issue count. The main screen remains uncluttered for day-to-day use.
 - CFG-LIB-006: Separate scan actions exist for Music and Cortinas. Only one scan runs at a
   time; attempts to start another scan report that a scan is already in progress.
-- CFG-LIB-007: If legacy Tanda Player files (`config.js`, `tandas.dat`, `library.dat`)
-  are detected when adding roots or changing the data location, the UI exposes a
-  legacy import action.
+- CFG-LIB-007: If legacy Tanda Player files (`config.js`, `tandas.dat`, `library.dat`,
+  `cortinas.dat`) are detected when adding roots or changing the data location, the UI
+  exposes a legacy import action.
 - CFG-LIB-008: Legacy import replaces existing tandas and applies any available
   legacy track metadata in preference to tag/analysis data when fields are non-empty.
+- CFG-LIB-009: Legacy import does not perform a full rescan; it validates file existence,
+  derives trims from legacy analysis fields, and reuses legacy waveform PNGs when present.
 
 ## System Configuration
 
@@ -61,6 +65,8 @@ Lighting, Network, etc.).
   folder within the selected directory.
 - CFG-SYS-015.b: Changing the data location starts with a fresh database and does
   not migrate existing data automatically.
+- CFG-SYS-016: Users can configure the external display background rotation
+  interval in seconds.
 
 ## Playlist Configuration
 

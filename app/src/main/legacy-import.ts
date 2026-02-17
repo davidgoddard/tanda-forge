@@ -28,6 +28,11 @@ export type LegacyTrackOverride = {
   genre?: string;
   bpm?: number | null;
   notes?: string;
+  durationMs?: number;
+  startOffsetMs?: number;
+  endTrimMs?: number;
+  loudnessDb?: number | null;
+  gainDb?: number | null;
 };
 
 export type LegacyImportResult = {
@@ -47,6 +52,15 @@ type LegacyLibraryEntry = {
     album?: string;
     date?: string;
     genre?: string;
+    duration?: number;
+  };
+  analysis?: {
+    duration?: number;
+    silence?: number;
+    start?: number;
+    meanGain?: number;
+    gain?: number;
+    error?: string | null;
   };
   classifiers?: {
     bpm?: number;
@@ -104,23 +118,78 @@ const readLegacyJson = <T>(filePath: string, fallback: T): T => {
   }
 };
 
+const parseYearFromNotes = (notes: string) => {
+  const currentYear = new Date().getFullYear();
+  const rangeMatch = notes.match(
+    /\b(19\d{2}|20\d{2})\s*[-–—/]\s*(19\d{2}|20\d{2})\b/,
+  );
+  if (rangeMatch) {
+    const first = Number.parseInt(rangeMatch[1], 10);
+    const second = Number.parseInt(rangeMatch[2], 10);
+    if (
+      Number.isFinite(first) &&
+      Number.isFinite(second) &&
+      first >= 1900 &&
+      second >= 1900 &&
+      first <= currentYear &&
+      second <= currentYear
+    ) {
+      return `${first}-${second}`;
+    }
+  }
+  const singleMatch = notes.match(/\b(19\d{2}|20\d{2})\b/);
+  if (singleMatch) {
+    const year = Number.parseInt(singleMatch[1], 10);
+    if (Number.isFinite(year) && year >= 1900 && year <= currentYear) {
+      return year.toString();
+    }
+  }
+  return "";
+};
+
 export const loadLegacyLibrary = (libraryPath: string) => {
   const raw = readLegacyJson<Record<string, LegacyLibraryEntry>>(libraryPath, {});
   const entries = new Map<string, LegacyTrackOverride>();
   Object.entries(raw).forEach(([rawPath, entry]) => {
     const track = entry.track ?? {};
+    const analysis = entry.analysis ?? {};
     const classifiers = entry.classifiers ?? {};
     const title = track.title?.trim() ?? "";
     const artist = track.artist?.trim() ?? "";
     const album = track.album?.trim() ?? "";
     const genre = (track.genre || classifiers.style || "").toString().trim();
-    const bpm =
-      typeof classifiers.bpm === "number" ? classifiers.bpm : null;
+    const bpm = typeof classifiers.bpm === "number" ? classifiers.bpm : null;
     const notes = (classifiers.notes ?? "").toString().trim();
-    const year =
+    let year =
       track.date && !Number.isNaN(Date.parse(track.date))
         ? new Date(track.date).getFullYear().toString()
         : "";
+    if (!year && notes) {
+      year = parseYearFromNotes(notes);
+    }
+    const durationSec =
+      typeof analysis.duration === "number"
+        ? analysis.duration
+        : typeof track.duration === "number"
+          ? track.duration
+          : 0;
+    const startOffsetSec =
+      typeof analysis.start === "number" ? analysis.start : 0;
+    const silenceSec =
+      typeof analysis.silence === "number" ? analysis.silence : null;
+    const endTrimSec =
+      silenceSec !== null && durationSec > 0
+        ? Math.max(0, durationSec - silenceSec)
+        : 0;
+    const durationMs = Number.isFinite(durationSec)
+      ? Math.max(0, Math.round(durationSec * 1000))
+      : 0;
+    const startOffsetMs = Number.isFinite(startOffsetSec)
+      ? Math.max(0, Math.round(startOffsetSec * 1000))
+      : 0;
+    const endTrimMs = Number.isFinite(endTrimSec)
+      ? Math.max(0, Math.round(endTrimSec * 1000))
+      : 0;
     entries.set(normalizeLegacyPath(rawPath), {
       title: title || undefined,
       artist: artist || undefined,
@@ -129,6 +198,12 @@ export const loadLegacyLibrary = (libraryPath: string) => {
       year: year || undefined,
       bpm,
       notes: notes || undefined,
+      durationMs: durationMs || undefined,
+      startOffsetMs: startOffsetMs || undefined,
+      endTrimMs: endTrimMs || undefined,
+      loudnessDb:
+        typeof analysis.meanGain === "number" ? analysis.meanGain : null,
+      gainDb: typeof analysis.gain === "number" ? analysis.gain : null,
     });
   });
   return entries;
@@ -174,7 +249,8 @@ const importLegacyTracks = async (
     styleRows.map((row) => [row.normalized.toLowerCase(), row.name]),
   );
   const selectStmt = db.prepare(
-    `select id, title, artist, album, year, genre, bpm, notes, singer, created_at
+    `select id, title, artist, album, year, genre, bpm, notes, singer, created_at,
+        duration_ms, start_offset_ms, end_trim_ms, loudness_db, gain_db
      from tracks where root_id = ? and relative_path = ?`,
   );
   const insertStmt = db.prepare(
@@ -243,6 +319,11 @@ const importLegacyTracks = async (
             notes?: string;
             singer?: string;
             created_at?: string;
+            duration_ms?: number;
+            start_offset_ms?: number;
+            end_trim_ms?: number;
+            loudness_db?: number | null;
+            gain_db?: number | null;
           }
         | undefined;
       const title =
@@ -260,6 +341,29 @@ const importLegacyTracks = async (
         typeof override.bpm === "number" ? override.bpm : existing?.bpm ?? null;
       const notes = override.notes?.trim() || existing?.notes || "";
       const singer = existing?.singer || extractSingerName(artist);
+      const durationMs =
+        typeof override.durationMs === "number"
+          ? override.durationMs
+          : existing?.duration_ms ?? 0;
+      const startOffsetMs =
+        typeof override.startOffsetMs === "number"
+          ? override.startOffsetMs
+          : existing?.start_offset_ms ?? 0;
+      const endTrimMs =
+        typeof override.endTrimMs === "number"
+          ? override.endTrimMs
+          : existing?.end_trim_ms ?? 0;
+      const loudnessDb =
+        typeof override.loudnessDb === "number"
+          ? override.loudnessDb
+          : existing?.loudness_db ?? null;
+      const gainDb =
+        typeof override.gainDb === "number"
+          ? override.gainDb
+          : existing?.gain_db ?? null;
+      const maxDuration = Math.max(0, durationMs);
+      const safeStartOffset = Math.min(Math.max(0, startOffsetMs), maxDuration);
+      const safeEndTrim = Math.min(Math.max(0, endTrimMs), maxDuration);
       const nowRow = {
         id: existing?.id ?? randomUUID(),
         root_id: root.id,
@@ -278,20 +382,20 @@ const importLegacyTracks = async (
         bpm,
         notes,
         instrumental: null,
-        duration_ms: 0,
-        start_offset_ms: 0,
-        end_trim_ms: 0,
-        loudness_db: null,
-        gain_db: null,
+        duration_ms: maxDuration,
+        start_offset_ms: safeStartOffset,
+        end_trim_ms: safeEndTrim,
+        loudness_db: loudnessDb,
+        gain_db: gainDb,
         tag_error: "",
         analysis_error: "",
         tag_json: "{}",
         analysis_json: JSON.stringify({
-          durationMs: 0,
-          startOffsetMs: 0,
-          endTrimMs: 0,
-          loudnessDb: null,
-          gainDb: null,
+          durationMs: maxDuration,
+          startOffsetMs: safeStartOffset,
+          endTrimMs: safeEndTrim,
+          loudnessDb,
+          gainDb,
           error: "",
         }),
         created_at: existing?.created_at ?? now,

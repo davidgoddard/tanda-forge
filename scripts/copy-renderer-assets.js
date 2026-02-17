@@ -7,6 +7,8 @@ const distDir = path.join(rootDir, "dist", "renderer");
 
 fs.mkdirSync(distDir, { recursive: true });
 
-["index.html", "styles.css"].forEach((fileName) => {
-  fs.copyFileSync(path.join(srcDir, fileName), path.join(distDir, fileName));
-});
+["index.html", "styles.css", "display.html", "display.css", "display.js"].forEach(
+  (fileName) => {
+    fs.copyFileSync(path.join(srcDir, fileName), path.join(distDir, fileName));
+  },
+);

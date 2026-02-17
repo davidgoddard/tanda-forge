@@ -1,9 +1,18 @@
 export type LibraryRoot = {
   id: string;
-  kind: "music" | "cortina";
+  kind: "music" | "cortina" | "background";
   path: string;
   label: string;
   available: boolean;
+};
+
+export type DisplayUpdatePayload = {
+  title?: string;
+  artist?: string;
+  progressText?: string;
+  nextTandaText?: string;
+  backgroundIntervalSec?: number;
+  mode?: "normal" | "cortina";
 };
 
 export type TrackRow = {
@@ -99,11 +108,11 @@ export type TrackSearchRequest = {
 
 export type AppApi = {
   ping: () => Promise<string>;
-  pickRoot: (kind: "music" | "cortina") => Promise<string | null>;
+  pickRoot: (kind: "music" | "cortina" | "background") => Promise<string | null>;
   pickDataLocation: () => Promise<string | null>;
   getDataLocation: () => Promise<{ path: string; defaultPath: string }>;
   setDataLocation: (path: string | null) => Promise<{ path: string }>;
-  addRoot: (kind: "music" | "cortina", path: string) => Promise<LibraryRoot>;
+  addRoot: (kind: "music" | "cortina" | "background", path: string) => Promise<LibraryRoot>;
   listRoots: () => Promise<LibraryRoot[]>;
   detectLegacy: (
     path?: string | null,
@@ -148,6 +157,7 @@ export type AppApi = {
   }) => Promise<{ offset: number }>;
   getTracksByIds: (ids: string[]) => Promise<TrackRow[]>;
   listRecentTracks: (limit: number) => Promise<string[]>;
+  listRecentTandas: (limit: number) => Promise<string[]>;
   getTrackStyles: () => Promise<string[]>;
   updateTrack: (payload: {
     id: string;
@@ -198,6 +208,10 @@ export type AppApi = {
     query: string;
     setName?: string;
   }) => Promise<CortinaTrackRow[]>;
+  listBackgroundImages: () => Promise<string[]>;
+  openDisplay: () => Promise<{ ok: boolean }>;
+  updateDisplay: (payload: DisplayUpdatePayload) => Promise<void>;
+  onDisplayUpdate: (handler: (payload: DisplayUpdatePayload) => void) => () => void;
   closeApp: () => Promise<void>;
   respondToCloseRequest: (allowed: boolean) => Promise<void>;
   onAppCloseRequest: (handler: () => void) => () => void;

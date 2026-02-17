@@ -734,3 +734,233 @@ Code diffs are omitted; only intent and outcomes are captured.
   macos-14 (arm64) and forced per-arch packaging; tests/build passed.
 - User: Windows build failed due to bash syntax in PowerShell.
   Assistant: Forced the Package step to use bash; tests/build passed.
+- User: Reported cortina row border clipping on the right side.
+  Assistant: Increased right-side cortina row padding and action spacing to
+  prevent the border from visually colliding with the headphone/menu control.
+- User: Requested that sending to clipboard from `New` should first switch to
+  `General`, while other active collections should receive items directly.
+  Assistant: Added clipboard write-target resolution so send actions now
+  auto-route `New -> General` and preserve normal behavior for all other
+  collections.
+- User: Reported a newly saved tanda not appearing at the top of the `New`
+  collection tanda tab.
+  Assistant: Stopped alphabetical re-sorting for the pure `New` view so the
+  recent-order list from `tandas:listRecent` is shown at the top as expected.
+- User: Requested verification that tests/build are passing after fixes.
+  Assistant: Ran `npm test` and `npm run build`; both completed successfully.
+- User: Asked to resume the external display-window feature, ensure the display
+  button is in the top-right window controls, and fix current-playing highlight
+  clipping against the scrollbar/left edge.
+  Assistant: Confirmed `open-display` is in the top-right action cluster,
+  kept display-window wiring in place (separate fullscreenable window with
+  optional randomized background-image rotation), tightened playing-row spacing,
+  added stable scrollbar guttering, and re-ran `npm test` + `npm run build`
+  successfully.
+- User: Requested cortina-specific display-board behavior (show "Cortina" +
+  "This tanda: {style}" when cortina is about to play/playing/just finished),
+  keep previous display text during idle gaps, and make abstract background
+  animation richer but subtle.
+  Assistant: Added cortina display phases (about/playing/after), switched
+  display payload logic to preserve previous text when no active track, added
+  localized "This tanda: {style}" strings, removed display-page idle fallback,
+  enhanced subtle animated color/shape motion in `display.css`, updated design
+  docs/feature matrix entries, and re-ran `npm test` + `npm run build`
+  successfully.
+- User: Reported cortina fade-out was abruptly stopping and requested playback
+  lag optimizations focused on rendering/data work only when needed.
+  Assistant: Restored guaranteed cortina fade-out (minimum 180ms unless user
+  explicitly lets cortina play full), optimized now-playing row highlighting to
+  update only previously active and currently active track rows instead of
+  scanning every track row each tick, and re-ran `npm test` + `npm run build`
+  successfully.
+- User: Asked whether the display window can render without the top window
+  banner/chrome.
+  Assistant: Made the display window frameless (and hidden title bar on macOS)
+  so content is edge-to-edge, then re-ran `npm test` and `npm run build`
+  successfully.
+- User: Reported frameless display window cannot be dragged to another display.
+  Assistant: Enabled drag region on the display window body (`-webkit-app-region: drag`)
+  so the frameless window can be repositioned, then re-ran `npm test` and
+  `npm run build` successfully.
+- User: Requested the display-board cortina view to center all content and make
+  "Cortina" as large as possible while still fitting.
+  Assistant: Added display payload mode (`normal`/`cortina`), toggled a dedicated
+  `cortina-mode` layout class in display renderer, centered cortina content with
+  oversized responsive headline styling, updated UI-060 requirement docs, and
+  re-ran `npm test` and `npm run build` successfully.
+- User: Reported ongoing rendering lag (waveform progress jumping), suspected
+  display-window animation impact, and requested static fallback background for now.
+  Assistant: Reduced display IPC churn by deduplicating unchanged display payloads,
+  made abstract display background static (kept image cross-fades when images
+  exist), smoothed waveform progress/playhead via short CSS transitions, increased
+  now-playing update cadence from 500ms to 200ms, and re-ran `npm test` and
+  `npm run build` successfully.
+- User: Requested clicking the display window (when not dragging/resizing) to close it.
+  Assistant: Added click-to-close behavior in display renderer with movement/time
+  threshold guards so drag interactions do not close the window, then re-ran
+  `npm test` and `npm run build` successfully.
+- User: Reported click-to-close still not working, plus row highlight/border
+  clipping issues in Search/Clipboard and warning badge clipping in Playlist.
+  Assistant: Fixed display-window drag-vs-click conflict by moving drag behavior
+  to a dedicated top strip and leaving body clickable, removed playing-row
+  layout-shift margins in favor of inset highlight, adjusted list scrollbar
+  gutter/padding to keep right-side controls visible, moved mismatch warning
+  badge inside row bounds, and re-ran `npm test` and `npm run build`
+  successfully.
+- User: Reported the warning badge still overlaps menu options and asked to move
+  it outside the border on the left side.
+  Assistant: Repositioned mismatch warning badge to the left outside edge of the
+  tanda row and re-ran `npm test` and `npm run build` successfully.
+- User: Reported warning badge still not rendering outside tanda boundary.
+  Assistant: Increased left offset of the mismatch badge and added left padding
+  to playlist list rows so the badge can sit outside the tanda boundary without
+  clipping against the panel edge; re-ran `npm test` and `npm run build`
+  successfully.
+- User: Reported warning badge still not correctly outside boundary.
+  Assistant: Fixed horizontal clipping at the playlist scroller level by
+  explicitly setting `overflow-x: visible` for playlist rows, then tuned warning
+  badge offset to sit just outside the tanda border on the left; re-ran
+  `npm test` and `npm run build` successfully.
+- User: Clarified expected behavior for removing tandas from the New collection.
+  Assistant: Updated clipboard tanda menu rendering so the remove (`R`) action is
+  omitted when the active collection is `New` (system-managed), then re-ran
+  `npm test` and `npm run build` successfully.
+- User: Requested a more interesting but low-CPU display-board fallback
+  background (varying circular gradients with fade transitions).
+  Assistant: Implemented lightweight ambient orb transitions in the display
+  fallback background: two alternating gradient circles with randomized
+  position/size/color fading every 12s, while keeping image cross-fades when
+  background images exist; re-ran `npm test` and `npm run build` successfully.
+- User: Reported duplicate icon hover was not explaining the duplicate reason.
+  Assistant: Added duplicate-reason tooltips to duplicate menu icons for tracks
+  and tandas, including whole-tanda duplicate messaging and duplicate track-name
+  lists for partial tanda overlap, with i18n keys across supported languages;
+  re-ran `npm test` and `npm run build` successfully.
+- User: Asked to increase display-board gradient saturation and allow concurrent
+  gradients if still low CPU.
+  Assistant: Increased ambient orb saturation/alpha, kept slow timer-driven
+  transitions, and enabled concurrent visible orbs (staggered updates) in the
+  fallback display background; re-ran `npm test` and `npm run build`
+  successfully.
+- User: Reported track editor modal visually blends into background and asked for
+  stronger contrast (brighter or clear contrasting border/rounded corners).
+  Assistant: Styled track editor modal with a stronger high-contrast border,
+  larger rounded corners, improved shadow, and slightly darker backdrop while
+  keeping theme compatibility; re-ran `npm test` and `npm run build`
+  successfully.
+- User: Requested ambient gradient entries fade in from zero (no sudden pop-in)
+  and asked for a further increase in color saturation/brightness.
+  Assistant: Updated ambient orbs to start at zero opacity and fade in after
+  reconfiguration (double-`requestAnimationFrame` sequencing), and increased
+  orb saturation/lightness/alpha ranges for richer color; re-ran `npm test`
+  and `npm run build` successfully.
+- User: Requested all pop-up windows be totally opaque.
+  Assistant: Removed residual alpha backgrounds from popup surfaces (settings
+  panel backgrounds and dark-theme track-editor modal surface now use opaque
+  solid colors), then re-ran `npm test` and `npm run build` successfully.
+- User: Requested a waveform copy inside the track editor popup header with full
+  functionality (seek/progress) because the base waveform is obscured by modal.
+  Assistant: Added a second waveform widget to the track editor header wired to
+  the same loading/progress/seek logic as the main waveform, updated modal
+  header layout/styles, and prevented header-drag capture when interacting with
+  waveform controls; re-ran `npm test` and `npm run build` successfully.
+- User: Reported "search similar" on playlist tanda track rows did not work.
+  Assistant: Fixed playlist `search-track` action to resolve track IDs from
+  expanded tanda detail lines (not only row-level track rows), so S now works
+  for any tanda track in playlist detail menus; re-ran `npm test` and
+  `npm run build` successfully.
+- User: Requested removing tanda menu `E` action in Playlist/Clipboard and also
+  in Search where it duplicates `T` behavior.
+  Assistant: Removed tanda menu edit action (`E`) from tanda row menus across
+  contexts, keeping toggle/search/add/send actions as applicable, then re-ran
+  `npm test` and `npm run build` successfully.
+- User: Reported the Search Similar menu action on playlist tanda tracks did not
+  work and should work for any tanda track in playlist.
+  Assistant: Updated playlist click handling for `search-track` to resolve track
+  ids from expanded `.tanda-detail-line` rows first (with row-level fallback),
+  so Search Similar now works for playlist tanda detail tracks; verified with
+  `npm test` and `npm run build`.
+- User: Requested Search Similar queries use distinct tokens so repeated terms
+  (for example the same artist repeated multiple times) do not skew scoring.
+  Assistant: Added token deduplication for generated Search Similar queries
+  (track and tanda) in renderer search builders using a shared
+  `dedupeQueryTokens` helper, added unit coverage in `tests/search-query.test.ts`,
+  and verified with `npm test` and `npm run build`.
+- User: Reported the Edit Track popup Cancel button does nothing and requested
+  it be removed.
+  Assistant: Removed the Track Editor Cancel button from
+  `app/src/renderer/index.html` and removed its unused renderer binding/listener
+  in `app/src/renderer/renderer.ts`; verified with `npm test` and
+  `npm run build`.
+- User: Requested playlist tanda menu behavior change: remove `E` expand action
+  from playlist menu and restore `T` to send/open tanda in the designer/editor.
+  Assistant: Updated playlist tanda row menu rendering so playlist context no
+  longer includes `tanda-toggle` (`E`) in the menu and now includes
+  `tanda-edit` (`T`), then handled `tanda-edit` in playlist click logic to open
+  tanda in designer hosted in playlist context; verified with `npm test` and
+  `npm run build`.
+- User: Asked whether duplication warnings could support clicking to find the
+  duplicate in playlist and auto-scroll/highlight it.
+  Assistant: Added clickable duplicate indicator behavior (dot icon in duplicate
+  warning) that jumps to the first matching playlist item, switches to Playlist
+  tab, scrolls it into view, and applies a temporary highlight. Implemented for
+  duplicate track and duplicate tanda warnings in Search/Clipboard contexts,
+  added localized hint text, and verified with `npm test` and `npm run build`.
+- User: Requested removing the redundant Search results count text shown below
+  the search tabs because tab headers already include counts.
+  Assistant: Removed the `#search-count` result-count element from search UI,
+  removed now-unused renderer count-display wiring, and removed the
+  `.result-count` style block to reclaim vertical space; verified with
+  `npm test` and `npm run build`.
+- User: Requested updating playlist hint text to explain replacement can be
+  marked and then filled from Clipboard or Search, otherwise sends go to first
+  free slot.
+  Assistant: Updated `playlistHint` i18n text in all supported languages in
+  `app/src/renderer/renderer.ts` to describe marked-slot replacement from
+  Clipboard/Search and default first-free-slot behavior; verified with
+  `npm test` and `npm run build`.
+- User: Clarified the track editor popup close/cancel control should be absent
+  only in Edit mode, but present in other modes where track `E` opens the popup.
+  Assistant: Reintroduced a track editor close button (`#track-editor-close`)
+  for non-Edit modes, wired it to close/reset editor state, and made
+  `updateTrackEditorPresentation` hide it when `appMode === "edit"`; verified
+  with `npm test` and `npm run build`.
+- User: Reported lag between clicking Search Similar (`S`) and search input/results updating.
+  Assistant: Reduced perceived latency by parallelizing search refresh phases in
+  `refreshSearch()` so track result page load starts immediately (without waiting
+  for count/jump-index/tanda-search calls), then count/jump/tanda updates finish
+  concurrently; verified with `npm test` and `npm run build`.
+- User: Requested larger gradient circles in display background (about 2x).
+  Assistant: Doubled ambient orb size range in `app/src/renderer/display.js`
+  by scaling generated orb `size` by `2`, then verified with `npm test` and
+  `npm run build`.
+- User: Reported search relevance confusion (expected exact track match to rank
+  highest) and requested weighting priority: artist first, title second,
+  year/tempo next, then other fields.
+  Assistant: Reworked `scoreTrackAgainstQuery` in
+  `app/src/main/library/fuzzy-search.ts` to add prioritized weighted scoring
+  (artist 0.35, title 0.30, year 0.15, bpm 0.15, other fields 0.05), while
+  retaining a reduced legacy fuzzy fallback for typo tolerance; added regression
+  test in `tests/library-search.test.ts` to ensure exact artist+title+year+bpm
+  outranks partial artist-only matches; verified with `npm test` and
+  `npm run build`.
+- User: Reported that editing/saving a tanda title from playlist->tanda editor
+  did not update playlist display.
+  Assistant: Fixed renderer refresh gap by calling `renderPlaylist()` after
+  successful `tanda-save` in `handleTandaAction`, so playlist rows immediately
+  reflect updated tanda metadata; verified with `npm test` and `npm run build`.
+- User: Reported prep mode playlist cortinas play full length instead of
+  stopping/fading at configured cortina duration unless user requests full play.
+  Assistant: Hardened cortina cutoff timing in `waitForCortina`/`playCortina`
+  by introducing an enforced effective cutoff duration with fallback (20s) when
+  configured duration is invalid/non-positive, so playlist cortinas in prep/live
+  stop at cutoff and fade unless explicitly switched to full playback; verified
+  with `npm test` and `npm run build`.
+- User: Clarified prep-mode playlist cortinas should obey configured cutoff/fade
+  like live mode unless full-song is explicitly requested.
+  Assistant: Added explicit cortina playback cap support to `playOnChannel`
+  (`maxDurationSeconds`, `isCortinaPlayback`) and applied it from `playCortina`
+  using configured cortina duration. Timeupdate now enforces effective end by
+  combining trim and cortina cap, while honoring `cortinaAllowFull`; guard
+  logic avoids double-fade when audio already auto-paused at cap. Verified with
+  `npm test` and `npm run build`.
