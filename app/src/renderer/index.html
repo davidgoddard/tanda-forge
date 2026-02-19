@@ -372,54 +372,134 @@
               <label for="track-editor-title" data-i18n="trackEditorTitleLabel">
                 Title
               </label>
-              <input id="track-editor-title" type="text" />
+              <div class="modal-field-with-action">
+                <input id="track-editor-title" type="text" />
+                <button
+                  class="track-editor-search-field"
+                  data-track-editor-search-field="title"
+                  data-i18n="actionSearchShort"
+                  type="button"
+                >
+                  S
+                </button>
+              </div>
             </div>
             <div class="modal-field">
               <label for="track-editor-artist" data-i18n="trackEditorArtistLabel">
                 Artist
               </label>
-              <input id="track-editor-artist" type="text" />
+              <div class="modal-field-with-action">
+                <input id="track-editor-artist" type="text" />
+                <button
+                  class="track-editor-search-field"
+                  data-track-editor-search-field="artist"
+                  data-i18n="actionSearchShort"
+                  type="button"
+                >
+                  S
+                </button>
+              </div>
             </div>
             <div class="modal-field">
               <label for="track-editor-singer" data-i18n="trackEditorSingerLabel">
                 Singer
               </label>
-              <input id="track-editor-singer" type="text" />
+              <div class="modal-field-with-action">
+                <input id="track-editor-singer" type="text" />
+                <button
+                  class="track-editor-search-field"
+                  data-track-editor-search-field="singer"
+                  data-i18n="actionSearchShort"
+                  type="button"
+                >
+                  S
+                </button>
+              </div>
             </div>
             <div class="modal-field">
               <label for="track-editor-vocal" data-i18n="trackEditorVocalLabel">
                 Vocal
               </label>
-              <select id="track-editor-vocal">
-                <option value="sung" data-i18n="trackEditorVocalSung">Sung</option>
-                <option value="instrumental" data-i18n="trackEditorVocalInstrumental">
-                  Instrumental
-                </option>
-              </select>
+              <div class="modal-field-with-action">
+                <select id="track-editor-vocal">
+                  <option value="sung" data-i18n="trackEditorVocalSung">Sung</option>
+                  <option value="instrumental" data-i18n="trackEditorVocalInstrumental">
+                    Instrumental
+                  </option>
+                </select>
+                <button
+                  class="track-editor-search-field"
+                  data-track-editor-search-field="vocal"
+                  data-i18n="actionSearchShort"
+                  type="button"
+                >
+                  S
+                </button>
+              </div>
             </div>
             <div class="modal-field">
               <label for="track-editor-album" data-i18n="trackEditorAlbumLabel">
                 Album
               </label>
-              <input id="track-editor-album" type="text" />
+              <div class="modal-field-with-action">
+                <input id="track-editor-album" type="text" />
+                <button
+                  class="track-editor-search-field"
+                  data-track-editor-search-field="album"
+                  data-i18n="actionSearchShort"
+                  type="button"
+                >
+                  S
+                </button>
+              </div>
             </div>
             <div class="modal-field">
               <label for="track-editor-year" data-i18n="trackEditorYearLabel">
                 Year
               </label>
-              <input id="track-editor-year" type="text" />
+              <div class="modal-field-with-action">
+                <input id="track-editor-year" type="text" />
+                <button
+                  class="track-editor-search-field"
+                  data-track-editor-search-field="year"
+                  data-i18n="actionSearchShort"
+                  type="button"
+                >
+                  S
+                </button>
+              </div>
             </div>
             <div class="modal-field">
               <label for="track-editor-genre" data-i18n="trackEditorGenreLabel">
                 Style
               </label>
-              <select id="track-editor-genre"></select>
+              <div class="modal-field-with-action">
+                <select id="track-editor-genre"></select>
+                <button
+                  class="track-editor-search-field"
+                  data-track-editor-search-field="genre"
+                  data-i18n="actionSearchShort"
+                  type="button"
+                >
+                  S
+                </button>
+              </div>
             </div>
             <div class="modal-field">
               <label for="track-editor-notes" data-i18n="trackEditorNotesLabel">
                 Notes
               </label>
-              <textarea id="track-editor-notes" rows="3"></textarea>
+              <div class="modal-field-with-action">
+                <textarea id="track-editor-notes" rows="3"></textarea>
+                <button
+                  class="track-editor-search-field"
+                  data-track-editor-search-field="notes"
+                  data-i18n="actionSearchShort"
+                  type="button"
+                >
+                  S
+                </button>
+              </div>
             </div>
             <div class="modal-field">
               <label for="track-editor-bpm" data-i18n="trackEditorBpmLabel">
@@ -433,6 +513,14 @@
                   data-i18n-attr="title"
                 >
                   Tap
+                </button>
+                <button
+                  class="track-editor-search-field"
+                  data-track-editor-search-field="bpm"
+                  data-i18n="actionSearchShort"
+                  type="button"
+                >
+                  S
                 </button>
               </div>
               <div class="modal-hint" data-i18n="trackEditorTapHint">
@@ -483,6 +571,9 @@
           </button>
           <button data-tab="playlist" data-i18n="tabPlaylistSettings">
             Playlist
+          </button>
+          <button data-tab="display-board" data-i18n="tabDisplayBoard">
+            Display Board
           </button>
           <button data-tab="diagnostics" data-i18n="tabDiagnostics">
             Diagnostics
@@ -610,6 +701,12 @@
                 </label>
                 <input id="playlist-start-time" type="time" step="60" />
               </div>
+              <div class="settings-field">
+                <label for="playlist-end-time" data-i18n="playlistEndTimeLabel">
+                  Playlist expected end time
+                </label>
+                <input id="playlist-end-time" type="time" step="60" />
+              </div>
               <div class="settings-field wide">
                 <label for="playlist-sequence" data-i18n="playlistSequenceLabel">
                   Tanda sequence
@@ -717,18 +814,6 @@
                   step="1"
                 />
               </div>
-              <div class="settings-field">
-                <label for="display-background-interval" data-i18n="displayBackgroundInterval">
-                  Display background rotation (sec)
-                </label>
-                <input
-                  id="display-background-interval"
-                  type="number"
-                  min="5"
-                  max="300"
-                  step="1"
-                />
-              </div>
               <div class="settings-field wide">
                 <label for="data-location-path" data-i18n="dataLocationLabel">
                   Data location
@@ -741,6 +826,71 @@
                 </div>
                 <p data-i18n="dataLocationHelp">
                   Data is stored in a _tp_data folder at the selected location.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="settings-tab" data-tab="display-board">
+            <h3 data-i18n="tabDisplayBoard">Display Board</h3>
+            <div class="settings-grid">
+              <div class="settings-field">
+                <label for="display-background-interval" data-i18n="displayBackgroundInterval">
+                  Display background rotation (sec)
+                </label>
+                <input
+                  id="display-background-interval"
+                  type="number"
+                  min="5"
+                  max="300"
+                  step="1"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="display-use-images" data-i18n="displayUseImages">
+                  Use background images on display
+                </label>
+                <input id="display-use-images" type="checkbox" />
+              </div>
+              <div class="settings-field">
+                <label for="display-image-dim" data-i18n="displayImageDimLabel">
+                  Display image darken (%)
+                </label>
+                <input
+                  id="display-image-dim"
+                  type="number"
+                  min="0"
+                  max="90"
+                  step="1"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="display-base-font-size" data-i18n="displayBaseFontSizeLabel">
+                  Display base font size (%)
+                </label>
+                <input
+                  id="display-base-font-size"
+                  type="number"
+                  min="70"
+                  max="200"
+                  step="5"
+                />
+                <p data-i18n="displayBaseFontSizeHelp">
+                  Scales display text for distance readability.
+                </p>
+              </div>
+              <div class="settings-field">
+                <label for="display-cortina-font-size" data-i18n="displayCortinaFontSizeLabel">
+                  Display cortina font size (%)
+                </label>
+                <input
+                  id="display-cortina-font-size"
+                  type="number"
+                  min="70"
+                  max="240"
+                  step="5"
+                />
+                <p data-i18n="displayCortinaFontSizeHelp">
+                  Scales cortina headline text independently.
                 </p>
               </div>
             </div>

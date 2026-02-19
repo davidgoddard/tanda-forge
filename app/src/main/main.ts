@@ -182,6 +182,8 @@ const createWindow = () => {
       preload: path.join(__dirname, "../preload/preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // Keep timers/audio smooth when app is not focused (avoid background jumps).
+      backgroundThrottling: false,
     },
   });
   mainAppWindow = mainWindow;
@@ -241,6 +243,8 @@ const ensureDisplayWindow = () => {
       preload: path.join(__dirname, "../preload/preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // Prevent renderer throttling on external display window transitions.
+      backgroundThrottling: false,
     },
   });
   displayWindow.loadFile(path.join(__dirname, "../renderer/display.html"));
@@ -1157,7 +1161,12 @@ const registerIpc = () => {
     };
   });
 
-  ipcMain.handle("backgrounds:list", async (): Promise<string[]> => {
+  ipcMain.handle(
+    "backgrounds:list",
+    async (
+      _event,
+      group: "images" | "cortina_images" = "images",
+    ): Promise<string[]> => {
     const db = getDb();
     const roots = db
       .prepare("select path from library_roots where kind = 'background'")
@@ -1168,14 +1177,19 @@ const registerIpc = () => {
         continue;
       }
       try {
-        imageFiles.push(...(await walkImageFiles(root.path)));
+        const groupPath = path.join(root.path, group);
+        if (!fs.existsSync(groupPath)) {
+          continue;
+        }
+        imageFiles.push(...(await walkImageFiles(groupPath)));
       } catch {
         // Continue with other roots when one path is not readable.
       }
     }
     const uniqueFiles = Array.from(new Set(imageFiles));
     return uniqueFiles.map((filePath) => toDataUrl(filePath));
-  });
+    },
+  );
 
   ipcMain.handle("display:open", async () => {
     const window = ensureDisplayWindow();

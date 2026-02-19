@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  appendQueryTokens,
   buildTrackSearchQuery,
   dedupeQueryTokens,
 } from "../app/src/shared/search-query";
@@ -27,6 +28,31 @@ describe("buildTrackSearchQuery", () => {
     expect(query).toContain("99");
     expect(query).toContain("test note");
   });
+
+  it("orders generated query by similarity priority", () => {
+    const query = buildTrackSearchQuery({
+      title: "Recuerdo",
+      artist: "Enrique Alessio",
+      singer: "Alberto Castillo",
+      year: "1937",
+      genre: "Tango",
+      bpm: 62,
+      notes: "Session favorite",
+    });
+    expect(query).toBe(
+      "Tango Enrique Alessio Alberto Castillo 62 1937 Session favorite Recuerdo",
+    );
+  });
+
+  it("uses instrumental token when singer is missing", () => {
+    const query = buildTrackSearchQuery({
+      title: "La Cumparsita",
+      artist: "Canaro",
+      genre: "Tango",
+      instrumental: true,
+    });
+    expect(query).toContain("instrumental");
+  });
 });
 
 describe("dedupeQueryTokens", () => {
@@ -40,5 +66,12 @@ describe("dedupeQueryTokens", () => {
   it("treats punctuation variants as the same token", () => {
     const query = dedupeQueryTokens("Canaro, Canaro canaro.");
     expect(query).toBe("Canaro,");
+  });
+});
+
+describe("appendQueryTokens", () => {
+  it("appends and de-duplicates new field fragments", () => {
+    const next = appendQueryTokens("Canaro 1935", "1935 Canaro Alberto");
+    expect(next).toBe("Canaro 1935 Alberto");
   });
 });

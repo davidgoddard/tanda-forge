@@ -4,20 +4,32 @@ const progressEl = document.getElementById("display-progress");
 const nextEl = document.getElementById("display-next");
 const contentEl = document.querySelector(".display-content");
 const swirlLayer = document.querySelector(".swirl-layer");
+const overlayLayer = document.querySelector(".bg-overlay");
 const orbA = document.querySelector(".orb-a");
 const orbB = document.querySelector(".orb-b");
+const orbC = document.querySelector(".orb-c");
 const imageA = document.querySelector(".bg-image-a");
 const imageB = document.querySelector(".bg-image-b");
+const cortinaImageA = document.querySelector(".bg-cortina-a");
+const cortinaImageB = document.querySelector(".bg-cortina-b");
+const ambientOrbs = [orbA, orbB, orbC].filter(Boolean);
 
-let images = [];
-let imageQueue = [];
-let activeLayer = "a";
+let normalImages = [];
+let cortinaImages = [];
+let normalQueue = [];
+let cortinaQueue = [];
+let activeNormalLayer = "a";
+let activeCortinaLayer = "a";
 let rotationMs = 20000;
 let rotationTimer = null;
-let hasImages = false;
+let mode = "normal";
+let useBackgroundImages = true;
+let imageDimOpacity = 0.35;
+let fontScale = 1;
+let cortinaFontScale = 1;
 let pointerDown = null;
 let ambientTimer = null;
-let activeOrb = "a";
+let activeOrbIndex = 0;
 
 const shuffle = (items) => {
   const arr = [...items];
@@ -29,6 +41,9 @@ const shuffle = (items) => {
 };
 
 const scheduleRotation = () => {
+  if (mode !== "normal") {
+    return;
+  }
   if (rotationTimer) {
     clearTimeout(rotationTimer);
   }
@@ -61,13 +76,13 @@ const setOrbVisible = (orb, visible) => {
 
 const randomOrbConfig = () => {
   const hue = Math.floor(Math.random() * 360);
-  const saturation = 72 + Math.floor(Math.random() * 24);
-  const lightness = 58 + Math.floor(Math.random() * 16);
-  const alpha = 0.4 + Math.random() * 0.2;
+  const saturation = 84 + Math.floor(Math.random() * 16);
+  const lightness = 66 + Math.floor(Math.random() * 18);
+  const alpha = 0.48 + Math.random() * 0.26;
   return {
     x: 15 + Math.random() * 70,
     y: 18 + Math.random() * 64,
-    size: (34 + Math.random() * 42) * 2,
+    size: (44 + Math.random() * 56) * 2,
     scale: 0.9 + Math.random() * 0.3,
     color: `hsla(${hue} ${saturation}% ${lightness}% / ${alpha.toFixed(3)})`,
   };
@@ -99,15 +114,21 @@ const stopAmbient = () => {
     clearTimeout(ambientTimer);
     ambientTimer = null;
   }
-  setOrbVisible(orbA, false);
-  setOrbVisible(orbB, false);
+  ambientOrbs.forEach((orb) => setOrbVisible(orb, false));
 };
 
 const advanceAmbient = () => {
-  if (hasImages) {
+  if (useBackgroundImages && mode === "normal" && normalImages.length > 0) {
     return;
   }
-  const next = activeOrb === "a" ? orbB : orbA;
+  if (useBackgroundImages && mode === "cortina" && cortinaImages.length > 0) {
+    return;
+  }
+  if (ambientOrbs.length === 0) {
+    return;
+  }
+  activeOrbIndex = (activeOrbIndex + 1) % ambientOrbs.length;
+  const next = ambientOrbs[activeOrbIndex];
   setOrbVisible(next, false);
   window.requestAnimationFrame(() => {
     applyOrb(next, randomOrbConfig());
@@ -115,75 +136,139 @@ const advanceAmbient = () => {
       setOrbVisible(next, true);
     });
   });
-  activeOrb = activeOrb === "a" ? "b" : "a";
   scheduleAmbient();
 };
 
 const advanceBackground = async () => {
-  if (!hasImages) {
-    scheduleRotation();
+  if (!useBackgroundImages) {
     return;
   }
-  if (imageQueue.length === 0) {
-    imageQueue = shuffle(images);
+  const isCortina = mode === "cortina";
+  const source = isCortina ? cortinaImages : normalImages;
+  if (source.length === 0) {
+    if (!isCortina) {
+      scheduleRotation();
+    }
+    return;
   }
-  const next = imageQueue.shift();
+  if (isCortina && cortinaQueue.length === 0) {
+    cortinaQueue = shuffle(cortinaImages);
+  }
+  if (!isCortina && normalQueue.length === 0) {
+    normalQueue = shuffle(normalImages);
+  }
+  const next = isCortina ? cortinaQueue.shift() : normalQueue.shift();
   if (!next) {
-    scheduleRotation();
+    if (!isCortina) {
+      scheduleRotation();
+    }
     return;
   }
-  const nextLayer = activeLayer === "a" ? imageB : imageA;
-  const prevLayer = activeLayer === "a" ? imageA : imageB;
+  const nextLayer = isCortina
+    ? activeCortinaLayer === "a"
+      ? cortinaImageB
+      : cortinaImageA
+    : activeNormalLayer === "a"
+      ? imageB
+      : imageA;
+  const prevLayer = isCortina
+    ? activeCortinaLayer === "a"
+      ? cortinaImageA
+      : cortinaImageB
+    : activeNormalLayer === "a"
+      ? imageA
+      : imageB;
   nextLayer.style.backgroundImage = `url("${next}")`;
   setLayerVisible(nextLayer, true);
   setLayerVisible(prevLayer, false);
-  activeLayer = activeLayer === "a" ? "b" : "a";
-  scheduleRotation();
+  if (isCortina) {
+    activeCortinaLayer = activeCortinaLayer === "a" ? "b" : "a";
+  } else {
+    activeNormalLayer = activeNormalLayer === "a" ? "b" : "a";
+  }
+  if (!isCortina) {
+    scheduleRotation();
+  }
+};
+
+const applyBackgroundMode = async () => {
+  if (mode === "cortina" && rotationTimer) {
+    clearTimeout(rotationTimer);
+    rotationTimer = null;
+  }
+  const modeImages =
+    useBackgroundImages
+      ? mode === "cortina"
+        ? cortinaImages
+        : normalImages
+      : [];
+  if (overlayLayer) {
+    const hasNormalImages = useBackgroundImages && normalImages.length > 0;
+    const strong = hasNormalImages ? imageDimOpacity : 0.38;
+    const soft = hasNormalImages ? Math.max(0, imageDimOpacity * 0.22) : 0.08;
+    overlayLayer.style.setProperty("--display-overlay-strong", strong.toFixed(3));
+    overlayLayer.style.setProperty("--display-overlay-soft", soft.toFixed(3));
+  }
+  if (modeImages.length > 0) {
+    if (swirlLayer) {
+      swirlLayer.style.display = "none";
+    }
+    stopAmbient();
+    if (mode !== "cortina") {
+      setLayerVisible(cortinaImageA, false);
+      setLayerVisible(cortinaImageB, false);
+    }
+    await advanceBackground();
+    return;
+  }
+  setLayerVisible(imageA, false);
+  setLayerVisible(imageB, false);
+  setLayerVisible(cortinaImageA, false);
+  setLayerVisible(cortinaImageB, false);
+  if (swirlLayer) {
+    swirlLayer.style.display = "block";
+  }
+  stopAmbient();
+  if (ambientOrbs.length > 0) {
+    activeOrbIndex = 0;
+    applyOrb(ambientOrbs[0], randomOrbConfig());
+    setOrbVisible(ambientOrbs[0], true);
+  }
+  scheduleAmbient();
+  if (mode === "normal") {
+    scheduleRotation();
+  }
 };
 
 const refreshImages = async () => {
   if (!window.tanda?.listBackgroundImages) {
-    images = [];
+    normalImages = [];
+    cortinaImages = [];
   } else {
-    images = await window.tanda.listBackgroundImages();
+    [normalImages, cortinaImages] = await Promise.all([
+      window.tanda.listBackgroundImages("images"),
+      window.tanda.listBackgroundImages("cortina_images"),
+    ]);
   }
-  hasImages = images.length > 0;
-  if (!hasImages) {
-    setLayerVisible(imageA, false);
-    setLayerVisible(imageB, false);
-    if (swirlLayer) {
-      swirlLayer.style.display = "block";
-    }
-    stopAmbient();
-    applyOrb(orbA, randomOrbConfig());
-    setOrbVisible(orbA, true);
-    activeOrb = "a";
-    scheduleAmbient();
-    scheduleRotation();
-    return;
-  }
-  if (swirlLayer) {
-    swirlLayer.style.display = "none";
-  }
-  stopAmbient();
-  imageQueue = shuffle(images);
-  await advanceBackground();
+  normalQueue = shuffle(normalImages);
+  cortinaQueue = shuffle(cortinaImages);
+  await applyBackgroundMode();
 };
 
 const applyDisplayUpdate = (payload) => {
   if (!payload) {
     return;
   }
-  if (titleEl) {
+  if (titleEl && payload.title !== undefined) {
     titleEl.textContent = payload.title || "";
   }
-  if (artistEl) {
+  if (artistEl && payload.artist !== undefined) {
     artistEl.textContent = payload.artist || "";
   }
-  if (progressEl) {
+  if (progressEl && payload.progressText !== undefined) {
     progressEl.textContent = payload.progressText || "";
   }
-  if (nextEl) {
+  if (nextEl && payload.nextTandaText !== undefined) {
     nextEl.textContent = payload.nextTandaText || "";
     nextEl.style.opacity = payload.nextTandaText ? "0.85" : "0";
   }
@@ -191,11 +276,48 @@ const applyDisplayUpdate = (payload) => {
     const nextMs = Math.max(5000, payload.backgroundIntervalSec * 1000);
     if (rotationMs !== nextMs) {
       rotationMs = nextMs;
-      scheduleRotation();
+      if (mode === "normal") {
+        scheduleRotation();
+      }
+    }
+  }
+  if (typeof payload.imageDimOpacity === "number") {
+    const nextDim = Math.min(0.9, Math.max(0, payload.imageDimOpacity));
+    if (Math.abs(nextDim - imageDimOpacity) > 0.0001) {
+      imageDimOpacity = nextDim;
+      void applyBackgroundMode();
+    }
+  }
+  if (typeof payload.fontScale === "number" && contentEl) {
+    const nextScale = Math.min(2, Math.max(0.7, payload.fontScale));
+    if (Math.abs(nextScale - fontScale) > 0.0001) {
+      fontScale = nextScale;
+      contentEl.style.setProperty("--display-font-scale", nextScale.toFixed(3));
+    }
+  }
+  if (typeof payload.cortinaFontScale === "number" && contentEl) {
+    const nextScale = Math.min(2.4, Math.max(0.7, payload.cortinaFontScale));
+    if (Math.abs(nextScale - cortinaFontScale) > 0.0001) {
+      cortinaFontScale = nextScale;
+      contentEl.style.setProperty("--display-cortina-font-scale", nextScale.toFixed(3));
+    }
+  }
+  if (typeof payload.useBackgroundImages === "boolean") {
+    const nextUseBackgroundImages = payload.useBackgroundImages;
+    if (nextUseBackgroundImages !== useBackgroundImages) {
+      useBackgroundImages = nextUseBackgroundImages;
+      void applyBackgroundMode();
+    }
+  }
+  if (payload.mode !== undefined) {
+    const nextMode = payload.mode === "cortina" ? "cortina" : "normal";
+    if (nextMode !== mode) {
+      mode = nextMode;
+      void applyBackgroundMode();
     }
   }
   if (contentEl) {
-    contentEl.classList.toggle("cortina-mode", payload.mode === "cortina");
+    contentEl.classList.toggle("cortina-mode", mode === "cortina");
   }
 };
 

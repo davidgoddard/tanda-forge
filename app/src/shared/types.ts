@@ -12,6 +12,10 @@ export type DisplayUpdatePayload = {
   progressText?: string;
   nextTandaText?: string;
   backgroundIntervalSec?: number;
+  useBackgroundImages?: boolean;
+  imageDimOpacity?: number;
+  fontScale?: number;
+  cortinaFontScale?: number;
   mode?: "normal" | "cortina";
 };
 
@@ -208,7 +212,7 @@ export type AppApi = {
     query: string;
     setName?: string;
   }) => Promise<CortinaTrackRow[]>;
-  listBackgroundImages: () => Promise<string[]>;
+  listBackgroundImages: (group?: "images" | "cortina_images") => Promise<string[]>;
   openDisplay: () => Promise<{ ok: boolean }>;
   updateDisplay: (payload: DisplayUpdatePayload) => Promise<void>;
   onDisplayUpdate: (handler: (payload: DisplayUpdatePayload) => void) => () => void;

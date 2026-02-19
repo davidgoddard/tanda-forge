@@ -964,3 +964,272 @@ Code diffs are omitted; only intent and outcomes are captured.
   combining trim and cortina cap, while honoring `cortinaAllowFull`; guard
   logic avoids double-fade when audio already auto-paused at cap. Verified with
   `npm test` and `npm run build`.
+- User: Reported cortina still stops abruptly in prep mode at cutoff and
+  requested fade-out every time at required cortina duration.
+  Assistant: Added explicit auto-stop fade support for capped playback in
+  `playOnChannel` via `autoStopFadeMs`, and for cortina playback now passes
+  `Math.max(2000, getStopFadeSeconds()*1000)` so cutoff always fades instead of
+  hard stop; retained fast trim fade for non-cortina tracks. Verified with
+  `npm test` and `npm run build`.
+- User: Requested three display/cortina tweaks: add 1s to cortina fade-out,
+  add one more gradient transition orb on display background, and make display
+  typography scale proportionally with window size.
+  Assistant: Increased cortina fade timing by +1000ms in both auto-stop and
+  fallback cortina fade paths, added a third ambient orb (`orb-c`) with updated
+  ambient rotation logic, and switched display typography/layout sizing to vmin-
+  based scaling for consistent proportional appearance across window sizes.
+  Verified with `npm test` and `npm run build`.
+- User: Requested larger display text for distance readability, brighter/more
+  saturated display gradients, and larger gradients so the screen appears less
+  black.
+  Assistant: Increased display typography sizes and content widths in
+  `display.css` (title/artist/progress/next), brightened the background by
+  reducing overlay darkness and strengthening swirl layer saturation, increased
+  ambient orb opacity/size defaults, and expanded random orb saturation,
+  lightness, alpha, and size ranges in `display.js`. Verified with `npm test`
+  and `npm run build`.
+- User: Requested display background image routing from two subfolders under
+  the configured backgrounds root: `images` for normal/idle playback and
+  `cortina_images` only during cortinas, with cortina image fixed for the full
+  cortina duration.
+  Assistant: Updated background IPC/API to accept an image group
+  (`images`/`cortina_images`) and to load only that subfolder from each
+  background root. Refactored display renderer image handling to maintain
+  separate queues per mode, switch sources on mode change, keep a single image
+  for the entire cortina (no timed rotation while in cortina mode), and resume
+  normal rotation from `images` in normal/idle mode. Verified with
+  `npm test` and `npm run build`.
+- User: Requested a new System config option to control whether display
+  backgrounds use images or gradients.
+  Assistant: Added `display-use-images` setting in System tab (localized), with
+  persisted preference in localStorage. Display payload now carries
+  `useBackgroundImages`, and display renderer respects it by forcing gradients
+  when disabled and using image pools when enabled. Added idle-mode display
+  updates for config-only payloads so toggling applies immediately even when not
+  playing. Verified with `npm test` and `npm run build`.
+- User: Requested substantially larger display typography for long-distance
+  readability and proportional scaling with window size/projector output.
+  Assistant: Increased display typography aggressively in `display.css` for
+  normal and cortina modes using larger `vmin`-driven `clamp(...)` sizes,
+  reduced page padding to reclaim usable area, widened text max-width bounds,
+  and tightened line-height/margins to use screen space more effectively while
+  preserving responsive scaling. Verified with `npm test` and `npm run build`.
+- User: Requested default blue dark theme on fresh install, added dark theme
+  variants (red and green), added another light scheme, larger display-board
+  font sizes, and a new display config control to darken images for readability.
+  Assistant: Set fresh-install default theme to blue dark (`dark-alt`) and
+  expanded theme cycle to include `dark-red`, `dark-green`, and `light-alt`.
+  Added corresponding CSS variable palettes and dark-mode styling coverage for
+  new themes. Increased display typography again for projector use. Added
+  System config `display-image-dim` (%), persisted in localStorage and passed
+  via `DisplayUpdatePayload.imageDimOpacity`; display renderer now applies this
+  dim level when image backgrounds are active. Verified with `npm test` and
+  `npm run build`.
+- User: Reported music/background image jumps after switching away to another
+  app and returning, and asked whether the app is being put to sleep.
+  Assistant: Confirmed likely renderer throttling while unfocused/occluded and
+  disabled Chromium background throttling for both main and display windows by
+  setting `webPreferences.backgroundThrottling = false` in BrowserWindow
+  creation (`main.ts`) to keep timers/audio/display transitions smooth when the
+  app is not frontmost. Verified with `npm test` and `npm run build`.
+- User: Requested display text to regain edge padding, a configurable display base
+  font-size control, a dedicated Display Board settings tab (while keeping
+  background-folder selection in Library), theme parity so green dark mode tabs
+  receive themed coloring like blue dark mode, a new classic dark/golden theme,
+  and consistent input styling across themes.
+  Assistant: Implemented a dedicated Display Board tab in Settings and moved
+  display controls there, added `display-base-font-size` (%) with localStorage
+  persistence and live propagation to the display window (`DisplayUpdatePayload`
+  now includes `fontScale`), restored larger safe-edge padding on display text,
+  added a new `theme-dark-classic` palette and updated theme cycling, fixed tab
+  active-color theming via per-theme variables (including green), and normalized
+  panel input styling so New Collection matches other rounded controls. Updated
+  related design docs and feature matrix. Verified with `npm test` and
+  `npm run build`.
+- User: Reported display board showing "Cortina" in top-left at playlist end and
+  provided mismatch examples where warning text showed equal shorthand (e.g. 3m vs 3m).
+  Assistant: Fixed display idle behavior to retain cortina-centered layout after
+  cortina playback by persisting cortina-mode display until normal track playback
+  resumes. Added canonical style-word matching for playlist style validation so
+  "Tango Nuevo" and "Nuevo Tango" are treated as equivalent. Added automatic
+  playlist mismatch recomputation on render and on sequence/style-map changes so
+  stale mismatch badges clear immediately. Updated tanda shorthand fallback so
+  unmapped styles no longer masquerade as valid mapped codes (now `?`), avoiding
+  misleading prompts like "3m vs 3m" when style is actually unmapped. Updated
+  playlist sequence tests and re-ran `npm test` + `npm run build`.
+- User: Requested display image darkening/opacity to be uniform across the full
+  image (not directional gradient) so cortina-centered text reads consistently.
+  Assistant: Changed display overlay to a flat full-frame darkening layer using
+  one opacity value (`--display-overlay-strong`) instead of a directional
+  gradient blend. Verified with `npm test` and `npm run build`.
+- User: Requested duplicate indicator behavior to keep existing jump-to-playlist
+  functionality but also open the normal row menu so duplicate items can still
+  be sent to playlist/clipboard/tanda designer.
+  Assistant: Updated duplicate-jump handling so clicking the duplicate icon now
+  both locates/highlights the duplicate in playlist and opens the source row's
+  standard action menu (`menu-open`) instead of closing menus. This preserves
+  all normal actions on duplicate rows. Verified with `npm test` and
+  `npm run build`.
+- User: Requested a separate display font-size control for cortina mode because
+  optimal cortina headline size differs from normal title/artist text.
+  Assistant: Added a new Display Board setting `display-cortina-font-size` (%)
+  with independent persistence and live propagation to the display window via
+  `DisplayUpdatePayload.cortinaFontScale`. Display CSS now uses separate
+  variables for normal text scale and cortina text scale.
+  Updated i18n labels/help across supported languages and verified with
+  `npm test` and `npm run build`.
+- User: Reported noticeable lag (~0.5s) between choosing "search similar" from
+  a track in a clipboard tanda and seeing the search field update.
+  Assistant: Updated `runSearchQuery` to stage the heavy `refreshSearch()` call
+  on a zero-delay timer, allowing the input value/tab switch to paint first.
+  Also debounced overlapping queued refresh calls by clearing any pending timer
+  before scheduling the next one. Verified with `npm test` and `npm run build`.
+- User: Requested a significant new feature: playlist Clear should offer
+  clear-only or clear+auto-fill, add configurable playlist expected end time
+  (including overnight handling), auto-fill by sequence/style with good variety,
+  fallback ad-hoc tanda generation from similar tracks, avoid duplicate titles,
+  and stop at expected end. Also requested design and guide documentation updates.
+  Assistant: Added playlist end-time setting and overnight-safe time-window logic,
+  added a playlist clear-options modal (clear vs clear+auto-fill), implemented
+  auto-fill that prioritizes saved tandas by sequence/style and artist/year/BPM
+  diversity, falls back to generated similar-track tandas with progressively
+  relaxed constraints, and avoids reusing track titles in the playlist. Updated
+  settings/UI/feature-matrix docs plus user guide. Verified with `npm test` and
+  `npm run build`.
+- User: Requested two playlist UI refinements: (1) when row menus are open, the
+  headphone button should visually share the menu background capsule, and (2) in
+  playlist-rendered rows, show duplicate indicator over the ellipsis for duplicate
+  songs/tandas within the playlist (indicator only, no jump behavior).
+  Assistant: Updated row-actions menu-open styling so the headphone button sits
+  inside the same capsule as menu actions. Added playlist-internal duplicate
+  detection (count-based for tracks and exact/partial for tandas) and wired
+  duplicate indicators into playlist rows; duplicate icon in playlist context is
+  non-jump (informational only). Verified with `npm test` and `npm run build`.
+- User: Reported search-similar is still laggy (about 0.5–1s before query appears)
+  and asked whether unnecessary heavy rendering tasks are still running.
+  Assistant: Optimized search interaction path by reducing synchronous DOM work:
+  - `runSearchQuery` now stages tab-switch work on `requestAnimationFrame` so
+    the query field can paint first.
+  - reduced menu-close DOM scanning: `closeRowMenus` now closes tracked open row
+    directly (fallback to single query), and `closeDetailMenus` closes a single
+    open detail menu instead of scanning all rows.
+  - `refreshSearch` now prioritizes track results, then runs count/jump/tanda
+    refresh as deferred follow-up work, with refresh-version guards to drop stale
+    updates. Verified with `npm test` and `npm run build`.
+- User: Requested track-editor field-level search-similar buttons that append
+  each field value into the current search query (for chained artist/year/etc
+  workflows), asked for non-modal in-place editor behavior, and requested
+  similarity weighting to prioritize style, artist, singer/instrumental, BPM,
+  year, notes, then title.
+  Assistant: Added localized **S** buttons to every track-editor field
+  (title/artist/singer/vocal/album/year/style/notes/bpm), with append +
+  token de-dup behavior via `appendQueryTokens`, and wired them to trigger
+  search immediately using the combined query. Updated editor presentation to
+  always use in-place non-modal behavior. Rebalanced fuzzy-search weighting to
+  prefer style/artist/singer-or-instrumental/year/BPM/notes before title-only
+  matches and updated query-construction order accordingly. Added/updated unit
+  tests for query ordering, instrumental token handling, append dedupe, and
+  ranking preference. Updated design + tracking docs and user guide.
+  Verified with `npm test` and `npm run build`.
+- User: Reported playlist clear+auto-fill fails immediately with runtime error:
+  `Cannot read properties of null (reading 'match')` from `yearValue` in renderer.
+  Assistant: Fixed autofill crash by hardening year parsing in `yearValue` to
+  safely handle null/undefined/non-string year values before regex matching.
+  Verified with `npm test` and `npm run build`.
+- User: Reported clipboard/collection tanda menus no longer had a direct action
+  to send/open tanda in the Tanda Designer and requested it be restored.
+  Assistant: Restored the clipboard tanda menu `T` action (`actionEditTanda`)
+  in tanda row rendering so collection tandas can be opened in the designer
+  directly from the clipboard context menu again.
+  Verified with `npm test` and `npm run build`.
+- User: Reported track rows in the New collection still showed the Remove (`R`)
+  menu action and requested it be removed only for New.
+  Assistant: Updated clipboard track row menu rendering to hide
+  `actionRemoveClipboard` when the active clipboard collection is `New`
+  (`CLIPBOARD_NEW_ID`), while keeping Remove available in other collections.
+  Verified with `npm test` and `npm run build`.
+- User: Reported clipboard/collection tanda `T` action opened the Tanda Designer
+  tab but the selected tanda did not render in the designer list.
+  Assistant: Fixed draft-origin promotion logic so when a playlist-origin tanda
+  is explicitly opened in the Tanda Designer, its draft origin is promoted to
+  `designer`, making it visible/rendered in the designer list as expected.
+  Verified with `npm test` and `npm run build`.
+- User: Reported search could show a track count match (e.g. Tracks (1)) but
+  no track row rendered in results.
+  Assistant: Fixed search refresh consistency to use a single parameter snapshot
+  per refresh cycle and to update track count/jump index from that same snapshot.
+  Also reset stale `searchState.total` before loading, update tab count after
+  count fetch, and retry first-page load if count > 0 but rows are empty.
+  This removes stale-count/no-row mismatches during rapid query/filter changes.
+  Verified with `npm test` and `npm run build`.
+- User: Requested that when Tanda Designer only has the default empty tanda and
+  a tanda is sent in from collections/search, the empty draft should be replaced
+  (not kept alongside the incoming tanda).
+  Assistant: Updated `openTandaInDesigner` so in designer-hosted context, if
+  there is exactly one designer draft and it is empty, opening a non-empty tanda
+  removes that empty draft before adding/opening the incoming tanda.
+  Verified with `npm test` and `npm run build`.
+- User: Reported empty-tanda replacement was still not reliable; sending a tanda
+  from collection sometimes appended below an existing empty draft instead of
+  replacing it.
+  Assistant: Hardened replacement logic in `openTandaInDesigner` so when opening
+  a non-empty tanda into designer context and there are no non-empty designer
+  drafts yet, all empty designer drafts are removed before adding/opening the
+  incoming tanda. This handles stale/duplicate hidden empty placeholders.
+  Verified with `npm test` and `npm run build`.
+- User: Reported low-contrast popup usability issue (playlist clear popup in dark mode)
+  and requested popups stand out more in all modes using stronger backgrounds/borders.
+  Assistant: Updated modal and confirm popup styling to improve contrast and focus in
+  all themes: darker backdrop + subtle blur, higher-contrast popup backgrounds,
+  explicit stronger borders, and deeper elevation/shadow. Also increased confirm
+  action button contrast against popup backgrounds.
+  Verified with `npm test` and `npm run build`.
+- User: Reported the default empty tanda is still not removed before adding a tanda
+  sent from collections into Tanda Designer.
+  Assistant: Fixed `openTandaInDesigner` to resolve an incoming tanda even when no
+  `source` object is passed, then apply empty-draft cleanup against that resolved
+  non-empty tanda before opening it. This ensures the default empty designer draft
+  is removed in the "send from collection" path instead of being left above the
+  incoming tanda.
+  Verified with `npm test` and `npm run build`.
+- User: Requested that playlist auto-fill also allocates all cortina positions
+  whenever a cortina set is configured, following normal cortina planning rules.
+  Assistant: Updated auto-fill flow to explicitly plan/assign missing cortina rows
+  before the final render by calling `ensureCortinaPlans` for all unassigned cortina
+  indices after generated tandas are placed. Also extracted a shared helper
+  `getUnassignedCortinaRowIndices` and added unit tests for it. Updated design docs
+  with requirement ID `UI-012.R15` and feature-matrix FR-020 implementation note.
+  Verified with `npm test` and `npm run build`.
+- User: Requested headphone icon state to stay visibly active for the currently
+  headphone-previewed track until stopped/replaced, and asked to remove the thick
+  left edge seen on rendered search/collection track rows.
+  Assistant: Added persistent headphone-button state tracking keyed by active
+  headphone track ID, including detail-line and cortina rows, with centralized
+  updates via `updateHeadphoneButtonIndicators()` called from now-playing refresh
+  and post-headphone actions. Also removed asymmetric left-edge accent from
+  `.list-row.playing` styles across themes to restore a consistent border weight.
+  Verified with `npm test` and `npm run build`.
+- User: Reported intermittent missing cortina rows after auto-fill, requested no
+  darkening overlay for cortina images on display board, and asked for track-editor
+  workflow fixes (switch to newly clicked song with unsaved-change warning, close
+  button must hide editor, close editor when opening settings) plus button hover
+  foreground contrast.
+  Assistant: Implemented:
+  - serialized cortina planning with `cortinaPlanPromise` to prevent concurrent
+    `ensureCortinaPlans` calls from returning early and skipping assignments;
+  - display board overlay logic now disables dimming for cortina-image mode;
+  - track-editor dirty-state confirm (`confirmDiscardTrackEdits`) and automatic
+    track switch when editor is open and a different track is clicked;
+  - fixed non-modal editor CSS so it only displays while `.open` is present;
+  - opening settings now closes track editor first (with dirty-check confirm);
+  - global button hover now sets foreground color for contrast consistency.
+  Verified with `npm test` and `npm run build`.
+- User: Reported cortina transitions still brighten because the opacity layer
+  changes during mode switch, and requested layer ordering where text is top,
+  cortina images are below text, dim overlay below cortina images, and normal
+  background images at the bottom.
+  Assistant: Added dedicated cortina image layers above the dim overlay and left
+  normal image layers below it. Updated display background logic so dim overlay
+  is driven by normal-image mode and cortina images fade independently without
+  being darkened by the overlay.
+  Verified with `npm test` and `npm run build`.

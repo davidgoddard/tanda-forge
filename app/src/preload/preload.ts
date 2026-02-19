@@ -64,7 +64,7 @@ const api: AppApi = {
     ipcRenderer.invoke("cortinas:listTracks", setName),
   searchCortinas: async (params) =>
     ipcRenderer.invoke("cortinas:searchTracks", params),
-  listBackgroundImages: async () => ipcRenderer.invoke("backgrounds:list"),
+  listBackgroundImages: async (group) => ipcRenderer.invoke("backgrounds:list", group),
   openDisplay: async () => ipcRenderer.invoke("display:open"),
   updateDisplay: async (payload) => ipcRenderer.invoke("display:update", payload),
   onDisplayUpdate: (handler) => {

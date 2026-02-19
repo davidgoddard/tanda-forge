@@ -12,6 +12,19 @@ export type SequenceValidation = {
   reason?: "count" | "style";
 };
 
+const canonicalizeStyle = (input: string) => {
+  const normalized = normalizeStyleName(input);
+  if (!normalized) {
+    return "";
+  }
+  return normalized
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b))
+    .join(" ");
+};
+
 export const parseSequence = (input: string): SequenceEntry[] => {
   if (!input) {
     return [];
@@ -56,10 +69,10 @@ export const parseStyleMap = (input: string): StyleMap => {
         .slice(1)
         .join("=")
         .split(/[;,]/)
-        .map((value) => normalizeStyleName(value))
+        .map((value) => canonicalizeStyle(value))
         .filter(Boolean);
       if (styles.length > 0) {
-        map[key] = styles;
+        map[key] = Array.from(new Set(styles));
       }
     });
   return map;
@@ -92,7 +105,7 @@ export const validateTandaForRule = (
   if (mapped.length === 0) {
     return { ok: true };
   }
-  const normalizedStyles = styles.map((style) => normalizeStyleName(style));
+  const normalizedStyles = styles.map((style) => canonicalizeStyle(style));
   const matches = normalizedStyles.some((style) => mapped.includes(style));
   if (!matches) {
     return { ok: false, reason: "style" };

@@ -3,8 +3,8 @@
 ## Overview
 
 Configuration is accessed via a dedicated Settings panel that overlays the main
-screen. Settings are grouped into tabs by concept (Library, Diagnostics, System,
-Lighting, Network, etc.).
+screen. Settings are grouped into tabs by concept (Library, Playlist, Display
+Board, Diagnostics, System).
 
 ## Navigation and Layout
 
@@ -13,8 +13,8 @@ Lighting, Network, etc.).
 - CFG-NAV-003: Critical information (e.g. missing music folders) surfaces as a banner with a
   shortcut into Settings.
 - CFG-NAV-004: A light/dark theme toggle is available from the main screen.
-- CFG-LAYOUT-001: System and Playlist settings use a multi-column layout on wide
-  screens and collapse to a single column on smaller windows.
+- CFG-LAYOUT-001: System, Playlist, and Display Board settings use a multi-column
+  layout on wide screens and collapse to a single column on smaller windows.
 
 ## Library Configuration
 
@@ -68,6 +68,17 @@ Lighting, Network, etc.).
 - CFG-SYS-016: Users can configure the external display background rotation
   interval in seconds.
 
+## Display Board Configuration
+
+- CFG-DSP-001: Display-board controls live in a dedicated "Display Board" settings tab.
+- CFG-DSP-002: Users can enable/disable background-image usage for the display board.
+- CFG-DSP-003: Users can configure display-image darkening percentage.
+- CFG-DSP-004: Users can configure display background rotation interval in seconds.
+- CFG-DSP-005: Users can configure a base display font-size scale (%), applied to all
+  display-board text for venue-distance readability.
+- CFG-DSP-006: Users can configure an independent cortina font-size scale (%) so
+  cortina headline sizing can be tuned separately from normal title/artist text.
+
 ## Playlist Configuration
 
 - CFG-PL-001: Users can configure timing gaps for playlist playback:
@@ -82,10 +93,22 @@ Lighting, Network, etc.).
 - CFG-PL-006: A playlist start time (default 20:00) is configurable and used when
   displaying estimated start times for tandas.
 - CFG-PL-006.a: Default playlist start time is 20:00 (8pm).
+- CFG-PL-006.b: A playlist expected end time is configurable and is used by
+  auto-fill to determine stop point.
+- CFG-PL-006.c: End-time calculations support overnight sessions (end time on
+  the following day).
 - CFG-PL-007: If cortina tracks exist directly under the cortina root (no subfolder),
   they appear as a localized "Default" cortina set.
 - CFG-PL-008: Default cortina duration is 40 seconds unless the user changes it.
 - CFG-PL-009: Cortina set selection includes a localized "None" option to disable cortinas.
+- CFG-PL-010: Playlist Clear opens an options dialog with:
+  - CFG-PL-010.a: Clear playlist only.
+  - CFG-PL-010.b: Clear and auto-fill playlist.
+- CFG-PL-011: Auto-fill follows the configured sequence/style map and keeps adding
+  tandas until projected playback reaches the configured end window.
+- CFG-PL-012: Auto-fill prioritizes saved tandas and avoids duplicate track titles.
+- CFG-PL-013: If no suitable tanda exists, auto-fill builds an ad-hoc tanda from
+  similar tracks using progressively relaxed constraints.
 
 ## Library Utilities
 

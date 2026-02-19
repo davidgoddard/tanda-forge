@@ -204,7 +204,15 @@ export const scoreTrackAgainstQuery = (
   }
   const artistField = track.artist_summary || track.artist || "";
   const titleField = track.title || "";
-  const otherFields = [track.singer, track.album, track.genre, track.notes]
+  const styleField = track.genre || "";
+  const singerOrInstrumentalField =
+    track.singer && track.singer.trim().length > 0
+      ? track.singer
+      : track.instrumental
+        ? "instrumental"
+        : "";
+  const notesField = track.notes || "";
+  const otherFields = [track.album]
     .filter(Boolean)
     .join(" ");
   const tokens = getTokens(trimmed);
@@ -213,16 +221,22 @@ export const scoreTrackAgainstQuery = (
   const bpmTokens = numericTokens.filter((token) => token.length !== 4);
 
   const weightedScores: Array<{ score: number; weight: number }> = [];
+  if (styleField) {
+    weightedScores.push({
+      score: scorePhraseInQuery(styleField, trimmed),
+      weight: 0.24,
+    });
+  }
   if (artistField) {
     weightedScores.push({
       score: scorePhraseInQuery(artistField, trimmed),
-      weight: 0.35,
+      weight: 0.22,
     });
   }
-  if (titleField) {
+  if (singerOrInstrumentalField) {
     weightedScores.push({
-      score: scorePhraseInQuery(titleField, trimmed),
-      weight: 0.3,
+      score: scorePhraseInQuery(singerOrInstrumentalField, trimmed),
+      weight: 0.15,
     });
   }
   if (yearTokens.length > 0) {
@@ -232,7 +246,7 @@ export const scoreTrackAgainstQuery = (
           scoreYearMatch(Number.parseInt(token, 10), track.year ?? ""),
         ),
       ),
-      weight: 0.15,
+      weight: 0.14,
     });
   }
   if (bpmTokens.length > 0) {
@@ -242,13 +256,25 @@ export const scoreTrackAgainstQuery = (
           scoreBpmMatch(Number.parseInt(token, 10), track.bpm, bpmRange),
         ),
       ),
-      weight: 0.15,
+      weight: 0.14,
+    });
+  }
+  if (notesField) {
+    weightedScores.push({
+      score: scorePhraseInQuery(notesField, trimmed),
+      weight: 0.09,
+    });
+  }
+  if (titleField) {
+    weightedScores.push({
+      score: scorePhraseInQuery(titleField, trimmed),
+      weight: 0.06,
     });
   }
   if (otherFields) {
     weightedScores.push({
       score: scorePhraseInQuery(otherFields, trimmed),
-      weight: 0.05,
+      weight: 0.02,
     });
   }
   const totalWeight = weightedScores.reduce((sum, entry) => sum + entry.weight, 0);
@@ -275,7 +301,12 @@ export const scoreTrackAgainstQuery = (
   );
   const tokenBonus = bestTokenSimilarity(trimmed, fields) * 0.2;
   const fieldBoost =
-    Math.max(scoreText(trimmed, artistField), scoreText(trimmed, titleField)) * 0.15;
+    Math.max(
+      scoreText(trimmed, styleField),
+      scoreText(trimmed, artistField),
+      scoreText(trimmed, singerOrInstrumentalField),
+      scoreText(trimmed, titleField),
+    ) * 0.12;
   const yearBoost =
     yearTokens.length > 0
       ? Math.max(...yearTokens.map((token) => scoreYearMatch(Number.parseInt(token, 10), track.year ?? ""))) *
@@ -290,7 +321,7 @@ export const scoreTrackAgainstQuery = (
     1,
     baseScore + tokenBonus + fieldBoost + yearBoost + bpmBoost,
   );
-  return Math.min(1, Math.max(prioritizedScore, legacyScore * 0.9));
+  return Math.min(1, Math.max(prioritizedScore, legacyScore * 0.8));
 };
 
 export const filterAndScoreTracks = (

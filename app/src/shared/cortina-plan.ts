@@ -14,3 +14,11 @@ export const getCortinaRowIndices = (items: PlaylistItemLike[]) => {
   }
   return indices;
 };
+
+export const getUnassignedCortinaRowIndices = (
+  items: PlaylistItemLike[],
+  assignedIndices: Iterable<number>,
+) => {
+  const assigned = new Set<number>(assignedIndices);
+  return getCortinaRowIndices(items).filter((index) => !assigned.has(index));
+};

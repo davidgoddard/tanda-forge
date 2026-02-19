@@ -131,6 +131,9 @@ Use the **Tanda Designer** tab to assemble a tanda:
 
 - Click a track in a tanda to edit metadata (title, artist, bpm, notes).
 - Use headphones to preview without playing to the main output.
+- The editor is non-modal and stays in the workspace (top-right) while you keep working.
+- Each field has an **S** button that appends that field value to the current search query
+  (useful for chaining artist + year + singer when building a tanda).
 
 ![Track editor](images/user-guide/13-track-editor.png)
 
@@ -172,12 +175,24 @@ If cortinas are enabled:
 
 ![Playlist controls](images/user-guide/16-playlist-controls.png)
 
+### Clear and Auto-Fill
+
+- Click **Clear** in the playlist header to open playlist clear options.
+- Choose **Clear playlist** to empty the list without changing configuration.
+- Choose **Clear and auto-fill** to rebuild the playlist from your saved tandas
+  and sequence rules until projected playback reaches the configured end time.
+- If no suitable tanda is available for a slot, the app builds an ad-hoc tanda
+  from similar tracks (same style first, then progressively relaxed matching).
+- Auto-fill never reuses a track title already present in the generated playlist.
+
 ## Tips and Good Practices
 
 - Use the clipboard as your “sandbox” for experimenting with tandas.
 - Use styles to keep a consistent flow (e.g., Tango → Vals → Milonga).
 - Preview cortinas with headphones so you don’t interrupt the room.
 - Use the playlist start time to plan your evening and estimate timing.
+- Set a playlist **expected end time** (Settings → Playlist) so auto-fill knows
+  when to stop, including sessions that end after midnight.
 
 ## Diagnostics (If Something Seems Off)
 

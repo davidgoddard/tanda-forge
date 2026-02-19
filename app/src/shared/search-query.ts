@@ -8,6 +8,7 @@ export type TrackSearchSource = {
   genre?: string | null;
   bpm?: number | null;
   notes?: string | null;
+  instrumental?: boolean | null;
 };
 
 const pushIf = (items: string[], value?: string | null) => {
@@ -44,18 +45,29 @@ export const dedupeQueryTokens = (query: string) => {
   return unique.join(" ").trim();
 };
 
+export const appendQueryTokens = (currentQuery: string, fragment: string) => {
+  const merged = `${currentQuery.trim()} ${fragment.trim()}`.trim();
+  return dedupeQueryTokens(merged);
+};
+
 export const buildTrackSearchQuery = (track: TrackSearchSource) => {
   const parts: string[] = [];
+  // Priority order for similarity hints: style, artist, singer/instrumental,
+  // BPM, year, notes, then title.
+  pushIf(parts, track.genre);
   pushIf(parts, track.artist_summary);
   pushIf(parts, track.artist);
-  pushIf(parts, track.singer);
-  pushIf(parts, track.title);
-  pushIf(parts, track.album);
-  pushIf(parts, track.year);
-  pushIf(parts, track.genre);
-  pushIf(parts, track.notes);
+  if (track.singer && track.singer.trim().length > 0) {
+    pushIf(parts, track.singer);
+  } else if (track.instrumental === true) {
+    parts.push("instrumental");
+  }
   if (track.bpm !== null && track.bpm !== undefined && track.bpm > 0) {
     parts.push(`${Math.round(track.bpm)}`);
   }
+  pushIf(parts, track.year);
+  pushIf(parts, track.notes);
+  pushIf(parts, track.title);
+  pushIf(parts, track.album);
   return parts.join(" ").trim();
 };

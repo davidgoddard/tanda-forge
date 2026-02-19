@@ -130,6 +130,7 @@ Rules:
 - UI-009.R3: Diagnostic information (scan issues) lives in a Diagnostics tab.
 - UI-009.R4: Playlist and System settings use multi-column layout on wide screens,
   collapsing to a single column on narrow screens.
+- UI-009.R5: Display-board controls live in a dedicated Display Board settings tab.
 
 ### UI-009a — Jump Index Bar
 
@@ -194,6 +195,12 @@ Controls:
 - UI-010a.R15: The editor surface is opaque to keep the form readable over long lists.
 - UI-010a.R16: In Edit mode, the editor is non-modal and updates in place as
   different tracks are clicked.
+- UI-010a.R17: The track editor is non-modal in all modes and opens in the
+  fixed in-place editor position (not centered modal overlay).
+- UI-010a.R18: Each editable metadata field exposes a localized search-similar
+  shortcut (`S`) that appends that field value to the current Search query.
+- UI-010a.R19: Field-level search shortcuts are additive and de-duplicated so
+  repeated clicks build composite queries without repeated tokens.
 
 ### UI-011 — Tanda Row Component
 
@@ -269,13 +276,15 @@ Interactions:
 - UI-014.R19: Playlist tracks include a "Send to clipboard" action that clears the slot.
 - UI-014.R20: Clipboard tracks/tandas can only be added to the playlist when at least one empty slot exists.
 - UI-014.R21: The current playlist auto-restores on app launch.
-- UI-014.R22: Clearing the playlist requires a confirmation prompt.
-- UI-014.R22: Adding a track to the playlist creates a new tanda in the first empty slot,
+- UI-014.R22: Clearing the playlist opens explicit options (clear only, or clear + auto-fill).
+- UI-014.R23: Adding a track to the playlist creates a new tanda in the first empty slot,
   pre-sized to the sequence slot (or default size) and seeded with the track.
-- UI-014.R23: Clicking an empty playlist slot creates a new tanda seeded with the slot’s
+- UI-014.R24: Clicking an empty playlist slot creates a new tanda seeded with the slot’s
   sequence style(s) and focuses the Tanda Designer for continued editing.
-- UI-014.R24: A Clear button next to the Playlist header clears all playlist items
+- UI-014.R25: A Clear button next to the Playlist header can clear all playlist items
   while preserving playlist configuration; it is disabled in Live mode.
+- UI-014.R26: Playlist auto-fill uses sequence/style rules and stops when projected
+  timeline reaches the configured expected end time.
 
 ## UI-015 — Now Playing Strip
 
@@ -394,6 +403,9 @@ Behavior:
 - UI-012.R14: When playback is active and the playlist is taller than the viewport, the
   current tanda auto-centers after a period of user inactivity (about two minutes).
   Any user interaction pauses auto-centering until the idle window elapses again.
+- UI-012.R15: When using playlist auto-fill with cortinas enabled, all required
+  cortina rows (start, between tandas, end) are pre-assigned from the selected
+  cortina set using the same planning rules as manual playlist editing.
 
 ---
 
@@ -517,6 +529,12 @@ Features:
   background with slow color/shape motion that preserves text readability.
 - UI-060.R10: In cortina mode, content is centered and the "Cortina" headline is
   rendered as large as possible while still fitting on screen.
+- UI-060.R11: Display-board text supports a configurable base font scale (%) from
+  Settings > Display Board.
+- UI-060.R12: Display content preserves an inner safe margin so large headings do
+  not sit hard against screen edges.
+- UI-060.R13: Cortina-mode typography supports an independent font scale (%)
+  configured in Settings > Display Board.
 
 Rules:
 - UI-060.R4: No control affordances.

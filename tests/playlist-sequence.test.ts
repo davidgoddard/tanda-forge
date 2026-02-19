@@ -21,7 +21,7 @@ describe("playlist sequence parsing", () => {
 
   it("parses style maps", () => {
     expect(parseStyleMap("T=Tango;Tango Nuevo\nW=Vals, Waltz")).toEqual({
-      T: ["Tango", "Tango Nuevo"],
+      T: ["Tango", "Nuevo Tango"],
       W: ["Vals", "Waltz"],
     });
   });
@@ -32,6 +32,12 @@ describe("playlist sequence parsing", () => {
     expect(validateTandaForRule(3, ["Tango"], rule, styleMap).ok).toBe(true);
     expect(validateTandaForRule(4, ["Tango"], rule, styleMap).ok).toBe(false);
     expect(validateTandaForRule(3, ["Milonga"], rule, styleMap).ok).toBe(false);
+  });
+
+  it("treats reordered style words as the same style", () => {
+    const rule = { count: 3, code: "T" };
+    const styleMap = parseStyleMap("T=Tango Nuevo");
+    expect(validateTandaForRule(3, ["Nuevo Tango"], rule, styleMap).ok).toBe(true);
   });
 
   it("wraps sequence rules", () => {

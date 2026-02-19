@@ -134,4 +134,35 @@ describe("fuzzy search helpers", () => {
     expect(result[0].track.id).toBe("exact");
     expect(result[0].score).toBeGreaterThan(result[1].score);
   });
+
+  it("prioritizes style/artist/singer/year/bpm over title-only matches", () => {
+    const styleArtistMatch = buildTrack({
+      id: "style-artist",
+      genre: "Tango",
+      artist: "Enrique Alessio",
+      singer: "Alberto Castillo",
+      year: "1937",
+      bpm: 62,
+      notes: "session favorite",
+      title: "Remolino",
+    });
+    const titleOnly = buildTrack({
+      id: "title-only",
+      genre: "Tango",
+      artist: "Another Artist",
+      singer: "Another Singer",
+      year: "2012",
+      bpm: 91,
+      notes: "different session",
+      title: "Recuerdo",
+    });
+    const result = filterAndScoreTracks([titleOnly, styleArtistMatch], {
+      query: "Tango Enrique Alessio Alberto Castillo 62 1937 session Recuerdo",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("style-artist");
+  });
 });
