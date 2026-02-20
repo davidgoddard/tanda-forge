@@ -1360,3 +1360,6 @@ Code diffs are omitted; only intent and outcomes are captured.
 - User: Reported playlist target swap (`X`) appears to do nothing after marking first tanda as target and clicking swap on another tanda.
   Assistant: Hardened playlist swap/mark handling to resolve row indices defensively (not only from `data-index`) and to report invalid swap state via status instead of silent no-op. This prevents click paths from failing without feedback and improves robustness for expanded/placeholder rows.
   Verified with `npm test` and `npm run build`.
+- User: Reported inability to route main and headphone audio to different output devices.
+  Assistant: Identified likely output enumeration issue: audio outputs were de-duplicated by label, which can collapse distinct devices sharing similar names. Updated device dedupe to use `deviceId` (fallback group key) so separate routable outputs remain selectable and assignable.
+  Verified with `npm test` and `npm run build`.

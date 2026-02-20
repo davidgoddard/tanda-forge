@@ -4512,8 +4512,7 @@ const ensureAudioOutputs = async () => {
     const outputs = devices.filter((device) => device.kind === "audiooutput");
     const seen = new Set<string>();
     audioOutputs = outputs.filter((device) => {
-      const label = device.label?.trim() || "";
-      const key = label ? label.toLowerCase() : `id::${device.deviceId}`;
+      const key = device.deviceId || `group::${device.groupId || "unknown"}`;
       if (seen.has(key)) {
         return false;
       }

@@ -1002,3 +1002,15 @@
 - Verification:
   - `npm test` passed (29 files, 127 tests)
   - `npm run build` passed
+
+### Latest update
+- Audio output routing robustness:
+  - Changed output-device deduplication in renderer from label-based to `deviceId`-based keying (with group fallback), preventing distinct outputs with similar labels from being collapsed into one selection.
+  - This improves reliability of assigning separate main/headphone outputs.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed
