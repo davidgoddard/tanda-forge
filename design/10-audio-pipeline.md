@@ -47,6 +47,9 @@ and stores both the measured loudness and gain offset.
   abrupt perceived loudness jumps.
 - AUD-003.R3: Cortinas use a separate level and fade policy.
 - AUD-003.R4: Preview playback (headphones) is independent of main output.
+- AUD-003.R5: Per-element output routing uses media-element sink assignment
+  (`setSinkId`) without routing playback through a shared WebAudio destination,
+  so main and headphone channels can target different devices reliably.
 
 ## AUD-004 — Output Routing
 
@@ -67,6 +70,12 @@ and stores both the measured loudness and gain offset.
 - AUD-006.R1: Default output is the OS default device.
 - AUD-006.R2: Optional device selection is exposed (planned).
 - AUD-006.R3: Headphone preview output is supported if OS provides a distinct device.
+- AUD-006.R4: Output-route application must be validated when users choose a
+  non-default device; failed sink assignment must be surfaced in status/diagnostics
+  and must not silently fall back headphone preview onto the main/default output.
+- AUD-006.R5: If explicit sink routing fails for either main or headphone channel,
+  playback must fail fast for that channel (with user-visible diagnostics) rather
+  than silently playing on the OS default output.
 
 ## AUD-007 — Failure Modes
 

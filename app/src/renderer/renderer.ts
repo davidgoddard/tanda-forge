@@ -63,6 +63,13 @@ import {
   resolvePlaybackNormalization,
 } from "../shared/audio-normalization.js";
 import {
+  chooseAvailableOutputDeviceId,
+  dedupeAudioOutputs,
+  getOutputCandidateIds,
+  resolveStoredOutputDevice,
+  type AudioOutputDevice,
+} from "../shared/audio-outputs.js";
+import {
   findPlaylistPositionForTrack,
   resolveContinuationIndexAfterEndCortina,
   shouldContinueAfterEndCortina,
@@ -94,8 +101,14 @@ const diagnosticsDataReadinessEl =
   document.querySelector<HTMLDivElement>("#diagnostics-data-readiness");
 const diagnosticsPlaybackLogBtn =
   document.querySelector<HTMLButtonElement>("#diagnostics-playback-log");
+const diagnosticsClearLogsBtn =
+  document.querySelector<HTMLButtonElement>("#diagnostics-clear-logs");
 const diagnosticsPlaybackLogResult =
   document.querySelector<HTMLPreElement>("#diagnostics-playback-log-result");
+const diagnosticsOutputProbeBtn =
+  document.querySelector<HTMLButtonElement>("#diagnostics-output-probe");
+const diagnosticsOutputProbeResult =
+  document.querySelector<HTMLPreElement>("#diagnostics-output-probe-result");
 
 let allowAppClose = false;
 let confirmModalEl: HTMLDivElement | null = null;
@@ -337,7 +350,8 @@ const trackEditorResetBtn =
   document.querySelector<HTMLButtonElement>("#track-editor-reset");
 
 let headphoneAvailable = false;
-let audioOutputs: MediaDeviceInfo[] = [];
+let audioOutputs: AudioOutputDevice[] = [];
+let audioOutputRouteCandidates = new Map<string, string[]>();
 
 type TrackRow = import("../shared/types").TrackRow;
 
@@ -850,6 +864,14 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsReadinessMissingWaveforms: "Missing waveforms",
     diagnosticsPlaybackLog: "Playback leveling log",
     diagnosticsPlaybackLogRun: "Load recent playback leveling entries",
+    diagnosticsClearLogs: "Clear diagnostics logs",
+    diagnosticsLogsCleared: "Diagnostics logs cleared.",
+    diagnosticsLogsClearFailed: "Clearing diagnostics logs failed: {message}",
+    diagnosticsOutputProbe: "Audio output probe",
+    diagnosticsOutputProbeRun: "Run audio output probe",
+    diagnosticsOutputProbeNoDevices: "No audio output devices detected.",
+    diagnosticsOutputProbeUnsupported: "Output routing unsupported by this runtime.",
+    diagnosticsOutputProbeError: "Probe failed: {message}",
     diagnosticsPlaybackLogEmpty: "No playback leveling log entries yet.",
     diagnosticsPlaybackLogFailed: "Playback log failed: {message}",
     diagnosticsPathsPlaybackLog: "Playback log",
@@ -2838,81 +2860,24 @@ const applyTranslations = () => {
 const gainForTrack = (gainDb: number | null | undefined) => {
   return gainDbToLinear(gainDb, 2);
 };
-
-const audioGainNodes = new WeakMap<HTMLAudioElement, GainNode>();
-let sharedAudioContext: AudioContext | null = null;
-
-const getAudioContext = () => {
-  if (sharedAudioContext) {
-    return sharedAudioContext;
-  }
-  const AudioContextCtor =
-    window.AudioContext ??
-    (window as Window & { webkitAudioContext?: typeof AudioContext })
-      .webkitAudioContext;
-  if (!AudioContextCtor) {
-    return null;
-  }
-  sharedAudioContext = new AudioContextCtor();
-  return sharedAudioContext;
-};
-
-const ensureGainNode = (audio: HTMLAudioElement) => {
-  const existing = audioGainNodes.get(audio);
-  if (existing) {
-    return existing;
-  }
-  const context = getAudioContext();
-  if (!context) {
-    return null;
-  }
-  try {
-    const source = context.createMediaElementSource(audio);
-    const gainNode = context.createGain();
-    source.connect(gainNode);
-    gainNode.connect(context.destination);
-    audioGainNodes.set(audio, gainNode);
-    return gainNode;
-  } catch {
-    return null;
-  }
-};
+const audioLevels = new WeakMap<HTMLAudioElement, number>();
 
 const setAudioLevel = (audio: HTMLAudioElement, level: number) => {
   const safe = Math.max(0, level);
-  const gainNode = ensureGainNode(audio);
-  if (gainNode) {
-    gainNode.gain.value = safe;
-    return;
-  }
+  audioLevels.set(audio, safe);
+  // Keep per-element sink routing reliable: avoid shared AudioContext graph.
   audio.volume = Math.min(1, safe);
 };
 
 const getAudioLevel = (audio: HTMLAudioElement) => {
-  const gainNode = audioGainNodes.get(audio);
-  if (gainNode) {
-    return Math.max(0, gainNode.gain.value);
+  const stored = audioLevels.get(audio);
+  if (typeof stored === "number" && Number.isFinite(stored)) {
+    return Math.max(0, stored);
   }
-  return Math.max(0, audio.volume);
+  return Math.max(0, audio.volume || 0);
 };
 
-const resumeAudioContextForElement = async (audio: HTMLAudioElement) => {
-  const context = getAudioContext();
-  if (!context) {
-    return;
-  }
-  const gainNode = ensureGainNode(audio);
-  if (!gainNode) {
-    return;
-  }
-  if (context.state === "suspended") {
-    try {
-      await context.resume();
-    } catch {
-      // no-op: playback can still continue via media element fallback
-    }
-  }
-};
+const resumeAudioContextForElement = async (_audio: HTMLAudioElement) => {};
 
 const formatTime = (seconds: number) => {
   if (!Number.isFinite(seconds) || seconds <= 0) {
@@ -4200,24 +4165,181 @@ const fadeBetween = (
   window.requestAnimationFrame(step);
 };
 
+type OutputRoutingResult = {
+  requestedDeviceId: string | null;
+  appliedDeviceId: string | null;
+  method: "default" | "setSinkId" | "selectAudioOutput" | "unsupported" | "failed";
+  error: string | null;
+  attemptedDeviceIds: string[];
+};
+
 const applyOutputDevice = async (
   element: HTMLAudioElement,
   deviceId: string | null,
-) => {
+): Promise<OutputRoutingResult> => {
+  if (!deviceId) {
+    return {
+      requestedDeviceId: null,
+      appliedDeviceId: null,
+      method: "default",
+      error: null,
+      attemptedDeviceIds: [],
+    };
+  }
   const setSink = element.setSinkId as
     | ((sinkId: string) => Promise<void>)
     | undefined;
-  if (setSink && deviceId) {
+  if (!setSink) {
+    const message = "setSinkId unsupported";
+    setStatus(t("outputSelectionFailedDetail", { message }));
+    return {
+      requestedDeviceId: deviceId,
+      appliedDeviceId: null,
+      method: "unsupported",
+      error: message,
+      attemptedDeviceIds: [deviceId],
+    };
+  }
+  try {
+    const candidateIds = Array.from(
+      new Set([
+        deviceId,
+        ...(audioOutputRouteCandidates.get(deviceId) ?? []),
+      ]),
+    );
+    const attemptedDeviceIds: string[] = [];
+    const orderedCandidates = Array.from(new Set(candidateIds));
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => {
+        window.setTimeout(() => resolve(), ms);
+      });
+    let lastSetSinkMessage: string | null = null;
+    for (const candidateId of orderedCandidates) {
+      attemptedDeviceIds.push(candidateId);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          await setSink.call(element, candidateId);
+          return {
+            requestedDeviceId: deviceId,
+            appliedDeviceId: candidateId,
+            method: "setSinkId",
+            error: null,
+            attemptedDeviceIds,
+          };
+        } catch (error) {
+          lastSetSinkMessage =
+            error instanceof Error ? error.message : String(error);
+          if (attempt < 2) {
+            await wait(120);
+          }
+        }
+      }
+    }
+    const setSinkMessage = lastSetSinkMessage ?? "setSinkId failed";
+    setStatus(t("outputSelectionFailedDetail", { message: setSinkMessage }));
+    return {
+      requestedDeviceId: deviceId,
+      appliedDeviceId: null,
+      method: "failed",
+      error: setSinkMessage,
+      attemptedDeviceIds,
+    };
+  } catch {
+    return {
+      requestedDeviceId: deviceId,
+      appliedDeviceId: null,
+      method: "failed",
+      error: "setSinkId failed",
+      attemptedDeviceIds: [deviceId],
+    };
+  }
+};
+
+const resolveOutputDeviceIdForChannel = (
+  channel: OutputChannel,
+): string | null => {
+  const selectedId =
+    channel === "main"
+      ? mainOutputSelect?.value ?? null
+      : headphoneOutputSelect?.value ?? null;
+  const rawId =
+    channel === "main"
+      ? localStorage.getItem("tanda-main-output")
+      : localStorage.getItem("tanda-headphone-output");
+  const resolved = chooseAvailableOutputDeviceId(audioOutputs, [selectedId, rawId]);
+  if (resolved) {
+    persistOutputDeviceSelection(channel, resolved);
+  }
+  return resolved;
+};
+
+const persistOutputDeviceSelection = (
+  channel: "main" | "headphone",
+  deviceId: string | null,
+) => {
+  const keyPrefix = `tanda-${channel}-output`;
+  if (!deviceId || deviceId === DEFAULT_OUTPUT_ID) {
+    if (channel === "main") {
+      localStorage.setItem(keyPrefix, DEFAULT_OUTPUT_ID);
+      localStorage.setItem(`${keyPrefix}-label`, t("outputDefault"));
+      localStorage.removeItem(`${keyPrefix}-group`);
+      return;
+    }
+    localStorage.removeItem(keyPrefix);
+    localStorage.removeItem(`${keyPrefix}-label`);
+    localStorage.removeItem(`${keyPrefix}-group`);
+    return;
+  }
+  const device = audioOutputs.find((output) => output.deviceId === deviceId);
+  localStorage.setItem(keyPrefix, deviceId);
+  if (device?.label) {
+    localStorage.setItem(`${keyPrefix}-label`, device.label);
+  }
+  if (device?.groupId) {
+    localStorage.setItem(`${keyPrefix}-group`, device.groupId);
+  }
+};
+
+const verifyOutputSelection = async (
+  channel: "main" | "headphone",
+  deviceId: string | null,
+) => {
+  if (!deviceId || deviceId === DEFAULT_OUTPUT_ID) {
+    persistOutputDeviceSelection(channel, deviceId);
+    return true;
+  }
+  let verifiedDeviceId = deviceId;
+  const selectAudioOutput = (
+    navigator.mediaDevices as MediaDevices & {
+      selectAudioOutput?: (options?: { deviceId?: string }) => Promise<{
+        deviceId: string;
+      }>;
+    }
+  ).selectAudioOutput;
+  if (typeof selectAudioOutput === "function") {
     try {
-      await setSink.call(element, deviceId);
+      const granted = await selectAudioOutput({ deviceId });
+      if (granted?.deviceId) {
+        verifiedDeviceId = granted.deviceId;
+      }
     } catch (error) {
       setStatus(
-        error instanceof Error
-          ? t("outputSelectionFailedDetail", { message: error.message })
-          : t("outputSelectionFailed"),
+        t("outputSelectionFailedDetail", {
+          message: error instanceof Error ? error.message : String(error),
+        }),
       );
+      return false;
     }
   }
+  const probe = new Audio();
+  const routing = await applyOutputDevice(probe, verifiedDeviceId);
+  probe.pause();
+  probe.src = "";
+  if (!routing.appliedDeviceId) {
+    return false;
+  }
+  persistOutputDeviceSelection(channel, routing.appliedDeviceId);
+  return true;
 };
 
 type PlayOptions = {
@@ -4269,7 +4391,6 @@ const playOnChannel = async (
   }
 
   const next = new Audio();
-  next.src = filePath;
   next.loop = false;
   const normalization = resolvePlaybackNormalization(gainDb, track?.loudness_db);
   let appliedGainDb = normalization.gainDb;
@@ -4290,6 +4411,56 @@ const playOnChannel = async (
       : normalization.source === "loudness"
         ? "loudness_db"
         : "none";
+  setAudioLevel(next, targetVolume);
+  const requestedOutputDeviceId = resolveOutputDeviceIdForChannel(channel);
+  const preAttachRouting = await applyOutputDevice(next, requestedOutputDeviceId);
+  next.src = filePath;
+  const postAttachRouting = await applyOutputDevice(next, requestedOutputDeviceId);
+  const outputRouting =
+    postAttachRouting.appliedDeviceId || !preAttachRouting.appliedDeviceId
+      ? postAttachRouting
+      : preAttachRouting;
+  if (requestedOutputDeviceId && !outputRouting.appliedDeviceId) {
+    void window.tanda?.logPlaybackDiagnostic?.({
+      channel,
+      mode: appMode,
+      trackId,
+      title: track?.title ?? "",
+      artist: track?.artist ?? "",
+      playlistStatus: playlistPlayback.status,
+      playlistIndex: playlistPlayback.currentIndex,
+      trackIndex: playlistPlayback.currentTrackIndex,
+      gainSource,
+      gainDb: appliedGainDb,
+      loudnessDb: normalization.loudnessDb,
+      linearGain: targetVolume,
+      correctionDb: normalization.correctionDb + stepCorrectionDb,
+      driftDb: normalization.driftDb,
+      targetLoudnessDb: normalization.targetLoudnessDb,
+      expectedOutputLoudnessDb:
+        normalization.loudnessDb !== null && appliedGainDb !== null
+          ? normalization.loudnessDb + appliedGainDb
+          : null,
+      requestedOutputDeviceId,
+      appliedOutputDeviceId: outputRouting.appliedDeviceId,
+      outputRouteMethod: outputRouting.method,
+      outputRouteError: outputRouting.error,
+      attemptedOutputDeviceIds: [
+        ...preAttachRouting.attemptedDeviceIds,
+        ...postAttachRouting.attemptedDeviceIds,
+      ],
+    });
+    setStatus(
+      t("outputSelectionFailedDetail", {
+        message:
+          outputRouting.error ??
+          (channel === "headphone"
+            ? "headphone routing unavailable"
+            : "main output routing unavailable"),
+      }),
+    );
+    return false;
+  }
   void window.tanda?.logPlaybackDiagnostic?.({
     channel,
     mode: appMode,
@@ -4310,16 +4481,15 @@ const playOnChannel = async (
       normalization.loudnessDb !== null && appliedGainDb !== null
         ? normalization.loudnessDb + appliedGainDb
         : null,
+    requestedOutputDeviceId,
+    appliedOutputDeviceId: outputRouting.appliedDeviceId,
+    outputRouteMethod: outputRouting.method,
+    outputRouteError: outputRouting.error,
+    attemptedOutputDeviceIds: [
+      ...preAttachRouting.attemptedDeviceIds,
+      ...postAttachRouting.attemptedDeviceIds,
+    ],
   });
-  setAudioLevel(next, targetVolume);
-
-  const deviceId =
-    channel === "main"
-      ? localStorage.getItem("tanda-main-output")
-      : localStorage.getItem("tanda-headphone-output");
-  const resolvedDeviceId =
-    deviceId && deviceId !== DEFAULT_OUTPUT_ID ? deviceId : null;
-  await applyOutputDevice(next, resolvedDeviceId);
   await resumeAudioContextForElement(next);
 
   const previous = state.active;
@@ -4509,20 +4679,29 @@ const ensureAudioOutputs = async () => {
         devices = await navigator.mediaDevices.enumerateDevices();
       } catch {}
     }
-    const outputs = devices.filter((device) => device.kind === "audiooutput");
-    const seen = new Set<string>();
-    audioOutputs = outputs.filter((device) => {
-      const key = device.deviceId || `group::${device.groupId || "unknown"}`;
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
+    const outputs = devices
+      .filter((device) => device.kind === "audiooutput")
+      .map(
+        (device) =>
+          ({
+            deviceId: device.deviceId,
+            groupId: device.groupId,
+            label: device.label,
+          }) satisfies AudioOutputDevice,
+      );
+    audioOutputs = dedupeAudioOutputs(outputs);
+    audioOutputRouteCandidates = new Map(
+      audioOutputs.map((device) => [
+        device.deviceId,
+        getOutputCandidateIds(outputs, device),
+      ]),
+    );
   } catch {
     audioOutputs = [];
+    audioOutputRouteCandidates = new Map();
   }
-  headphoneAvailable = audioOutputs.length > 1;
+  const hasSecondaryOutput = audioOutputs.length > 1;
+  headphoneAvailable = hasSecondaryOutput;
   document.body.classList.toggle("no-headphones", !headphoneAvailable);
 
   if (!headphoneAvailable) {
@@ -4538,44 +4717,17 @@ const ensureAudioOutputs = async () => {
   const storedHeadphoneLabel = localStorage.getItem("tanda-headphone-output-label");
   const storedHeadphoneGroup = localStorage.getItem("tanda-headphone-output-group");
 
-  const resolvePreferredDevice = (
-    storedId: string | null,
-    storedLabel: string | null,
-    storedGroup: string | null,
-  ) => {
-    if (storedId === DEFAULT_OUTPUT_ID) {
-      return DEFAULT_OUTPUT_ID;
-    }
-    if (storedId) {
-      const byId = audioOutputs.find((device) => device.deviceId === storedId);
-      if (byId) {
-        return byId.deviceId;
-      }
-    }
-    if (storedLabel || storedGroup) {
-      const byMeta = audioOutputs.find((device) => {
-        const labelMatch = storedLabel
-          ? device.label.toLowerCase() === storedLabel.toLowerCase()
-          : false;
-        const groupMatch = storedGroup ? device.groupId === storedGroup : false;
-        return labelMatch || groupMatch;
-      });
-      if (byMeta) {
-        return byMeta.deviceId;
-      }
-    }
-    return null;
-  };
-
-  const preferredMain = resolvePreferredDevice(
+  const preferredMain = resolveStoredOutputDevice(
     storedMain,
     storedMainLabel,
     storedMainGroup,
+    audioOutputs,
   );
-  const preferredHeadphone = resolvePreferredDevice(
+  const preferredHeadphone = resolveStoredOutputDevice(
     storedHeadphone,
     storedHeadphoneLabel,
     storedHeadphoneGroup,
+    audioOutputs,
   );
   const hasStoredMain = Boolean(storedMain || storedMainLabel || storedMainGroup);
   const hasStoredHeadphone = Boolean(
@@ -4586,38 +4738,29 @@ const ensureAudioOutputs = async () => {
     (!hasStoredMain ? audioOutputs[0]?.deviceId ?? null : audioOutputs[0]?.deviceId ?? null);
   let headphoneId =
     preferredHeadphone ??
-    (!hasStoredHeadphone && headphoneAvailable
+    (!hasStoredHeadphone && hasSecondaryOutput
       ? audioOutputs[1]?.deviceId ?? null
-      : headphoneAvailable
+      : hasSecondaryOutput
         ? audioOutputs[1]?.deviceId ?? null
         : null);
 
   if (headphoneId && mainId && headphoneId === mainId) {
     headphoneId = null;
-    headphoneAvailable = false;
   }
 
-  if (mainId && !hasStoredMain) {
-    const mainDevice = audioOutputs.find((device) => device.deviceId === mainId);
-    localStorage.setItem("tanda-main-output", mainId);
-    if (mainDevice?.label) {
-      localStorage.setItem("tanda-main-output-label", mainDevice.label);
+  if (mainId) {
+    if (mainId !== storedMain || !hasStoredMain) {
+      persistOutputDeviceSelection("main", mainId);
     }
-    if (mainDevice?.groupId) {
-      localStorage.setItem("tanda-main-output-group", mainDevice.groupId);
-    }
+  } else {
+    persistOutputDeviceSelection("main", DEFAULT_OUTPUT_ID);
   }
-  if (headphoneId && !hasStoredHeadphone) {
-    const headphoneDevice = audioOutputs.find(
-      (device) => device.deviceId === headphoneId,
-    );
-    localStorage.setItem("tanda-headphone-output", headphoneId);
-    if (headphoneDevice?.label) {
-      localStorage.setItem("tanda-headphone-output-label", headphoneDevice.label);
+  if (headphoneId) {
+    if (headphoneId !== storedHeadphone || !hasStoredHeadphone) {
+      persistOutputDeviceSelection("headphone", headphoneId);
     }
-    if (headphoneDevice?.groupId) {
-      localStorage.setItem("tanda-headphone-output-group", headphoneDevice.groupId);
-    }
+  } else {
+    persistOutputDeviceSelection("headphone", null);
   }
 
   if (mainOutputSelect) {
@@ -4639,7 +4782,7 @@ const ensureAudioOutputs = async () => {
     headphoneOutputSelect.innerHTML = "";
     const placeholder = document.createElement("option");
     placeholder.value = "";
-    placeholder.textContent = headphoneAvailable
+    placeholder.textContent = hasSecondaryOutput
       ? t("outputSelectHeadphones")
       : t("outputNoSecondary");
     headphoneOutputSelect.appendChild(placeholder);
@@ -4650,7 +4793,7 @@ const ensureAudioOutputs = async () => {
       headphoneOutputSelect.appendChild(option);
     });
     headphoneOutputSelect.value = headphoneId ?? "";
-    headphoneOutputSelect.disabled = !headphoneAvailable;
+    headphoneOutputSelect.disabled = !hasSecondaryOutput;
   }
 };
 
@@ -9949,6 +10092,73 @@ const renderPlaybackDiagnosticsLog = async () => {
   }
 };
 
+const clearDiagnosticsLogs = async () => {
+  if (!diagnosticsPlaybackLogResult || !window.tanda?.clearDiagnosticsLogs) {
+    return;
+  }
+  diagnosticsPlaybackLogResult.textContent = t("statusWaveformLoading");
+  try {
+    await window.tanda.clearDiagnosticsLogs();
+    diagnosticsPlaybackLogResult.textContent = t("diagnosticsLogsCleared");
+  } catch (error) {
+    diagnosticsPlaybackLogResult.textContent = t("diagnosticsLogsClearFailed", {
+      message: error instanceof Error ? error.message : t("statusUnknownError"),
+    });
+  }
+};
+
+const runAudioOutputProbe = async () => {
+  if (!diagnosticsOutputProbeResult) {
+    return;
+  }
+  diagnosticsOutputProbeResult.textContent = t("statusWaveformLoading");
+  try {
+    let devices = await navigator.mediaDevices.enumerateDevices();
+    if (devices.every((device) => device.kind !== "audiooutput" || !device.label)) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+        devices = await navigator.mediaDevices.enumerateDevices();
+      } catch {
+        // continue with best-effort labels/devices
+      }
+    }
+    const outputs = devices.filter((device) => device.kind === "audiooutput");
+    if (outputs.length === 0) {
+      diagnosticsOutputProbeResult.textContent = t("diagnosticsOutputProbeNoDevices");
+      return;
+    }
+    const probe = new Audio();
+    const setSink = probe.setSinkId as ((sinkId: string) => Promise<void>) | undefined;
+    if (!setSink) {
+      diagnosticsOutputProbeResult.textContent = t(
+        "diagnosticsOutputProbeUnsupported",
+      );
+      return;
+    }
+    const lines: string[] = [];
+    for (const output of outputs) {
+      const label = output.label || "(unlabeled)";
+      const group = output.groupId || "-";
+      const id = output.deviceId || "-";
+      try {
+        await setSink.call(probe, output.deviceId);
+        lines.push(`PASS  ${label} | group=${group} | id=${id}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        lines.push(`FAIL  ${label} | group=${group} | id=${id} | ${message}`);
+      }
+    }
+    probe.pause();
+    probe.src = "";
+    diagnosticsOutputProbeResult.textContent = lines.join("\n");
+  } catch (error) {
+    diagnosticsOutputProbeResult.textContent = t("diagnosticsOutputProbeError", {
+      message: error instanceof Error ? error.message : t("statusUnknownError"),
+    });
+  }
+};
+
 const renderDiagnosticsDataReadiness = async () => {
   if (!diagnosticsDataReadinessEl || !window.tanda?.getDiagnosticsDataReadiness) {
     return;
@@ -11357,21 +11567,11 @@ const init = async () => {
   if (mainOutputSelect) {
     mainOutputSelect.addEventListener("change", async () => {
       const selected = mainOutputSelect.value || DEFAULT_OUTPUT_ID;
-      if (selected === DEFAULT_OUTPUT_ID) {
-        localStorage.setItem("tanda-main-output", DEFAULT_OUTPUT_ID);
-        localStorage.setItem("tanda-main-output-label", t("outputDefault"));
-        localStorage.removeItem("tanda-main-output-group");
-      } else {
-        const device = audioOutputs.find(
-          (output) => output.deviceId === selected,
-        );
-        localStorage.setItem("tanda-main-output", selected);
-        if (device?.label) {
-          localStorage.setItem("tanda-main-output-label", device.label);
-        }
-        if (device?.groupId) {
-          localStorage.setItem("tanda-main-output-group", device.groupId);
-        }
+      const verified = await verifyOutputSelection("main", selected);
+      if (!verified) {
+        await ensureAudioOutputs();
+        renderAllLists();
+        return;
       }
       if (
         headphoneOutputSelect &&
@@ -11392,18 +11592,14 @@ const init = async () => {
         headphoneOutputSelect.value &&
         headphoneOutputSelect.value !== mainOutputSelect?.value
       ) {
-        const device = audioOutputs.find(
-          (output) => output.deviceId === headphoneOutputSelect.value,
-        );
-        localStorage.setItem(
-          "tanda-headphone-output",
+        const verified = await verifyOutputSelection(
+          "headphone",
           headphoneOutputSelect.value,
         );
-        if (device?.label) {
-          localStorage.setItem("tanda-headphone-output-label", device.label);
-        }
-        if (device?.groupId) {
-          localStorage.setItem("tanda-headphone-output-group", device.groupId);
+        if (!verified) {
+          await ensureAudioOutputs();
+          renderAllLists();
+          return;
         }
       } else {
         localStorage.removeItem("tanda-headphone-output");
@@ -11609,6 +11805,12 @@ const init = async () => {
   });
   diagnosticsPlaybackLogBtn?.addEventListener("click", () => {
     void renderPlaybackDiagnosticsLog();
+  });
+  diagnosticsClearLogsBtn?.addEventListener("click", () => {
+    void clearDiagnosticsLogs();
+  });
+  diagnosticsOutputProbeBtn?.addEventListener("click", () => {
+    void runAudioOutputProbe();
   });
 
   tabButtons.forEach((button) => {

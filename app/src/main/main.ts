@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeImage } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, session } from "electron";
 
 if (process.platform === "darwin" && process.arch === "x64") {
   app.disableHardwareAcceleration();
@@ -217,6 +217,20 @@ const clearDiagnosticsArtifacts = () => {
   } catch {
     // Best-effort cleanup; reset should not fail if cache deletion fails.
   }
+};
+
+const clearDiagnosticsLogs = () => {
+  const { logDir } = getDataPaths();
+  [RENDERER_ERROR_LOG, PLAYBACK_DIAGNOSTIC_LOG].forEach((logFile) => {
+    try {
+      const logPath = path.join(logDir, logFile);
+      if (fs.existsSync(logPath)) {
+        fs.unlinkSync(logPath);
+      }
+    } catch {
+      // Best-effort cleanup; log clear should not throw.
+    }
+  });
 };
 
 const readLogTail = (logName: string, limit: number) => {
@@ -1303,6 +1317,11 @@ const registerIpc = () => {
     },
   );
 
+  ipcMain.handle("diagnostics:clearLogs", async () => {
+    clearDiagnosticsLogs();
+    return { ok: true };
+  });
+
   ipcMain.handle("diagnostics:getDataReadiness", async () => {
     const db = getDb();
     const rows = db
@@ -1583,6 +1602,11 @@ const registerIpc = () => {
         driftDb?: number;
         targetLoudnessDb?: number;
         expectedOutputLoudnessDb?: number | null;
+        requestedOutputDeviceId?: string | null;
+        appliedOutputDeviceId?: string | null;
+        outputRouteMethod?: string;
+        outputRouteError?: string | null;
+        attemptedOutputDeviceIds?: string[];
       },
     ) => {
       const payload = {
@@ -1603,8 +1627,39 @@ const registerIpc = () => {
         driftDb: params.driftDb ?? 0,
         targetLoudnessDb: params.targetLoudnessDb ?? null,
         expectedOutputLoudnessDb: params.expectedOutputLoudnessDb ?? null,
+        requestedOutputDeviceId: params.requestedOutputDeviceId ?? null,
+        appliedOutputDeviceId: params.appliedOutputDeviceId ?? null,
+        outputRouteMethod: params.outputRouteMethod ?? "none",
+        outputRouteError: params.outputRouteError ?? null,
+        attemptedOutputDeviceIds: params.attemptedOutputDeviceIds ?? [],
       };
       appendLogEntry(PLAYBACK_DIAGNOSTIC_LOG, [JSON.stringify(payload)]);
+    },
+  );
+};
+
+const configureSessionPermissions = () => {
+  const defaultSession = session.defaultSession;
+  if (!defaultSession) {
+    return;
+  }
+  const allowPermission = (permission: string) =>
+    permission === "speaker-selection" ||
+    permission === "media" ||
+    permission === "audioCapture";
+  defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    if (allowPermission(permission)) {
+      return true;
+    }
+    return true;
+  });
+  defaultSession.setPermissionRequestHandler(
+    (_webContents, permission, callback) => {
+      if (allowPermission(permission)) {
+        callback(true);
+        return;
+      }
+      callback(false);
     },
   );
 };
@@ -1620,6 +1675,7 @@ app.whenReady().then(() => {
     app.quit();
     return;
   }
+  configureSessionPermissions();
   registerIpc();
   createWindow();
 });

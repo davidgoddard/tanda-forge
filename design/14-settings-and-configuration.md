@@ -47,6 +47,9 @@ Board, Diagnostics, System).
 - CFG-SYS-005: Output selection persists across sessions and reuses the preferred device
   when available (matching by device ID, label, or group); it falls back gracefully
   without overwriting the stored preference if the device is missing.
+- CFG-SYS-005.a: Output enumeration de-duplicates repeated OS-reported endpoints
+  (for example repeated AirPlay routes with the same group/label) while preserving
+  distinct physical outputs so main and headphone routing can remain independent.
 - CFG-SYS-006: Headphone output is disabled if it matches the main output or no secondary
   device is present.
 - CFG-SYS-007: Output changes update the main UI immediately (headphone controls shown/hidden).
@@ -123,6 +126,10 @@ Board, Diagnostics, System).
   paths for troubleshooting.
 - CFG-DIAG-005: Diagnostics provide a "Generate waveform for current track" action to
   validate waveform tooling.
+- CFG-DIAG-006: Diagnostics provide an explicit "Clear diagnostics logs" action so
+  users can reset playback/renderer log history before reproducing an issue.
+- CFG-DIAG-007: Diagnostics provide an "Audio output probe" action that runs
+  per-device sink-routing checks and reports pass/fail by output label/group/id.
 
 ## Professional DJ Expectations
 

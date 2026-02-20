@@ -124,18 +124,54 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          find dist -type f \
+            \( -name "*.dmg" \
+            -o -name "*.zip" \
+            -o -name "*.dmg.blockmap" \
+            -o -name "*.zip.blockmap" \
+            -o -name "*.exe" \
+            -o -name "*.exe.blockmap" \
+            -o -name "*.AppImage" \
+            -o -name "*.deb" \) \
+            -print0 | while IFS= read -r -d '' file; do
+              base="$(basename "$file")"
+              target="release-assets/$base"
+              if [ -e "$target" ]; then
+                if cmp -s "$file" "$target"; then
+                  echo "Duplicate (identical) asset ignored: $file"
+                  continue
+                fi
+                echo "Conflicting asset basename detected: $base"
+                echo "Existing: $target"
+                echo "New: $file"
+                exit 1
+              fi
+              cp "$file" "$target"
+            done
+          echo "Prepared release assets:"
+          ls -1 release-assets
+
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/**/*.dmg
-            dist/**/*.zip
-            dist/**/*.dmg.blockmap
-            dist/**/*.zip.blockmap
-            dist/**/*.exe
-            dist/**/*.blockmap
-            dist/**/*.AppImage
-            dist/**/*.deb
+            release-assets/*-mac-x64.dmg
+            release-assets/*-mac-x64.zip
+            release-assets/*-mac-x64.dmg.blockmap
+            release-assets/*-mac-x64.zip.blockmap
+            release-assets/*-mac-arm64.dmg
+            release-assets/*-mac-arm64.zip
+            release-assets/*-mac-arm64.dmg.blockmap
+            release-assets/*-mac-arm64.zip.blockmap
+            release-assets/*-win-*.exe
+            release-assets/*-win-*.exe.blockmap
+            release-assets/*.AppImage
+            release-assets/*.deb
           fail_on_unmatched_files: true
 
   upload-dispatch-artifacts:

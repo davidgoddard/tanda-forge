@@ -188,6 +188,7 @@ export type AppApi = {
     kind: "playback" | "renderer";
     limit?: number;
   }) => Promise<{ path: string; lines: string[] }>;
+  clearDiagnosticsLogs: () => Promise<{ ok: boolean }>;
   getDiagnosticsDataReadiness: () => Promise<{
     totalTracks: number;
     missingDuration: number;
@@ -213,6 +214,11 @@ export type AppApi = {
     driftDb?: number;
     targetLoudnessDb?: number;
     expectedOutputLoudnessDb?: number | null;
+    requestedOutputDeviceId?: string | null;
+    appliedOutputDeviceId?: string | null;
+    outputRouteMethod?: string;
+    outputRouteError?: string | null;
+    attemptedOutputDeviceIds?: string[];
   }) => Promise<void>;
   listStyles: () => Promise<string[]>;
   addStyle: (name: string) => Promise<{ ok: boolean }>;

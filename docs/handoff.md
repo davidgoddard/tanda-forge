@@ -1028,3 +1028,248 @@
 - Verification:
   - `npm test` passed (29 files, 127 tests)
   - `npm run build` passed
+
+### Latest update
+- Release asset duplication fix in GitHub workflow:
+  - Symptom: `softprops/action-gh-release@v2` reported `Not Found` on release asset update after showing duplicate upload attempts for mac blockmap files.
+  - Root cause: overlapping file globs (`dist/**/*.blockmap` plus explicit mac blockmap globs) matched the same assets multiple times in one publish step.
+  - Fix: replaced release upload `files` list with non-overlapping, platform-specific patterns so each asset is uploaded exactly once.
+- Files:
+  - `.github/workflows/release.yml`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed
+
+### Latest update
+- Release asset publish hardening for duplicate-upload failures:
+  - Symptom persisted: duplicate mac blockmap upload attempts and `Not Found` update failure in `softprops/action-gh-release@v2`.
+  - Likely cause: downloaded artifact layout introduced repeated matches of same asset basenames.
+  - Fix: added a pre-upload normalization step that copies all releasable files into `release-assets/` by basename, ignores identical duplicates, and fails fast on conflicting duplicate basenames.
+  - Release upload now targets only `release-assets/*` platform patterns, ensuring each asset name is submitted once.
+- Files:
+  - `.github/workflows/release.yml`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed
+
+### Latest update
+- Audio output routing regression fix (duplicate outputs + split routing reliability):
+  - Symptom: settings output selectors showed repeated AirPlay entries and main/headphone routing could not be reliably separated.
+  - Root cause: renderer de-duplication by raw `deviceId` allowed many OS-exposed duplicates to remain in the list; stored-device fallback matching (`label || group`) could also pick the wrong endpoint when labels repeat.
+  - Fixes:
+    - Added shared audio-output helpers (`app/src/shared/audio-outputs.ts`) to normalize/de-duplicate outputs by stable metadata (group+label with fallbacks), preserving distinct devices while collapsing duplicate endpoints.
+    - Updated renderer enumeration to use the helper and store `AudioOutputDevice` snapshots.
+    - Updated stored output resolution order to: explicit id, exact group+label, group, then label.
+    - Avoided disabling headphone capability globally when selected headphone device equals selected main device; now only the conflicting headphone selection is cleared.
+  - Added tests covering duplicate AirPlay collapse, same-label-different-group preservation, and exact metadata matching.
+  - Design docs updated to codify output de-duplication expectation.
+- Files:
+  - `app/src/shared/audio-outputs.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/audio-outputs.test.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 130 tests)
+  - `npm run build` passed
+
+### Latest update
+- Audio output routing enforcement + diagnostics hardening:
+  - Symptom: main/headphone selections were distinct in UI, but headphone playback still emerged on main speakers.
+  - Changes:
+    - Added Electron default-session permission handlers for speaker selection / audio routing paths.
+    - Upgraded renderer output routing (`setSinkId`) to return structured result metadata, with `selectAudioOutput` fallback when available.
+    - Added selection-time verification (probe audio element) before persisting chosen non-default output IDs.
+    - Added fail-safe behavior: if headphone route cannot be applied to selected device, headphone playback request is rejected instead of silently playing on default output.
+    - Extended playback diagnostics payload with output-route fields: requested/applied device ID, route method, route error.
+  - Requirement update: `design/10-audio-pipeline.md` `AUD-006.R4`.
+- Files:
+  - `app/src/main/main.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/types.ts`
+  - `design/10-audio-pipeline.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 130 tests)
+  - `npm run build` passed
+
+### Latest update
+- Headphone routing stale-device fix:
+  - Evidence from diagnostics: `requestedOutputDeviceId` routed to a stale ID and failed (`appliedOutputDeviceId:null`, abort error) while UI showed a different selected output.
+  - Root cause: resolved output IDs shown in UI were not always persisted back into localStorage when stored IDs existed but had drifted/changed.
+  - Fix: `ensureAudioOutputs` now persists resolved current main/headphone device IDs whenever they differ from stored IDs, and clears stale headphone storage when unresolved/colliding.
+  - Outcome: playback now uses the same concrete device IDs presented in output selectors.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 130 tests)
+  - `npm run build` passed
+
+### Latest update
+- Diagnostics log reset control + output-grant refinement:
+  - Added a user-facing `Clear diagnostics logs` button in Settings > Diagnostics.
+  - Added IPC API `diagnostics:clearLogs` and preload/shared bridge method to delete playback/renderer log files on demand.
+  - Added diagnostics result messages for clear success/failure in the playback-log panel.
+  - Audio-routing refinement: output selection verification now requests device grant via `selectAudioOutput` (when available) during user-driven selection, then probes sink assignment and persists the granted ID.
+  - This supports cleaner repro workflows and improves sink-ID reliability across sessions.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/main/main.ts`
+  - `app/src/preload/preload.ts`
+  - `app/src/shared/types.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 130 tests)
+  - `npm run build` passed
+
+### Latest update
+- Live output-ID resolution hardening for headphone sink routing:
+  - Symptom persisted: playback diagnostic showed `requestedOutputDeviceId` set but `appliedOutputDeviceId:null` with aborted sink assignment.
+  - Change: playback now resolves channel output IDs from live selector choices first and only then from stored IDs, constrained to currently enumerated outputs.
+  - Added shared helper `chooseAvailableOutputDeviceId(...)` and tests.
+  - Resolved IDs are persisted immediately so UI and routing state stay aligned.
+- Files:
+  - `app/src/shared/audio-outputs.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/audio-outputs.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 131 tests)
+  - `npm run build` passed
+
+### Latest update
+- Main-channel output fallback bug fix:
+  - Symptom: when main sink assignment failed, audio still played via OS default output (e.g., Bluetooth), contradicting selected main output.
+  - Root cause: fail-fast handling existed for headphone route failures but main-channel failures still continued playback.
+  - Fix: sink-route failures now fail fast on both channels when a non-default output is requested, with explicit status and diagnostics; no silent fallback to OS default.
+  - Requirement update: `design/10-audio-pipeline.md` `AUD-006.R5`.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `design/10-audio-pipeline.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 131 tests)
+  - `npm run build` passed
+
+### Latest update
+- Audio output routing review + candidate fallback implementation:
+  - Findings:
+    - `AbortError` persisted for both channels even with selected outputs.
+    - Existing UI dedupe can choose a representative device ID that is not routable, while alternate raw IDs for the same physical endpoint may still work.
+  - Fix:
+    - Added grouped candidate fallback during sink routing: for a selected output, attempt the selected ID plus alternate raw IDs sharing endpoint identity (group+label) before failing.
+    - Maintains clean deduped UI while improving real-world routing reliability on macOS/Bluetooth/AirPlay endpoint variants.
+  - Added helper + tests:
+    - `getOutputCandidateIds(...)` in shared audio-output utilities.
+- Files:
+  - `app/src/shared/audio-outputs.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/audio-outputs.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 132 tests)
+  - `npm run build` passed
+
+### Latest update
+- Routing-order correction for repeated `AbortError` on both outputs:
+  - Updated output routing flow to request/select output grant first (`selectAudioOutput` when present), then apply sink via `setSinkId`.
+  - Routing now tries a bounded ordered candidate set (granted ID first, then grouped endpoint candidates) before declaring failure.
+  - Added richer diagnostics field `attemptedOutputDeviceIds` to confirm exactly which IDs were attempted during routing.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/types.ts`
+  - `app/src/main/main.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 132 tests)
+  - `npm run build` passed
+
+### Latest update
+- Added hardware-level audio output probe in Diagnostics:
+  - New action: `Run audio output probe` (Settings > Diagnostics).
+  - Behavior: enumerates audio output devices and attempts `setSinkId` per device from a user gesture context; reports PASS/FAIL for each endpoint with label/group/id and error message.
+  - Purpose: establish objective, repeatable on-machine evidence of routing capability independent of playlist/playback flow.
+  - Requirement update: `design/14-settings-and-configuration.md` `CFG-DIAG-007`.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/renderer.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 132 tests)
+  - `npm run build` passed
+
+### Latest update
+- Probe-driven playback routing correction:
+  - Evidence: Diagnostics output probe passed for all outputs, proving device-level `setSinkId` support is available.
+  - Conclusion: failures are playback-flow-specific rather than hardware/device capability.
+  - Fix:
+    - Removed `selectAudioOutput` from playback-time routing (kept for explicit user selection path).
+    - Added bounded retry loop for `setSinkId` on playback routing candidates to reduce transient `AbortError` failures.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 132 tests)
+  - `npm run build` passed
+
+### Latest update
+- Playback sink-order correction:
+  - Evidence: output probe (fresh `Audio` -> `setSinkId`) passed all devices, while playback route failed.
+  - Root cause hypothesis: playback assigned `src` before sink routing, diverging from probe flow.
+  - Fix: moved playback sink assignment earlier so routing is applied before `src` assignment.
+  - Goal: align playback behavior with proven probe success path.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 132 tests)
+  - `npm run build` passed
+
+### Latest update
+- Dual-phase sink routing to address route non-stick after source attach:
+  - Symptom: diagnostics showed successful sink assignment IDs but audible output still collapsed to one physical device.
+  - Fix: playback now applies sink twice per play request:
+    1) pre-attach (`Audio` created, before `src`),
+    2) post-attach (after `src` assignment).
+  - Effective route uses post-attach success when available; diagnostics include attempted IDs from both phases.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 132 tests)
+  - `npm run build` passed
+
+### Latest update
+- Root-cause fix: shared WebAudio graph collapsing per-output routing
+  - Symptom: diagnostics showed successful `setSinkId` for distinct main/headphone IDs, but audible output still went to one physical device.
+  - Root cause: playback path connected media elements to a shared `AudioContext` destination (`createMediaElementSource -> gain -> context.destination`), which undermined per-element sink routing.
+  - Fix: removed shared-context gain-node routing from playback path and use media-element volume control for runtime levels so `setSinkId` remains effective per element/channel.
+  - Requirement update: `design/10-audio-pipeline.md` `AUD-003.R5`.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `design/10-audio-pipeline.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 132 tests)
+  - `npm run build` passed

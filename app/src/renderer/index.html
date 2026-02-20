@@ -925,11 +925,26 @@
             </div>
             <div class="settings-section">
               <h3 data-i18n="diagnosticsPlaybackLog">Playback leveling log</h3>
-              <button id="diagnostics-playback-log" data-i18n="diagnosticsPlaybackLogRun">
-                Load recent playback leveling entries
-              </button>
+              <div class="settings-inline">
+                <button id="diagnostics-playback-log" data-i18n="diagnosticsPlaybackLogRun">
+                  Load recent playback leveling entries
+                </button>
+                <button id="diagnostics-clear-logs" data-i18n="diagnosticsClearLogs">
+                  Clear diagnostics logs
+                </button>
+              </div>
               <pre
                 id="diagnostics-playback-log-result"
+                class="diagnostics-result diagnostics-log"
+              ></pre>
+            </div>
+            <div class="settings-section">
+              <h3 data-i18n="diagnosticsOutputProbe">Audio output probe</h3>
+              <button id="diagnostics-output-probe" data-i18n="diagnosticsOutputProbeRun">
+                Run audio output probe
+              </button>
+              <pre
+                id="diagnostics-output-probe-result"
                 class="diagnostics-result diagnostics-log"
               ></pre>
             </div>
