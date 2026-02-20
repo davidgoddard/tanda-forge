@@ -1014,3 +1014,17 @@
 - Verification:
   - `npm test` passed (29 files, 127 tests)
   - `npm run build` passed
+
+### Latest update
+- GitHub Release workflow finalization-race fix:
+  - Root cause: release asset publishing ran inside each matrix build leg, so multiple jobs concurrently invoked `softprops/action-gh-release@v2` against the same release/tag and collided during finalization.
+  - Refactor: matrix `build` job now only builds/packages and uploads per-target artifacts; single `publish-release` job (after all builds) downloads merged artifacts and publishes release assets once.
+  - Added `fail_on_unmatched_files: true` to release upload step to fail fast on missing expected outputs.
+  - Preserved `workflow_dispatch` behavior via a dedicated post-build artifact aggregation job.
+- Files:
+  - `.github/workflows/release.yml`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed

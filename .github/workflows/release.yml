@@ -104,15 +104,53 @@ jobs:
             file "$APP_BIN" | grep -q "x86_64" || { echo "Expected x86_64 build."; exit 1; }
           fi
 
-      - name: Upload Release Assets
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ matrix.upload_glob }}
-
       - name: Upload Workflow Artifacts
-        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: builds-${{ matrix.os }}
-          path: dist/*
+          name: builds-${{ matrix.target }}
+          path: ${{ matrix.upload_glob }}
+          if-no-files-found: error
+
+  publish-release:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/**/*.dmg
+            dist/**/*.zip
+            dist/**/*.dmg.blockmap
+            dist/**/*.zip.blockmap
+            dist/**/*.exe
+            dist/**/*.blockmap
+            dist/**/*.AppImage
+            dist/**/*.deb
+          fail_on_unmatched_files: true
+
+  upload-dispatch-artifacts:
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload Workflow Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: builds-all
+          path: dist/**
