@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyGainStepGuard,
   gainDbToLinear,
   resolvePlaybackNormalization,
   resolvePlaybackGainDb,
@@ -45,5 +46,19 @@ describe("gainDbToLinear", () => {
 
   it("caps the maximum linear gain", () => {
     expect(gainDbToLinear(12, 2)).toBeCloseTo(2);
+  });
+});
+
+describe("applyGainStepGuard", () => {
+  it("limits step size between adjacent gain-only tracks", () => {
+    const result = applyGainStepGuard(-0.5, -8.8, 4);
+    expect(result.gainDb).toBeCloseTo(-4.8, 2);
+    expect(result.correctionDb).toBeCloseTo(-4.3, 2);
+  });
+
+  it("does not modify gains already within allowed step", () => {
+    const result = applyGainStepGuard(-5.2, -8.8, 4);
+    expect(result.gainDb).toBeCloseTo(-5.2, 2);
+    expect(result.correctionDb).toBe(0);
   });
 });

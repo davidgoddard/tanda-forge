@@ -38,8 +38,11 @@ and stores both the measured loudness and gain offset.
   (capped linear gain) so imported legacy loudness/gain data can still normalize audibly.
 - AUD-003.R2.c: When both explicit gain and loudness exist, runtime applies a bounded
   drift correction toward target loudness to reduce residual loudness mismatches.
-- AUD-003.R2.c: Playback gain decisions (source, computed gain, measured loudness,
+- AUD-003.R2.d: Playback gain decisions (source, computed gain, measured loudness,
   applied linear gain) are logged for diagnostics and post-event review.
+- AUD-003.R2.e: When only legacy `gain_db` is available (no measured loudness),
+  per-track gain step changes are guarded between consecutive plays to reduce
+  abrupt perceived loudness jumps.
 - AUD-003.R3: Cortinas use a separate level and fade policy.
 - AUD-003.R4: Preview playback (headphones) is independent of main output.
 

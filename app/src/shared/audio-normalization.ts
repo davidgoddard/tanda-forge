@@ -12,6 +12,31 @@ const toFiniteNumber = (value: number | null | undefined) =>
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
+export const applyGainStepGuard = (
+  gainDb: number | null | undefined,
+  previousGainDb: number | null | undefined,
+  maxStepDb = 4,
+) => {
+  const current = toFiniteNumber(gainDb);
+  const previous = toFiniteNumber(previousGainDb);
+  const maxStep =
+    typeof maxStepDb === "number" && Number.isFinite(maxStepDb) && maxStepDb > 0
+      ? maxStepDb
+      : 0;
+  if (current === null || previous === null || maxStep <= 0) {
+    return { gainDb: current, correctionDb: 0 };
+  }
+  const delta = current - previous;
+  if (Math.abs(delta) <= maxStep) {
+    return { gainDb: current, correctionDb: 0 };
+  }
+  const corrected = previous + Math.sign(delta) * maxStep;
+  return {
+    gainDb: corrected,
+    correctionDb: corrected - current,
+  };
+};
+
 export const resolvePlaybackGainDb = (
   gainDb: number | null | undefined,
   loudnessDb: number | null | undefined,

@@ -1302,6 +1302,13 @@ Code diffs are omitted; only intent and outcomes are captured.
   into style pills (`selectedStyles`) and removed style token from similarity
   query text. Replaced direct `runSearchQuery(buildSearchQueryForTrack(...))`
   calls with `runSearchForTrack(...)` so style-pill behavior is consistently applied.
+- User: Reported two tracks with strong perceived loudness mismatch and provided
+  playback diagnostics logs showing both tracks used `gain_db` with `loudnessDb: null`
+  and a large gain delta (`-8.8 dB` vs `-0.5 dB`).
+  Assistant: Added a runtime gain-step guard for legacy `gain_db`-only tracks so
+  consecutive plays cannot jump by more than a bounded dB step, reducing abrupt
+  loudness changes when loudness anchors are missing. Updated normalization tests
+  and audio pipeline requirements notes.
 - User: Reported loudness leveling still inconsistent and described the old
   quietest-track based approach; asked for diagnostic logs and an improved
   normalization strategy.

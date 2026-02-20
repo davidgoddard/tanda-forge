@@ -57,6 +57,7 @@ import { applyClipboardClear } from "../shared/clipboard-clear.js";
 import { resolveCollectionForClipboardWrite } from "../shared/clipboard-target.js";
 import { computeTrimmedEnd } from "../shared/audio-trim.js";
 import {
+  applyGainStepGuard,
   gainDbToLinear,
   resolvePlaybackNormalization,
 } from "../shared/audio-normalization.js";
@@ -552,6 +553,11 @@ const playback: Record<OutputChannel, PlaybackState> = {
   main: {},
   headphone: {},
 };
+const lastAppliedGainDbByChannel: Record<OutputChannel, number | null> = {
+  main: null,
+  headphone: null,
+};
+const MAX_GAIN_ONLY_STEP_DB = 4;
 
 let waveformTrackId: string | null = null;
 let waveformRequestId = 0;
@@ -4104,6 +4110,7 @@ const playOnChannel = async (
     state.currentTrackId = undefined;
     state.active = undefined;
     state.track = undefined;
+    lastAppliedGainDbByChannel[channel] = null;
     updateNowPlayingDisplay();
     return false;
   }
@@ -4112,7 +4119,18 @@ const playOnChannel = async (
   next.src = filePath;
   next.loop = false;
   const normalization = resolvePlaybackNormalization(gainDb, track?.loudness_db);
-  const targetVolume = gainForTrack(normalization.gainDb);
+  let appliedGainDb = normalization.gainDb;
+  let stepCorrectionDb = 0;
+  if (normalization.source === "gain" && normalization.loudnessDb === null) {
+    const stepGuard = applyGainStepGuard(
+      normalization.gainDb,
+      lastAppliedGainDbByChannel[channel],
+      MAX_GAIN_ONLY_STEP_DB,
+    );
+    appliedGainDb = stepGuard.gainDb;
+    stepCorrectionDb = stepGuard.correctionDb;
+  }
+  const targetVolume = gainForTrack(appliedGainDb);
   const gainSource =
     normalization.source === "gain"
       ? "gain_db"
@@ -4129,15 +4147,15 @@ const playOnChannel = async (
     playlistIndex: playlistPlayback.currentIndex,
     trackIndex: playlistPlayback.currentTrackIndex,
     gainSource,
-    gainDb: normalization.gainDb,
+    gainDb: appliedGainDb,
     loudnessDb: normalization.loudnessDb,
     linearGain: targetVolume,
-    correctionDb: normalization.correctionDb,
+    correctionDb: normalization.correctionDb + stepCorrectionDb,
     driftDb: normalization.driftDb,
     targetLoudnessDb: normalization.targetLoudnessDb,
     expectedOutputLoudnessDb:
-      normalization.loudnessDb !== null && normalization.gainDb !== null
-        ? normalization.loudnessDb + normalization.gainDb
+      normalization.loudnessDb !== null && appliedGainDb !== null
+        ? normalization.loudnessDb + appliedGainDb
         : null,
   });
   setAudioLevel(next, targetVolume);
@@ -4250,6 +4268,7 @@ const playOnChannel = async (
   try {
     await next.play();
     fadeBetween(previous, next, targetVolume);
+    lastAppliedGainDbByChannel[channel] = appliedGainDb;
     updateNowPlayingDisplay();
     return true;
   } catch (error) {
@@ -4323,6 +4342,7 @@ const stopChannelPlayback = async (channel: OutputChannel, fadeMs: number) => {
   state.active = undefined;
   state.currentTrackId = undefined;
   state.track = undefined;
+  lastAppliedGainDbByChannel[channel] = null;
   updateNowPlayingDisplay();
 };
 

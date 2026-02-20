@@ -757,6 +757,22 @@
   - `docs/handoff.md`
 
 ### Latest update
+- Legacy gain-only loudness jump guard:
+  - from diagnostics logs, consecutive tracks with `gain_db` only (no `loudness_db`)
+    were showing large gain deltas and audible loudness jumps
+  - added `applyGainStepGuard(...)` to cap per-track gain step changes between
+    consecutive plays (bounded dB step) for legacy gain-only scenarios
+  - renderer playback now applies this guard before converting dB to linear gain
+    and logs the applied correction in diagnostics
+- Files:
+  - `app/src/shared/audio-normalization.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/audio-normalization.test.ts`
+  - `design/10-audio-pipeline.md` (AUD-003.R2.e)
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+
+### Latest update
 - Normalization algorithm + diagnostics improvements:
   - switched runtime gain resolution to `resolvePlaybackNormalization(...)`
     with bounded drift correction when explicit gain and loudness indicate a
