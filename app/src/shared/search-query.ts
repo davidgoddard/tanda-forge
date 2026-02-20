@@ -71,3 +71,22 @@ export const buildTrackSearchQuery = (track: TrackSearchSource) => {
   pushIf(parts, track.album);
   return parts.join(" ").trim();
 };
+
+export const buildTrackSimilarityQuery = (track: TrackSearchSource) => {
+  const parts: string[] = [];
+  // Similarity action intentionally excludes style/title/album from query text.
+  // Style is applied via style pills; query text focuses on non-style metadata.
+  pushIf(parts, track.artist_summary);
+  pushIf(parts, track.artist);
+  if (track.singer && track.singer.trim().length > 0) {
+    pushIf(parts, track.singer);
+  } else if (track.instrumental === true) {
+    parts.push("instrumental");
+  }
+  if (track.bpm !== null && track.bpm !== undefined && track.bpm > 0) {
+    parts.push(`${Math.round(track.bpm)}`);
+  }
+  pushIf(parts, track.year);
+  pushIf(parts, track.notes);
+  return parts.join(" ").trim();
+};

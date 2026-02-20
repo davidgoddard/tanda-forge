@@ -74,6 +74,10 @@ let displayWindow: BrowserWindow | null = null;
 let lastDisplayPayload: DisplayUpdatePayload = {};
 
 const imageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"]);
+const RENDERER_ERROR_LOG = "renderer-errors.log";
+const PLAYBACK_DIAGNOSTIC_LOG = "playback-diagnostics.log";
+const MAX_LOG_BYTES = 5 * 1024 * 1024;
+const KEEP_LOG_BYTES = 4 * 1024 * 1024;
 
 const toDataUrl = (filePath: string) => {
   const ext = path.extname(filePath).toLowerCase();
@@ -112,6 +116,42 @@ const walkImageFiles = async (rootPath: string): Promise<string[]> => {
     }
   }
   return files;
+};
+
+const appendLogEntry = (logName: string, lines: string[]) => {
+  const { logDir } = getDataPaths();
+  const logPath = path.join(logDir, logName);
+  fs.mkdirSync(path.dirname(logPath), { recursive: true });
+  try {
+    const currentSize = fs.existsSync(logPath) ? fs.statSync(logPath).size : 0;
+    if (currentSize > MAX_LOG_BYTES) {
+      const handle = fs.openSync(logPath, "r");
+      const start = Math.max(0, currentSize - KEEP_LOG_BYTES);
+      const buffer = Buffer.allocUnsafe(currentSize - start);
+      fs.readSync(handle, buffer, 0, buffer.length, start);
+      fs.closeSync(handle);
+      fs.writeFileSync(logPath, buffer);
+    }
+  } catch {
+    // Ignore rotation failures and keep app logging best-effort.
+  }
+  fs.appendFileSync(logPath, `${lines.join(os.EOL)}${os.EOL}`);
+  return logPath;
+};
+
+const readLogTail = (logName: string, limit: number) => {
+  const safeLimit = Number.isFinite(limit) ? Math.min(500, Math.max(1, limit)) : 200;
+  const { logDir } = getDataPaths();
+  const logPath = path.join(logDir, logName);
+  if (!fs.existsSync(logPath)) {
+    return { path: logPath, lines: [] as string[] };
+  }
+  const raw = fs.readFileSync(logPath, "utf-8");
+  const lines = raw
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.length > 0);
+  return { path: logPath, lines: lines.slice(Math.max(0, lines.length - safeLimit)) };
 };
 
 const getSortKeyForTrack = (sortBy: string, track: { [key: string]: unknown }) => {
@@ -1158,8 +1198,22 @@ const registerIpc = () => {
       waveformsDir: path.join(userData, "waveforms"),
       ffmpegPath: getResolvedFfmpegPath(),
       ffprobePath: getResolvedFfprobePath(),
+      playbackLogPath: path.join(userData, PLAYBACK_DIAGNOSTIC_LOG),
     };
   });
+
+  ipcMain.handle(
+    "diagnostics:getLogs",
+    async (
+      _event,
+      params: { kind: "playback" | "renderer"; limit?: number },
+    ) => {
+      const kind = params?.kind === "renderer" ? "renderer" : "playback";
+      const logName =
+        kind === "renderer" ? RENDERER_ERROR_LOG : PLAYBACK_DIAGNOSTIC_LOG;
+      return readLogTail(logName, params?.limit ?? 200);
+    },
+  );
 
   ipcMain.handle(
     "backgrounds:list",
@@ -1318,35 +1372,6 @@ const registerIpc = () => {
   );
 
   ipcMain.handle("app:resetDatabase", async () => {
-    const window = BrowserWindow.getFocusedWindow();
-    const response = window
-      ? await dialog.showMessageBox(window, {
-          type: "warning",
-          buttons: ["Cancel", "Erase Database"],
-          defaultId: 0,
-          cancelId: 0,
-          title: "Erase Database",
-          message:
-            "This will permanently delete your library scan, tandas, playlists, and settings stored in this app.",
-          detail:
-            "You can re-import music folders afterward, but this action cannot be undone.",
-        })
-      : await dialog.showMessageBox({
-        type: "warning",
-        buttons: ["Cancel", "Erase Database"],
-        defaultId: 0,
-        cancelId: 0,
-        title: "Erase Database",
-        message:
-          "This will permanently delete your library scan, tandas, playlists, and settings stored in this app.",
-        detail:
-          "You can re-import music folders afterward, but this action cannot be undone.",
-      });
-
-    if (response.response !== 1) {
-      return { ok: false };
-    }
-
     resetDb();
     legacyOverridesByRootId = new Map();
     return { ok: true };
@@ -1355,14 +1380,57 @@ const registerIpc = () => {
   ipcMain.handle(
     "app:logClientError",
     async (_event, params: { message: string; stack?: string }) => {
-      const { logDir } = getDataPaths();
-      const logPath = path.join(logDir, "renderer-errors.log");
-      const entry = [
+      appendLogEntry(RENDERER_ERROR_LOG, [
         new Date().toISOString(),
         params.message,
         params.stack ?? "",
-      ].join(os.EOL);
-      fs.appendFileSync(logPath, `${entry}${os.EOL}`);
+      ]);
+    },
+  );
+
+  ipcMain.handle(
+    "app:logPlaybackDiagnostic",
+    async (
+      _event,
+      params: {
+        channel: "main" | "headphone";
+        mode: "prep" | "live" | "edit";
+        trackId: string;
+        title: string;
+        artist: string;
+        playlistStatus: "idle" | "playing" | "paused";
+        playlistIndex: number;
+        trackIndex: number;
+        gainSource: "gain_db" | "loudness_db" | "none";
+        gainDb: number | null;
+        loudnessDb: number | null;
+        linearGain: number;
+        correctionDb?: number;
+        driftDb?: number;
+        targetLoudnessDb?: number;
+        expectedOutputLoudnessDb?: number | null;
+      },
+    ) => {
+      const payload = {
+        at: new Date().toISOString(),
+        channel: params.channel,
+        mode: params.mode,
+        playlistStatus: params.playlistStatus,
+        playlistIndex: params.playlistIndex,
+        trackIndex: params.trackIndex,
+        trackId: params.trackId,
+        title: params.title,
+        artist: params.artist,
+        gainSource: params.gainSource,
+        gainDb: params.gainDb,
+        loudnessDb: params.loudnessDb,
+        linearGain: params.linearGain,
+        correctionDb: params.correctionDb ?? 0,
+        driftDb: params.driftDb ?? 0,
+        targetLoudnessDb: params.targetLoudnessDb ?? null,
+        expectedOutputLoudnessDb: params.expectedOutputLoudnessDb ?? null,
+      };
+      appendLogEntry(PLAYBACK_DIAGNOSTIC_LOG, [JSON.stringify(payload)]);
     },
   );
 };

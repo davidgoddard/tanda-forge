@@ -49,6 +49,10 @@ const api: AppApi = {
     ipcRenderer.invoke("tracks:generateWaveform", trackId),
   getDiagnosticsPaths: async () =>
     ipcRenderer.invoke("diagnostics:getPaths"),
+  getDiagnosticsLogs: async (params) =>
+    ipcRenderer.invoke("diagnostics:getLogs", params),
+  logPlaybackDiagnostic: async (params) =>
+    ipcRenderer.invoke("app:logPlaybackDiagnostic", params),
   listStyles: async () => ipcRenderer.invoke("styles:list"),
   addStyle: async (name) => ipcRenderer.invoke("styles:add", name),
   removeStyle: async (name) => ipcRenderer.invoke("styles:remove", name),

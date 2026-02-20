@@ -182,7 +182,30 @@ export type AppApi = {
     waveformsDir: string;
     ffmpegPath: string;
     ffprobePath: string;
+    playbackLogPath: string;
   }>;
+  getDiagnosticsLogs: (params: {
+    kind: "playback" | "renderer";
+    limit?: number;
+  }) => Promise<{ path: string; lines: string[] }>;
+  logPlaybackDiagnostic: (params: {
+    channel: "main" | "headphone";
+    mode: "prep" | "live" | "edit";
+    trackId: string;
+    title: string;
+    artist: string;
+    playlistStatus: "idle" | "playing" | "paused";
+    playlistIndex: number;
+    trackIndex: number;
+    gainSource: "gain_db" | "loudness_db" | "none";
+    gainDb: number | null;
+    loudnessDb: number | null;
+    linearGain: number;
+    correctionDb?: number;
+    driftDb?: number;
+    targetLoudnessDb?: number;
+    expectedOutputLoudnessDb?: number | null;
+  }) => Promise<void>;
   listStyles: () => Promise<string[]>;
   addStyle: (name: string) => Promise<{ ok: boolean }>;
   removeStyle: (name: string) => Promise<{ ok: boolean }>;

@@ -9,6 +9,7 @@ import {
 import { applySearchSortDefaults } from "../shared/search-sort.js";
 import {
   appendQueryTokens,
+  buildTrackSimilarityQuery,
   buildTrackSearchQuery,
   dedupeQueryTokens,
 } from "../shared/search-query.js";
@@ -43,6 +44,7 @@ import {
   computeTimelineOffsetsMs,
   computeTimelineTotalMs,
   getMinutesOfDayFromMs,
+  shouldShowDisplayNextTanda,
   type TimelineEntry,
 } from "../shared/playlist-live.js";
 import {
@@ -55,9 +57,15 @@ import { applyClipboardClear } from "../shared/clipboard-clear.js";
 import { resolveCollectionForClipboardWrite } from "../shared/clipboard-target.js";
 import { computeTrimmedEnd } from "../shared/audio-trim.js";
 import {
+  gainDbToLinear,
+  resolvePlaybackNormalization,
+} from "../shared/audio-normalization.js";
+import {
+  findPlaylistPositionForTrack,
   resolveContinuationIndexAfterEndCortina,
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
+  type PlaylistTrackSource,
 } from "../shared/playlist-flow.js";
 import {
   getCortinaRowIndices,
@@ -80,6 +88,10 @@ const diagnosticsWaveformBtn =
   document.querySelector<HTMLButtonElement>("#diagnostics-waveform");
 const diagnosticsWaveformResult =
   document.querySelector<HTMLDivElement>("#diagnostics-waveform-result");
+const diagnosticsPlaybackLogBtn =
+  document.querySelector<HTMLButtonElement>("#diagnostics-playback-log");
+const diagnosticsPlaybackLogResult =
+  document.querySelector<HTMLPreElement>("#diagnostics-playback-log-result");
 
 let allowAppClose = false;
 let confirmModalEl: HTMLDivElement | null = null;
@@ -808,7 +820,14 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformNoTrack: "No track is currently playing.",
     diagnosticsWaveformSuccess: "Waveform generated: {path}",
     diagnosticsWaveformFailed: "Waveform failed: {message}",
+    diagnosticsPlaybackLog: "Playback leveling log",
+    diagnosticsPlaybackLogRun: "Load recent playback leveling entries",
+    diagnosticsPlaybackLogEmpty: "No playback leveling log entries yet.",
+    diagnosticsPlaybackLogFailed: "Playback log failed: {message}",
+    diagnosticsPathsPlaybackLog: "Playback log",
     eraseDatabase: "Erase Database",
+    confirmEraseDatabase:
+      "This will permanently delete your library scan, tandas, playlists, and settings stored in this app. You can re-import folders afterward, but this action cannot be undone.",
     statusIssue: "Issue",
     statusOk: "OK",
     statusPreparingScan: "Preparing scan...",
@@ -1146,6 +1165,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformSuccess: "Forma de onda generada: {path}",
     diagnosticsWaveformFailed: "Fallo al generar forma de onda: {message}",
     eraseDatabase: "Borrar base de datos",
+    confirmEraseDatabase:
+      "Esto borrara permanentemente el escaneo de biblioteca, tandas, playlists y ajustes guardados en esta app. Puedes reimportar carpetas despues, pero esta accion no se puede deshacer.",
     statusIssue: "Problema",
     statusOk: "OK",
     statusPreparingScan: "Preparando escaneo...",
@@ -1484,6 +1505,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformSuccess: "Forme d'onde generee: {path}",
     diagnosticsWaveformFailed: "Echec de la forme d'onde: {message}",
     eraseDatabase: "Effacer la base",
+    confirmEraseDatabase:
+      "Cette action supprimera definitivement le scan de bibliotheque, les tandas, les playlists et les reglages stockes dans cette application. Vous pourrez reimporter des dossiers ensuite, mais cette action est irreversible.",
     statusIssue: "Probleme",
     statusOk: "OK",
     statusPreparingScan: "Preparation du scan...",
@@ -1822,6 +1845,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformSuccess: "Wellenform erzeugt: {path}",
     diagnosticsWaveformFailed: "Wellenform fehlgeschlagen: {message}",
     eraseDatabase: "Datenbank loschen",
+    confirmEraseDatabase:
+      "Dadurch werden Bibliotheksscan, Tandas, Playlists und Einstellungen in dieser App dauerhaft geloscht. Ordner konnen danach erneut importiert werden, diese Aktion ist jedoch nicht ruckgangig zu machen.",
     statusIssue: "Problem",
     statusOk: "OK",
     statusPreparingScan: "Scan vorbereiten...",
@@ -2158,6 +2183,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformSuccess: "Forma de onda gerada: {path}",
     diagnosticsWaveformFailed: "Falha na forma de onda: {message}",
     eraseDatabase: "Apagar base",
+    confirmEraseDatabase:
+      "Isto apagará permanentemente a varredura da biblioteca, tandas, playlists e configuracoes guardadas nesta app. Pode reimportar pastas depois, mas esta acao nao pode ser desfeita.",
     statusIssue: "Problema",
     statusOk: "OK",
     statusPreparingScan: "Preparando scan...",
@@ -2496,6 +2523,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformSuccess: "Forma d'onda generata: {path}",
     diagnosticsWaveformFailed: "Generazione forma d'onda fallita: {message}",
     eraseDatabase: "Cancella database",
+    confirmEraseDatabase:
+      "Questa azione eliminera definitivamente scansione libreria, tandas, playlist e impostazioni salvate in questa app. Potrai reimportare le cartelle dopo, ma l'azione non e annullabile.",
     statusIssue: "Problema",
     statusOk: "OK",
     statusPreparingScan: "Preparazione scansione...",
@@ -2709,11 +2738,82 @@ const applyTranslations = () => {
 };
 
 const gainForTrack = (gainDb: number | null | undefined) => {
-  if (gainDb === null || gainDb === undefined) {
-    return 1;
+  return gainDbToLinear(gainDb, 2);
+};
+
+const audioGainNodes = new WeakMap<HTMLAudioElement, GainNode>();
+let sharedAudioContext: AudioContext | null = null;
+
+const getAudioContext = () => {
+  if (sharedAudioContext) {
+    return sharedAudioContext;
   }
-  const gain = Math.pow(10, gainDb / 20);
-  return Math.max(0, Math.min(1, gain));
+  const AudioContextCtor =
+    window.AudioContext ??
+    (window as Window & { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
+  if (!AudioContextCtor) {
+    return null;
+  }
+  sharedAudioContext = new AudioContextCtor();
+  return sharedAudioContext;
+};
+
+const ensureGainNode = (audio: HTMLAudioElement) => {
+  const existing = audioGainNodes.get(audio);
+  if (existing) {
+    return existing;
+  }
+  const context = getAudioContext();
+  if (!context) {
+    return null;
+  }
+  try {
+    const source = context.createMediaElementSource(audio);
+    const gainNode = context.createGain();
+    source.connect(gainNode);
+    gainNode.connect(context.destination);
+    audioGainNodes.set(audio, gainNode);
+    return gainNode;
+  } catch {
+    return null;
+  }
+};
+
+const setAudioLevel = (audio: HTMLAudioElement, level: number) => {
+  const safe = Math.max(0, level);
+  const gainNode = ensureGainNode(audio);
+  if (gainNode) {
+    gainNode.gain.value = safe;
+    return;
+  }
+  audio.volume = Math.min(1, safe);
+};
+
+const getAudioLevel = (audio: HTMLAudioElement) => {
+  const gainNode = audioGainNodes.get(audio);
+  if (gainNode) {
+    return Math.max(0, gainNode.gain.value);
+  }
+  return Math.max(0, audio.volume);
+};
+
+const resumeAudioContextForElement = async (audio: HTMLAudioElement) => {
+  const context = getAudioContext();
+  if (!context) {
+    return;
+  }
+  const gainNode = ensureGainNode(audio);
+  if (!gainNode) {
+    return;
+  }
+  if (context.state === "suspended") {
+    try {
+      await context.resume();
+    } catch {
+      // no-op: playback can still continue via media element fallback
+    }
+  }
 };
 
 const formatTime = (seconds: number) => {
@@ -2787,11 +2887,11 @@ const isTrackEditorDirty = () => {
   );
 };
 
-const confirmTrackEditorDiscardIfDirty = () => {
+const confirmTrackEditorDiscardIfDirty = async () => {
   if (!isTrackEditorDirty()) {
     return true;
   }
-  return window.confirm(t("confirmDiscardTrackEdits"));
+  return showConfirmModal(t("confirmDiscardTrackEdits"));
 };
 
 const resetTapTempo = () => {
@@ -2845,7 +2945,7 @@ const fillTrackEditorFields = (track: TrackRow) => {
   resetTapTempo();
 };
 
-const openTrackEditor = (trackId: string) => {
+const openTrackEditor = async (trackId: string) => {
   const track = trackCache.get(trackId);
   if (!track) {
     return;
@@ -2855,7 +2955,7 @@ const openTrackEditor = (trackId: string) => {
     isTrackEditorOpen() &&
     currentTrackId &&
     currentTrackId !== trackId &&
-    !confirmTrackEditorDiscardIfDirty()
+    !(await confirmTrackEditorDiscardIfDirty())
   ) {
     return;
   }
@@ -3406,6 +3506,9 @@ const getCurrentProgressText = () => {
 };
 
 const getNextTandaStyle = () => {
+  if (!shouldShowDisplayNextTanda(playlistPlayback.status)) {
+    return "";
+  }
   let startIndex = 0;
   if (playlistPlayback.status === "playing") {
     startIndex = playlistPlayback.currentIndex + 1;
@@ -3711,7 +3814,7 @@ const handleTandaAction = async (event: Event) => {
       (trackId) => trackId !== null,
     );
     if (cleanedSlots.length < minSize) {
-      const confirmed = window.confirm(
+      const confirmed = await showConfirmModal(
         t("confirmTandaTooSmall", {
           count: cleanedSlots.length,
           min: minSize,
@@ -3766,7 +3869,7 @@ const handleTandaAction = async (event: Event) => {
     return;
   }
   if (action === "tanda-delete") {
-    const confirmed = window.confirm(t("confirmDeleteTanda"));
+    const confirmed = await showConfirmModal(t("confirmDeleteTanda"));
     if (!confirmed) {
       return;
     }
@@ -3918,16 +4021,16 @@ const fadeBetween = (
   targetVolume: number,
   durationMs = 600,
 ) => {
-  to.volume = targetVolume;
+  setAudioLevel(to, targetVolume);
   if (!from) {
     return;
   }
-  const fromStart = Math.max(0, from.volume);
+  const fromStart = getAudioLevel(from);
   const start = performance.now();
   const step = () => {
     const elapsed = performance.now() - start;
     const t = Math.min(1, durationMs > 0 ? elapsed / durationMs : 1);
-    from.volume = Math.max(0, fromStart * (1 - t));
+    setAudioLevel(from, Math.max(0, fromStart * (1 - t)));
     if (t >= 1) {
       from.pause();
       from.currentTime = 0;
@@ -4008,8 +4111,36 @@ const playOnChannel = async (
   const next = new Audio();
   next.src = filePath;
   next.loop = false;
-  const targetVolume = gainForTrack(gainDb);
-  next.volume = targetVolume;
+  const normalization = resolvePlaybackNormalization(gainDb, track?.loudness_db);
+  const targetVolume = gainForTrack(normalization.gainDb);
+  const gainSource =
+    normalization.source === "gain"
+      ? "gain_db"
+      : normalization.source === "loudness"
+        ? "loudness_db"
+        : "none";
+  void window.tanda?.logPlaybackDiagnostic?.({
+    channel,
+    mode: appMode,
+    trackId,
+    title: track?.title ?? "",
+    artist: track?.artist ?? "",
+    playlistStatus: playlistPlayback.status,
+    playlistIndex: playlistPlayback.currentIndex,
+    trackIndex: playlistPlayback.currentTrackIndex,
+    gainSource,
+    gainDb: normalization.gainDb,
+    loudnessDb: normalization.loudnessDb,
+    linearGain: targetVolume,
+    correctionDb: normalization.correctionDb,
+    driftDb: normalization.driftDb,
+    targetLoudnessDb: normalization.targetLoudnessDb,
+    expectedOutputLoudnessDb:
+      normalization.loudnessDb !== null && normalization.gainDb !== null
+        ? normalization.loudnessDb + normalization.gainDb
+        : null,
+  });
+  setAudioLevel(next, targetVolume);
 
   const deviceId =
     channel === "main"
@@ -4018,6 +4149,7 @@ const playOnChannel = async (
   const resolvedDeviceId =
     deviceId && deviceId !== DEFAULT_OUTPUT_ID ? deviceId : null;
   await applyOutputDevice(next, resolvedDeviceId);
+  await resumeAudioContextForElement(next);
 
   const previous = state.active;
   state.active = next;
@@ -4138,6 +4270,13 @@ const playTrackForMode = async (
   if (appMode === "live") {
     return false;
   }
+  if (appMode === "prep") {
+    const playlistPosition = findPlaylistStartForTrack(track.id);
+    if (playlistPosition) {
+      startPlaylistFrom(playlistPosition.itemIndex, track.id);
+      return true;
+    }
+  }
   const started = await playOnChannel(
     "main",
     data.filePath,
@@ -4153,13 +4292,13 @@ const playTrackForMode = async (
 };
 
 const fadeOutAudio = async (audio: HTMLAudioElement, durationMs: number) => {
-  const startVolume = Math.max(0, audio.volume);
+  const startVolume = getAudioLevel(audio);
   const start = performance.now();
   return new Promise<void>((resolve) => {
     const step = () => {
       const elapsed = performance.now() - start;
       const t = Math.min(1, durationMs > 0 ? elapsed / durationMs : 1);
-      audio.volume = Math.max(0, startVolume * (1 - t));
+      setAudioLevel(audio, Math.max(0, startVolume * (1 - t)));
       if (t >= 1) {
         resolve();
         return;
@@ -5629,7 +5768,30 @@ const runSearchQuery = (query: string, allowEmpty = false) => {
 };
 
 const buildSearchQueryForTrack = (track: TrackRow) => {
-  return dedupeQueryTokens(buildTrackSearchQuery(track));
+  return dedupeQueryTokens(buildTrackSimilarityQuery(track));
+};
+
+const resolveSearchStylesForTrack = (track: TrackRow) => {
+  const normalized = normalizeStyleName(track.genre);
+  if (!normalized) {
+    return [] as string[];
+  }
+  if (availableStyles.length === 0) {
+    return [normalized];
+  }
+  const match =
+    availableStyles.find((style) => normalizeStyleName(style) === normalized) ??
+    null;
+  return match ? [match] : [];
+};
+
+const runSearchForTrack = (track: TrackRow) => {
+  const styles = resolveSearchStylesForTrack(track);
+  if (styles.length > 0 || selectedStyles.length > 0) {
+    selectedStyles = [...styles];
+    loadStyles();
+  }
+  runSearchQuery(buildSearchQueryForTrack(track), true);
 };
 
 const getTrackEditorFieldQueryValue = (field: string) => {
@@ -7581,6 +7743,39 @@ const startPlaylistFrom = (index: number, trackId?: string | null) => {
   });
 };
 
+const findPlaylistStartForTrack = (trackId: string) => {
+  const sources: PlaylistTrackSource[] = [];
+  const indexMap: number[] = [];
+  playlistItems.forEach((item, playlistIndex) => {
+    if (!item) {
+      return;
+    }
+    if (item.kind === "track") {
+      indexMap.push(playlistIndex);
+      sources.push({ kind: "track", trackId: item.track.id });
+      return;
+    }
+    const tanda = resolveTandaDraft(item.tandaId);
+    if (!tanda) {
+      return;
+    }
+    const trackIds = tanda.trackSlots.filter(Boolean) as string[];
+    if (trackIds.length === 0) {
+      return;
+    }
+    indexMap.push(playlistIndex);
+    sources.push({ kind: "tanda", trackIds });
+  });
+  const found = findPlaylistPositionForTrack(sources, trackId);
+  if (!found) {
+    return null;
+  }
+  return {
+    itemIndex: indexMap[found.itemIndex] ?? found.itemIndex,
+    trackIndex: found.trackIndex,
+  };
+};
+
 const renderAllLists = () => {
   renderSearchResults();
   renderTandaSearchResults();
@@ -8935,17 +9130,21 @@ const placeTandaInPlaylistSlot = (
     const validation = validateTandaForSlot(tanda, index);
     if (!validation.ok && validation.rule) {
       if (validation.reason === "count" && !options?.allowCountMismatch) {
-        const confirmed = window.confirm(
+        showAlertAction(
           t("confirmPlaylistSequenceOverride", {
             rule: getSequenceLabel(validation.rule),
             expected: validation.rule.count,
             count: validation.trackCount ?? 0,
           }),
+          t("allowOverride"),
+          () => {
+            placeTandaInPlaylistSlot(tandaId, index, {
+              ...options,
+              allowCountMismatch: true,
+            });
+          },
         );
-        if (!confirmed) {
-          return false;
-        }
-        options = { ...options, allowCountMismatch: true };
+        return false;
       } else if (validation.reason === "style" && !options?.allowStyleMismatch) {
         showAlertAction(
           t("confirmPlaylistSequenceStyleOverride", {
@@ -9454,6 +9653,7 @@ const renderDiagnosticsPaths = async () => {
     { label: t("diagnosticsPathsWaveforms"), value: paths.waveformsDir },
     { label: t("diagnosticsPathsFfmpeg"), value: paths.ffmpegPath },
     { label: t("diagnosticsPathsFfprobe"), value: paths.ffprobePath },
+    { label: t("diagnosticsPathsPlaybackLog"), value: paths.playbackLogPath },
   ];
   rows.forEach((row) => {
     const line = document.createElement("div");
@@ -9464,6 +9664,27 @@ const renderDiagnosticsPaths = async () => {
     line.append(label, document.createTextNode(" "), value);
     diagnosticsPathsEl.appendChild(line);
   });
+};
+
+const renderPlaybackDiagnosticsLog = async () => {
+  if (!diagnosticsPlaybackLogResult || !window.tanda?.getDiagnosticsLogs) {
+    return;
+  }
+  diagnosticsPlaybackLogResult.textContent = t("statusWaveformLoading");
+  try {
+    const payload = await window.tanda.getDiagnosticsLogs({
+      kind: "playback",
+      limit: 160,
+    });
+    diagnosticsPlaybackLogResult.textContent =
+      payload.lines.length > 0
+        ? payload.lines.join("\n")
+        : t("diagnosticsPlaybackLogEmpty");
+  } catch (error) {
+    diagnosticsPlaybackLogResult.textContent = t("diagnosticsPlaybackLogFailed", {
+      message: error instanceof Error ? error.message : t("statusUnknownError"),
+    });
+  }
 };
 
 const ensureClipboardTracksLoaded = async (ids: string[]) => {
@@ -9497,10 +9718,11 @@ const showAlertAction = (
   actionLabel: string,
   onAction: () => void,
 ) => {
-  const confirmed = window.confirm(`${message}\n\n${actionLabel}?`);
-  if (confirmed) {
-    onAction();
-  }
+  void showConfirmModal(message, actionLabel).then((confirmed) => {
+    if (confirmed) {
+      onAction();
+    }
+  });
 };
 
 const getDefaultStyleNames = () => [
@@ -10028,9 +10250,9 @@ const getTrackDataFromRow = (row: HTMLElement) => {
   return { trackId, filePath, gainDb };
 };
 
-const setSettingsOpen = (open: boolean) => {
+const setSettingsOpen = async (open: boolean) => {
   if (open && isTrackEditorOpen()) {
-    if (!confirmTrackEditorDiscardIfDirty()) {
+    if (!(await confirmTrackEditorDiscardIfDirty())) {
       return;
     }
     setTrackEditorOpen(false);
@@ -10882,8 +11104,8 @@ const init = async () => {
   trackEditorResetBtn?.addEventListener("click", () => {
     resetTrackEditorFields();
   });
-  trackEditorCloseBtn?.addEventListener("click", () => {
-    if (!confirmTrackEditorDiscardIfDirty()) {
+  trackEditorCloseBtn?.addEventListener("click", async () => {
+    if (!(await confirmTrackEditorDiscardIfDirty())) {
       return;
     }
     setTrackEditorOpen(false);
@@ -10943,8 +11165,12 @@ const init = async () => {
     }
   });
 
-  closeSettingsBtn?.addEventListener("click", () => setSettingsOpen(false));
-  openSettingsBtn?.addEventListener("click", () => setSettingsOpen(true));
+  closeSettingsBtn?.addEventListener("click", () => {
+    void setSettingsOpen(false);
+  });
+  openSettingsBtn?.addEventListener("click", () => {
+    void setSettingsOpen(true);
+  });
   fullscreenToggle?.addEventListener("click", async () => {
     if (!window.tanda?.toggleFullscreen) {
       setStatus(t("statusFullscreenUnavailable"));
@@ -11003,11 +11229,11 @@ const init = async () => {
     seekToWaveformPosition(event, trackEditorWaveformContainer);
   });
   openDiagnosticsMain?.addEventListener("click", () => {
-    setSettingsOpen(true);
+    void setSettingsOpen(true);
     activateSettingsTab("diagnostics");
   });
   openDiagnosticsSettings?.addEventListener("click", () => {
-    setSettingsOpen(true);
+    void setSettingsOpen(true);
     activateSettingsTab("diagnostics");
   });
 
@@ -11033,6 +11259,9 @@ const init = async () => {
     diagnosticsWaveformResult.textContent = t("diagnosticsWaveformFailed", {
       message: result?.error ?? t("statusUnknownError"),
     });
+  });
+  diagnosticsPlaybackLogBtn?.addEventListener("click", () => {
+    void renderPlaybackDiagnosticsLog();
   });
 
   tabButtons.forEach((button) => {
@@ -11099,7 +11328,7 @@ const init = async () => {
     if (!selected) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await showConfirmModal(
       t("confirmDataLocationChange", { path: selected }),
     );
     if (!confirmed) {
@@ -11164,7 +11393,7 @@ const init = async () => {
     if (!window.tanda || !legacyImportRootPath) {
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await showConfirmModal(
       t("confirmLegacyImport", { path: legacyImportRootPath }),
     );
     if (!confirmed) {
@@ -11264,6 +11493,13 @@ const init = async () => {
   scanCortinasBtn?.addEventListener("click", () => runScan("cortina"));
 
   resetDbBtn?.addEventListener("click", async () => {
+    const confirmed = await showConfirmModal(
+      t("confirmEraseDatabase"),
+      t("eraseDatabase"),
+    );
+    if (!confirmed) {
+      return;
+    }
     const result = await window.tanda?.resetDatabase();
     if (result?.ok) {
       setStatus(t("statusDatabaseErased"));
@@ -11359,7 +11595,7 @@ const init = async () => {
     if (editAction === "search-track" && editTrackId) {
       const track = trackCache.get(editTrackId);
       if (track) {
-        runSearchQuery(buildSearchQueryForTrack(track));
+        runSearchForTrack(track);
       }
       closeRowMenus();
       return;
@@ -11594,7 +11830,7 @@ const init = async () => {
       return;
     }
     if (action === "search-track") {
-      runSearchQuery(buildSearchQueryForTrack(track));
+      runSearchForTrack(track);
       closeRowMenus();
       return;
     }
@@ -11681,7 +11917,7 @@ const init = async () => {
     if (editAction === "search-track" && editTrackId) {
       const track = trackCache.get(editTrackId);
       if (track) {
-        runSearchQuery(buildSearchQueryForTrack(track));
+        runSearchForTrack(track);
       }
       return;
     }
@@ -11786,7 +12022,7 @@ const init = async () => {
       return;
     }
     if (action === "search-track") {
-      runSearchQuery(buildSearchQueryForTrack(clipTrack));
+      runSearchForTrack(clipTrack);
       closeRowMenus();
       return;
     }
@@ -11948,7 +12184,7 @@ const init = async () => {
           ? resolveTrackById(data.trackId)
           : null;
       if (track) {
-        runSearchQuery(buildSearchQueryForTrack(track));
+        runSearchForTrack(track);
       }
       closeRowMenus();
       return;
@@ -12032,18 +12268,18 @@ const init = async () => {
           currentValidation.reason === "count" || targetValidation.reason === "count";
         if (countIssue && !options?.allowCountMismatch) {
           const ruleForCount = currentValidation.rule ?? targetValidation.rule;
-          const confirmed = window.confirm(
+          showAlertAction(
             t("confirmPlaylistSequenceOverride", {
               rule: ruleForCount ? getSequenceLabel(ruleForCount) : "?",
               expected: ruleForCount?.count ?? 0,
               count:
                 currentValidation.trackCount ?? targetValidation.trackCount ?? 0,
             }),
+            t("allowOverride"),
+            () => {
+              attemptSwap({ ...options, allowCountMismatch: true });
+            },
           );
-          if (!confirmed) {
-            return;
-          }
-          attemptSwap({ ...options, allowCountMismatch: true });
           return;
         }
         const styleIssue =
@@ -12340,22 +12576,30 @@ const init = async () => {
     }
     if (appMode === "edit" || appMode === "prep") {
       if (detailTrackId) {
-        const track = trackCache.get(detailTrackId);
-        if (track) {
-          await playTrackForMode(track, {
-            filePath: track.full_path,
-            trackId: track.id,
-            gainDb: track.gain_db ?? null,
-          });
+        if (appMode === "prep") {
+          startPlaylistFrom(index, detailTrackId);
+        } else {
+          const track = trackCache.get(detailTrackId);
+          if (track) {
+            await playTrackForMode(track, {
+              filePath: track.full_path,
+              trackId: track.id,
+              gainDb: track.gain_db ?? null,
+            });
+          }
         }
         return;
       }
       if (playlistItem?.kind === "track" && data) {
-        await playTrackForMode(playlistItem.track, {
-          filePath: data.filePath,
-          trackId: data.trackId,
-          gainDb: data.gainDb,
-        });
+        if (appMode === "prep") {
+          startPlaylistFrom(index, data.trackId);
+        } else {
+          await playTrackForMode(playlistItem.track, {
+            filePath: data.filePath,
+            trackId: data.trackId,
+            gainDb: data.gainDb,
+          });
+        }
         return;
       }
     }
@@ -12425,6 +12669,7 @@ const init = async () => {
   applyTranslations();
   ensureCortinaDurationDefault();
   await renderDiagnosticsPaths();
+  await renderPlaybackDiagnosticsLog();
   updateSearchTabVisibility();
   await ensureAudioOutputs();
   if (navigator.mediaDevices?.addEventListener) {

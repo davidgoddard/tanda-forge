@@ -32,6 +32,14 @@ and stores both the measured loudness and gain offset.
 
 - AUD-003.R1: Playback engine schedules tracks with gaps or overlaps per playlist rules.
 - AUD-003.R2: Gain is applied at playback time based on stored loudness.
+- AUD-003.R2.a: If explicit gain is missing, playback gain is derived from stored loudness
+  relative to the -16 LUFS target.
+- AUD-003.R2.b: Runtime gain supports attenuation and controlled boost
+  (capped linear gain) so imported legacy loudness/gain data can still normalize audibly.
+- AUD-003.R2.c: When both explicit gain and loudness exist, runtime applies a bounded
+  drift correction toward target loudness to reduce residual loudness mismatches.
+- AUD-003.R2.c: Playback gain decisions (source, computed gain, measured loudness,
+  applied linear gain) are logged for diagnostics and post-event review.
 - AUD-003.R3: Cortinas use a separate level and fade policy.
 - AUD-003.R4: Preview playback (headphones) is independent of main output.
 
@@ -56,3 +64,5 @@ and stores both the measured loudness and gain offset.
 
 - AUD-007.R1: Missing track: skip and mark item invalid; do not crash playback.
 - AUD-007.R2: Analysis failure: mark track as unanalyzed and retry later.
+- AUD-007.R3: Playback normalization decisions are logged (gain source, applied gain,
+  loudness, and correction) for diagnostics and tuning.

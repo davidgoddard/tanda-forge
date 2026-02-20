@@ -31,6 +31,9 @@ let pointerDown = null;
 let ambientTimer = null;
 let activeOrbIndex = 0;
 
+const hasAnyBackgroundImages = () =>
+  useBackgroundImages && (normalImages.length > 0 || cortinaImages.length > 0);
+
 const shuffle = (items) => {
   const arr = [...items];
   for (let i = arr.length - 1; i > 0; i -= 1) {
@@ -118,10 +121,7 @@ const stopAmbient = () => {
 };
 
 const advanceAmbient = () => {
-  if (useBackgroundImages && mode === "normal" && normalImages.length > 0) {
-    return;
-  }
-  if (useBackgroundImages && mode === "cortina" && cortinaImages.length > 0) {
+  if (hasAnyBackgroundImages()) {
     return;
   }
   if (ambientOrbs.length === 0) {
@@ -146,8 +146,9 @@ const advanceBackground = async () => {
   const isCortina = mode === "cortina";
   const source = isCortina ? cortinaImages : normalImages;
   if (source.length === 0) {
-    if (!isCortina) {
-      scheduleRotation();
+    if (rotationTimer) {
+      clearTimeout(rotationTimer);
+      rotationTimer = null;
     }
     return;
   }
@@ -196,6 +197,7 @@ const applyBackgroundMode = async () => {
     clearTimeout(rotationTimer);
     rotationTimer = null;
   }
+  const anyImagesEnabled = hasAnyBackgroundImages();
   const modeImages =
     useBackgroundImages
       ? mode === "cortina"
@@ -209,16 +211,26 @@ const applyBackgroundMode = async () => {
     overlayLayer.style.setProperty("--display-overlay-strong", strong.toFixed(3));
     overlayLayer.style.setProperty("--display-overlay-soft", soft.toFixed(3));
   }
-  if (modeImages.length > 0) {
+  if (anyImagesEnabled) {
     if (swirlLayer) {
       swirlLayer.style.display = "none";
     }
     stopAmbient();
+  }
+  if (modeImages.length > 0) {
     if (mode !== "cortina") {
       setLayerVisible(cortinaImageA, false);
       setLayerVisible(cortinaImageB, false);
     }
     await advanceBackground();
+    return;
+  }
+  if (anyImagesEnabled) {
+    // Keep static image layers (if any) and avoid gradient animation when image mode is enabled.
+    if (mode === "cortina") {
+      setLayerVisible(cortinaImageA, false);
+      setLayerVisible(cortinaImageB, false);
+    }
     return;
   }
   setLayerVisible(imageA, false);

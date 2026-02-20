@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  findPlaylistPositionForTrack,
   resolveContinuationIndexAfterEndCortina,
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
@@ -32,5 +33,37 @@ describe("resolveContinuationIndexAfterEndCortina", () => {
 
   it("falls back to current index when nothing playable was appended", () => {
     expect(resolveContinuationIndexAfterEndCortina(3, 2, [true, true, true, false])).toBe(3);
+  });
+});
+
+describe("findPlaylistPositionForTrack", () => {
+  it("finds a direct playlist track row", () => {
+    const position = findPlaylistPositionForTrack(
+      [
+        { kind: "track", trackId: "track-1" },
+        { kind: "tanda", trackIds: ["track-2", "track-3"] },
+      ],
+      "track-1",
+    );
+    expect(position).toEqual({ itemIndex: 0, trackIndex: 0 });
+  });
+
+  it("finds a track inside a tanda", () => {
+    const position = findPlaylistPositionForTrack(
+      [
+        { kind: "track", trackId: "track-1" },
+        { kind: "tanda", trackIds: ["track-2", "track-3"] },
+      ],
+      "track-3",
+    );
+    expect(position).toEqual({ itemIndex: 1, trackIndex: 1 });
+  });
+
+  it("returns null when the track is not present", () => {
+    const position = findPlaylistPositionForTrack(
+      [{ kind: "tanda", trackIds: ["track-2", "track-3"] }],
+      "track-9",
+    );
+    expect(position).toBeNull();
   });
 });

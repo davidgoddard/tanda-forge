@@ -1233,3 +1233,89 @@ Code diffs are omitted; only intent and outcomes are captured.
   is driven by normal-image mode and cortina images fade independently without
   being darkened by the overlay.
   Verified with `npm test` and `npm run build`.
+- User: Requested that display-board gradient transitions run only when images
+  are not in use, to avoid unnecessary CPU load.
+  Assistant: Updated display background mode logic so ambient gradient/orb
+  animation is fully disabled whenever image mode is enabled and any background
+  images exist (normal or cortina). In that state, the display uses only image
+  layers; when the current mode has no image source, it keeps static image
+  layers and does not start gradient animation. Verified with `npm test` and
+  `npm run build`.
+- User: Reported that legacy-imported gain did not seem to affect playback and
+  asked to verify legacy gain use plus loudness normalization behavior.
+  Assistant: Hardened normalization in two places:
+  - playback now resolves gain from explicit `gain_db` or falls back to
+    loudness-derived gain (`-16 LUFS` target) when explicit gain is missing;
+  - runtime gain now supports capped boost (not just attenuation) by routing
+    audio through a Web Audio `GainNode` when available.
+  Also hardened legacy import parsing to accept numeric-string gain/loudness
+  values and derive gain from loudness when legacy gain is absent.
+  Added tests for normalization math and legacy gain parsing.
+  Verified with `npm test` and `npm run build`.
+- User: Requested all popups use in-app styling like the playlist clear popup
+  and not Electron/native dialogs.
+  Assistant: Replaced all renderer `window.confirm(...)` usages with the existing
+  styled in-app confirm modal flow (`showConfirmModal` / `showAlertAction`),
+  including sequence override warnings, delete/save confirmations, data-location
+  change, legacy import, and track-editor unsaved-changes checks. Also moved
+  reset-database confirmation fully into renderer and removed the native Electron
+  `dialog.showMessageBox` from the main-process reset handler. Added localized
+  reset-database confirmation strings for all supported languages.
+  Verified with `npm test` and `npm run build`.
+- User: Requested display-board artist text to be similar in size to title text,
+  with slightly smaller playing-track progress text.
+  Assistant: Increased normal-mode artist font scaling to be near title scale and
+  reduced progress-text scale for better hierarchy in distance viewing. Updated
+  `app/src/renderer/display.css`. Verified with `npm test` and `npm run build`.
+- User: Requested a combined steer update:
+  - display-board typography adjustments (artist ~ title, smaller playing-track text)
+  - diagnostics support for loudness/gain-leveling investigation
+  - prep-mode behavior: clicking a playlist track should continue naturally through remaining playlist
+  - search parsing/scoring/ranking improvements from supplied proposal
+  - suppress "Next tanda" text in prep-mode random playback unless actual playlist playback is active
+  Assistant: Confirmed implementation approach and started integrated changes
+  across display UI, renderer playback flow, fuzzy search ranking/parser, and diagnostics.
+- Assistant: Reported detection of pre-existing unrelated local changes and asked
+  whether to proceed on top of current dirty state or wait for user cleanup.
+  User: Instructed assistant to continue with current state and then run a full
+  code review for robustness/efficiency.
+- Assistant: Implemented:
+  - prep-mode playlist click now starts from clicked track and continues remaining playlist
+  - external display "Next tanda" is hidden unless playlist playback is active
+  - search scoring upgraded with token-aware implicit parsing (year/tempo/style/text),
+    auto lookup-vs-similarity profiles, proximity scoring, and per-query weight renormalization
+  - playback-leveling diagnostics logging (JSON lines) and diagnostics-tab viewer
+    with log path exposure
+  - diagnostics log rotation guard to prevent unbounded log growth
+  - display-board typography tune: larger artist line, smaller progress line
+  Also updated design docs + feature matrix requirements notes, and verified with
+  `npm test` and `npm run build`.
+- User: Requested a minor search-similar adjustment: when generating a query from
+  another track, exclude title and album; keep style, artist, singer, year, bpm, notes.
+  Assistant: Added dedicated `buildTrackSimilarityQuery(...)` for search-similar
+  actions and switched renderer similarity-trigger path to use it, while leaving
+  broader `buildTrackSearchQuery(...)` unchanged for other text surfaces. Updated
+  tests and requirements doc (`FR-090.2.R11`) accordingly.
+- User: Requested style to be controlled via search style pills for search-similar
+  (whole-app style filtering), and not included as a word in search text.
+  Assistant: Updated track search-similar flow to resolve style from track genre
+  into style pills (`selectedStyles`) and removed style token from similarity
+  query text. Replaced direct `runSearchQuery(buildSearchQueryForTrack(...))`
+  calls with `runSearchForTrack(...)` so style-pill behavior is consistently applied.
+- User: Reported loudness leveling still inconsistent and described the old
+  quietest-track based approach; asked for diagnostic logs and an improved
+  normalization strategy.
+  Assistant: Implemented a revised runtime normalization path that:
+  - keeps explicit gain support,
+  - falls back to loudness-derived gain when gain is missing,
+  - applies bounded drift-correction when explicit gain and loudness disagree,
+  - logs normalization decisions (source, gain, loudness, drift/correction,
+    expected output loudness, linear gain) into playback diagnostics.
+  Also updated audio pipeline design + tracking matrix and expanded unit tests.
+  Verified with `npm test` and `npm run build`.
+- User: Requested behavior change: in Preparation mode, clicking a track should continue naturally through the remainder of the playlist when the clicked track finishes.
+  Assistant: Implemented prep-mode click routing so that clicking any track that exists in the playlist starts playlist playback from that track position (rather than one-off preview), then continues through the remaining sequence. Added a shared helper (`findPlaylistPositionForTrack`) and unit tests in `tests/playlist-flow.test.ts`. Verified with `npm test` and `npm run build`.
+- User: Shared detailed guidance for improving search behavior (implicit parsing, auto lookup vs similarity profiles, ranking weights, token-aware input, and explainability) and asked to incorporate these ideas into parsing/scoring/ranking.
+  Assistant: Implemented search-ranking refinements in `app/src/main/library/fuzzy-search.ts`: improved implicit parser (quoted phrase extraction, year range tightening, two-token orchestra-style similarity trigger), profile-sensitive weighting updates, phrase-boosted lookup behavior, notes/album low-weight signal in similarity mode, and deterministic tie-break sorting by component scores (artist/style/tempo/year/title). Added regression tests for quoted-phrase ranking and short-query similarity in `tests/library-search.test.ts`. Updated design and tracking docs (`design/06-search-and-similarity.md`, `design/tracking-and-feature-matrix.md`). Verified with `npm test` and `npm run build`.
+- User: Reported that in Preparation mode random playback still shows `Next tanda...` on the display board, which should only appear during actual playlist playback.
+  Assistant: Updated display next-tanda gating so the external display only shows `Next tanda` when playlist status is actively `playing` (not idle/paused/random preview). Added shared helper `shouldShowDisplayNextTanda(...)` in `app/src/shared/playlist-live.ts`, used it in renderer next-tanda resolution, and added unit coverage in `tests/playlist-live.test.ts`. Verified with `npm test` and `npm run build`.

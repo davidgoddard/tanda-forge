@@ -155,14 +155,14 @@ body {
 }
 
 .display-artist {
-  font-size: calc(clamp(68px, 8.8vmin, 220px) * var(--display-font-scale));
+  font-size: calc(clamp(102px, 13.2vmin, 332px) * var(--display-font-scale));
   line-height: 1.02;
   opacity: 0.88;
   max-width: 95%;
 }
 
 .display-progress {
-  font-size: calc(clamp(52px, 6.4vmin, 160px) * var(--display-font-scale));
+  font-size: calc(clamp(36px, 4.7vmin, 116px) * var(--display-font-scale));
   opacity: 0.75;
   margin-top: 1.2vmin;
 }

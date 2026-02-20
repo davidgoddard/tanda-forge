@@ -72,8 +72,9 @@ via SQL `LIKE`. Rating/instrumental filtering is not yet implemented.
 Numeric fields (e.g. BPM, year) may be searchable both:
 - FR-090.2.R9: As text (simple).
 - FR-090.2.R10: As ranges (advanced feature; define later).
-- FR-090.2.R11: Invoking "Search similar" from a track should include title,
-  artist/summary, singer, style, year, BPM, notes, and album title in the query.
+- FR-090.2.R11: Invoking "Search similar" from a track should set style via the
+  style-pill filter (not as query text) and include artist/summary, singer, year,
+  BPM, and notes in the query text (excluding title and album).
 
 ---
 
@@ -92,6 +93,33 @@ textual fields (title, artist, singer, album, genre, notes).
 FR-091.1.R6: A configurable minimum score determines which matches are returned.
 FR-091.1.R7: When trigram scores are close, apply a token-level edit-distance bonus
 to prefer the closest word match (e.g., `francico` → `Francisco`).
+
+### FR-091.4 Implicit Query Parsing and Profiles
+
+- FR-091.4.R1: The single query box must be token-aware and parse implicit intents
+  without requiring field prefixes.
+- FR-091.4.R2: Four-digit numeric tokens in a configured year range are treated
+  as year intent.
+- FR-091.4.R3: Two- or three-digit numeric tokens that are not valid years are
+  treated as tempo intent.
+- FR-091.4.R4: Style tokens (`Tango`, `Milonga`, `Vals`/`Waltz`) are treated as
+  style intent.
+- FR-091.4.R5: Remaining tokens are treated as text intent.
+- FR-091.4.R6: If year/tempo/style intent exists, use a similarity ranking
+  profile; otherwise use a lookup ranking profile.
+- FR-091.4.R7: Only requested intent dimensions are weighted; weights are
+  renormalized per-query.
+- FR-091.4.R8: Year and tempo intent use proximity scoring curves and configurable
+  missing-metadata fallback scores.
+- FR-091.4.R9: Style chip selection remains a hard filter gate; style text tokens
+  in the query influence ranking even when no style chip is set.
+- FR-091.4.R10: Quoted phrases in the query are treated as explicit phrase intent
+  and boost lookup ranking for matching title/artist text.
+- FR-091.4.R11: Very short text-only queries with two tokens default to
+  similarity profile to better support orchestra-led tanda building.
+- FR-091.4.R12: Score ties in relevance ordering are broken with deterministic
+  component ordering: artist score, style score, tempo proximity, year proximity,
+  then title score.
 
 ## FR-092 — Similarity Search Shortcuts
 

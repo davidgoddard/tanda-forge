@@ -36,6 +36,8 @@ In Performance Mode:
 - UI-002.R2: Clicking or tapping content (tracks, tandas) must not start playback.
 - UI-002.R3: Destructive or disruptive actions must be disabled or gated.
   UI-002.R3.a: Any allowed destructive action must present a clear warning and confirmation.
+  UI-002.R3.b: Confirmation dialogs must use the app-styled in-app modal system
+  (no native OS/Electron confirmation popups).
 
 In Preparation Mode:
 - UI-002.R4: Speed and exploration are prioritized.
@@ -128,6 +130,8 @@ Rules:
 - UI-009.R1: Missing library roots trigger a visible banner with a shortcut to Settings.
 - UI-009.R2: Destructive settings (e.g. database reset) require explicit confirmation.
 - UI-009.R3: Diagnostic information (scan issues) lives in a Diagnostics tab.
+- UI-009.R3.a: Diagnostics include playback-leveling logs so gain/loudness
+  decisions can be reviewed without leaving the app.
 - UI-009.R4: Playlist and System settings use multi-column layout on wide screens,
   collapsing to a single column on narrow screens.
 - UI-009.R5: Display-board controls live in a dedicated Display Board settings tab.

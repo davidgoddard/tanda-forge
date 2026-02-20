@@ -29,3 +29,30 @@ export const resolveContinuationIndexAfterEndCortina = (
   }
   return currentIndex;
 };
+
+export type PlaylistTrackSource =
+  | { kind: "track"; trackId: string }
+  | { kind: "tanda"; trackIds: string[] };
+
+export const findPlaylistPositionForTrack = (
+  items: PlaylistTrackSource[],
+  wantedTrackId: string,
+) => {
+  if (!wantedTrackId) {
+    return null;
+  }
+  for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
+    const item = items[itemIndex];
+    if (item.kind === "track") {
+      if (item.trackId === wantedTrackId) {
+        return { itemIndex, trackIndex: 0 };
+      }
+      continue;
+    }
+    const trackIndex = item.trackIds.indexOf(wantedTrackId);
+    if (trackIndex >= 0) {
+      return { itemIndex, trackIndex };
+    }
+  }
+  return null;
+};

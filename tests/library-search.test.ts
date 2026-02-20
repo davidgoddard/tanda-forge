@@ -165,4 +165,102 @@ describe("fuzzy search helpers", () => {
     });
     expect(result[0].track.id).toBe("style-artist");
   });
+
+  it("uses lookup mode when query has only text and favors exact title matches", () => {
+    const titleMatch = buildTrack({
+      id: "title-match",
+      title: "Misterio",
+      artist: "Francisco Canaro",
+    });
+    const artistOnly = buildTrack({
+      id: "artist-only",
+      title: "Otra Cosa",
+      artist: "Francisco Canaro",
+    });
+    const result = filterAndScoreTracks([artistOnly, titleMatch], {
+      query: "mistero canaro",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("title-match");
+  });
+
+  it("uses similarity mode when numeric tokens are present and favors close year/tempo", () => {
+    const close = buildTrack({
+      id: "close",
+      artist: "Juan D'Arienzo",
+      year: "1942",
+      bpm: 65,
+      genre: "Tango",
+    });
+    const far = buildTrack({
+      id: "far",
+      artist: "Juan D'Arienzo",
+      year: "1958",
+      bpm: 88,
+      genre: "Tango",
+    });
+    const result = filterAndScoreTracks([far, close], {
+      query: "darienzo 1942 65",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("close");
+  });
+
+  it("treats short orchestra-like text queries as similarity searches", () => {
+    const close = buildTrack({
+      id: "close",
+      artist: "Francisco Canaro",
+      title: "A",
+      year: "1942",
+      bpm: 65,
+      genre: "Tango",
+    });
+    const far = buildTrack({
+      id: "far",
+      artist: "Francisco Canaro",
+      title: "B",
+      year: "1958",
+      bpm: 88,
+      genre: "Tango",
+    });
+    const result = filterAndScoreTracks([far, close], {
+      query: "canaro 65",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("close");
+  });
+
+  it("boosts quoted title phrase matching in lookup queries", () => {
+    const phrase = buildTrack({
+      id: "phrase",
+      title: "Recuerdo de Copas",
+      artist: "Orquesta X",
+      year: "1940",
+      bpm: 64,
+    });
+    const artistOnly = buildTrack({
+      id: "artist",
+      title: "Otra",
+      artist: "Orquesta X",
+      year: "1940",
+      bpm: 64,
+    });
+    const result = filterAndScoreTracks([artistOnly, phrase], {
+      query: "\"recuerdo de copas\" orquesta x",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("phrase");
+  });
 });

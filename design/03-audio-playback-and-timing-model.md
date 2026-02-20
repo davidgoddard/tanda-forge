@@ -32,10 +32,17 @@ For each track:
 - FR-052.R2.a: The player must stop at the trimmed end so trailing silence does not
   extend inter-track gaps.
 - FR-052.R3: Gain adjustment is applied at runtime.
+- FR-052.R3.a: If a track has no explicit gain value, runtime gain is derived
+  from measured loudness against the -16 LUFS target.
+- FR-052.R3.b: Runtime gain supports controlled positive gain (capped) so quiet
+  tracks can still be normalized upward.
 - FR-052.R4: No fades are applied unless overlap rules require them (FR-040).
 
 FR-052.R5: Preview playback (headphones) is independent of playlist playback and does not
 change the main output state.
+FR-052.R6: In Preparation mode, clicking a track inside the playlist starts
+playback from that track position and continues naturally through the remaining
+playlist sequence.
 
 ---
 

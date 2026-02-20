@@ -71,3 +71,7 @@ export const getMinutesOfDayFromMs = (ms: number) => {
   const date = new Date(ms);
   return date.getHours() * 60 + date.getMinutes();
 };
+
+export const shouldShowDisplayNextTanda = (
+  playlistStatus: "idle" | "playing" | "paused",
+) => playlistStatus === "playing";

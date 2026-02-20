@@ -118,6 +118,19 @@ const readLegacyJson = <T>(filePath: string, fallback: T): T => {
   }
 };
 
+const parseLegacyNumber = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
 const parseYearFromNotes = (notes: string) => {
   const currentYear = new Date().getFullYear();
   const rangeMatch = notes.match(
@@ -190,6 +203,14 @@ export const loadLegacyLibrary = (libraryPath: string) => {
     const endTrimMs = Number.isFinite(endTrimSec)
       ? Math.max(0, Math.round(endTrimSec * 1000))
       : 0;
+    const loudnessDb = parseLegacyNumber(analysis.meanGain);
+    const importedGainDb = parseLegacyNumber(analysis.gain);
+    const gainDb =
+      importedGainDb !== null
+        ? importedGainDb
+        : loudnessDb !== null
+          ? -16 - loudnessDb
+          : null;
     entries.set(normalizeLegacyPath(rawPath), {
       title: title || undefined,
       artist: artist || undefined,
@@ -201,9 +222,8 @@ export const loadLegacyLibrary = (libraryPath: string) => {
       durationMs: durationMs || undefined,
       startOffsetMs: startOffsetMs || undefined,
       endTrimMs: endTrimMs || undefined,
-      loudnessDb:
-        typeof analysis.meanGain === "number" ? analysis.meanGain : null,
-      gainDb: typeof analysis.gain === "number" ? analysis.gain : null,
+      loudnessDb,
+      gainDb,
     });
   });
   return entries;

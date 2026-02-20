@@ -3,6 +3,7 @@ import {
   computeCortinaStartOffsetMs,
   computeElapsedMsForEntry,
   computeTimelineTotalMs,
+  shouldShowDisplayNextTanda,
 } from "../app/src/shared/playlist-live";
 
 describe("playlist live timing helpers", () => {
@@ -31,5 +32,11 @@ describe("playlist live timing helpers", () => {
       ],
     );
     expect(total).toBe(124000);
+  });
+
+  it("shows next tanda label only during active playlist playback", () => {
+    expect(shouldShowDisplayNextTanda("playing")).toBe(true);
+    expect(shouldShowDisplayNextTanda("paused")).toBe(false);
+    expect(shouldShowDisplayNextTanda("idle")).toBe(false);
   });
 });

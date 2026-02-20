@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appendQueryTokens,
+  buildTrackSimilarityQuery,
   buildTrackSearchQuery,
   dedupeQueryTokens,
 } from "../app/src/shared/search-query";
@@ -52,6 +53,30 @@ describe("buildTrackSearchQuery", () => {
       instrumental: true,
     });
     expect(query).toContain("instrumental");
+  });
+});
+
+describe("buildTrackSimilarityQuery", () => {
+  it("includes similarity metadata and excludes style/title/album", () => {
+    const query = buildTrackSimilarityQuery({
+      title: "Todo Corazon",
+      artist: "Julio De Caro",
+      artist_summary: "Julio De Caro",
+      singer: "Carlos Gardel",
+      album: "Golden Years",
+      year: "1932",
+      genre: "Tango",
+      bpm: 99,
+      notes: "test note",
+    });
+    expect(query).toContain("Julio De Caro");
+    expect(query).toContain("Carlos Gardel");
+    expect(query).toContain("1932");
+    expect(query).toContain("99");
+    expect(query).toContain("test note");
+    expect(query).not.toContain("Tango");
+    expect(query).not.toContain("Todo Corazon");
+    expect(query).not.toContain("Golden Years");
   });
 });
 

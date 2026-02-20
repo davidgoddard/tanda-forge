@@ -609,3 +609,221 @@
 - Verification:
   - `npm test` passed (25 files, 102 tests)
   - `npm run build` passed
+
+### Latest update
+- Display-board CPU reduction in image mode:
+  - gradient/orb background transitions now run only when image mode is not in use
+  - when `useBackgroundImages` is enabled and any image sources exist (normal or
+    cortina), the swirl/ambient timers are disabled
+  - if the active mode has no image source, the board keeps static image layers
+    and still does not re-enable gradient animation
+  - background rotation timer no longer loops when the active source list is empty
+- Files:
+  - `app/src/renderer/display.js`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (27 files, 108 tests)
+  - `npm run build` passed
+
+### Latest update
+- Legacy gain + runtime normalization hardening:
+  - playback gain now resolves from explicit `gain_db`; if missing, it derives
+    from `loudness_db` using the -16 LUFS target
+  - runtime gain now supports capped positive gain (up to 2x) via Web Audio
+    `GainNode` routing when available, preserving attenuation behavior and
+    enabling audible normalization for quieter tracks
+  - retained safe fallback to `HTMLAudioElement.volume` when Web Audio binding
+    is unavailable
+  - legacy import parsing now accepts numeric strings for `analysis.gain` and
+    `analysis.meanGain`, and derives gain from loudness when legacy gain is absent
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/audio-normalization.ts`
+  - `app/src/main/legacy-import.ts`
+  - `tests/audio-normalization.test.ts`
+  - `tests/legacy-import-gain.test.ts`
+  - `design/03-audio-playback-and-timing-model.md` (FR-052.R3.a, FR-052.R3.b)
+  - `design/10-audio-pipeline.md` (AUD-003.R2.a, AUD-003.R2.b)
+  - `design/tracking-and-feature-matrix.md` (FR-002 note update)
+  - `docs/dialogue.md`
+- Verification:
+  - `npm test` passed (27 files, 108 tests)
+  - `npm run build` passed
+
+### Latest update
+- Unified popup styling (no native confirm dialogs):
+  - replaced renderer-native `window.confirm(...)` usages with the in-app
+    styled confirm modal (`showConfirmModal`) and action-confirm flow
+    (`showAlertAction`) across:
+    - playlist sequence mismatch confirmations
+    - tanda save/delete confirmations
+    - data-location change + legacy import confirmations
+    - track editor unsaved-change confirmations
+  - reset-database confirmation now happens in renderer (styled modal), and
+    main-process `app:resetDatabase` no longer opens Electron native message boxes
+  - added localized `confirmEraseDatabase` string in all supported languages
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/main/main.ts`
+  - `design/05-ui-principles-and-components.md` (UI-002.R3.b)
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (27 files, 108 tests)
+  - `npm run build` passed
+
+### Latest update
+- Display-board typography tuning:
+  - increased normal-mode artist line font size to be much closer to title scale
+  - reduced playing-progress line font size slightly to preserve visual hierarchy
+- Files:
+  - `app/src/renderer/display.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (27 files, 108 tests)
+  - `npm run build` passed
+
+### Latest update
+- Prep/playback continuity, search ranking overhaul, and diagnostics logging:
+  - prep-mode playlist track clicks now start playback from the clicked track
+    and continue naturally through remaining playlist entries
+  - display-board "Next tanda" text is now suppressed unless playlist playback
+    is actively running/paused with resumable state
+  - fuzzy search now uses implicit token parsing from one query box:
+    - 4-digit year intent, 2-3 digit tempo intent, style token intent, remaining text intent
+    - automatic lookup vs similarity ranking profiles
+    - year/tempo proximity curves plus missing-metadata fallback scores
+    - query-aware weight renormalization
+  - added playback-leveling diagnostics:
+    - main process writes JSONL playback-gain decisions to `playback-diagnostics.log`
+    - diagnostic log files now rotate/truncate automatically when exceeding size limits
+    - diagnostics tab now shows playback log path and a viewer for recent log lines
+  - display-board typography adjusted again for readability:
+    - artist text increased toward title scale
+    - playing-progress text reduced slightly
+- Files:
+  - `app/src/main/library/fuzzy-search.ts`
+  - `tests/library-search.test.ts`
+  - `app/src/main/main.ts`
+  - `app/src/preload/preload.ts`
+  - `app/src/shared/types.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `app/src/renderer/display.css`
+  - `tests/audio-normalization.test.ts`
+  - `design/03-audio-playback-and-timing-model.md` (FR-052.R6)
+  - `design/05-ui-principles-and-components.md` (UI-009.R3.a)
+  - `design/06-search-and-similarity.md` (FR-091.4.R1-R9)
+  - `design/10-audio-pipeline.md` (AUD-003.R2.c)
+  - `design/tracking-and-feature-matrix.md` (FR-091/UI-050/UI-060 notes)
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (27 files, 110 tests)
+  - `npm run build` passed
+
+### Latest update
+- Search-similar query narrowing:
+  - "Search similar" query generation from a track now excludes `title` and `album`
+  - retained fields: style, artist/artist_summary, singer (or instrumental),
+    BPM, year, and notes
+  - implemented via a dedicated helper so non-similarity text contexts can still
+    use the broader track query builder
+- Files:
+  - `app/src/shared/search-query.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/search-query.test.ts`
+  - `design/06-search-and-similarity.md` (FR-090.2.R11)
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+
+### Latest update
+- Search-similar style-pill control:
+  - track "Search similar" now applies track style via style pills (global
+    style filtering) rather than inserting style as query text
+  - similarity query text now excludes style and includes only artist/summary,
+    singer/instrumental, BPM, year, and notes
+  - consolidated behavior through `runSearchForTrack(...)` for all track
+    search-similar entry points (search/clipboard/playlist/tanda detail rows)
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/search-query.ts`
+  - `tests/search-query.test.ts`
+  - `design/06-search-and-similarity.md` (FR-090.2.R11 wording)
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+
+### Latest update
+- Normalization algorithm + diagnostics improvements:
+  - switched runtime gain resolution to `resolvePlaybackNormalization(...)`
+    with bounded drift correction when explicit gain and loudness indicate a
+    significant residual mismatch to target
+  - retained existing fallback behavior: explicit gain first, then loudness-derived
+    gain when explicit gain is absent
+  - enriched playback diagnostics logging with correction and target-matching
+    fields (`correctionDb`, `driftDb`, `targetLoudnessDb`,
+    `expectedOutputLoudnessDb`)
+- Files:
+  - `app/src/shared/audio-normalization.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/types.ts`
+  - `app/src/main/main.ts`
+  - `tests/audio-normalization.test.ts`
+  - `design/10-audio-pipeline.md` (AUD-003.R2.c, AUD-007.R3)
+  - `design/tracking-and-feature-matrix.md` (FR-002 notes)
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (27 files, 112 tests)
+  - `npm run build` passed
+
+### Latest update
+- Preparation-mode track clicks now resume playlist flow from the clicked track when that track exists in the playlist:
+  - Added shared helper `findPlaylistPositionForTrack(...)` to locate a track inside mixed playlist rows (single track rows and tanda rows).
+  - Updated renderer prep-mode track playback path to call `startPlaylistFrom(...)` for playlist-present tracks so playback naturally continues through remaining playlist items after natural track end.
+- Files:
+  - `app/src/shared/playlist-flow.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/playlist-flow.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (27 files, 115 tests)
+  - `npm run build` passed
+
+### Latest update
+- Search parsing/scoring/ranking refinements (single-box smart parsing + stronger DJ-oriented ranking):
+  - Added quoted phrase extraction in query parsing and phrase-aware lookup boosts.
+  - Tightened implicit year parsing range to modern recordings (`1900..current+1`).
+  - Kept numeric token parsing for year/tempo intent; style token intent unchanged.
+  - Added auto-profile tweak: two-token text-only queries use similarity profile to favor tanda-building behavior.
+  - Updated profile weights and introduced low-weight notes/album signal in similarity mode.
+  - Added deterministic tie-breaks under score sort: artist, style, tempo, year, then title.
+- Tests added/updated:
+  - `tests/library-search.test.ts` includes coverage for short-query similarity preference and quoted phrase lookup boost.
+- Docs updated:
+  - `design/06-search-and-similarity.md` (FR-091.4.R10-R12)
+  - `design/tracking-and-feature-matrix.md` (FR-091 row notes)
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (27 files, 117 tests)
+  - `npm run build` passed
+
+### Latest update
+- External display `Next tanda` suppression in prep/random playback:
+  - Added `shouldShowDisplayNextTanda(...)` in `app/src/shared/playlist-live.ts`.
+  - Renderer now gates next-tanda computation to only active playlist playback (`playing`).
+  - This prevents `Next tanda` text appearing during prep-mode one-off/random track playback.
+- Files:
+  - `app/src/shared/playlist-live.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/playlist-live.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (27 files, 118 tests)
+  - `npm run build` passed
