@@ -384,7 +384,8 @@ const readLoudness = async (filePath: string) => {
   const { binary, fallback } = resolveFfmpeg();
   const args = [
     "-v",
-    "error",
+    "info",
+    "-nostats",
     "-i",
     filePath,
     "-map",

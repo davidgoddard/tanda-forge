@@ -132,6 +132,9 @@ Rules:
 - UI-009.R3: Diagnostic information (scan issues) lives in a Diagnostics tab.
 - UI-009.R3.a: Diagnostics include playback-leveling logs so gain/loudness
   decisions can be reviewed without leaving the app.
+- UI-009.R3.b: The Library settings tab includes a one-click readiness verification
+  action near Legacy Import that reports pass/warn/fail plus data-readiness counts
+  (duration, loudness/gain, trim signals, analysis errors, waveforms).
 - UI-009.R4: Playlist and System settings use multi-column layout on wide screens,
   collapsing to a single column on narrow screens.
 - UI-009.R5: Display-board controls live in a dedicated Display Board settings tab.
@@ -410,6 +413,10 @@ Behavior:
 - UI-012.R15: When using playlist auto-fill with cortinas enabled, all required
   cortina rows (start, between tandas, end) are pre-assigned from the selected
   cortina set using the same planning rules as manual playlist editing.
+- UI-012.R16: If auto-fill cannot satisfy a required slot (style/count constraints),
+  it inserts an empty placeholder tanda with the required slot size and intended
+  style, marks it as mismatched for manual completion, and continues expected-end-time
+  projection using an assumed 9-minute duration for that placeholder.
 
 ---
 

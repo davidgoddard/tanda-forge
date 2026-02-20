@@ -843,3 +843,162 @@
 - Verification:
   - `npm test` passed (27 files, 118 tests)
   - `npm run build` passed
+
+### Latest update
+- Regression stabilization + diagnostics readiness:
+  - Fixed tanda draft hydration so `tandas:list` results are loaded into drafts/cache correctly (restoring tanda visibility after legacy import).
+  - Legacy import completion now refreshes tanda drafts, New collection tracks/tandas, and cortina set lists before re-render.
+  - Cortina set listing now falls back to filesystem folder discovery when track-derived set names are empty.
+  - Scan reuse guard now forces re-analysis for incomplete/provisional rows, including legacy-import placeholder analysis payloads.
+  - Legacy import track rows are marked `legacy_import_pending_scan` to ensure first scan computes real trim/loudness analysis.
+  - Playlist timeline/tanda duration now falls back to tanda `total_duration_ms` when per-track analyzed duration is missing, preventing collapsed identical start times.
+  - Added diagnostics data-readiness summary (`diagnostics:getDataReadiness`) and settings-panel renderer block showing missing duration/loudness/trim/errors/waveforms.
+- Files:
+  - `app/src/main/library/scan.ts`
+  - `app/src/main/legacy-import.ts`
+  - `tests/scan-reuse-analysis.test.ts`
+  - `app/src/main/main.ts`
+  - `app/src/preload/preload.ts`
+  - `app/src/shared/types.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/index.html`
+  - `design/09-ipc-and-api.md` (IPC-003.R5.d)
+  - `design/10-audio-pipeline.md` (AUD-002.R8, AUD-005.R4)
+  - `design/12-testing-and-quality.md` (TQ-GATE-003, TQ-GATE-004)
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (28 files, 124 tests)
+  - `npm run build` passed
+
+### Latest update
+- Diagnostics/i18n hardening:
+  - optimized `diagnostics:getDataReadiness` waveform counting by pre-indexing `.png` files in the waveform directory once per request;
+  - added missing data-readiness i18n keys for ES/FR/DE/PT/IT maps to keep diagnostics labels localized.
+- Files:
+  - `app/src/main/main.ts`
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (28 files, 124 tests)
+  - `npm run build` passed
+
+### Latest update
+- Legacy-import page readiness verification control:
+  - Added a `Verify library readiness` button and result panel to Library settings > Legacy Import.
+  - Button executes readiness evaluation and shows localized pass/warn/fail plus counts for duration/loudness/trim/errors/waveforms.
+  - Added shared evaluator `evaluateDataReadiness(...)` and unit coverage.
+  - Added UI requirement entry `UI-009.R3.b` and updated feature matrix notes.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/data-readiness.ts`
+  - `tests/data-readiness.test.ts`
+  - `design/05-ui-principles-and-components.md` (UI-009.R3.b)
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed
+
+### Latest update
+- Loudness analysis fix for readiness `missing loudness+gain` growth:
+  - Root cause: loudnorm JSON extraction path used FFmpeg `-v error`, which can suppress the loudnorm info block and leave `loudness_db`/`gain_db` unset.
+  - Fix: changed loudness analysis invocation to `-v info -nostats` so loudnorm JSON is emitted and parsed.
+- Files:
+  - `app/src/main/library/analysis.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed
+
+### Latest update
+- Reset cleanup parity fix:
+  - `app:resetDatabase` now clears diagnostics artifacts in addition to SQLite state:
+    - playback diagnostics log
+    - renderer error log
+    - waveform cache directory
+  - This aligns Erase Database with user expectation of a clean state.
+- Files:
+  - `app/src/main/main.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed
+
+### Latest update
+- Search/filter clear-button accessibility tweak:
+  - Increased clear icon hit target/size for search inputs via `::-webkit-search-cancel-button` styling.
+  - Added extra right padding for search inputs so the larger clear control stays easy to hit without overlapping text.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed
+
+### Latest update
+- Search clear-button alignment refinement:
+  - Reduced search input right padding and set a small right margin on the cancel control so the larger clear icon sits closer to the right edge.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed
+
+### Latest update
+- Playlist auto-fill placeholder fallback behavior:
+  - When auto-fill cannot find a valid tanda for a required slot, it now inserts a placeholder tanda with the slot's required style and slot size (empty track slots), which is surfaced as a mismatch warning for manual completion.
+  - Placeholder tandas use an assumed duration of 9 minutes so expected-end-time auto-fill can continue projecting toward target window instead of stopping immediately.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed
+
+### Latest update
+- Search-to-clipboard write-path consistency fix:
+  - `C` actions from Search now work even when New collection is active.
+  - Track and tanda clipboard add handlers now use writable-target resolution (fallback to General when New is active), matching existing drag/drop and active-collection add paths.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed
+
+### Latest update
+- Playlist tanda delete consistency fix:
+  - Deleting a tanda from the editor now removes matching tanda entries from playlist slots as well (not just drafts/database).
+  - Also removes that tanda from clipboard collection references and clears related selection/open-target state to prevent stale UI entries.
+  - Refreshes New collection after delete and re-renders playlist/clipboard/search views.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed
+
+### Latest update
+- Playlist target swap robustness:
+  - Added defensive playlist row index resolution for mark/swap actions (`data-index` fallback to tandaId lookup).
+  - Replaced silent early-return on invalid swap/mark state with explicit `statusPlaylistSwapInvalid` feedback.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (29 files, 127 tests)
+  - `npm run build` passed

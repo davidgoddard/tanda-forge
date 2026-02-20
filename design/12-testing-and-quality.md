@@ -21,3 +21,8 @@
 
 - TQ-GATE-001: Tests must pass before release builds.
 - TQ-GATE-002: Linting and type-checking are required for CI (planned).
+- TQ-GATE-003: Regression-prone workflows (legacy import, scan, tanda timeline,
+  cortina selection, trim/normalization readiness) must be covered by explicit
+  automated checks or a documented smoke checklist run per change.
+- TQ-GATE-004: Diagnostics must expose missing prerequisite data (analysis, trims,
+  loudness/gain, waveforms) so operators can detect incomplete states after import/scan.

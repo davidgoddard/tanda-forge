@@ -1326,3 +1326,37 @@ Code diffs are omitted; only intent and outcomes are captured.
   Assistant: Implemented search-ranking refinements in `app/src/main/library/fuzzy-search.ts`: improved implicit parser (quoted phrase extraction, year range tightening, two-token orchestra-style similarity trigger), profile-sensitive weighting updates, phrase-boosted lookup behavior, notes/album low-weight signal in similarity mode, and deterministic tie-break sorting by component scores (artist/style/tempo/year/title). Added regression tests for quoted-phrase ranking and short-query similarity in `tests/library-search.test.ts`. Updated design and tracking docs (`design/06-search-and-similarity.md`, `design/tracking-and-feature-matrix.md`). Verified with `npm test` and `npm run build`.
 - User: Reported that in Preparation mode random playback still shows `Next tanda...` on the display board, which should only appear during actual playlist playback.
   Assistant: Updated display next-tanda gating so the external display only shows `Next tanda` when playlist status is actively `playing` (not idle/paused/random preview). Added shared helper `shouldShowDisplayNextTanda(...)` in `app/src/shared/playlist-live.ts`, used it in renderer next-tanda resolution, and added unit coverage in `tests/playlist-live.test.ts`. Verified with `npm test` and `npm run build`.
+- User: Reported regressions after fresh install + DB reset + legacy import + scan: tanda approximate start times collapsing, cortina picker not listing folders, silence trimming not consistently removed, and no tandas appearing in New collection after import. Asked how to document expected behavior so changes can be checked each time, and requested visibility when required data is missing.
+  Assistant: Implemented targeted fixes and guardrails:
+  - fixed tanda draft loading regression so imported tandas populate drafts/New collection paths correctly;
+  - refreshed tanda drafts/New collection/cortina sets immediately after legacy import;
+  - added cortina-set fallback discovery from root folders when DB-derived set list is empty;
+  - hardened scan reuse logic to reject provisional legacy-import analysis rows and force real analysis on scan;
+  - added timeline duration fallback to tanda stored duration when per-track analysis duration is unavailable;
+  - added diagnostics data-readiness summary (missing duration/loudness/trim/errors/waveforms) via new IPC endpoint.
+  Added/updated tests and verified with `npm test` and `npm run build`.
+- Assistant: Follow-up hardening after regression patch:
+  - optimized diagnostics waveform readiness counting by reading waveform directory once (avoids per-track `existsSync` calls in main process);
+  - added data-readiness translation keys for all supported language maps to avoid raw i18n key fallback outside English.
+  Re-verified with `npm test` and `npm run build`.
+- User: Requested a button on the config page (near legacy import) that verifies all is well.
+  Assistant: Added `Verify library readiness` in the Library settings > Legacy Import section. The button runs data-readiness checks and reports a localized pass/warn/fail summary with counts (missing duration, missing loudness+gain, missing trim signals, analysis errors, missing waveforms). Added shared readiness evaluator with unit tests and updated UI requirements docs (`UI-009.R3.b`). Verified with `npm test` and `npm run build`.
+- User: Reported that missing loudness+gain count rose roughly 1:1 with scanned tracks during music scan.
+  Assistant: Confirmed a loudness-analysis bug: FFmpeg loudnorm JSON output was being suppressed by `-v error` in loudness analysis invocation, causing loudness/gain to remain missing for scanned tracks. Updated loudness analysis command to use info-level output with `-nostats` so loudnorm JSON can be emitted and parsed reliably. Verified with `npm test` and `npm run build`.
+- User: Reported that after erasing the database, old playback leveling log entries were still visible.
+  Assistant: Updated reset behavior so `Erase Database` now also clears diagnostics artifacts (playback log, renderer error log, and waveform cache), matching clean-start expectations. Verified with `npm test` and `npm run build`.
+- User: Asked whether the clear "x" in search/filter fields can be made larger because it is hard to hit.
+  Assistant: Increased clear-button hit size and visual size for app search inputs via CSS (`::-webkit-search-cancel-button`) and added right-padding so the larger control does not overlap text. Verified with `npm test` and `npm run build`.
+- User: Reported that the enlarged search clear button looked too far from the right edge.
+  Assistant: Tightened right-side spacing for search inputs (`padding-right`) and added a small cancel-button right margin adjustment so the clear control sits closer to the field edge while retaining larger hit area. Verified with `npm test` and `npm run build`.
+- User: Requested auto-fill behavior change when required style/size tracks are unavailable: insert an empty placeholder tanda of required style/size with mismatch warning instead of failing, and assume ~9 minutes duration so expected-end-time auto-fill can still be met.
+  Assistant: Updated auto-fill fallback to create playlist-origin placeholder tandas per slot rule (style + required slot size), mark them as mismatched (count), and continue filling using an assumed 9-minute placeholder duration (`totalDurationMs`) for end-time projection. Verified with `npm test` and `npm run build`.
+- User: Reported that sending from Search to clipboard (`C`) works when General is active, but appears to do nothing when New is active.
+  Assistant: Fixed clipboard write routing for Search `C` actions so track/tanda adds no longer fail under active New collection. Adds now route to the nearest writable collection (General), switch active collection when needed, and keep behavior consistent with other clipboard write paths.
+  Verified with `npm test` and `npm run build`.
+- User: Reported that deleting a partial tanda from playlist-side editor (after adding a 4th track into a new auto-created tanda) returned to playlist but left that tanda in playlist.
+  Assistant: Fixed `tanda-delete` handling to remove deleted tanda references from playlist slots and clipboard collections (not only from drafts), clear open/target playlist editor state when needed, refresh New collection references, and re-render playlist/clipboard consistently.
+  Verified with `npm test` and `npm run build`.
+- User: Reported playlist target swap (`X`) appears to do nothing after marking first tanda as target and clicking swap on another tanda.
+  Assistant: Hardened playlist swap/mark handling to resolve row indices defensively (not only from `data-index`) and to report invalid swap state via status instead of silent no-op. This prevents click paths from failing without feedback and improves robustness for expanded/placeholder rows.
+  Verified with `npm test` and `npm run build`.

@@ -58,6 +58,7 @@ identified as `IPC-<section>.R<n>` in order under each section. Sub-bullets use
 - IPC-003.R5.a: `app:resetDatabase(): { ok: boolean }`
 - IPC-003.R5.b: `app:close(): void`
 - IPC-003.R5.c: `app:logClientError(payload): void`
+- IPC-003.R5.d: `diagnostics:getDataReadiness(): { totalTracks, missingDuration, missingLoudness, missingTrimSignals, analysisErrors, missingWaveforms }`
 
 ## IPC-004 — Versioning
 

@@ -621,6 +621,13 @@
               <button id="legacy-import-button" data-i18n="legacyImportButton">
                 Import legacy tandas
               </button>
+              <button
+                id="legacy-readiness-button"
+                data-i18n="legacyReadinessButton"
+              >
+                Verify library readiness
+              </button>
+              <div id="legacy-readiness-result" class="diagnostics-result"></div>
             </div>
             <button id="reset-db" class="danger" data-i18n="eraseDatabase">
               Erase Database
@@ -911,6 +918,10 @@
                 Generate waveform for current track
               </button>
               <div id="diagnostics-waveform-result" class="diagnostics-result"></div>
+            </div>
+            <div class="settings-section">
+              <h3 data-i18n="diagnosticsDataReadiness">Data readiness</h3>
+              <div id="diagnostics-data-readiness" class="diagnostics-paths"></div>
             </div>
             <div class="settings-section">
               <h3 data-i18n="diagnosticsPlaybackLog">Playback leveling log</h3>

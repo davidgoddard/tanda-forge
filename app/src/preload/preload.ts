@@ -51,6 +51,8 @@ const api: AppApi = {
     ipcRenderer.invoke("diagnostics:getPaths"),
   getDiagnosticsLogs: async (params) =>
     ipcRenderer.invoke("diagnostics:getLogs", params),
+  getDiagnosticsDataReadiness: async () =>
+    ipcRenderer.invoke("diagnostics:getDataReadiness"),
   logPlaybackDiagnostic: async (params) =>
     ipcRenderer.invoke("app:logPlaybackDiagnostic", params),
   listStyles: async () => ipcRenderer.invoke("styles:list"),

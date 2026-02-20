@@ -27,6 +27,8 @@ and stores both the measured loudness and gain offset.
 - AUD-002.R7: Analysis must be resilient to malformed or partial FFmpeg output; JSON
   parser failures should not abort scanning, and errors should be sanitized before
   surfacing to users.
+- AUD-002.R8: Legacy-imported metadata rows are provisional and must be forced
+  through real analysis on the next scan pass before they are treated as reusable.
 
 ## AUD-003 — Playback Pipeline
 
@@ -56,6 +58,9 @@ and stores both the measured loudness and gain offset.
 - AUD-005.R1: All timing is computed in milliseconds using analyzed start/end offsets.
 - AUD-005.R2: Negative gaps represent overlap and require fade-in/out curves.
 - AUD-005.R3: Playback state machine is deterministic and restartable.
+- AUD-005.R4: When per-track analyzed durations are unavailable, timeline/start-time
+  estimation must fall back to tanda-level stored duration metadata instead of collapsing
+  to zero-length entries.
 
 ## AUD-006 — Output Device Control
 

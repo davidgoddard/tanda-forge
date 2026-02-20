@@ -188,6 +188,14 @@ export type AppApi = {
     kind: "playback" | "renderer";
     limit?: number;
   }) => Promise<{ path: string; lines: string[] }>;
+  getDiagnosticsDataReadiness: () => Promise<{
+    totalTracks: number;
+    missingDuration: number;
+    missingLoudness: number;
+    missingTrimSignals: number;
+    analysisErrors: number;
+    missingWaveforms: number;
+  }>;
   logPlaybackDiagnostic: (params: {
     channel: "main" | "headphone";
     mode: "prep" | "live" | "edit";

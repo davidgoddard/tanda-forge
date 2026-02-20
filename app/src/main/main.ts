@@ -74,6 +74,15 @@ let displayWindow: BrowserWindow | null = null;
 let lastDisplayPayload: DisplayUpdatePayload = {};
 
 const imageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"]);
+const audioExtensions = new Set([
+  ".mp3",
+  ".m4a",
+  ".flac",
+  ".wav",
+  ".aac",
+  ".ogg",
+  ".aiff",
+]);
 const RENDERER_ERROR_LOG = "renderer-errors.log";
 const PLAYBACK_DIAGNOSTIC_LOG = "playback-diagnostics.log";
 const MAX_LOG_BYTES = 5 * 1024 * 1024;
@@ -118,6 +127,56 @@ const walkImageFiles = async (rootPath: string): Promise<string[]> => {
   return files;
 };
 
+const detectCortinaSetsFromRoot = (rootPath: string) => {
+  const sets = new Set<string>();
+  if (!rootPath || !fs.existsSync(rootPath)) {
+    return sets;
+  }
+  let rootHasAudio = false;
+  let entries: fs.Dirent[] = [];
+  try {
+    entries = fs.readdirSync(rootPath, { withFileTypes: true });
+  } catch {
+    return sets;
+  }
+  entries.forEach((entry) => {
+    if (entry.name.startsWith(".")) {
+      return;
+    }
+    const fullPath = path.join(rootPath, entry.name);
+    if (entry.isFile()) {
+      const ext = path.extname(entry.name).toLowerCase();
+      if (audioExtensions.has(ext)) {
+        rootHasAudio = true;
+      }
+      return;
+    }
+    if (!entry.isDirectory()) {
+      return;
+    }
+    let hasAudioInDir = false;
+    try {
+      const nested = fs.readdirSync(fullPath, { withFileTypes: true });
+      hasAudioInDir = nested.some((nestedEntry) => {
+        if (!nestedEntry.isFile()) {
+          return false;
+        }
+        const ext = path.extname(nestedEntry.name).toLowerCase();
+        return audioExtensions.has(ext);
+      });
+    } catch {
+      hasAudioInDir = false;
+    }
+    if (hasAudioInDir) {
+      sets.add(entry.name);
+    }
+  });
+  if (rootHasAudio) {
+    sets.add(DEFAULT_CORTINA_SET_ID);
+  }
+  return sets;
+};
+
 const appendLogEntry = (logName: string, lines: string[]) => {
   const { logDir } = getDataPaths();
   const logPath = path.join(logDir, logName);
@@ -137,6 +196,27 @@ const appendLogEntry = (logName: string, lines: string[]) => {
   }
   fs.appendFileSync(logPath, `${lines.join(os.EOL)}${os.EOL}`);
   return logPath;
+};
+
+const clearDiagnosticsArtifacts = () => {
+  const { logDir, waveformsDir } = getDataPaths();
+  [RENDERER_ERROR_LOG, PLAYBACK_DIAGNOSTIC_LOG].forEach((logFile) => {
+    try {
+      const logPath = path.join(logDir, logFile);
+      if (fs.existsSync(logPath)) {
+        fs.unlinkSync(logPath);
+      }
+    } catch {
+      // Best-effort cleanup; reset should not fail if log deletion fails.
+    }
+  });
+  try {
+    if (fs.existsSync(waveformsDir)) {
+      fs.rmSync(waveformsDir, { recursive: true, force: true });
+    }
+  } catch {
+    // Best-effort cleanup; reset should not fail if cache deletion fails.
+  }
 };
 
 const readLogTail = (logName: string, limit: number) => {
@@ -844,6 +924,14 @@ const registerIpc = () => {
       }
       sets.add(getCortinaSetName(row.relative_path, row.root_label, row.root_path));
     });
+    if (sets.size === 0) {
+      const roots = db
+        .prepare("select path from library_roots where kind = 'cortina'")
+        .all() as { path: string }[];
+      roots.forEach((root) => {
+        detectCortinaSetsFromRoot(root.path).forEach((setName) => sets.add(setName));
+      });
+    }
     if (rows.length > 0 && sets.size === 0) {
       sets.add(DEFAULT_CORTINA_SET_ID);
     }
@@ -1215,6 +1303,91 @@ const registerIpc = () => {
     },
   );
 
+  ipcMain.handle("diagnostics:getDataReadiness", async () => {
+    const db = getDb();
+    const rows = db
+      .prepare(
+        `select t.id, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.loudness_db, t.gain_db,
+            t.tag_error, t.analysis_error
+         from tracks t
+         join library_roots r on r.id = t.root_id
+         where r.kind = 'music'`,
+      )
+      .all() as {
+      id: string;
+      duration_ms?: number | null;
+      start_offset_ms?: number | null;
+      end_trim_ms?: number | null;
+      loudness_db?: number | null;
+      gain_db?: number | null;
+      tag_error?: string | null;
+      analysis_error?: string | null;
+    }[];
+    const { waveformsDir } = getDataPaths();
+    const waveformTrackIds = new Set<string>();
+    try {
+      if (fs.existsSync(waveformsDir)) {
+        fs.readdirSync(waveformsDir, { withFileTypes: true }).forEach((entry) => {
+          if (!entry.isFile()) {
+            return;
+          }
+          const ext = path.extname(entry.name).toLowerCase();
+          if (ext !== ".png") {
+            return;
+          }
+          waveformTrackIds.add(path.basename(entry.name, ext));
+        });
+      }
+    } catch {
+      // Ignore read errors and report waveform availability as missing.
+    }
+    let missingDuration = 0;
+    let missingLoudness = 0;
+    let missingTrimSignals = 0;
+    let analysisErrors = 0;
+    let missingWaveforms = 0;
+    rows.forEach((row) => {
+      const durationMs =
+        typeof row.duration_ms === "number" && Number.isFinite(row.duration_ms)
+          ? row.duration_ms
+          : 0;
+      if (durationMs <= 0) {
+        missingDuration += 1;
+      }
+      const hasLoudness =
+        typeof row.loudness_db === "number" && Number.isFinite(row.loudness_db);
+      const hasGain = typeof row.gain_db === "number" && Number.isFinite(row.gain_db);
+      if (!hasLoudness && !hasGain) {
+        missingLoudness += 1;
+      }
+      const startOffsetMs =
+        typeof row.start_offset_ms === "number" && Number.isFinite(row.start_offset_ms)
+          ? row.start_offset_ms
+          : 0;
+      const endTrimMs =
+        typeof row.end_trim_ms === "number" && Number.isFinite(row.end_trim_ms)
+          ? row.end_trim_ms
+          : 0;
+      if (durationMs > 0 && startOffsetMs <= 0 && endTrimMs <= 0) {
+        missingTrimSignals += 1;
+      }
+      if ((row.tag_error ?? "").trim() || (row.analysis_error ?? "").trim()) {
+        analysisErrors += 1;
+      }
+      if (!waveformTrackIds.has(row.id)) {
+        missingWaveforms += 1;
+      }
+    });
+    return {
+      totalTracks: rows.length,
+      missingDuration,
+      missingLoudness,
+      missingTrimSignals,
+      analysisErrors,
+      missingWaveforms,
+    };
+  });
+
   ipcMain.handle(
     "backgrounds:list",
     async (
@@ -1374,6 +1547,7 @@ const registerIpc = () => {
   ipcMain.handle("app:resetDatabase", async () => {
     resetDb();
     legacyOverridesByRootId = new Map();
+    clearDiagnosticsArtifacts();
     return { ok: true };
   });
 

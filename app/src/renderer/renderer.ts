@@ -51,6 +51,7 @@ import {
   computePlaylistWindowMinutes,
   parseClockMinutes,
 } from "../shared/playlist-window.js";
+import { evaluateDataReadiness } from "../shared/data-readiness.js";
 import { reorderClipboardCollections } from "../shared/clipboard-order.js";
 import { moveTrackToCollection } from "../shared/clipboard-move.js";
 import { applyClipboardClear } from "../shared/clipboard-clear.js";
@@ -89,6 +90,8 @@ const diagnosticsWaveformBtn =
   document.querySelector<HTMLButtonElement>("#diagnostics-waveform");
 const diagnosticsWaveformResult =
   document.querySelector<HTMLDivElement>("#diagnostics-waveform-result");
+const diagnosticsDataReadinessEl =
+  document.querySelector<HTMLDivElement>("#diagnostics-data-readiness");
 const diagnosticsPlaybackLogBtn =
   document.querySelector<HTMLButtonElement>("#diagnostics-playback-log");
 const diagnosticsPlaybackLogResult =
@@ -129,6 +132,10 @@ const legacyImportDescription =
   document.querySelector<HTMLParagraphElement>("#legacy-import-description");
 const legacyImportButton =
   document.querySelector<HTMLButtonElement>("#legacy-import-button");
+const legacyReadinessButton =
+  document.querySelector<HTMLButtonElement>("#legacy-readiness-button");
+const legacyReadinessResult =
+  document.querySelector<HTMLDivElement>("#legacy-readiness-result");
 const clipboardClearBtn =
   document.querySelector<HTMLButtonElement>("#clipboard-clear");
 const clipboardFilterInput =
@@ -524,6 +531,7 @@ type TandaDraft = {
   styles: string[];
   rating: number;
   trackSlots: (string | null)[];
+  totalDurationMs?: number;
   origin?: "designer" | "playlist";
 };
 
@@ -684,6 +692,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     dataLocationHelp: "Data is stored in a _tp_data folder at the selected location.",
     legacyImportTitle: "Legacy Import",
     legacyImportButton: "Import legacy library",
+    legacyReadinessButton: "Verify library readiness",
+    legacyReadinessRunning: "Running readiness checks...",
+    legacyReadinessPass: "Readiness check passed.",
+    legacyReadinessWarn: "Playback-ready with warnings.",
+    legacyReadinessFail: "Readiness check failed.",
+    legacyReadinessSummary:
+      "{status} Tracks {total}; missing duration {missingDuration}; missing loudness+gain {missingLoudness}; no trim signals {missingTrimSignals}; analysis errors {analysisErrors}; missing waveforms {missingWaveforms}.",
     close: "Close",
     idle: "Idle",
     starting: "Starting...",
@@ -826,6 +841,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformNoTrack: "No track is currently playing.",
     diagnosticsWaveformSuccess: "Waveform generated: {path}",
     diagnosticsWaveformFailed: "Waveform failed: {message}",
+    diagnosticsDataReadiness: "Data readiness",
+    diagnosticsReadinessTotalTracks: "Tracks",
+    diagnosticsReadinessMissingDuration: "Missing duration",
+    diagnosticsReadinessMissingLoudness: "Missing loudness+gain",
+    diagnosticsReadinessMissingTrimSignals: "No trim signals",
+    diagnosticsReadinessAnalysisErrors: "Analysis errors",
+    diagnosticsReadinessMissingWaveforms: "Missing waveforms",
     diagnosticsPlaybackLog: "Playback leveling log",
     diagnosticsPlaybackLogRun: "Load recent playback leveling entries",
     diagnosticsPlaybackLogEmpty: "No playback leveling log entries yet.",
@@ -1029,6 +1051,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "Los datos se guardan en una carpeta _tp_data en la ubicacion seleccionada.",
     legacyImportTitle: "Importacion heredada",
     legacyImportButton: "Importar tandas heredadas",
+    legacyReadinessButton: "Verificar estado de biblioteca",
+    legacyReadinessRunning: "Ejecutando verificaciones...",
+    legacyReadinessPass: "Verificacion completada correctamente.",
+    legacyReadinessWarn: "Lista para reproduccion con avisos.",
+    legacyReadinessFail: "La verificacion fallo.",
+    legacyReadinessSummary:
+      "{status} Pistas {total}; duracion faltante {missingDuration}; sonoridad+ganancia faltante {missingLoudness}; sin senales de recorte {missingTrimSignals}; errores de analisis {analysisErrors}; formas de onda faltantes {missingWaveforms}.",
     close: "Cerrar",
     idle: "Inactivo",
     starting: "Iniciando...",
@@ -1170,6 +1199,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformNoTrack: "No hay un tema reproduciendose.",
     diagnosticsWaveformSuccess: "Forma de onda generada: {path}",
     diagnosticsWaveformFailed: "Fallo al generar forma de onda: {message}",
+    diagnosticsDataReadiness: "Estado de datos",
+    diagnosticsReadinessTotalTracks: "Pistas",
+    diagnosticsReadinessMissingDuration: "Duracion faltante",
+    diagnosticsReadinessMissingLoudness: "Sonoridad+ganancia faltante",
+    diagnosticsReadinessMissingTrimSignals: "Sin senales de recorte",
+    diagnosticsReadinessAnalysisErrors: "Errores de analisis",
+    diagnosticsReadinessMissingWaveforms: "Formas de onda faltantes",
     eraseDatabase: "Borrar base de datos",
     confirmEraseDatabase:
       "Esto borrara permanentemente el escaneo de biblioteca, tandas, playlists y ajustes guardados en esta app. Puedes reimportar carpetas despues, pero esta accion no se puede deshacer.",
@@ -1369,6 +1405,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "Les donnees sont stockees dans un dossier _tp_data a l'emplacement choisi.",
     legacyImportTitle: "Import heritage",
     legacyImportButton: "Importer les tandas heritees",
+    legacyReadinessButton: "Verifier l'etat de la bibliotheque",
+    legacyReadinessRunning: "Verification en cours...",
+    legacyReadinessPass: "Verification terminee avec succes.",
+    legacyReadinessWarn: "Pret pour lecture avec avertissements.",
+    legacyReadinessFail: "La verification a echoue.",
+    legacyReadinessSummary:
+      "{status} Pistes {total}; duree manquante {missingDuration}; loudness+gain manquants {missingLoudness}; aucun signal de trim {missingTrimSignals}; erreurs d'analyse {analysisErrors}; formes d'onde manquantes {missingWaveforms}.",
     close: "Fermer",
     idle: "Inactif",
     starting: "Demarrage...",
@@ -1510,6 +1553,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformNoTrack: "Aucun titre en lecture.",
     diagnosticsWaveformSuccess: "Forme d'onde generee: {path}",
     diagnosticsWaveformFailed: "Echec de la forme d'onde: {message}",
+    diagnosticsDataReadiness: "Etat des donnees",
+    diagnosticsReadinessTotalTracks: "Pistes",
+    diagnosticsReadinessMissingDuration: "Duree manquante",
+    diagnosticsReadinessMissingLoudness: "Loudness+gain manquants",
+    diagnosticsReadinessMissingTrimSignals: "Aucun signal de trim",
+    diagnosticsReadinessAnalysisErrors: "Erreurs d'analyse",
+    diagnosticsReadinessMissingWaveforms: "Formes d'onde manquantes",
     eraseDatabase: "Effacer la base",
     confirmEraseDatabase:
       "Cette action supprimera definitivement le scan de bibliotheque, les tandas, les playlists et les reglages stockes dans cette application. Vous pourrez reimporter des dossiers ensuite, mais cette action est irreversible.",
@@ -1709,6 +1759,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "Daten werden im Ordner _tp_data am gewahlten Ort gespeichert.",
     legacyImportTitle: "Legacy-Import",
     legacyImportButton: "Legacy-Tandas importieren",
+    legacyReadinessButton: "Bibliothek-Bereitschaft pruefen",
+    legacyReadinessRunning: "Bereitschaftsprüfung laeuft...",
+    legacyReadinessPass: "Pruefung erfolgreich.",
+    legacyReadinessWarn: "Fuer Wiedergabe bereit, mit Warnungen.",
+    legacyReadinessFail: "Pruefung fehlgeschlagen.",
+    legacyReadinessSummary:
+      "{status} Tracks {total}; fehlende Dauer {missingDuration}; fehlende Lautheit+Gain {missingLoudness}; keine Trim-Signale {missingTrimSignals}; Analysefehler {analysisErrors}; fehlende Wellenformen {missingWaveforms}.",
     close: "Schliessen",
     idle: "Leerlauf",
     starting: "Startet...",
@@ -1850,6 +1907,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformNoTrack: "Kein Track wird abgespielt.",
     diagnosticsWaveformSuccess: "Wellenform erzeugt: {path}",
     diagnosticsWaveformFailed: "Wellenform fehlgeschlagen: {message}",
+    diagnosticsDataReadiness: "Datenbereitschaft",
+    diagnosticsReadinessTotalTracks: "Tracks",
+    diagnosticsReadinessMissingDuration: "Fehlende Dauer",
+    diagnosticsReadinessMissingLoudness: "Fehlende Lautheit+Gain",
+    diagnosticsReadinessMissingTrimSignals: "Keine Trim-Signale",
+    diagnosticsReadinessAnalysisErrors: "Analysefehler",
+    diagnosticsReadinessMissingWaveforms: "Fehlende Wellenformen",
     eraseDatabase: "Datenbank loschen",
     confirmEraseDatabase:
       "Dadurch werden Bibliotheksscan, Tandas, Playlists und Einstellungen in dieser App dauerhaft geloscht. Ordner konnen danach erneut importiert werden, diese Aktion ist jedoch nicht ruckgangig zu machen.",
@@ -2049,6 +2113,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "Os dados sao armazenados em uma pasta _tp_data no local selecionado.",
     legacyImportTitle: "Importacao legada",
     legacyImportButton: "Importar tandas legadas",
+    legacyReadinessButton: "Verificar prontidao da biblioteca",
+    legacyReadinessRunning: "Executando verificacoes...",
+    legacyReadinessPass: "Verificacao concluida com sucesso.",
+    legacyReadinessWarn: "Pronta para reproducao com avisos.",
+    legacyReadinessFail: "A verificacao falhou.",
+    legacyReadinessSummary:
+      "{status} Faixas {total}; duracao ausente {missingDuration}; loudness+ganho ausentes {missingLoudness}; sem sinais de trim {missingTrimSignals}; erros de analise {analysisErrors}; formas de onda ausentes {missingWaveforms}.",
     close: "Fechar",
     idle: "Inativo",
     starting: "Iniciando...",
@@ -2188,6 +2259,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformNoTrack: "Nenhuma faixa em reproducao.",
     diagnosticsWaveformSuccess: "Forma de onda gerada: {path}",
     diagnosticsWaveformFailed: "Falha na forma de onda: {message}",
+    diagnosticsDataReadiness: "Prontidao de dados",
+    diagnosticsReadinessTotalTracks: "Faixas",
+    diagnosticsReadinessMissingDuration: "Duracao ausente",
+    diagnosticsReadinessMissingLoudness: "Loudness+ganho ausentes",
+    diagnosticsReadinessMissingTrimSignals: "Sem sinais de trim",
+    diagnosticsReadinessAnalysisErrors: "Erros de analise",
+    diagnosticsReadinessMissingWaveforms: "Formas de onda ausentes",
     eraseDatabase: "Apagar base",
     confirmEraseDatabase:
       "Isto apagará permanentemente a varredura da biblioteca, tandas, playlists e configuracoes guardadas nesta app. Pode reimportar pastas depois, mas esta acao nao pode ser desfeita.",
@@ -2387,6 +2465,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "I dati sono salvati nella cartella _tp_data nella posizione selezionata.",
     legacyImportTitle: "Import legacy",
     legacyImportButton: "Importa tandas legacy",
+    legacyReadinessButton: "Verifica stato libreria",
+    legacyReadinessRunning: "Verifica in corso...",
+    legacyReadinessPass: "Verifica completata con successo.",
+    legacyReadinessWarn: "Pronta alla riproduzione con avvisi.",
+    legacyReadinessFail: "Verifica non riuscita.",
+    legacyReadinessSummary:
+      "{status} Brani {total}; durata mancante {missingDuration}; loudness+gain mancanti {missingLoudness}; nessun segnale di trim {missingTrimSignals}; errori di analisi {analysisErrors}; forme d'onda mancanti {missingWaveforms}.",
     close: "Chiudi",
     idle: "Inattivo",
     starting: "Avvio...",
@@ -2528,6 +2613,13 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsWaveformNoTrack: "Nessun brano in riproduzione.",
     diagnosticsWaveformSuccess: "Forma d'onda generata: {path}",
     diagnosticsWaveformFailed: "Generazione forma d'onda fallita: {message}",
+    diagnosticsDataReadiness: "Stato dati",
+    diagnosticsReadinessTotalTracks: "Brani",
+    diagnosticsReadinessMissingDuration: "Durata mancante",
+    diagnosticsReadinessMissingLoudness: "Loudness+gain mancanti",
+    diagnosticsReadinessMissingTrimSignals: "Nessun segnale di trim",
+    diagnosticsReadinessAnalysisErrors: "Errori di analisi",
+    diagnosticsReadinessMissingWaveforms: "Forme d'onda mancanti",
     eraseDatabase: "Cancella database",
     confirmEraseDatabase:
       "Questa azione eliminera definitivamente scansione libreria, tandas, playlist e impostazioni salvate in questa app. Potrai reimportare le cartelle dopo, ma l'azione non e annullabile.",
@@ -3110,7 +3202,14 @@ const getTandaDurationMs = (tanda: TandaDraft) => {
     (sum, track) => sum + getEffectiveTrackDurationMs(track),
     0,
   );
-  return durationMs + gaps;
+  if (durationMs > 0) {
+    return durationMs + gaps;
+  }
+  const fallback =
+    typeof tanda.totalDurationMs === "number" && Number.isFinite(tanda.totalDurationMs)
+      ? Math.max(0, tanda.totalDurationMs)
+      : 0;
+  return fallback;
 };
 
 const buildPlaylistTimeline = () => {
@@ -3130,6 +3229,21 @@ const buildPlaylistTimeline = () => {
     }
     const tracks = resolvePlaylistTracks(item);
     if (tracks.length === 0) {
+      const tanda = resolveTandaDraft(item.tandaId);
+      const fallbackDurationMs =
+        tanda &&
+        typeof tanda.totalDurationMs === "number" &&
+        Number.isFinite(tanda.totalDurationMs)
+          ? Math.max(0, tanda.totalDurationMs)
+          : 0;
+      if (fallbackDurationMs <= 0) {
+        return;
+      }
+      entries.push({
+        index,
+        durationMs: fallbackDurationMs,
+        trackDurationsMs: [fallbackDurationMs],
+      });
       return;
     }
     const trackDurationsMs = tracks.map((track) => getEffectiveTrackDurationMs(track));
@@ -3875,6 +3989,7 @@ const handleTandaAction = async (event: Event) => {
     return;
   }
   if (action === "tanda-delete") {
+    const wasPlaylistHosted = tandaEditorHostTab === "playlist-tab";
     const confirmed = await showConfirmModal(t("confirmDeleteTanda"));
     if (!confirmed) {
       return;
@@ -3882,13 +3997,45 @@ const handleTandaAction = async (event: Event) => {
     if (window.tanda) {
       await window.tanda.deleteTanda(tandaId);
     }
+    const removedFromPlaylist = playlistItems.reduce((count, item, index) => {
+      if (item?.kind !== "tanda" || item.tandaId !== tandaId) {
+        return count;
+      }
+      playlistItems[index] = null;
+      return count + 1;
+    }, 0);
+    if (removedFromPlaylist > 0) {
+      normalizePlaylist();
+      clearPlaylistTarget();
+      if (playlistOpenTandaIndex !== null) {
+        const openItem = playlistItems[playlistOpenTandaIndex];
+        if (!openItem || openItem.kind !== "tanda" || openItem.tandaId === tandaId) {
+          clearPlaylistOpenTanda();
+        }
+      }
+    }
+    clipboardCollections.forEach((collection) => {
+      collection.tandaIds = collection.tandaIds.filter((id) => id !== tandaId);
+    });
+    if (selectedClipboardTandaId === tandaId) {
+      selectedClipboardTandaId = null;
+    }
+    saveClipboardCollections();
+    tandaCache.delete(tandaId);
     tandaDrafts = tandaDrafts.filter((item) => item.id !== tandaId);
     if (selectedTandaId === tandaId) {
       selectedTandaId = tandaDrafts[0]?.id ?? null;
     }
     setStatus(t("statusTandaDeleted"));
+    if (wasPlaylistHosted) {
+      clearPlaylistOpenTanda();
+      activateRightTab("playlist-tab");
+    }
     renderTandaDesigner();
+    renderPlaylist();
+    renderClipboardCollections();
     renderClipboard();
+    await refreshNewCollectionTracks();
     await refreshSearch();
     return;
   }
@@ -3959,12 +4106,18 @@ const loadTandaDrafts = async () => {
   try {
     const tandas = await window.tanda.listTandas();
     if (tandas.length > 0) {
-      tandas.forEach((tanda) => {
-        tanda.tracks.forEach((track) => trackCache.set(track.id, track));
-      });
-      const draft = createEmptyTanda();
-      tandaDrafts = [draft];
-      selectedTandaId = draft.id;
+      tandas.forEach(upsertTandaCache);
+      const drafts = tandas.map((tanda) => ({
+        id: tanda.id,
+        name: tanda.name,
+        styles: [...tanda.styles],
+        rating: tanda.rating,
+        trackSlots: [...tanda.track_slots],
+        totalDurationMs: tanda.total_duration_ms,
+        origin: "designer" as const,
+      }));
+      tandaDrafts = drafts;
+      selectedTandaId = drafts[0]?.id ?? null;
       return;
     }
   } catch {
@@ -7567,6 +7720,23 @@ const registerAutofillUsage = (
   });
 };
 
+const createAutofillPlaceholderTandaForSlot = (slotIndex: number) => {
+  const targetCount = Math.max(1, getDefaultPlaylistTandaSize(slotIndex));
+  const styles = Array.from(new Set(getDefaultPlaylistStyles(slotIndex)));
+  const assumedDurationMs = 9 * 60 * 1000;
+  const tanda: TandaDraft = {
+    id: crypto.randomUUID(),
+    name: "",
+    styles,
+    rating: 0,
+    trackSlots: Array.from({ length: targetCount }, () => null),
+    totalDurationMs: assumedDurationMs,
+    origin: "playlist",
+  };
+  ensureTandaDraft(tanda, "playlist");
+  return tanda;
+};
+
 const clearPlaylistState = async () => {
   if (appMode === "live") {
     return false;
@@ -7643,13 +7813,33 @@ const clearAndAutofillPlaylist = async () => {
         artistCounts,
       );
     if (!selected) {
+      const placeholder = createAutofillPlaceholderTandaForSlot(slotIndex);
+      placeTandaInPlaylistSlot(placeholder.id, slotIndex, {
+        allowCountMismatch: true,
+        allowStyleMismatch: true,
+      });
       blocked = true;
-      break;
+      added += 1;
+      slotIndex += 1;
+      if (slotIndex > 300) {
+        break;
+      }
+      continue;
     }
     const candidateDurationMs = getTandaDurationMs(selected);
     if (candidateDurationMs <= 0) {
+      const placeholder = createAutofillPlaceholderTandaForSlot(slotIndex);
+      placeTandaInPlaylistSlot(placeholder.id, slotIndex, {
+        allowCountMismatch: true,
+        allowStyleMismatch: true,
+      });
       blocked = true;
-      break;
+      added += 1;
+      slotIndex += 1;
+      if (slotIndex > 300) {
+        break;
+      }
+      continue;
     }
     if (currentTotalMs + candidateDurationMs > targetWindowMs) {
       break;
@@ -8120,12 +8310,26 @@ const renderTandaDesigner = () => {
 };
 
 const addTrackToClipboard = (track: TrackRow) => {
-  const collection = getActiveCollection();
-  if (!collection) {
+  const target = resolveCollectionForClipboardWrite(
+    activeClipboardCollectionId,
+    getGeneralCollection()?.id ?? null,
+    CLIPBOARD_NEW_ID,
+  );
+  if (!target.targetCollectionId) {
     return;
   }
-  if (collection.id === CLIPBOARD_NEW_ID) {
-    setStatus(t("statusClipboardCollectionReadOnly"));
+  if (target.switchedFromNew) {
+    activeClipboardCollectionId = target.nextActiveCollectionId ?? "general";
+    includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
+      (id) => id !== activeClipboardCollectionId,
+    );
+    saveClipboardCollections();
+    renderClipboardCollections();
+  }
+  const collection = clipboardCollections.find(
+    (item) => item.id === target.targetCollectionId,
+  );
+  if (!collection) {
     return;
   }
   if (collection.trackIds.includes(track.id)) {
@@ -8297,6 +8501,23 @@ const getOpenPlaylistTandaIndex = () => {
     return null;
   }
   return playlistOpenTandaIndex;
+};
+
+const resolvePlaylistRowIndex = (row: HTMLElement) => {
+  const rawIndex = row.dataset.index;
+  if (rawIndex) {
+    const parsed = Number.parseInt(rawIndex, 10);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+  const tandaId = row.dataset.tandaId ?? null;
+  if (!tandaId) {
+    return -1;
+  }
+  return playlistItems.findIndex(
+    (item) => item?.kind === "tanda" && item.tandaId === tandaId,
+  );
 };
 
 const appendTrackToPlaylist = (
@@ -8884,6 +9105,7 @@ const createEmptyTanda = (): TandaDraft => {
     styles: [],
     rating: 0,
     trackSlots: Array.from({ length: size }, () => null),
+    totalDurationMs: 0,
     origin: "designer",
   };
 };
@@ -8894,6 +9116,7 @@ const cloneTanda = (tanda: TandaDraft): TandaDraft => ({
   styles: [...tanda.styles],
   rating: tanda.rating,
   trackSlots: [...tanda.trackSlots],
+  totalDurationMs: tanda.totalDurationMs,
   origin: tanda.origin,
 });
 
@@ -8910,6 +9133,7 @@ const createPlaceholderTanda = (tandaId: string): TandaDraft => ({
   styles: [],
   rating: 0,
   trackSlots: Array.from({ length: getDefaultTandaSize() }, () => null),
+  totalDurationMs: 0,
   origin: "playlist",
 });
 
@@ -8921,6 +9145,7 @@ const upsertTandaCache = (tanda: TandaDetail) => {
     styles: [...tanda.styles],
     rating: tanda.rating,
     trackSlots: [...tanda.track_slots],
+    totalDurationMs: tanda.total_duration_ms,
     origin: "designer",
   });
 };
@@ -9089,7 +9314,25 @@ const addTrackToActiveTanda = (track: TrackRow) => {
 };
 
 const addTandaToClipboard = (tandaId: string) => {
-  const collection = getActiveCollection();
+  const target = resolveCollectionForClipboardWrite(
+    activeClipboardCollectionId,
+    getGeneralCollection()?.id ?? null,
+    CLIPBOARD_NEW_ID,
+  );
+  if (!target.targetCollectionId) {
+    return;
+  }
+  if (target.switchedFromNew) {
+    activeClipboardCollectionId = target.nextActiveCollectionId ?? "general";
+    includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
+      (id) => id !== activeClipboardCollectionId,
+    );
+    saveClipboardCollections();
+    renderClipboardCollections();
+  }
+  const collection = clipboardCollections.find(
+    (item) => item.id === target.targetCollectionId,
+  );
   if (!collection) {
     return;
   }
@@ -9702,6 +9945,85 @@ const renderPlaybackDiagnosticsLog = async () => {
         : t("diagnosticsPlaybackLogEmpty");
   } catch (error) {
     diagnosticsPlaybackLogResult.textContent = t("diagnosticsPlaybackLogFailed", {
+      message: error instanceof Error ? error.message : t("statusUnknownError"),
+    });
+  }
+};
+
+const renderDiagnosticsDataReadiness = async () => {
+  if (!diagnosticsDataReadinessEl || !window.tanda?.getDiagnosticsDataReadiness) {
+    return;
+  }
+  diagnosticsDataReadinessEl.textContent = t("statusWaveformLoading");
+  try {
+    const summary = await window.tanda.getDiagnosticsDataReadiness();
+    const rows: { label: string; value: number }[] = [
+      { label: t("diagnosticsReadinessTotalTracks"), value: summary.totalTracks },
+      {
+        label: t("diagnosticsReadinessMissingDuration"),
+        value: summary.missingDuration,
+      },
+      {
+        label: t("diagnosticsReadinessMissingLoudness"),
+        value: summary.missingLoudness,
+      },
+      {
+        label: t("diagnosticsReadinessMissingTrimSignals"),
+        value: summary.missingTrimSignals,
+      },
+      {
+        label: t("diagnosticsReadinessAnalysisErrors"),
+        value: summary.analysisErrors,
+      },
+      {
+        label: t("diagnosticsReadinessMissingWaveforms"),
+        value: summary.missingWaveforms,
+      },
+    ];
+    diagnosticsDataReadinessEl.innerHTML = "";
+    rows.forEach((row) => {
+      const line = document.createElement("div");
+      const label = document.createElement("strong");
+      label.textContent = `${row.label}:`;
+      const value = document.createElement("span");
+      value.textContent = `${row.value}`;
+      line.append(label, document.createTextNode(" "), value);
+      diagnosticsDataReadinessEl.appendChild(line);
+    });
+  } catch (error) {
+    diagnosticsDataReadinessEl.textContent = t("diagnosticsPlaybackLogFailed", {
+      message: error instanceof Error ? error.message : t("statusUnknownError"),
+    });
+  }
+};
+
+const verifyLegacyReadiness = async () => {
+  if (!legacyReadinessResult || !window.tanda?.getDiagnosticsDataReadiness) {
+    return;
+  }
+  legacyReadinessResult.textContent = t("legacyReadinessRunning");
+  try {
+    const summary = await window.tanda.getDiagnosticsDataReadiness();
+    const decision = evaluateDataReadiness(summary);
+    const statusText =
+      decision.status === "pass"
+        ? t("legacyReadinessPass")
+        : decision.status === "warn"
+          ? t("legacyReadinessWarn")
+          : t("legacyReadinessFail");
+    const summaryText = t("legacyReadinessSummary", {
+      status: statusText,
+      total: summary.totalTracks,
+      missingDuration: summary.missingDuration,
+      missingLoudness: summary.missingLoudness,
+      missingTrimSignals: summary.missingTrimSignals,
+      analysisErrors: summary.analysisErrors,
+      missingWaveforms: summary.missingWaveforms,
+    });
+    legacyReadinessResult.textContent = summaryText;
+    setStatus(statusText);
+  } catch (error) {
+    legacyReadinessResult.textContent = t("diagnosticsPlaybackLogFailed", {
       message: error instanceof Error ? error.message : t("statusUnknownError"),
     });
   }
@@ -10380,9 +10702,15 @@ const updateLegacyImport = async (candidatePath?: string | null) => {
     legacyImportDescription.textContent = t("legacyImportDetected", {
       path: result.rootPath,
     });
+    if (legacyReadinessResult && !legacyReadinessResult.textContent) {
+      legacyReadinessResult.textContent = "";
+    }
   } else {
     legacyImportRootPath = null;
     legacyImportDescription.textContent = "";
+    if (legacyReadinessResult) {
+      legacyReadinessResult.textContent = "";
+    }
     legacyImportSection.classList.add("hidden");
   }
 };
@@ -11376,6 +11704,7 @@ const init = async () => {
     await renderRoots();
     await renderDataLocation();
     await updateLegacyImport(result.path);
+    await renderDiagnosticsDataReadiness();
     renderClipboard();
     renderPlaylist();
     refreshSearch();
@@ -11430,8 +11759,16 @@ const init = async () => {
     if (result.missingFiles) {
       updateScanIssues(result.missingFiles);
     }
+    await loadTandaDrafts();
+    await refreshNewCollectionTracks();
+    await loadCortinaSets();
     await updateLegacyImport(result.rootPath);
-    refreshSearch();
+    await refreshSearch();
+    await renderDiagnosticsDataReadiness();
+    renderAllLists();
+  });
+  legacyReadinessButton?.addEventListener("click", () => {
+    void verifyLegacyReadiness();
   });
 
   const runScan = async (kind: "music" | "cortina") => {
@@ -11487,6 +11824,7 @@ const init = async () => {
         await refreshNewCollectionTracks();
       }
       await refreshSearch();
+      await renderDiagnosticsDataReadiness();
       renderAllLists();
     } catch (error) {
       if (error instanceof Error && error.message === "SCAN_IN_PROGRESS") {
@@ -12235,8 +12573,9 @@ const init = async () => {
       return;
     }
     if (action === "mark-playlist-target") {
-      const index = row.dataset.index ? Number.parseInt(row.dataset.index, 10) : -1;
+      const index = resolvePlaylistRowIndex(row);
       if (index < 0) {
+        setStatus(t("statusPlaylistSwapInvalid"));
         return;
       }
       if (isPlaylistIndexLocked(index)) {
@@ -12254,9 +12593,10 @@ const init = async () => {
       return;
     }
     if (action === "swap-playlist-target") {
-      const index = row.dataset.index ? Number.parseInt(row.dataset.index, 10) : -1;
+      const index = resolvePlaylistRowIndex(row);
       const targetIndex = getPlaylistTargetIndex();
       if (index < 0 || targetIndex === null || targetIndex === index) {
+        setStatus(t("statusPlaylistSwapInvalid"));
         return;
       }
       if (isPlaylistIndexLocked(index) || isPlaylistIndexLocked(targetIndex)) {
@@ -12690,6 +13030,7 @@ const init = async () => {
   ensureCortinaDurationDefault();
   await renderDiagnosticsPaths();
   await renderPlaybackDiagnosticsLog();
+  await renderDiagnosticsDataReadiness();
   updateSearchTabVisibility();
   await ensureAudioOutputs();
   if (navigator.mediaDevices?.addEventListener) {

@@ -408,7 +408,7 @@ const importLegacyTracks = async (
         loudness_db: loudnessDb,
         gain_db: gainDb,
         tag_error: "",
-        analysis_error: "",
+        analysis_error: "legacy_import_pending_scan",
         tag_json: "{}",
         analysis_json: JSON.stringify({
           durationMs: maxDuration,
@@ -416,6 +416,7 @@ const importLegacyTracks = async (
           endTrimMs: safeEndTrim,
           loudnessDb,
           gainDb,
+          source: "legacy-import",
           error: "",
         }),
         created_at: existing?.created_at ?? now,

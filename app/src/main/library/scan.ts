@@ -33,6 +33,66 @@ export type ScanProgress = {
   errors: number;
 };
 
+type ExistingTrackAnalysisState = {
+  file_size?: number;
+  file_mtime_ms?: number;
+  duration_ms?: number;
+  start_offset_ms?: number;
+  end_trim_ms?: number;
+  tag_error?: string;
+  analysis_error?: string;
+  tag_json?: string;
+  analysis_json?: string;
+};
+
+const isLegacyImportAnalysis = (analysisJson: string) => {
+  try {
+    const parsed = JSON.parse(analysisJson) as { source?: string };
+    return parsed.source === "legacy-import";
+  } catch {
+    return false;
+  }
+};
+
+export const shouldReuseUnchangedAnalysis = (
+  existing: ExistingTrackAnalysisState | undefined,
+  stat: { size: number; mtimeMs: number },
+) => {
+  if (!existing) {
+    return false;
+  }
+  if (existing.file_size !== stat.size) {
+    return false;
+  }
+  if (existing.file_mtime_ms !== Math.floor(stat.mtimeMs)) {
+    return false;
+  }
+  if (existing.tag_error || existing.analysis_error) {
+    return false;
+  }
+  if (!existing.tag_json || !existing.analysis_json) {
+    return false;
+  }
+  if (isLegacyImportAnalysis(existing.analysis_json)) {
+    return false;
+  }
+  const durationMs = existing.duration_ms ?? 0;
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    return false;
+  }
+  const startOffsetMs = existing.start_offset_ms ?? 0;
+  const endTrimMs = existing.end_trim_ms ?? 0;
+  if (
+    !Number.isFinite(startOffsetMs) ||
+    startOffsetMs < 0 ||
+    !Number.isFinite(endTrimMs) ||
+    endTrimMs < 0
+  ) {
+    return false;
+  }
+  return true;
+};
+
 const audioExtensions = new Set([
   ".mp3",
   ".m4a",
@@ -222,14 +282,7 @@ export const scanLibraryRoots = async (
           | undefined;
 
         const trackId = existing?.id ?? randomUUID();
-        const unchanged =
-          existing &&
-          existing.file_size === stat.size &&
-          existing.file_mtime_ms === Math.floor(stat.mtimeMs) &&
-          !existing.tag_error &&
-          !existing.analysis_error &&
-          existing.tag_json &&
-          existing.analysis_json;
+        const unchanged = shouldReuseUnchangedAnalysis(existing, stat);
 
         if (!unchanged) {
           const tagResult = await readTags(filePath);
