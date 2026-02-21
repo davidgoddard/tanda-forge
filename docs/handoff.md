@@ -1273,3 +1273,22 @@
 - Verification:
   - `npm test` passed (30 files, 132 tests)
   - `npm run build` passed
+
+### Latest update
+- Permanent repo-size cleanup and history rewrite:
+  - Removed tracked legacy and generated artifacts from current tree:
+    - `design/legacy/*`
+    - `dist/*`
+  - Updated ignore rules:
+    - added `design/legacy/` to `.gitignore` (existing `tmp/` and `dist/` already present).
+  - Committed cleanup snapshot, then rewrote history with:
+    - `git filter-repo --force --path tmp --path dist --path design/legacy --invert-paths`
+  - Re-added `origin` remote after filter-repo (it is removed by design).
+  - Post-rewrite repository pack reduced to ~606.71 KiB (`git count-objects -vH`).
+- Files:
+  - `.gitignore`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (30 files, 132 tests)
+  - `npm run build` passed

@@ -1395,3 +1395,10 @@ Code diffs are omitted; only intent and outcomes are captured.
   Assistant: Added dual-phase sink application in playback: apply sink before source assignment (for stability) and re-apply sink after `src` assignment (to prevent route loss/reset after source attachment). Diagnostics now include attempted IDs from both phases. Verified with `npm test` and `npm run build`.
 - User: Reported routing logs showed successful sink assignment for separate IDs, but audible output still collapsed to Bluetooth.
   Assistant: Identified root cause in playback graph architecture: audio was being piped through a shared `AudioContext` (`createMediaElementSource -> context.destination`), which can collapse per-element sink routing despite successful `setSinkId` calls. Switched runtime level control to media-element volume path (tracked logical level + clamped element volume) and disabled shared-context routing so per-element output routing remains authoritative. Updated audio pipeline requirements (`AUD-003.R5`). Verified with `npm test` and `npm run build`.
+- User: Requested permanent repository shrink, removal of legacy files/folder from repo, and `.gitignore` update; also asked how to make GitHub use the shrunken history.
+  Assistant: Performed repository cleanup and history rewrite:
+  - removed tracked `design/legacy/*` and tracked `dist/*` artifacts;
+  - added `design/legacy/` to `.gitignore` (with existing `tmp/` and `dist/` ignores retained);
+  - committed cleanup snapshot;
+  - ran `git filter-repo --force --path tmp --path dist --path design/legacy --invert-paths` to permanently purge these paths from all commits;
+  - restored `origin` remote after filter-repo, then re-verified with `npm test` and `npm run build`.
