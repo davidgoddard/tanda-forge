@@ -4,6 +4,8 @@ import {
   resolveContinuationIndexAfterEndCortina,
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
+  shouldSkipLeadInCortinaForSelectedStart,
+  shouldTreatClickStartAsIdle,
 } from "../app/src/shared/playlist-flow.js";
 
 describe("shouldContinueAfterEndCortina", () => {
@@ -23,6 +25,40 @@ describe("shouldInsertCortinaBeforeTanda", () => {
 
   it("returns true for normal tanda transitions with cortinas enabled", () => {
     expect(shouldInsertCortinaBeforeTanda(true, 2, 0, false, false)).toBe(true);
+  });
+});
+
+describe("shouldSkipLeadInCortinaForSelectedStart", () => {
+  it("skips selected-start lead-in only in preparation mode", () => {
+    expect(
+      shouldSkipLeadInCortinaForSelectedStart(true, true, true, 2, 0, 2),
+    ).toBe(true);
+    expect(
+      shouldSkipLeadInCortinaForSelectedStart(false, true, true, 2, 0, 2),
+    ).toBe(false);
+  });
+
+  it("does not skip when start is not from selected first track", () => {
+    expect(
+      shouldSkipLeadInCortinaForSelectedStart(true, true, true, 2, 1, 2),
+    ).toBe(false);
+    expect(
+      shouldSkipLeadInCortinaForSelectedStart(true, true, true, 3, 0, 2),
+    ).toBe(false);
+    expect(
+      shouldSkipLeadInCortinaForSelectedStart(true, false, true, 2, 0, 2),
+    ).toBe(false);
+  });
+});
+
+describe("shouldTreatClickStartAsIdle", () => {
+  it("treats paused state with no active main playback as idle", () => {
+    expect(shouldTreatClickStartAsIdle("paused", false)).toBe(true);
+  });
+
+  it("does not treat active playback as idle", () => {
+    expect(shouldTreatClickStartAsIdle("playing", true)).toBe(false);
+    expect(shouldTreatClickStartAsIdle("paused", true)).toBe(false);
   });
 });
 

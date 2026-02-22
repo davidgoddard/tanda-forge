@@ -10,12 +10,17 @@
 - TQ-TYPE-001: Unit tests for logic (playlist rules, scan logic, analysis parsing).
 - TQ-TYPE-002: Integration tests for IPC contracts and database queries.
 - TQ-TYPE-003: End-to-end smoke tests for app launch and basic playback flow.
+- TQ-TYPE-004: End-to-end workflow tests for Electron UI using Playwright
+  (`tests/e2e/*.e2e.ts`) with seeded fixture data for deterministic setup/search/
+  clipboard/playlist/menu interactions.
 
 ## Tooling
 
 - TQ-TOOL-001: Test runner: Vitest (planned).
 - TQ-TOOL-002: Assertion library: built-in (Vitest).
 - TQ-TOOL-003: IPC mocks: lightweight in-memory main process harness.
+- TQ-TOOL-004: Playwright Electron runner (`@playwright/test`) for UI-driven
+  regression scenarios.
 
 ## Quality Gates
 

@@ -9,22 +9,16 @@ export type SearchFilters = {
   bpmRange: number;
 };
 
-const buildStyleWhere = (styles: string[]) => {
-  if (!styles.length) {
-    return { whereSql: "", values: [] as unknown[] };
-  }
-  const placeholders = styles.map(() => "?").join(", ");
-  return {
-    whereSql: `where genre in (${placeholders})`,
-    values: [...styles],
-  };
-};
-
-const selectTrackSql = `select id, full_path, relative_path, title, artist, artist_summary, singer, album,\n  year, genre, bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms, analysis_json,\n  loudness_db, gain_db, tag_error, analysis_error\nfrom tracks`;
+const selectTrackSql = `select t.id, t.full_path, t.relative_path, t.title, t.artist, t.artist_summary, t.singer, t.album,\n  t.year, t.genre, t.bpm, t.notes, t.instrumental, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.analysis_json,\n  t.loudness_db, t.gain_db, t.tag_error, t.analysis_error\nfrom tracks t\njoin library_roots r on r.id = t.root_id\nwhere r.kind = 'music'`;
 
 export const fetchSearchCandidates = (db: Database.Database, styles: string[]) => {
-  const { whereSql, values } = buildStyleWhere(styles);
-  return db.prepare(`${selectTrackSql} ${whereSql}`).all(...values) as TrackRow[];
+  if (!styles.length) {
+    return db.prepare(selectTrackSql).all() as TrackRow[];
+  }
+  const placeholders = styles.map(() => "?").join(", ");
+  return db
+    .prepare(`${selectTrackSql} and t.genre in (${placeholders})`)
+    .all(...styles) as TrackRow[];
 };
 
 export const fuzzySearchTracks = (

@@ -350,6 +350,8 @@ Layout and behavior:
 - UI-016.R12: A Done action replaces the active draft with a fresh empty tanda.
 - UI-016.R15: The Tanda Designer shows only in-progress draft tandas that contain tracks
   plus at most one empty template; the template is always listed first.
+- UI-016.R16: Clearing while Tanda Designer is active resets non-playlist drafts
+  to one fresh empty template and preserves playlist-origin drafts.
 
 Filtering:
 - UI-016.R13: When a tanda is selected, the clipboard (and search results, when enabled)
@@ -404,6 +406,9 @@ Behavior:
   against edits, swaps, or drops while playback is active.
 - UI-012.R11: If no main output is playing, clicking a playlist track starts playback from
   that track (prep or live mode).
+- UI-012.R11.a: In Preparation mode, playlist-click playback starts immediately
+  on the selected track with no lead-in cortina, even when the selected track
+  is the first track in a tanda.
 - UI-012.R12: If main output is playing, playlist clicks are ignored in Live mode.
 - UI-012.R13: Each tanda row shows its total duration and an estimated start time based on
   the configured playlist start time and gap settings.
@@ -417,6 +422,10 @@ Behavior:
   it inserts an empty placeholder tanda with the required slot size and intended
   style, marks it as mismatched for manual completion, and continues expected-end-time
   projection using an assumed 9-minute duration for that placeholder.
+- UI-012.R17: The Playlist header `Clear` action is context-sensitive by active
+  right-column tab: in Playlist view it shows playlist clear options (`clear` /
+  `clear + auto-fill`), and in Tanda Designer view it clears designer drafts
+  immediately without a confirmation modal.
 
 ---
 

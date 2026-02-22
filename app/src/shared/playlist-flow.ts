@@ -16,6 +16,28 @@ export const shouldInsertCortinaBeforeTanda = (
   !isResumeWithOffset &&
   !continuedFromEndCortina;
 
+export const shouldSkipLeadInCortinaForSelectedStart = (
+  suppressLeadInCortinaForSelectedStart: boolean,
+  isResume: boolean,
+  startFromIdle: boolean,
+  currentIndex: number,
+  currentTrackIndex: number,
+  selectedStartIndex: number | null,
+) =>
+  suppressLeadInCortinaForSelectedStart &&
+  isResume &&
+  startFromIdle &&
+  currentTrackIndex === 0 &&
+  selectedStartIndex !== null &&
+  currentIndex === selectedStartIndex;
+
+export const shouldTreatClickStartAsIdle = (
+  playbackStatus: "idle" | "paused" | "playing",
+  isMainChannelActivelyPlaying: boolean,
+) =>
+  playbackStatus === "idle" ||
+  (!isMainChannelActivelyPlaying && playbackStatus !== "playing");
+
 export const resolveContinuationIndexAfterEndCortina = (
   currentIndex: number,
   playedThroughIndex: number,

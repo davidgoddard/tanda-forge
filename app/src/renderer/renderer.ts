@@ -74,6 +74,8 @@ import {
   resolveContinuationIndexAfterEndCortina,
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
+  shouldSkipLeadInCortinaForSelectedStart,
+  shouldTreatClickStartAsIdle,
   type PlaylistTrackSource,
 } from "../shared/playlist-flow.js";
 import {
@@ -4065,31 +4067,9 @@ const handleTandaAction = async (event: Event) => {
 };
 
 const loadTandaDrafts = async () => {
-  if (!window.tanda) {
-    return;
-  }
-  try {
-    const tandas = await window.tanda.listTandas();
-    if (tandas.length > 0) {
-      tandas.forEach(upsertTandaCache);
-      const drafts = tandas.map((tanda) => ({
-        id: tanda.id,
-        name: tanda.name,
-        styles: [...tanda.styles],
-        rating: tanda.rating,
-        trackSlots: [...tanda.track_slots],
-        totalDurationMs: tanda.total_duration_ms,
-        origin: "designer" as const,
-      }));
-      tandaDrafts = drafts;
-      selectedTandaId = drafts[0]?.id ?? null;
-      return;
-    }
-  } catch {
-    // ignore load errors, fall back to empty tanda
-  }
+  const playlistDrafts = tandaDrafts.filter((item) => item.origin === "playlist");
   const draft = createEmptyTanda();
-  tandaDrafts = [draft];
+  tandaDrafts = [...playlistDrafts, draft];
   selectedTandaId = draft.id;
 };
 
@@ -7220,7 +7200,11 @@ const playCortina = async (runId: number, targetIndex: number) => {
 
 const runPlaylistPlayback = async (
   resume: boolean,
-  options?: { skipInitialCortinaGap?: boolean; startFromIdle?: boolean },
+  options?: {
+    skipInitialCortinaGap?: boolean;
+    startFromIdle?: boolean;
+    suppressLeadInCortinaForSelectedStart?: boolean;
+  },
 ) => {
   playlistPlayback.runId += 1;
   const runId = playlistPlayback.runId;
@@ -7246,6 +7230,9 @@ const runPlaylistPlayback = async (
   const skipInitialGap = options?.skipInitialCortinaGap ?? false;
   let skipInitialGapPending = skipInitialGap;
   const startFromIdle = options?.startFromIdle ?? false;
+  const suppressLeadInCortinaForSelectedStart =
+    options?.suppressLeadInCortinaForSelectedStart ?? false;
+  const selectedStartIndex = resumeState?.itemIndex ?? null;
   let continuedFromEndCortina = false;
   let leadInCortinaPlayed = false;
 
@@ -7268,7 +7255,12 @@ const runPlaylistPlayback = async (
     }
     cortinaDisplayPhase = "none";
   }
-  if (resume && startFromIdle && isCortinaEnabled()) {
+  if (
+    resume &&
+    startFromIdle &&
+    isCortinaEnabled() &&
+    !suppressLeadInCortinaForSelectedStart
+  ) {
     const item = playlistItems[playlistPlayback.currentIndex];
     if (
       item?.kind === "tanda" &&
@@ -7362,6 +7354,14 @@ const runPlaylistPlayback = async (
       resumeState.trackIndex === playlistPlayback.currentTrackIndex;
     const isResumeWithOffset =
       Boolean(isResumeSameItem) && (resumeState?.resumeTime ?? 0) > 0;
+    const skipLeadInCortinaForSelectedStart = shouldSkipLeadInCortinaForSelectedStart(
+      suppressLeadInCortinaForSelectedStart,
+      resume,
+      startFromIdle,
+      playlistPlayback.currentIndex,
+      playlistPlayback.currentTrackIndex,
+      selectedStartIndex,
+    );
     if (
       shouldInsertCortinaBeforeTanda(
         isCortinaEnabled(),
@@ -7369,7 +7369,8 @@ const runPlaylistPlayback = async (
         playlistPlayback.currentTrackIndex,
         isResumeWithOffset,
         continuedFromEndCortina || leadInCortinaPlayed,
-      )
+      ) &&
+      !skipLeadInCortinaForSelectedStart
     ) {
       if (skipInitialGapPending) {
         skipInitialGapPending = false;
@@ -7910,6 +7911,18 @@ const clearPlaylist = async () => {
   setStatus(t("statusPlaylistCleared"));
 };
 
+const clearTandaDesignerDrafts = async () => {
+  const playlistDrafts = tandaDrafts.filter((item) => item.origin === "playlist");
+  const draft = createEmptyTanda();
+  tandaDrafts = [...playlistDrafts, draft];
+  selectedTandaId = draft.id;
+  selectedStyles = [];
+  loadStyles();
+  updateSearchTabVisibility();
+  await refreshSearch();
+  renderTandaDesigner();
+};
+
 const clearAndAutofillPlaylist = async () => {
   if (!window.tanda) {
     setStatus(t("statusNoApi"));
@@ -8073,7 +8086,13 @@ const startPlaylistFrom = (index: number, trackId?: string | null) => {
   if (!item) {
     return;
   }
-  const wasIdle = playlistPlayback.status === "idle";
+  const isMainChannelActivelyPlaying = Boolean(
+    playback.main.active && !playback.main.active.paused,
+  );
+  const wasIdle = shouldTreatClickStartAsIdle(
+    playlistPlayback.status,
+    isMainChannelActivelyPlaying,
+  );
   const position = findPlaylistTrackPosition(item, trackId);
   if (!position) {
     return;
@@ -8088,10 +8107,11 @@ const startPlaylistFrom = (index: number, trackId?: string | null) => {
     trackId: position.trackId,
     resumeTime: 0,
   };
-  const skipInitialCortinaGap = wasIdle || !playback.main.active;
+  const skipInitialCortinaGap = wasIdle;
   void runPlaylistPlayback(true, {
     skipInitialCortinaGap,
     startFromIdle: wasIdle,
+    suppressLeadInCortinaForSelectedStart: appMode === "prep",
   });
 };
 
@@ -11062,6 +11082,10 @@ const init = async () => {
   }
 
   playlistClearBtn?.addEventListener("click", async () => {
+    if (activeRightTab === "tanda-designer-tab") {
+      await clearTandaDesignerDrafts();
+      return;
+    }
     const selection = await showPlaylistClearModal();
     if (!selection) {
       return;
@@ -12637,6 +12661,9 @@ const init = async () => {
     const target = event.target as HTMLElement;
     const row = target.closest<HTMLElement>(".list-row");
     if (!row) {
+      return;
+    }
+    if (target.closest("#playlist-tanda-editor")) {
       return;
     }
     if (row.classList.contains("cortina-row")) {

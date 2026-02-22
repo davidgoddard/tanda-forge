@@ -1292,3 +1292,160 @@
 - Verification:
   - `npm test` passed (30 files, 132 tests)
   - `npm run build` passed
+
+### Latest update
+- Music-only track corpus and Tanda Designer clear-flow hardening:
+  - Search/listing enforcement:
+    - track search/list/jump SQL paths now join `library_roots` and enforce
+      `r.kind = 'music'` so cortina-root tracks do not appear in track search
+      results, paging/jump flows, or tanda-building candidate lists.
+    - fuzzy candidate retrieval now sources only music-root tracks.
+  - Playlist header `Clear` behavior is now tab-context aware:
+    - if Playlist tab is active: existing clear modal flow remains
+      (`clear` / `clear + auto-fill`).
+    - if Tanda Designer tab is active: clears designer drafts immediately with
+      no modal, preserves playlist-origin drafts, and leaves one fresh empty
+      template selected.
+  - Tanda Designer startup behavior:
+    - stopped preloading all saved tandas into drafts; designer now starts with
+      one empty template (plus any playlist-origin drafts only).
+  - Added unit coverage for music-only search candidate filtering without
+    native sqlite dependency.
+- Files:
+  - `app/src/main/library/search.ts`
+  - `app/src/main/main.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/library-search-candidates.test.ts`
+  - `design/05-ui-principles-and-components.md` (`UI-012.R17`, `UI-016.R16`)
+  - `design/06-search-and-similarity.md` (`FR-090.1.R4`)
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (31 files, 133 tests)
+  - `npm run build` passed
+
+### Latest update
+- Prep-mode playlist-click lead-in behavior split from Live mode:
+  - Updated playlist run flow so prep-mode click-to-start from playlist begins
+    immediately on the selected track (no lead-in cortina), including when the
+    selected track is the first track in a tanda.
+  - Live mode behavior is unchanged: lead-in cortina still applies for
+    first-track tanda starts.
+  - Added shared decision helper:
+    - `shouldSkipLeadInCortinaForSelectedStart(...)`
+  - Wired helper into renderer playback loop to skip only the selected-start
+    lead-in in prep mode while preserving normal between-tanda cortina flow.
+- Files:
+  - `app/src/shared/playlist-flow.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/playlist-flow.test.ts`
+  - `design/03-audio-playback-and-timing-model.md` (`FR-052.R6.a`)
+  - `design/05-ui-principles-and-components.md` (`UI-012.R11.a`)
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+
+### Latest update
+- Live-mode lead-in cortina reliability fix for playlist-click starts:
+  - Symptom: in some live-mode starts, first-track tanda clicks could bypass
+    lead-in cortina despite configured cortinas.
+  - Fix: moved mode decision from implicit global-state checks to explicit
+    per-click playback option:
+    - `suppressLeadInCortinaForSelectedStart` is passed from `startPlaylistFrom`
+      and consumed inside `runPlaylistPlayback`.
+    - prep-mode clicks set this flag true (immediate start).
+    - live-mode clicks set this flag false (lead-in cortina preserved).
+  - Updated helper signature to consume the explicit flag and refreshed tests.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/playlist-flow.ts`
+  - `tests/playlist-flow.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+
+### Latest update
+- Mode-switch regression fix for playlist click-start lead-in handling:
+  - Symptom: after switching between prep/live, both modes could start first
+    track immediately because click-start was keyed only to `playlistPlayback.status`
+    (`paused` treated as non-idle), skipping live lead-in cortina.
+  - Fix:
+    - added shared helper `shouldTreatClickStartAsIdle(...)` to classify click
+      starts using both playback status and active main-channel audio state.
+    - updated `startPlaylistFrom` to compute `wasIdle` from helper and use that
+      for `startFromIdle` / initial-gap options.
+  - Effect:
+    - Live mode first-track click starts once again run lead-in cortina even
+      after mode switches/paused states.
+    - Prep mode immediate-start behavior remains unchanged.
+- Files:
+  - `app/src/shared/playlist-flow.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/playlist-flow.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (31 files, 137 tests)
+  - `npm run build` passed
+
+### Latest update
+- Playwright Electron E2E workflow suite (20 scenarios):
+  - Added deterministic seeded fixture data + launcher harness for Electron UI
+    workflows:
+    - `tests/e2e/support/seed-data.ts`
+    - `tests/e2e/support/electron-app.ts`
+  - Added Playwright config:
+    - `playwright.config.ts` (`tests/e2e/*.e2e.ts`)
+  - Added 20 end-to-end UI scenarios:
+    - `tests/e2e/workflows.e2e.ts`
+    - coverage includes initial setup visibility, settings/config interactions,
+      search variants (text/year/bpm/style), tanda search tab, clipboard flows,
+      playlist flows, track/tanda row-menu actions, and clear behaviors.
+  - Added test-environment path overrides to keep E2E runs isolated and
+    reproducible:
+    - data root override in `app/src/main/data-location.ts` via `TANDA_DATA_ROOT`
+    - userData override in `app/src/main/main.ts` via `TANDA_USER_DATA_ROOT`
+  - Added E2E testing design entries:
+    - `design/12-testing-and-quality.md` (`TQ-TYPE-004`, `TQ-TOOL-004`)
+  - Added npm script:
+    - `package.json` -> `test:e2e`
+- Notes:
+  - In this sandbox, installing `@playwright/test` did not complete (install
+    command hangs), so E2E execution could not be validated here.
+  - Existing unit/build verification succeeded.
+- Verification:
+  - `npm test` passed (31 files, 137 tests)
+  - `npm run build` passed
+
+### Latest update
+- Fixed playlist-hosted tanda editor action regression:
+  - Symptom: clicking track-level controls in playlist-hosted tanda editor (reported on `tanda-up`) could close/exit editor due to unintended playlist-level click handling.
+  - Fix: added event-isolation guard in playlist click handler to ignore clicks originating inside `#playlist-tanda-editor` so editor actions are processed only by `handleTandaAction`.
+- Added E2E regression coverage:
+  - `tests/e2e/workflows.e2e.ts` new scenario `21 - playlist-hosted tanda editor move buttons reorder without closing editor`.
+  - Scenario checks: up/down reorder keeps editor open, remove sends to clipboard, add-back to active tanda works, and close (`tanda-done`) hides editor.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `tests/e2e/workflows.e2e.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (31 files, 137 tests)
+  - `npm run build` passed
+  - `npx playwright test ... -g "21 - ..."` could not be fully validated in this environment due Electron launch failure (`Process failed to launch`).
+
+### Latest update
+- Resolved `electron-builder` / Node engine drift caused by `npx` in install scripts:
+  - Symptom: `npm install` prompted and fetched latest `electron-builder@26.x`, which pulled `@electron/rebuild@4` + `node-abi@4` requiring Node >=22.12, producing EBADENGINE on Node 20.
+  - Fix:
+    - switched scripts from `npx electron-builder ...` to local `electron-builder ...` binaries;
+    - pinned dev dependency `electron-builder` to `24.13.3` so installs are deterministic and compatible with current Node 20 setup.
+- Files:
+  - `package.json`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (31 files, 137 tests)
+  - `npm run build` passed
+- Environment note:
+  - In this sandbox, dependency refresh could not be completed due blocked npm registry access (`ENOTFOUND registry.npmjs.org`). Run `npm install` locally to materialize the pinned builder version in `node_modules`/lockfile.

@@ -52,13 +52,19 @@ import {
   type LegacyTrackOverride,
 } from "./legacy-import";
 
+const forcedUserDataRoot = process.env.TANDA_USER_DATA_ROOT?.trim();
+if (forcedUserDataRoot) {
+  app.setPath("userData", path.resolve(forcedUserDataRoot));
+}
+
 const buildStyleWhere = (styles: string[]) => {
+  const base = "where r.kind = 'music'";
   if (!styles || styles.length === 0) {
-    return { whereSql: "", values: [] as unknown[] };
+    return { whereSql: base, values: [] as unknown[] };
   }
   const placeholders = styles.map(() => "?").join(", ");
   return {
-    whereSql: `where genre in (${placeholders})`,
+    whereSql: `${base} and t.genre in (${placeholders})`,
     values: [...styles],
   };
 };
@@ -673,11 +679,13 @@ const registerIpc = () => {
     const db = getDb();
     const rows = db
       .prepare(
-        `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
-          year, genre, bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
-          tag_error, analysis_error
-         from tracks
-         order by artist, title`,
+        `select t.id, t.full_path, t.relative_path, t.title, t.artist, t.artist_summary, t.singer, t.album,
+          t.year, t.genre, t.bpm, t.notes, t.instrumental, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.analysis_json,
+          t.tag_error, t.analysis_error
+         from tracks t
+         join library_roots r on r.id = t.root_id
+         where r.kind = 'music'
+         order by t.artist, t.title`,
       )
       .all();
     return normalizeTrackRows(rows);
@@ -701,14 +709,16 @@ const registerIpc = () => {
       const limit = Math.min(500, Math.max(1, params.limit ?? 200));
       const sortSql = getSortSql(sortBy);
       const extraSort =
-        sortBy === "artist" ? `, artist ${sortDir}` : "";
+        sortBy === "artist" ? `, t.artist ${sortDir}` : "";
       const rows = db
         .prepare(
-          `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
-            year, genre, bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
-            loudness_db, gain_db, tag_error, analysis_error
-           from tracks
-           order by ${sortSql} ${sortDir}${extraSort}, id ${sortDir}
+          `select t.id, t.full_path, t.relative_path, t.title, t.artist, t.artist_summary, t.singer, t.album,
+            t.year, t.genre, t.bpm, t.notes, t.instrumental, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.analysis_json,
+            t.loudness_db, t.gain_db, t.tag_error, t.analysis_error
+           from tracks t
+           join library_roots r on r.id = t.root_id
+           where r.kind = 'music'
+           order by ${sortSql} ${sortDir}${extraSort}, t.id ${sortDir}
            limit ? offset ?`,
         )
         .all(limit, offset);
@@ -747,15 +757,16 @@ const registerIpc = () => {
         const { whereSql, values } = buildStyleWhere(styles);
         const sortSql = getSortSql(normalizeSortColumn(sortBy));
         const extraSort =
-          sortBy === "artist" ? `, artist ${sortDir}` : "";
+          sortBy === "artist" ? `, t.artist ${sortDir}` : "";
         const rows = db
           .prepare(
-            `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
-              year, genre, bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms, analysis_json,
-              loudness_db, gain_db, tag_error, analysis_error
-             from tracks
+            `select t.id, t.full_path, t.relative_path, t.title, t.artist, t.artist_summary, t.singer, t.album,
+              t.year, t.genre, t.bpm, t.notes, t.instrumental, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.analysis_json,
+              t.loudness_db, t.gain_db, t.tag_error, t.analysis_error
+             from tracks t
+             join library_roots r on r.id = t.root_id
              ${whereSql}
-             order by ${sortSql} ${sortDir}${extraSort}, id ${sortDir}
+             order by ${sortSql} ${sortDir}${extraSort}, t.id ${sortDir}
              limit ? offset ?`,
           )
           .all(...values, limit, offset);
@@ -785,7 +796,12 @@ const registerIpc = () => {
       if (!query) {
         const { whereSql, values } = buildStyleWhere(styles);
         const row = db
-          .prepare(`select count(*) as count from tracks ${whereSql}`)
+          .prepare(
+            `select count(*) as count
+             from tracks t
+             join library_roots r on r.id = t.root_id
+             ${whereSql}`,
+          )
           .get(...values) as { count: number };
         return row.count;
       }
@@ -833,12 +849,13 @@ const registerIpc = () => {
       }
       const keySql = getSortKeySql(normalizeSortColumn(sortBy));
       const { whereSql, values } = buildStyleWhere(params.styles ?? []);
-      const filterSql = whereSql
-        ? `${whereSql} and ${keySql} != ''`
-        : `where ${keySql} != ''`;
+      const filterSql = `${whereSql} and ${keySql} != ''`;
       const prefixes = db
         .prepare(
-          `select distinct substr(${keySql}, 1, 1) as prefix from tracks ${filterSql}`,
+          `select distinct substr(${keySql}, 1, 1) as prefix
+           from tracks t
+           join library_roots r on r.id = t.root_id
+           ${filterSql}`,
         )
         .all(...values)
         .map((row) => (row as { prefix: string }).prefix);
@@ -904,9 +921,10 @@ const registerIpc = () => {
       const row = db
         .prepare(
           `select offset from (
-            select row_number() over (order by ${keySql} ${sortDir}, id ${sortDir}) - 1 as offset,
+            select row_number() over (order by ${keySql} ${sortDir}, t.id ${sortDir}) - 1 as offset,
                    ${keySql} as key
-            from tracks
+            from tracks t
+            join library_roots r on r.id = t.root_id
             ${whereSql}
           ) where ${whereClause}
           limit 1`,
@@ -1149,9 +1167,11 @@ const registerIpc = () => {
       const row = db
         .prepare(
           `select offset from (
-            select row_number() over (order by ${keySql} ${sortDir}, id ${sortDir}) - 1 as offset,
+            select row_number() over (order by ${keySql} ${sortDir}, t.id ${sortDir}) - 1 as offset,
                    ${keySql} as key
-            from tracks
+            from tracks t
+            join library_roots r on r.id = t.root_id
+            where r.kind = 'music'
           ) where ${whereClause}
           limit 1`,
         )
@@ -1168,7 +1188,12 @@ const registerIpc = () => {
     const sortBy = normalizeSortColumn(params.sortBy);
     const keySql = getSortKeySql(sortBy);
     const prefixes = db
-      .prepare(`select distinct substr(${keySql}, 1, 1) as prefix from tracks where ${keySql} != ''`)
+      .prepare(
+        `select distinct substr(${keySql}, 1, 1) as prefix
+         from tracks t
+         join library_roots r on r.id = t.root_id
+         where r.kind = 'music' and ${keySql} != ''`,
+      )
       .all()
       .map((row) => (row as { prefix: string }).prefix);
     return buildJumpIndex(prefixes);

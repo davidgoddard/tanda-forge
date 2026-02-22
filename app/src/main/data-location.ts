@@ -32,6 +32,14 @@ const writeConfig = (config: DataLocationConfig) => {
 
 const getDefaultDataRoot = () => app.getPath("userData");
 
+const resolveForcedDataRoot = () => {
+  const forced = process.env.TANDA_DATA_ROOT?.trim();
+  if (!forced) {
+    return null;
+  }
+  return path.resolve(forced);
+};
+
 const resolveStoredDataRoot = () => {
   const config = readConfig();
   if (!config.dataRoot) {
@@ -58,6 +66,12 @@ export const resolveLegacyDataRoot = (appDataPath: string) => {
 };
 
 export const getDataRoot = () => {
+  const forced = resolveForcedDataRoot();
+  if (forced) {
+    cachedDataRoot = forced;
+    fs.mkdirSync(cachedDataRoot, { recursive: true });
+    return cachedDataRoot;
+  }
   if (cachedDataRoot) {
     return cachedDataRoot;
   }

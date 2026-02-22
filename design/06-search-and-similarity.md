@@ -46,6 +46,9 @@ translated.
 Search must support:
 - FR-090.1.R1: Track search.
 - FR-090.1.R2: Tanda search.
+- FR-090.1.R4: Track-search candidate corpora include only tracks from library
+  roots of kind `music`; tracks under cortina roots are excluded from search
+  results and tanda-building flows.
 
 UI presentation:
 - FR-090.1.R3: Results are presented in separate tabs (or equivalent grouping) for Tracks and Tandas.
