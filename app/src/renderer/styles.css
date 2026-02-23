@@ -1817,6 +1817,11 @@ body.theme-dark-green .settings-panel {
   pointer-events: none;
 }
 
+#track-editor.non-modal {
+  top: clamp(72px, 10vh, 120px);
+  max-height: calc(100vh - clamp(72px, 10vh, 120px) - 16px);
+}
+
 .modal.non-modal.open {
   display: block;
 }
@@ -1850,6 +1855,15 @@ body.theme-dark-green .settings-panel {
   box-shadow:
     0 0 0 1px rgba(20, 24, 34, 0.7),
     0 28px 56px rgba(10, 10, 14, 0.45);
+  max-height: calc(100vh - 2rem);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+#track-editor .modal-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+  gap: 0.65rem;
 }
 
 body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme-dark-classic) #track-editor .modal-card {
