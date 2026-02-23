@@ -75,14 +75,50 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.target }}" = "mac-x64" ]; then
-            npx electron-builder --publish=never --mac --x64
+            npx --no-install electron-builder --publish=never --mac --x64
           elif [ "${{ matrix.target }}" = "mac-arm64" ]; then
-            npx electron-builder --publish=never --mac --arm64
+            npx --no-install electron-builder --publish=never --mac --arm64
           elif [ "${{ matrix.target }}" = "windows" ]; then
-            npx electron-builder --publish=never --win
+            npx --no-install electron-builder --publish=never --win
           else
-            npx electron-builder --publish=never --linux
+            npx --no-install electron-builder --publish=never --linux
           fi
+
+      - name: Verify package integrity (macOS)
+        if: startsWith(matrix.target, 'mac-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg=$(ls dist/*-${{ matrix.target }}.dmg)
+          zipf=$(ls dist/*-${{ matrix.target }}.zip)
+          test -s "$dmg"
+          test -s "$zipf"
+          hdiutil verify "$dmg"
+          unzip -t "$zipf" >/dev/null
+
+      - name: Verify package integrity (Windows)
+        if: matrix.target == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = Get-ChildItem -Path dist -Filter *.exe | Select-Object -First 1
+          $blockmap = Get-ChildItem -Path dist -Filter *.exe.blockmap | Select-Object -First 1
+          if (-not $exe) { throw "Missing .exe artifact in dist/" }
+          if (-not $blockmap) { throw "Missing .exe.blockmap artifact in dist/" }
+          if ($exe.Length -le 0) { throw "Installer .exe is empty: $($exe.FullName)" }
+          if ($blockmap.Length -le 0) { throw "Blockmap is empty: $($blockmap.FullName)" }
+
+      - name: Verify package integrity (Linux)
+        if: matrix.target == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          appimage=$(ls dist/*.AppImage)
+          deb=$(ls dist/*.deb)
+          test -s "$appimage"
+          test -s "$deb"
+          file "$appimage" | grep -qi "ELF"
+          dpkg-deb --info "$deb" >/dev/null
 
       - name: Verify macOS arch
         if: startsWith(matrix.target, 'mac-')

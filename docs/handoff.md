@@ -1449,3 +1449,19 @@
   - `npm run build` passed
 - Environment note:
   - In this sandbox, dependency refresh could not be completed due blocked npm registry access (`ENOTFOUND registry.npmjs.org`). Run `npm install` locally to materialize the pinned builder version in `node_modules`/lockfile.
+
+### Latest update
+- Release pipeline hardening for artifact correctness:
+  - Enforced local builder in CI packaging to avoid implicit upgrades:
+    - `npx --no-install electron-builder ...` for all matrix targets.
+  - Added per-platform package integrity checks before artifact upload:
+    - macOS: verify `.dmg` with `hdiutil verify`; verify `.zip` with `unzip -t`.
+    - Windows: require `.exe` and `.exe.blockmap` to exist and be non-empty.
+    - Linux: require `.AppImage` and `.deb` to exist/non-empty; validate AppImage is ELF (`file`), validate `.deb` metadata (`dpkg-deb --info`).
+- File:
+  - `.github/workflows/release.yml`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (31 files, 137 tests)
+  - `npm run build` passed
