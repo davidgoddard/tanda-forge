@@ -1531,3 +1531,19 @@
 - Verification:
   - `npm test` passed (31 files, 137 tests)
   - `npm run build` passed
+
+### Latest update
+- mac DMG build stability fix in release workflow:
+  - Symptom: electron-builder `dmgbuild` fails with `Unable to detach device cleanly ... Resource busy` on mac runners.
+  - Fix:
+    - for mac targets, split packaging into explicit ZIP then DMG commands;
+    - added DMG retry loop (up to 3 attempts);
+    - between retries, force-detach stale mounted `Tanda Player Lite` volumes and back off briefly.
+  - Scope: release workflow only; artifact set remains unchanged (zip + dmg + blockmaps).
+- Files:
+  - `.github/workflows/release.yml`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (31 files, 137 tests)
+  - `npm run build` passed
