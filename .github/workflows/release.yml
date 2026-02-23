@@ -75,9 +75,37 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.target }}" = "mac-x64" ]; then
-            npx --no-install electron-builder --publish=never --mac --x64
+            npx --no-install electron-builder --publish=never --mac zip --x64
+            for attempt in 1 2 3; do
+              if npx --no-install electron-builder --publish=never --mac dmg --x64; then
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "DMG build failed after 3 attempts (mac-x64)."
+                exit 1
+              fi
+              echo "DMG build attempt $attempt failed; forcing detach of stale mounted images and retrying..."
+              hdiutil info | awk '/\/Volumes\/Tanda Player Lite/ {print $1}' | while read -r dev; do
+                [ -n "$dev" ] && hdiutil detach "$dev" -force || true
+              done
+              sleep 5
+            done
           elif [ "${{ matrix.target }}" = "mac-arm64" ]; then
-            npx --no-install electron-builder --publish=never --mac --arm64
+            npx --no-install electron-builder --publish=never --mac zip --arm64
+            for attempt in 1 2 3; do
+              if npx --no-install electron-builder --publish=never --mac dmg --arm64; then
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "DMG build failed after 3 attempts (mac-arm64)."
+                exit 1
+              fi
+              echo "DMG build attempt $attempt failed; forcing detach of stale mounted images and retrying..."
+              hdiutil info | awk '/\/Volumes\/Tanda Player Lite/ {print $1}' | while read -r dev; do
+                [ -n "$dev" ] && hdiutil detach "$dev" -force || true
+              done
+              sleep 5
+            done
           elif [ "${{ matrix.target }}" = "windows" ]; then
             npx --no-install electron-builder --publish=never --win
           else
@@ -103,6 +131,12 @@ jobs:
           fi
           if /usr/bin/codesign -dv "$APP_ROOT" >/dev/null 2>&1; then
             /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP_ROOT"
+            sign_info=$(/usr/bin/codesign -dv --verbose=4 "$APP_ROOT" 2>&1 || true)
+            if echo "$sign_info" | grep -q "Authority=Developer ID Application"; then
+              echo "Developer ID signature detected for packaged app."
+            else
+              echo "Packaged app is ad-hoc/local signed; Gatekeeper assessment is expected to reject."
+            fi
           else
             echo "Packaged app is unsigned (no local signing identity); skipping strict codesign verification."
           fi
@@ -127,7 +161,12 @@ jobs:
           fi
           if /usr/bin/codesign -dv "$app" >/dev/null 2>&1; then
             /usr/bin/codesign --verify --deep --strict --verbose=2 "$app"
-            /usr/sbin/spctl -a -vv "$app"
+            sign_info=$(/usr/bin/codesign -dv --verbose=4 "$app" 2>&1 || true)
+            if echo "$sign_info" | grep -q "Authority=Developer ID Application"; then
+              /usr/sbin/spctl -a -vv "$app"
+            else
+              echo "DMG app is not Developer ID signed (ad-hoc/local signing); skipping spctl Gatekeeper assessment."
+            fi
           else
             echo "DMG app is unsigned (no local signing identity); skipping strict codesign/spctl verification."
           fi
