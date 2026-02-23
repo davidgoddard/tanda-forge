@@ -1501,3 +1501,33 @@
   - `npm run build` passed
 - Follow-up required locally:
   - run `npm install` to refresh lockfile with `electron-builder@26.8.1`.
+
+### Latest update
+- Fixed mac CI release failures introduced by strict signature checks:
+  - Symptom: both mac matrix jobs failed despite valid DMG checksums due to strict `codesign/spctl` checks on unsigned apps, plus noisy cleanup failures after DMG mount (`Read-only file system`, `Resource busy`).
+  - Changes in `.github/workflows/release.yml`:
+    - mac verification now conditionally enforces strict signature checks only when app is signed (`codesign -dv` succeeds);
+    - unsigned builds no longer fail this step; they emit explicit skip logs;
+    - DMG mount cleanup now detaches by mountpoint and avoids brittle device-id parsing, preventing cleanup errors.
+  - Integrity checks retained (DMG checksum + ZIP test).
+- Files:
+  - `.github/workflows/release.yml`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (31 files, 137 tests)
+  - `npm run build` passed
+
+### Latest update
+- Standardized Node runtime expectations for contributors:
+  - Added project `.nvmrc` pinned to `22.12.0`.
+  - Added `package.json` engines requirement: `"node": ">=22.12.0"`.
+  - Purpose: keep local environments aligned with current electron-builder/rebuild engine requirements and avoid recurring EBADENGINE warnings.
+- Files:
+  - `.nvmrc`
+  - `package.json`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (31 files, 137 tests)
+  - `npm run build` passed

@@ -4,6 +4,9 @@
   "author": "Tanda Player Lite <support@tandaplayerlite.com>",
   "version": "0.1.5",
   "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "main": "dist/main/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && node scripts/copy-renderer-assets.js",
