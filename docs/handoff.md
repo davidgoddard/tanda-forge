@@ -1465,3 +1465,39 @@
 - Verification:
   - `npm test` passed (31 files, 137 tests)
   - `npm run build` passed
+
+### Latest update
+- Track editor usability fix at default resolution:
+  - Symptom: edit-track window clipped vertically with no usable scroll path.
+  - Fixes in renderer CSS:
+    - constrained `#track-editor.non-modal` top/height to available viewport;
+    - set `#track-editor .modal-card` to viewport max-height and explicit grid rows (`auto minmax(0,1fr) auto`);
+    - made `#track-editor .modal-body` scroll vertically (`overflow-y: auto`) so all fields and footer actions are reachable.
+- File:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (31 files, 137 tests)
+  - `npm run build` passed
+
+### Latest update
+- Apple Silicon mac release reliability hardening:
+  - Symptom reported by user: arm64 app from release DMG fails Gatekeeper/codesign with `code has no resources but signature indicates they must be present`, while Intel build installs.
+  - Changes:
+    - upgraded dev dependency `electron-builder` to `26.8.1`;
+    - changed release workflow Node runtime to `22` to align with electron-builder/rebuild engine requirements;
+    - added strict mac signature checks in CI:
+      - verify packaged app in `dist` with `codesign --verify --deep --strict --verbose=2`;
+      - mount generated DMG and verify embedded app with `codesign --verify --deep --strict --verbose=2` and `spctl -a -vv`.
+  - Result: any mac signature breakage now fails CI before assets are published.
+- Files:
+  - `package.json`
+  - `.github/workflows/release.yml`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (31 files, 137 tests)
+  - `npm run build` passed
+- Follow-up required locally:
+  - run `npm install` to refresh lockfile with `electron-builder@26.8.1`.

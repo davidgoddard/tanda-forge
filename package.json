@@ -21,7 +21,7 @@
     "@playwright/test": "^1.51.0",
     "@types/better-sqlite3": "^7.6.0",
     "electron": "^28.3.3",
-    "electron-builder": "24.13.3",
+    "electron-builder": "26.8.1",
     "vitest": "^1.6.0",
     "typescript": "^5.4.0"
   },
