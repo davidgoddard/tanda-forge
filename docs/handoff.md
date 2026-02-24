@@ -2102,3 +2102,182 @@
 - Verification:
   - `npm run build` passed.
   - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist scrollbar right-gap reduction:
+  - Removed extra right inset from playlist rows container to eliminate visible blank strip to the right of the scrollbar.
+  - In `#playlist-tab .list-rows.active`, dropped:
+    - `padding-right: 12px`
+    - `box-sizing: border-box`
+  - Kept existing stable-gutter behavior.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist scrollbar inset follow-up fix:
+  - Restored `box-sizing: border-box` for `#playlist-tab .list-rows.active` while keeping right padding removed.
+  - Reason: playlist rows container uses left padding; without border-box sizing, the element can render wider than its slot, which visually manifests as an apparent right-side inset/gap around scrollbar positioning.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist right-gap root-cause follow-up (nested scroll containers):
+  - Added playlist-specific wrapper class `playlist-list-body` in markup.
+  - Disabled scrolling/gutter reservation on outer playlist list-body wrapper:
+    - `overflow: hidden`
+    - `scrollbar-gutter: auto`
+  - This leaves playlist row container as the single vertical scroll owner, removing duplicated gutter reservation that can appear as extra right-side blank strip.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist right-gap follow-up (grid track sizing):
+  - Added explicit full-width column to playlist rows container:
+    - `#playlist-tab .list-rows.active { grid-template-columns: minmax(0, 1fr); }`
+  - Reason: without explicit column track, grid items may size to content and not stretch across full available width, leaving a visible strip before the scrollbar.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist scrollbar right-gap reduction (gutter reservation):
+  - Changed playlist rows scrollbar gutter behavior:
+    - `#playlist-tab .list-rows.active { scrollbar-gutter: auto; }`
+    - (was `stable`)
+  - Intent: remove fixed right-side reserved gutter strip next to playlist scrollbar while preserving current left spacing.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist right-edge combined spacing correction:
+  - Addressed two simultaneous concerns (content touching scrollbar + dead strip beyond scrollbar) with paired adjustments on playlist rows scroller:
+    - `#playlist-tab .list-rows.active`:
+      - `width: calc(100% + 8px)`
+      - `margin-right: -8px`
+    - `#playlist-tab .list-rows.active > .list-row`:
+      - `margin-right: 8px`
+  - Effect: moves scrollbar to effective panel edge while preserving a controlled gap between row content and scrollbar.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist autofill immediate-clear UX improvement:
+  - In `clearAndAutofillPlaylist()`, added an immediate `renderPlaylist()` right after successful `clearPlaylistState()`.
+  - This makes the old playlist disappear instantly before async autofill candidate loading/building starts, providing immediate user feedback.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist autofill progress reassurance status:
+  - Added new i18n key `statusPlaylistAutofillRunning` in all language maps.
+  - `clearAndAutofillPlaylist()` now sets this status immediately after clearing/rendering the playlist and before async autofill work begins.
+  - Existing done/partial autofill statuses replace this running message when processing finishes.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist empty-slot hint line-break improvement:
+  - Updated playlist empty slot row rendering to tanda-style structure so hint text is displayed below the primary label:
+    - row classes now include `tanda-row playlist-empty-row`,
+    - content rendered as `tanda-content` with summary (`playlistEmptySlot`) and hint (`playlistEmptyHint`) stacked vertically.
+  - This prevents inline truncation of the hint beside "Empty tanda".
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist autofill in-panel progress visibility:
+  - Added renderer state flag `playlistAutofillInProgress`.
+  - `clearAndAutofillPlaylist()` now:
+    - sets the flag before async autofill starts,
+    - renders immediately so progress is visible right away,
+    - clears the flag in `finally` and re-renders to remove the indicator.
+  - `renderPlaylist()` now prepends a dedicated row (`.playlist-autofill-row`) with localized `statusPlaylistAutofillRunning` text while autofill is active.
+  - Added styling for `.list-row.playlist-autofill-row` to make the progress row visually distinct from playlist content.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist tanda row width reclamation (warning offset + tighter left column):
+  - Adjusted playlist tanda row grid sizing:
+    - `.list-row.tanda-row` from `64px minmax(0, 1fr) 40px` to `50px minmax(0, 1fr) 40px`
+    - added `column-gap: 0.35rem`
+  - Updated style-letter badge alignment:
+    - `.tanda-style-badge` now `justify-content: flex-start` with slight left inset (`padding-left: 0.2rem`)
+  - Repositioned mismatch warning badge outside the row content area:
+    - `.list-row.tanda-row.mismatch::after` moved from `left: -14px; top: 6px` to `left: -24px; top: 8px`
+  - Effect: more horizontal room for tanda text (less wrapping/truncation pressure), while warning icon remains visible in the left margin area.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Empty playlist slot emphasis (option 1 + 2 combo):
+  - Updated empty tanda rows (`.list-row.playlist-empty-row`) to stand out while staying subtle:
+    - slight indent/right shift: `margin-left: 12px` with `width: calc(100% - 12px)`,
+    - soft dashed outline: `border: 1px dashed rgba(187, 201, 228, 0.34)`,
+    - gentle placeholder background tint and rounded corners.
+  - Kept text treatment calm with minor opacity tuning for summary/hint.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Revert: tanda row/warning spacing experiment rollback:
+  - Restored `.list-row.tanda-row` grid columns to `64px minmax(0, 1fr) 40px`.
+  - Removed experiment-specific `column-gap: 0.35rem` from tanda rows.
+  - Restored `.tanda-style-badge` alignment to centered (`justify-content: center`) and removed extra left padding.
+  - Restored mismatch warning badge position to previous placement (`top: 6px; left: -14px`).
+  - This rollback addresses visual crowding/overlap introduced by the prior spacing experiment; empty-slot emphasis styling remains unchanged.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).

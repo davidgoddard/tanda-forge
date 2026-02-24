@@ -515,6 +515,7 @@ let playlistItems: (PlaylistItem | null)[] = [null];
 let playlistSaveSnapshot = "";
 let playlistTargetIndex: number | null = null;
 let playlistTargetTandaId: string | null = null;
+let playlistAutofillInProgress = false;
 let lastUserInteractionAt = Date.now();
 let cortinaSets: string[] = [];
 const cortinaTracksBySet = new Map<string, TrackRow[]>();
@@ -1052,6 +1053,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusPlaylistSwapInvalid: "Select a marked tanda and swap with another tanda.",
     statusClipboardCleared: "Clipboard collections updated.",
     statusPlaylistCleared: "Playlist cleared.",
+    statusPlaylistAutofillRunning: "Building playlist, please wait...",
     statusPlaylistAutofillDone:
       "Playlist auto-fill complete: {count} tanda(s), ends around {time}.",
     statusPlaylistAutofillPartial:
@@ -1412,6 +1414,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusPlaylistNoEmptySlot: "Agregue un espacio vacio antes de anadir a la lista.",
     statusClipboardCleared: "Colecciones del portapapeles actualizadas.",
     statusPlaylistCleared: "Lista vaciada.",
+    statusPlaylistAutofillRunning: "Construyendo playlist, espere por favor...",
     statusPlaylistAutofillDone:
       "Autocompletado finalizado: {count} tanda(s), termina cerca de {time}.",
     statusPlaylistAutofillPartial:
@@ -1772,6 +1775,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusPlaylistNoEmptySlot: "Ajoutez un emplacement vide avant d'ajouter a la playlist.",
     statusClipboardCleared: "Collections du presse-papiers mises a jour.",
     statusPlaylistCleared: "Playlist videe.",
+    statusPlaylistAutofillRunning: "Construction de la playlist en cours, veuillez patienter...",
     statusPlaylistAutofillDone:
       "Remplissage auto termine: {count} tanda(s), fin vers {time}.",
     statusPlaylistAutofillPartial:
@@ -2132,6 +2136,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusPlaylistNoEmptySlot: "Fugen Sie einen leeren Slot hinzu, bevor Sie zur Playlist hinzufugen.",
     statusClipboardCleared: "Zwischenablage-Sammlungen aktualisiert.",
     statusPlaylistCleared: "Playlist geleert.",
+    statusPlaylistAutofillRunning: "Playlist wird aufgebaut, bitte warten...",
     statusPlaylistAutofillDone:
       "Automatisches Fuellen abgeschlossen: {count} Tanda(s), Ende ca. {time}.",
     statusPlaylistAutofillPartial:
@@ -2490,6 +2495,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusPlaylistNoEmptySlot: "Adicione um slot vazio antes de adicionar a playlist.",
     statusClipboardCleared: "Colecoes da area de transferencia atualizadas.",
     statusPlaylistCleared: "Playlist limpa.",
+    statusPlaylistAutofillRunning: "Montando playlist, aguarde por favor...",
     statusPlaylistAutofillDone:
       "Preenchimento automatico concluido: {count} tanda(s), termina por volta de {time}.",
     statusPlaylistAutofillPartial:
@@ -2854,6 +2860,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "Aggiungi uno slot vuoto prima di aggiungere alla playlist.",
     statusClipboardCleared: "Collezioni appunti aggiornate.",
     statusPlaylistCleared: "Playlist svuotata.",
+    statusPlaylistAutofillRunning: "Creazione playlist in corso, attendere...",
     statusPlaylistAutofillDone:
       "Riempimento automatico completato: {count} tanda, fine circa alle {time}.",
     statusPlaylistAutofillPartial:
@@ -7365,6 +7372,12 @@ const renderPlaylist = () => {
   const filterText = normalizeClipboardFilter(playlistFilterText);
   const hasFilter = filterText.length > 0;
   let visibleItems = 0;
+  if (playlistAutofillInProgress && !hasFilter) {
+    const loadingRow = document.createElement("div");
+    loadingRow.className = "list-row playlist-autofill-row";
+    loadingRow.textContent = t("statusPlaylistAutofillRunning");
+    fragment.appendChild(loadingRow);
+  }
   playlistItems.forEach((item, index) => {
     if (hasFilter) {
       if (!item) {
@@ -7495,7 +7508,7 @@ const renderPlaylist = () => {
         return;
       }
       const row = document.createElement("div");
-      row.className = "list-row";
+      row.className = "list-row tanda-row playlist-empty-row";
       if (isPlayed) {
         row.classList.add("played");
       }
@@ -7510,22 +7523,18 @@ const renderPlaylist = () => {
         : "";
       styleBadge.className = "tanda-style-badge";
       styleBadge.textContent = styleCode || "?";
-      row.append(
-        styleBadge,
-        (() => {
-          const label = document.createElement("span");
-          label.textContent = t("playlistEmptySlot");
-          return label;
-        })(),
-        (() => {
-          const hint = document.createElement("span");
-          hint.className = "meta";
-          hint.textContent = t("playlistEmptyHint");
-          return hint;
-        })(),
-        document.createElement("span"),
-        document.createElement("span"),
-      );
+      const content = document.createElement("div");
+      content.className = "tanda-content";
+      const summary = document.createElement("div");
+      summary.className = "tanda-summary";
+      summary.textContent = t("playlistEmptySlot");
+      const hint = document.createElement("span");
+      hint.className = "meta";
+      hint.textContent = t("playlistEmptyHint");
+      content.append(summary, hint);
+      const actionsSpacer = document.createElement("span");
+      actionsSpacer.className = "row-actions";
+      row.append(styleBadge, content, actionsSpacer);
       fragment.appendChild(row);
     }
   });
@@ -8594,141 +8603,150 @@ const clearAndAutofillPlaylist = async () => {
   if (!cleared) {
     return;
   }
-  const targetWindowMs = getPlaylistTargetWindowMs();
-  const allTracks = await window.tanda.listTracks();
-  allTracks.forEach((track) => trackCache.set(track.id, track));
-  const candidateTandas = await collectSavedAutofillTandas();
-  const usedTrackTitles = collectUsedTrackTitles();
-  const usedTandaIds = new Set<string>();
-  const artistCounts = new Map<string, number>();
-  const artistLastPlayedAtMs = new Map<string, number>();
-  const recentYears: number[] = [];
-  const recentBpms: number[] = [];
-  const repeatGapMs = getPlaylistArtistRepeatGapMinutes() * 60 * 1000;
-  let slotIndex = 0;
-  let added = 0;
-  let blocked = false;
+  // Show the cleared playlist immediately before async autofill work starts.
+  playlistAutofillInProgress = true;
+  renderPlaylist();
+  setStatus(t("statusPlaylistAutofillRunning"));
+  try {
+    const targetWindowMs = getPlaylistTargetWindowMs();
+    const allTracks = await window.tanda.listTracks();
+    allTracks.forEach((track) => trackCache.set(track.id, track));
+    const candidateTandas = await collectSavedAutofillTandas();
+    const usedTrackTitles = collectUsedTrackTitles();
+    const usedTandaIds = new Set<string>();
+    const artistCounts = new Map<string, number>();
+    const artistLastPlayedAtMs = new Map<string, number>();
+    const recentYears: number[] = [];
+    const recentBpms: number[] = [];
+    const repeatGapMs = getPlaylistArtistRepeatGapMinutes() * 60 * 1000;
+    let slotIndex = 0;
+    let added = 0;
+    let blocked = false;
 
-  while (true) {
-    const currentTotalMs = getPlaylistTotalDurationMs();
-    if (currentTotalMs >= targetWindowMs) {
-      break;
-    }
-    ensurePlaylistSlot(slotIndex);
-    const selected =
-      pickAutofillTandaForSlot(
-        slotIndex,
-        candidateTandas,
+    while (true) {
+      const currentTotalMs = getPlaylistTotalDurationMs();
+      if (currentTotalMs >= targetWindowMs) {
+        break;
+      }
+      ensurePlaylistSlot(slotIndex);
+      const selected =
+        pickAutofillTandaForSlot(
+          slotIndex,
+          candidateTandas,
+          usedTrackTitles,
+          usedTandaIds,
+          artistCounts,
+          recentYears,
+          recentBpms,
+          currentTotalMs,
+          repeatGapMs,
+          artistLastPlayedAtMs,
+        ) ??
+        pickGeneratedTandaForSlot(
+          slotIndex,
+          allTracks,
+          usedTrackTitles,
+          artistCounts,
+          currentTotalMs,
+          repeatGapMs,
+          artistLastPlayedAtMs,
+        );
+      if (!selected) {
+        const placeholder = createAutofillPlaceholderTandaForSlot(slotIndex);
+        placeTandaInPlaylistSlot(placeholder.id, slotIndex, {
+          allowCountMismatch: true,
+          allowStyleMismatch: true,
+        });
+        blocked = true;
+        added += 1;
+        slotIndex += 1;
+        if (slotIndex > 300) {
+          break;
+        }
+        continue;
+      }
+      const candidateDurationMs = getTandaDurationMs(selected);
+      if (candidateDurationMs <= 0) {
+        const placeholder = createAutofillPlaceholderTandaForSlot(slotIndex);
+        placeTandaInPlaylistSlot(placeholder.id, slotIndex, {
+          allowCountMismatch: true,
+          allowStyleMismatch: true,
+        });
+        blocked = true;
+        added += 1;
+        slotIndex += 1;
+        if (slotIndex > 300) {
+          break;
+        }
+        continue;
+      }
+      if (currentTotalMs + candidateDurationMs > targetWindowMs) {
+        break;
+      }
+      ensureTandaDraft(selected, "playlist");
+      const placed = placeTandaInPlaylistSlot(selected.id, slotIndex, {
+        allowCountMismatch: false,
+        allowStyleMismatch: false,
+      });
+      if (!placed) {
+        blocked = true;
+        break;
+      }
+      const projectedTotalMs = getPlaylistTotalDurationMs();
+      if (projectedTotalMs > targetWindowMs) {
+        playlistItems[slotIndex] = null;
+        normalizePlaylist();
+        break;
+      }
+      registerAutofillUsage(
+        selected,
         usedTrackTitles,
         usedTandaIds,
         artistCounts,
         recentYears,
         recentBpms,
-        currentTotalMs,
-        repeatGapMs,
         artistLastPlayedAtMs,
-      ) ??
-      pickGeneratedTandaForSlot(
-        slotIndex,
-        allTracks,
-        usedTrackTitles,
-        artistCounts,
         currentTotalMs,
-        repeatGapMs,
-        artistLastPlayedAtMs,
       );
-    if (!selected) {
-      const placeholder = createAutofillPlaceholderTandaForSlot(slotIndex);
-      placeTandaInPlaylistSlot(placeholder.id, slotIndex, {
-        allowCountMismatch: true,
-        allowStyleMismatch: true,
-      });
-      blocked = true;
       added += 1;
       slotIndex += 1;
       if (slotIndex > 300) {
         break;
       }
-      continue;
     }
-    const candidateDurationMs = getTandaDurationMs(selected);
-    if (candidateDurationMs <= 0) {
-      const placeholder = createAutofillPlaceholderTandaForSlot(slotIndex);
-      placeTandaInPlaylistSlot(placeholder.id, slotIndex, {
-        allowCountMismatch: true,
-        allowStyleMismatch: true,
-      });
-      blocked = true;
-      added += 1;
-      slotIndex += 1;
-      if (slotIndex > 300) {
-        break;
-      }
-      continue;
-    }
-    if (currentTotalMs + candidateDurationMs > targetWindowMs) {
-      break;
-    }
-    ensureTandaDraft(selected, "playlist");
-    const placed = placeTandaInPlaylistSlot(selected.id, slotIndex, {
-      allowCountMismatch: false,
-      allowStyleMismatch: false,
-    });
-    if (!placed) {
-      blocked = true;
-      break;
-    }
-    const projectedTotalMs = getPlaylistTotalDurationMs();
-    if (projectedTotalMs > targetWindowMs) {
-      playlistItems[slotIndex] = null;
-      normalizePlaylist();
-      break;
-    }
-    registerAutofillUsage(
-      selected,
-      usedTrackTitles,
-      usedTandaIds,
-      artistCounts,
-      recentYears,
-      recentBpms,
-      artistLastPlayedAtMs,
-      currentTotalMs,
-    );
-    added += 1;
-    slotIndex += 1;
-    if (slotIndex > 300) {
-      break;
-    }
-  }
 
-  normalizePlaylist();
-  if (isCortinaEnabled()) {
-    const assignedIndices = new Set<number>([
-      ...cortinaPlannedByIndex.keys(),
-      ...cortinaOverrideByIndex.keys(),
-    ]);
-    const missingIndices = getUnassignedCortinaRowIndices(
-      playlistItems,
-      assignedIndices,
-    );
-    if (missingIndices.length > 0) {
-      await ensureCortinaPlans(missingIndices);
+    normalizePlaylist();
+    if (isCortinaEnabled()) {
+      const assignedIndices = new Set<number>([
+        ...cortinaPlannedByIndex.keys(),
+        ...cortinaOverrideByIndex.keys(),
+      ]);
+      const missingIndices = getUnassignedCortinaRowIndices(
+        playlistItems,
+        assignedIndices,
+      );
+      if (missingIndices.length > 0) {
+        await ensureCortinaPlans(missingIndices);
+      }
     }
+    renderPlaylist();
+    const finalMinutes =
+      getPlaylistStartTimeMinutes() +
+      Math.round(getPlaylistTotalDurationMs() / 60000);
+    if (blocked) {
+      setStatus(t("statusPlaylistAutofillPartial", { count: added }));
+      return;
+    }
+    setStatus(
+      t("statusPlaylistAutofillDone", {
+        count: added,
+        time: formatClockTime(finalMinutes),
+      }),
+    );
+  } finally {
+    playlistAutofillInProgress = false;
+    renderPlaylist();
   }
-  renderPlaylist();
-  const finalMinutes =
-    getPlaylistStartTimeMinutes() +
-    Math.round(getPlaylistTotalDurationMs() / 60000);
-  if (blocked) {
-    setStatus(t("statusPlaylistAutofillPartial", { count: added }));
-    return;
-  }
-  setStatus(
-    t("statusPlaylistAutofillDone", {
-      count: added,
-      time: formatClockTime(finalMinutes),
-    }),
-  );
 };
 
 const findPlaylistTrackPosition = (
