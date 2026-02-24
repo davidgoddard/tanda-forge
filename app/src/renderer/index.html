@@ -297,14 +297,57 @@
         </div>
         <div class="column">
           <div class="panel">
-            <div class="panel-header">
+            <div class="panel-header playlist-header">
               <h2 data-i18n="playlistTitle">Playlist</h2>
+              <button
+                id="playlist-stats"
+                class="playlist-stats-btn icon-button"
+                data-i18n-attr="title,aria-label"
+                data-i18n="playlistStatsTitle"
+                title="Playlist diversity"
+                aria-label="Playlist diversity"
+              >
+                <svg class="playlist-stats-icon" viewBox="0 0 16 16" aria-hidden="true">
+                  <rect x="2" y="8" width="2.5" height="6" rx="1" />
+                  <rect x="6.75" y="3" width="2.5" height="11" rx="1" />
+                  <rect x="11.5" y="6" width="2.5" height="8" rx="1" />
+                </svg>
+              </button>
               <div class="playlist-controls" aria-label="Playlist controls">
-                <button id="playlist-start" data-i18n="playlistStart">Start</button>
-                <button id="playlist-resume" data-i18n="playlistResume">Resume</button>
-                <button id="playlist-stop" data-i18n="playlistStop">Stop</button>
+                <button
+                  id="playlist-start"
+                  class="icon-button has-glyph playlist-transport-btn"
+                  data-i18n-attr="title,aria-label"
+                  data-i18n="playlistStart"
+                  title="Start"
+                  aria-label="Start"
+                >
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M8 6l11 6-11 6z" />
+                  </svg>
+                </button>
+                <button
+                  id="playlist-stop"
+                  class="icon-button has-glyph playlist-transport-btn"
+                  data-i18n-attr="title,aria-label"
+                  data-i18n="playlistStop"
+                  title="Stop"
+                  aria-label="Stop"
+                >
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="7" y="7" width="10" height="10" fill="currentColor" />
+                  </svg>
+                </button>
               </div>
-              <div class="panel-actions">
+              <div class="panel-actions playlist-header-actions">
+                <input
+                  id="playlist-filter"
+                  type="search"
+                  data-i18n-attr="placeholder,aria-label"
+                  data-i18n="playlistFilterPlaceholder"
+                  placeholder="Filter playlist"
+                  aria-label="Filter playlist"
+                />
                 <button id="playlist-clear" data-i18n="playlistClear">Clear</button>
               </div>
             </div>
@@ -579,6 +622,9 @@
             Diagnostics
           </button>
           <button data-tab="system" data-i18n="tabSystem">System</button>
+          <button data-tab="orchestras" data-i18n="tabOrchestras">
+            Orchestras
+          </button>
         </nav>
         <div class="settings-content">
           <div class="settings-tab active" data-tab="library">
@@ -671,6 +717,21 @@
                   max="30"
                   step="1"
                 />
+              </div>
+              <div class="settings-field">
+                <label for="playlist-artist-repeat-gap" data-i18n="playlistArtistRepeatGapLabel">
+                  Artist repeat gap aspiration (min)
+                </label>
+                <input
+                  id="playlist-artist-repeat-gap"
+                  type="number"
+                  min="0"
+                  max="180"
+                  step="1"
+                />
+                <p data-i18n="playlistArtistRepeatGapHelp">
+                  Auto-fill tries to avoid repeating artists within this time window.
+                </p>
               </div>
               <div class="settings-field">
                 <label for="playlist-cortina-set" data-i18n="cortinaSetLabel">
@@ -821,6 +882,14 @@
                   step="1"
                 />
               </div>
+              <div class="settings-field">
+                <label for="clear-play-counts" data-i18n="clearPlayCountsLabel">
+                  Playback counters
+                </label>
+                <button id="clear-play-counts" data-i18n="clearPlayCountsButton">
+                  Clear play counts
+                </button>
+              </div>
               <div class="settings-field wide">
                 <label for="data-location-path" data-i18n="dataLocationLabel">
                   Data location
@@ -900,7 +969,43 @@
                   Scales cortina headline text independently.
                 </p>
               </div>
+              <div class="settings-field">
+                <label for="display-edge-padding" data-i18n="displayEdgePaddingLabel">
+                  Display edge padding (vmin)
+                </label>
+                <input
+                  id="display-edge-padding"
+                  type="number"
+                  min="1"
+                  max="16"
+                  step="0.5"
+                />
+                <p data-i18n="displayEdgePaddingHelp">
+                  Adds space between display text and screen edges.
+                </p>
+              </div>
             </div>
+          </div>
+          <div class="settings-tab" data-tab="orchestras">
+            <h3 data-i18n="orchestraRegistryTitle">Orchestras</h3>
+            <p data-i18n="orchestraRegistryHelp">
+              Canonical orchestra names, aliases, and related names used by search and collections.
+            </p>
+            <div class="settings-actions">
+              <button id="orchestra-add" data-i18n="orchestraAdd">Add orchestra</button>
+              <button id="orchestra-reset" data-i18n="orchestraReset">Reset to seeded list</button>
+              <button id="orchestra-save" data-i18n="orchestraSave">Save orchestra list</button>
+            </div>
+            <div class="settings-field wide">
+              <input
+                id="orchestra-filter"
+                type="search"
+                data-i18n-attr="placeholder"
+                data-i18n="orchestraFilterPlaceholder"
+                placeholder="Filter orchestras or aliases"
+              />
+            </div>
+            <div id="orchestra-list" class="orchestra-list"></div>
           </div>
           <div class="settings-tab" data-tab="diagnostics">
             <h3 data-i18n="scanIssues">Scan Issues</h3>
@@ -947,6 +1052,35 @@
                 id="diagnostics-output-probe-result"
                 class="diagnostics-result diagnostics-log"
               ></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="modal"
+        id="playlist-stats-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden="true"
+      >
+        <div class="modal-card playlist-stats-card">
+          <header class="modal-header">
+            <h3 data-i18n="playlistStatsTitle">Playlist diversity</h3>
+            <button id="playlist-stats-close" data-i18n="close">Close</button>
+          </header>
+          <div class="playlist-stats-grid">
+            <div class="playlist-stats-block wide">
+              <h4 data-i18n="playlistStatsOrchestra">Orchestra seconds</h4>
+              <div id="playlist-stats-orchestra" class="mini-chart"></div>
+            </div>
+            <div class="playlist-stats-block wide compact">
+              <h4 data-i18n="playlistStatsYear">Year distribution</h4>
+              <div id="playlist-stats-year" class="mini-chart"></div>
+            </div>
+            <div class="playlist-stats-block wide compact">
+              <h4 data-i18n="playlistStatsTempo">Tempo distribution</h4>
+              <div id="playlist-stats-tempo" class="mini-chart"></div>
             </div>
           </div>
         </div>

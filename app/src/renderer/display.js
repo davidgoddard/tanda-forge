@@ -27,6 +27,7 @@ let useBackgroundImages = true;
 let imageDimOpacity = 0.35;
 let fontScale = 1;
 let cortinaFontScale = 1;
+let edgePaddingVmin = 5;
 let pointerDown = null;
 let ambientTimer = null;
 let activeOrbIndex = 0;
@@ -312,6 +313,13 @@ const applyDisplayUpdate = (payload) => {
     if (Math.abs(nextScale - cortinaFontScale) > 0.0001) {
       cortinaFontScale = nextScale;
       contentEl.style.setProperty("--display-cortina-font-scale", nextScale.toFixed(3));
+    }
+  }
+  if (typeof payload.edgePaddingVmin === "number" && contentEl) {
+    const nextPadding = Math.min(16, Math.max(1, payload.edgePaddingVmin));
+    if (Math.abs(nextPadding - edgePaddingVmin) > 0.0001) {
+      edgePaddingVmin = nextPadding;
+      contentEl.style.setProperty("--display-edge-padding-vmin", nextPadding.toFixed(2));
     }
   }
   if (typeof payload.useBackgroundImages === "boolean") {

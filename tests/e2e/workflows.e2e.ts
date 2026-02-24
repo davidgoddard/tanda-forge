@@ -369,4 +369,29 @@ test.describe("Electron app end-to-end workflows", () => {
       await launched.close();
     }
   });
+
+  test("22 - playlist header keeps clear button inside bounds", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      const header = page.locator(".playlist-header");
+      const clear = page.locator("#playlist-clear");
+      await expect(header).toBeVisible();
+      await expect(clear).toBeVisible();
+
+      const headerBox = await header.boundingBox();
+      const clearBox = await clear.boundingBox();
+      expect(headerBox).not.toBeNull();
+      expect(clearBox).not.toBeNull();
+      if (!headerBox || !clearBox) {
+        return;
+      }
+
+      const clearRight = clearBox.x + clearBox.width;
+      const headerRight = headerBox.x + headerBox.width;
+      expect(clearRight).toBeLessThanOrEqual(headerRight + 1);
+    } finally {
+      await launched.close();
+    }
+  });
 });

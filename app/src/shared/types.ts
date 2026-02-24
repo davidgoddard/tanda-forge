@@ -16,6 +16,7 @@ export type DisplayUpdatePayload = {
   imageDimOpacity?: number;
   fontScale?: number;
   cortinaFontScale?: number;
+  edgePaddingVmin?: number;
   mode?: "normal" | "cortina";
 };
 

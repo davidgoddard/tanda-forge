@@ -78,6 +78,22 @@ import {
   shouldTreatClickStartAsIdle,
   type PlaylistTrackSource,
 } from "../shared/playlist-flow.js";
+import { computeAutoClearRemainingMs } from "../shared/playlist-filter.js";
+import {
+  aggregateOrchestraDurations,
+  areArtistsGapSatisfied,
+  buildAdaptiveNumericDistribution,
+  collectEligibleArtistGroups,
+  normalizeArtistGroupKey,
+} from "../shared/playlist-diversity.js";
+import { ORCHESTRA_SEED_DATA } from "../shared/orchestra-seed.js";
+import {
+  buildOrchestraAliasIndex,
+  convertSeedToRegistry,
+  normalizeRegistryEntry,
+  resolveOrchestraCanonical,
+  type OrchestraRegistryEntry,
+} from "../shared/orchestra-registry.js";
 import {
   getCortinaRowIndices,
   getUnassignedCortinaRowIndices,
@@ -111,6 +127,16 @@ const diagnosticsOutputProbeBtn =
   document.querySelector<HTMLButtonElement>("#diagnostics-output-probe");
 const diagnosticsOutputProbeResult =
   document.querySelector<HTMLPreElement>("#diagnostics-output-probe-result");
+const orchestraFilterInput =
+  document.querySelector<HTMLInputElement>("#orchestra-filter");
+const orchestraAddBtn =
+  document.querySelector<HTMLButtonElement>("#orchestra-add");
+const orchestraResetBtn =
+  document.querySelector<HTMLButtonElement>("#orchestra-reset");
+const orchestraSaveBtn =
+  document.querySelector<HTMLButtonElement>("#orchestra-save");
+const orchestraListEl =
+  document.querySelector<HTMLDivElement>("#orchestra-list");
 
 let allowAppClose = false;
 let confirmModalEl: HTMLDivElement | null = null;
@@ -190,12 +216,12 @@ const tandaListEl = document.querySelector<HTMLDivElement>("#tanda-list");
 const addTandaBtn = document.querySelector<HTMLButtonElement>("#add-tanda");
 const playlistStartBtn =
   document.querySelector<HTMLButtonElement>("#playlist-start");
-const playlistResumeBtn =
-  document.querySelector<HTMLButtonElement>("#playlist-resume");
 const playlistStopBtn =
   document.querySelector<HTMLButtonElement>("#playlist-stop");
 const playlistClearBtn =
   document.querySelector<HTMLButtonElement>("#playlist-clear");
+const playlistFilterInput =
+  document.querySelector<HTMLInputElement>("#playlist-filter");
 const clipListBody = clipTracksEl?.closest(".list-body") ?? null;
 const clipPanel = clipTracksEl?.closest(".panel") ?? null;
 const playlistPanel = playlistListEl?.closest(".panel") ?? null;
@@ -209,6 +235,20 @@ const clipboardCollectionNameInput =
   document.querySelector<HTMLInputElement>("#clipboard-collection-name");
 const clipboardCollectionAddBtn =
   document.querySelector<HTMLButtonElement>("#clipboard-collection-add");
+const clearPlayCountsBtn =
+  document.querySelector<HTMLButtonElement>("#clear-play-counts");
+const playlistStatsBtn =
+  document.querySelector<HTMLButtonElement>("#playlist-stats");
+const playlistStatsModal =
+  document.querySelector<HTMLElement>("#playlist-stats-modal");
+const playlistStatsCloseBtn =
+  document.querySelector<HTMLButtonElement>("#playlist-stats-close");
+const playlistStatsOrchestraEl =
+  document.querySelector<HTMLDivElement>("#playlist-stats-orchestra");
+const playlistStatsYearEl =
+  document.querySelector<HTMLDivElement>("#playlist-stats-year");
+const playlistStatsTempoEl =
+  document.querySelector<HTMLDivElement>("#playlist-stats-tempo");
 const clipboardNewLimitInput =
   document.querySelector<HTMLInputElement>("#clipboard-new-limit");
 const panelTabButtons = Array.from(
@@ -257,6 +297,8 @@ const stopFadeInput =
   document.querySelector<HTMLInputElement>("#stop-fade-duration");
 const playlistSequenceInput =
   document.querySelector<HTMLInputElement>("#playlist-sequence");
+const playlistArtistRepeatGapInput =
+  document.querySelector<HTMLInputElement>("#playlist-artist-repeat-gap");
 const playlistStyleMapInput =
   document.querySelector<HTMLTextAreaElement>("#playlist-style-map");
 const playlistCortinaSetSelect =
@@ -273,6 +315,8 @@ const displayBaseFontSizeInput =
   document.querySelector<HTMLInputElement>("#display-base-font-size");
 const displayCortinaFontSizeInput =
   document.querySelector<HTMLInputElement>("#display-cortina-font-size");
+const displayEdgePaddingInput =
+  document.querySelector<HTMLInputElement>("#display-edge-padding");
 const searchButton = document.querySelector<HTMLButtonElement>("#search-button");
 const alertBanner = document.querySelector<HTMLDivElement>("#alert-banner");
 const openDiagnosticsMain =
@@ -433,6 +477,8 @@ const DISPLAY_FONT_SCALE_KEY = "tanda-display-font-scale";
 const DEFAULT_DISPLAY_FONT_SCALE = 1;
 const DISPLAY_CORTINA_FONT_SCALE_KEY = "tanda-display-cortina-font-scale";
 const DEFAULT_DISPLAY_CORTINA_FONT_SCALE = 1;
+const DISPLAY_EDGE_PADDING_KEY = "tanda-display-edge-padding-vmin";
+const DEFAULT_DISPLAY_EDGE_PADDING_VMIN = 5;
 const PLAYLIST_END_TIME_KEY = "tanda-playlist-end-time";
 const DEFAULT_PLAYLIST_END_TIME = "03:00";
 
@@ -468,6 +514,7 @@ type PlaylistItem =
 let playlistItems: (PlaylistItem | null)[] = [null];
 let playlistSaveSnapshot = "";
 let playlistTargetIndex: number | null = null;
+let playlistTargetTandaId: string | null = null;
 let lastUserInteractionAt = Date.now();
 let cortinaSets: string[] = [];
 const cortinaTracksBySet = new Map<string, TrackRow[]>();
@@ -533,13 +580,31 @@ const CLIPBOARD_ACTIVE_KEY = "tanda-clipboard-active";
 const CLIPBOARD_INCLUDE_KEY = "tanda-clipboard-include";
 const CLIPBOARD_NEW_LIMIT_KEY = "tanda-clipboard-new-limit";
 const CLIPBOARD_NEW_ID = "new";
+const CLIPBOARD_TOP_ID = "top";
+const CLIPBOARD_LEAST_ID = "least";
+const CLIPBOARD_AVAILABLE_ID = "available";
 const DEFAULT_NEW_LIMIT = 100;
+const SMART_COLLECTION_LIMIT = 100;
+const PLAY_COUNTS_KEY = "tanda-play-counts";
+const PLAYLIST_ARTIST_REPEAT_GAP_MIN_KEY = "tanda-playlist-artist-repeat-gap-min";
+const DEFAULT_PLAYLIST_ARTIST_REPEAT_GAP_MIN = 30;
+const ORCHESTRA_REGISTRY_KEY = "tanda-orchestra-registry-v1";
 const CORTINA_ANY_ID = "__any__";
 const TANDA_SEARCH_SIZE_KEY = "tanda-search-size";
 
 let clipboardCollections: ClipboardCollection[] = [];
 let activeClipboardCollectionId: string | null = null;
 let includedClipboardCollectionIds: string[] = [];
+type PlayCounts = {
+  tracks: Record<string, number>;
+  tandas: Record<string, number>;
+};
+let playCounts: PlayCounts = { tracks: {}, tandas: {} };
+let allTracksForSmartCollections: TrackRow[] | null = null;
+let allTandasForSmartCollections: TandaDraft[] | null = null;
+let orchestraRegistry: OrchestraRegistryEntry[] = [];
+let orchestraAliasIndex = new Map<string, string>();
+let orchestraFilterText = "";
 
 type TandaDraft = {
   id: string;
@@ -561,6 +626,11 @@ type RightPanelTab = "playlist-tab" | "tanda-designer-tab";
 let activeRightTab: RightPanelTab = "playlist-tab";
 type SearchTab = "search-tracks" | "search-tandas";
 let activeSearchTab: SearchTab = "search-tracks";
+let playlistFilterText = "";
+let playlistFilterClearTimer: number | undefined;
+const PLAYLIST_FILTER_AUTO_CLEAR_MS = 30_000;
+let lastRenderedPlaylistHasFilter = false;
+let centerPlaylistTargetOnNextRender = false;
 
 type OutputMode = "prep" | "live" | "edit";
 let appMode: OutputMode = "prep";
@@ -679,6 +749,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Include",
     clipboardCollectionGeneral: "General",
     clipboardCollectionNew: "New",
+    clipboardCollectionTop: "Top",
+    clipboardCollectionLeast: "Least",
+    clipboardCollectionAvailable: "Available",
     clipboardFilterPlaceholder: "Filter",
     confirmClipboardCollectionRemove: "Remove collection \"{name}\"?",
     clipboardClear: "Clear",
@@ -799,6 +872,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tabLibrary: "Library",
     tabDiagnostics: "Diagnostics",
     tabSystem: "System",
+    tabOrchestras: "Orchestras",
     tabPlaylistSettings: "Playlist",
     tabDisplayBoard: "Display Board",
     libraryRoots: "Library Roots",
@@ -832,6 +906,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayBaseFontSizeHelp: "Scales display text for distance readability.",
     displayCortinaFontSizeLabel: "Display cortina font size (%)",
     displayCortinaFontSizeHelp: "Scales cortina headline text independently.",
+    displayEdgePaddingLabel: "Display edge padding (vmin)",
+    displayEdgePaddingHelp: "Adds space between display text and screen edges.",
     searchMinScoreLabel: "Search minimum score",
     searchBpmRangeLabel: "BPM search range",
     trimPaddingLabel: "Trim padding (sec)",
@@ -843,6 +919,16 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistSequencePlaceholder: "3t 3t 3w",
     playlistStyleMapLabel: "Style mapping",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
+    playlistArtistRepeatGapLabel: "Artist repeat gap aspiration (min)",
+    playlistArtistRepeatGapHelp:
+      "Auto-fill tries to avoid repeating artists within this time window.",
+    playlistStatsTitle: "Playlist diversity",
+    playlistStatsOrchestra: "Orchestra seconds",
+    playlistStatsYear: "Year distribution",
+    playlistStatsTempo: "Tempo distribution",
+    playlistStatsNoData: "No data",
+    playlistFilterPlaceholder: "Filter playlist",
+    playlistFilterNoMatch: "No matching playlist items.",
     scanIssues: "Scan Issues",
     scanIssuesHelp: "Recent scan problems and files that need attention.",
     scanIssuesMore: "...and {count} more",
@@ -877,6 +963,26 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsPlaybackLogEmpty: "No playback leveling log entries yet.",
     diagnosticsPlaybackLogFailed: "Playback log failed: {message}",
     diagnosticsPathsPlaybackLog: "Playback log",
+    clearPlayCountsLabel: "Playback counters",
+    clearPlayCountsButton: "Clear play counts",
+    confirmClearPlayCounts: "Clear all track and tanda play counts?",
+    statusPlayCountsCleared: "Playback counters cleared.",
+    orchestraRegistryTitle: "Orchestras",
+    orchestraRegistryHelp:
+      "Canonical orchestra names, aliases, and related names used by search and collections.",
+    orchestraFilterPlaceholder: "Filter orchestras or aliases",
+    orchestraCanonicalLabel: "Canonical orchestra",
+    orchestraAliasesLabel: "Aliases (comma separated)",
+    orchestraRelatedLabel: "Related orchestras (comma separated)",
+    orchestraAdd: "Add orchestra",
+    orchestraReset: "Reset to seeded list",
+    orchestraSave: "Save orchestra list",
+    orchestraDelete: "Delete",
+    confirmOrchestraRegistryReset:
+      "Reset orchestra aliases to the seeded list? This will overwrite local edits.",
+    statusOrchestraRegistrySaved: "Orchestra list saved.",
+    statusOrchestraRegistryReset: "Orchestra list reset to seeded defaults.",
+    statusOrchestraRegistryInvalid: "Orchestra list has invalid entries.",
     eraseDatabase: "Erase Database",
     confirmEraseDatabase:
       "This will permanently delete your library scan, tandas, playlists, and settings stored in this app. You can re-import folders afterward, but this action cannot be undone.",
@@ -1036,7 +1142,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     styleAll: "Todos",
     tabTracks: "Temas",
     tabTandas: "Tandas",
-    tabPlaylist: "Playlist",
+    tabPlaylist: "Lista",
     tabTandaDesigner: "Disenador de tandas",
     clipboardTitle: "Portapapeles",
     clipboardCollectionsLabel: "Colecciones",
@@ -1045,6 +1151,9 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Incluir",
     clipboardCollectionGeneral: "General",
     clipboardCollectionNew: "Nuevos",
+    clipboardCollectionTop: "Mas",
+    clipboardCollectionLeast: "Menos",
+    clipboardCollectionAvailable: "Disponibles",
     clipboardFilterPlaceholder: "Filtrar",
     confirmClipboardCollectionRemove: "Quitar la coleccion \"{name}\"?",
     clipboardClear: "Limpiar",
@@ -1164,7 +1273,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tabLibrary: "Biblioteca",
     tabDiagnostics: "Diagnostico",
     tabSystem: "Sistema",
-    tabPlaylistSettings: "Playlist",
+    tabOrchestras: "Orquestas",
+    tabPlaylistSettings: "Lista",
     tabDisplayBoard: "Pantalla",
     libraryRoots: "Raices de biblioteca",
     libraryRootsHelp: "Configura carpetas de musica y cortinas.",
@@ -1197,6 +1307,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayBaseFontSizeHelp: "Escala el texto de pantalla para mejor lectura a distancia.",
     displayCortinaFontSizeLabel: "Tamano de fuente cortina en pantalla (%)",
     displayCortinaFontSizeHelp: "Escala por separado el titulo de cortina.",
+    displayEdgePaddingLabel: "Margen del borde en pantalla (vmin)",
+    displayEdgePaddingHelp: "Agrega espacio entre el texto y los bordes de la pantalla.",
     searchMinScoreLabel: "Puntuacion minima de busqueda",
     searchBpmRangeLabel: "Rango de BPM",
     trimPaddingLabel: "Ajuste de recorte (s)",
@@ -1390,7 +1502,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     styleAll: "Tous",
     tabTracks: "Pistes",
     tabTandas: "Tandas",
-    tabPlaylist: "Playlist",
+    tabPlaylist: "Liste",
     tabTandaDesigner: "Concepteur de tandas",
     clipboardTitle: "Presse-papiers",
     clipboardCollectionsLabel: "Collections",
@@ -1399,13 +1511,16 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Inclure",
     clipboardCollectionGeneral: "General",
     clipboardCollectionNew: "Nouveaux",
+    clipboardCollectionTop: "Plus",
+    clipboardCollectionLeast: "Moins",
+    clipboardCollectionAvailable: "Disponibles",
     clipboardFilterPlaceholder: "Filtrer",
     confirmClipboardCollectionRemove: "Retirer la collection \"{name}\" ?",
     clipboardClear: "Vider",
     clipboardClearTitle: "Vider les collections du presse-papiers",
     clipboardClearConfirm: "Vider la selection",
     clipboardClearRemoveEmpty: "Supprimer les collections vides (sauf General/Nouveaux)",
-    playlistTitle: "Playlist",
+    playlistTitle: "Liste",
     playlistHint:
       "Utilisez le menu de tanda pour marquer un emplacement a remplacer, puis choisissez une piste/tanda depuis le presse-papiers ou la recherche. Sans emplacement marque, les envois vont dans le premier emplacement libre.",
     playlistClear: "Vider",
@@ -1518,7 +1633,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tabLibrary: "Bibliotheque",
     tabDiagnostics: "Diagnostic",
     tabSystem: "Systeme",
-    tabPlaylistSettings: "Playlist",
+    tabOrchestras: "Orchestres",
+    tabPlaylistSettings: "Liste",
     tabDisplayBoard: "Ecran",
     libraryRoots: "Racines de bibliotheque",
     libraryRootsHelp: "Configurer les dossiers musique et cortinas.",
@@ -1551,6 +1667,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayBaseFontSizeHelp: "Ajuste le texte de l'ecran pour la lisibilite a distance.",
     displayCortinaFontSizeLabel: "Taille de police cortina ecran (%)",
     displayCortinaFontSizeHelp: "Ajuste separement le titre cortina.",
+    displayEdgePaddingLabel: "Marge d'ecran (vmin)",
+    displayEdgePaddingHelp: "Ajoute de l'espace entre le texte et les bords de l'ecran.",
     searchMinScoreLabel: "Score minimum de recherche",
     searchBpmRangeLabel: "Plage BPM",
     trimPaddingLabel: "Marge de coupe (s)",
@@ -1744,7 +1862,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     styleAll: "Alle",
     tabTracks: "Titel",
     tabTandas: "Tandas",
-    tabPlaylist: "Playlist",
+    tabPlaylist: "Liste",
     tabTandaDesigner: "Tanda-Designer",
     clipboardTitle: "Zwischenablage",
     clipboardCollectionsLabel: "Sammlungen",
@@ -1753,13 +1871,16 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Einblenden",
     clipboardCollectionGeneral: "Allgemein",
     clipboardCollectionNew: "Neu",
+    clipboardCollectionTop: "Meiste",
+    clipboardCollectionLeast: "Wenigste",
+    clipboardCollectionAvailable: "Verfugbar",
     clipboardFilterPlaceholder: "Filtern",
     confirmClipboardCollectionRemove: "Sammlung \"{name}\" entfernen?",
     clipboardClear: "Leeren",
     clipboardClearTitle: "Zwischenablagen-Sammlungen leeren",
     clipboardClearConfirm: "Auswahl leeren",
     clipboardClearRemoveEmpty: "Leere Sammlungen entfernen (ausser Allgemein/Neu)",
-    playlistTitle: "Playlist",
+    playlistTitle: "Liste",
     playlistHint:
       "Mit dem Tanda-Menue einen Playlist-Slot zum Ersetzen markieren und dann Track/Tanda aus Zwischenablage oder Suche waehlen. Ohne markierten Slot gehen gesendete Tracks/Tandas in den ersten freien Slot.",
     playlistClear: "Leeren",
@@ -1872,7 +1993,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tabLibrary: "Bibliothek",
     tabDiagnostics: "Diagnose",
     tabSystem: "System",
-    tabPlaylistSettings: "Playlist",
+    tabOrchestras: "Orchester",
+    tabPlaylistSettings: "Liste",
     tabDisplayBoard: "Anzeige",
     libraryRoots: "Bibliotheksordner",
     libraryRootsHelp: "Musik- und Cortina-Ordner konfigurieren.",
@@ -1905,6 +2027,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayBaseFontSizeHelp: "Skaliert den Anzeigetext fur bessere Lesbarkeit aus der Distanz.",
     displayCortinaFontSizeLabel: "Cortina-Schriftgroesse Anzeige (%)",
     displayCortinaFontSizeHelp: "Skaliert die Cortina-Uberschrift getrennt.",
+    displayEdgePaddingLabel: "Display-Randabstand (vmin)",
+    displayEdgePaddingHelp: "Fuegt Abstand zwischen Text und Bildschirmrand hinzu.",
     searchMinScoreLabel: "Minimale Suchbewertung",
     searchBpmRangeLabel: "BPM-Bereich",
     trimPaddingLabel: "Trim-Puffer (s)",
@@ -2098,7 +2222,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     styleAll: "Todos",
     tabTracks: "Faixas",
     tabTandas: "Tandas",
-    tabPlaylist: "Playlist",
+    tabPlaylist: "Lista",
     tabTandaDesigner: "Designer de tandas",
     clipboardTitle: "Area de transferencia",
     clipboardCollectionsLabel: "Colecoes",
@@ -2107,13 +2231,16 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Incluir",
     clipboardCollectionGeneral: "Geral",
     clipboardCollectionNew: "Novos",
+    clipboardCollectionTop: "Mais",
+    clipboardCollectionLeast: "Menos",
+    clipboardCollectionAvailable: "Disponiveis",
     clipboardFilterPlaceholder: "Filtrar",
     confirmClipboardCollectionRemove: "Remover a colecao \"{name}\"?",
     clipboardClear: "Limpar",
     clipboardClearTitle: "Limpar colecoes da area de transferencia",
     clipboardClearConfirm: "Limpar selecionadas",
     clipboardClearRemoveEmpty: "Remover colecoes vazias (exceto Geral/Novos)",
-    playlistTitle: "Playlist",
+    playlistTitle: "Lista",
     playlistHint:
       "Use o menu da tanda para marcar um slot da playlist para substituicao e depois escolha faixa/tanda no Bloco ou na Busca. Sem slot marcado, os envios vao para o primeiro slot livre.",
     playlistClear: "Limpar",
@@ -2226,7 +2353,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tabLibrary: "Biblioteca",
     tabDiagnostics: "Diagnostico",
     tabSystem: "Sistema",
-    tabPlaylistSettings: "Playlist",
+    tabOrchestras: "Orquestras",
+    tabPlaylistSettings: "Lista",
     tabDisplayBoard: "Tela",
     libraryRoots: "Pastas da biblioteca",
     libraryRootsHelp: "Configure pastas de musica e cortinas.",
@@ -2257,6 +2385,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayBaseFontSizeHelp: "Escala o texto da tela para melhor leitura a distancia.",
     displayCortinaFontSizeLabel: "Tamanho da fonte cortina na tela (%)",
     displayCortinaFontSizeHelp: "Escala separadamente o titulo de cortina.",
+    displayEdgePaddingLabel: "Espacamento da borda na tela (vmin)",
+    displayEdgePaddingHelp: "Adiciona espaco entre o texto e as bordas da tela.",
     searchMinScoreLabel: "Pontuacao minima de busca",
     searchBpmRangeLabel: "Intervalo de BPM",
     trimPaddingLabel: "Ajuste de corte (s)",
@@ -2450,7 +2580,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     styleAll: "Tutti",
     tabTracks: "Brani",
     tabTandas: "Tandas",
-    tabPlaylist: "Playlist",
+    tabPlaylist: "Scaletta",
     tabTandaDesigner: "Designer Tanda",
     clipboardTitle: "Appunti",
     clipboardCollectionsLabel: "Collezioni",
@@ -2459,13 +2589,16 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     clipboardCollectionInclude: "Includi",
     clipboardCollectionGeneral: "Generale",
     clipboardCollectionNew: "Nuovo",
+    clipboardCollectionTop: "Piu",
+    clipboardCollectionLeast: "Meno",
+    clipboardCollectionAvailable: "Disponibili",
     clipboardFilterPlaceholder: "Filtra",
     confirmClipboardCollectionRemove: "Rimuovere la collezione \"{name}\"?",
     clipboardClear: "Svuota",
     clipboardClearTitle: "Svuota collezioni appunti",
     clipboardClearConfirm: "Svuota selezionate",
     clipboardClearRemoveEmpty: "Rimuovi collezioni vuote (tranne Generale/Nuovo)",
-    playlistTitle: "Playlist",
+    playlistTitle: "Scaletta",
     playlistHint:
       "Usa il menu della tanda per segnare uno slot playlist da sostituire, poi scegli brano/tanda da Appunti o Ricerca. Senza slot segnato, gli invii vanno al primo slot libero.",
     playlistClear: "Svuota",
@@ -2578,7 +2711,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     tabLibrary: "Libreria",
     tabDiagnostics: "Diagnostica",
     tabSystem: "Sistema",
-    tabPlaylistSettings: "Playlist",
+    tabOrchestras: "Orchestre",
+    tabPlaylistSettings: "Scaletta",
     tabDisplayBoard: "Display",
     libraryRoots: "Radici libreria",
     libraryRootsHelp: "Configura cartelle musica e cortina per la scansione.",
@@ -2611,6 +2745,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayBaseFontSizeHelp: "Scala il testo del display per leggibilita a distanza.",
     displayCortinaFontSizeLabel: "Dimensione carattere cortina display (%)",
     displayCortinaFontSizeHelp: "Scala separatamente il titolo cortina.",
+    displayEdgePaddingLabel: "Spazio bordo display (vmin)",
+    displayEdgePaddingHelp: "Aggiunge spazio tra il testo e i bordi dello schermo.",
     searchMinScoreLabel: "Punteggio minimo ricerca",
     searchBpmRangeLabel: "Intervallo BPM",
     trimPaddingLabel: "Margine taglio (s)",
@@ -3642,6 +3778,7 @@ const updateExternalDisplay = () => {
       imageDimOpacity: getDisplayImageDimOpacity(),
       fontScale: getDisplayFontScale(),
       cortinaFontScale: getDisplayCortinaFontScale(),
+      edgePaddingVmin: getDisplayEdgePaddingVmin(),
       mode: "cortina",
     };
     const signature = JSON.stringify(payload);
@@ -3665,6 +3802,7 @@ const updateExternalDisplay = () => {
         imageDimOpacity: getDisplayImageDimOpacity(),
         fontScale: getDisplayFontScale(),
         cortinaFontScale: getDisplayCortinaFontScale(),
+        edgePaddingVmin: getDisplayEdgePaddingVmin(),
         mode: "cortina",
       };
       const signature = JSON.stringify(payload);
@@ -3681,6 +3819,7 @@ const updateExternalDisplay = () => {
       imageDimOpacity: getDisplayImageDimOpacity(),
       fontScale: getDisplayFontScale(),
       cortinaFontScale: getDisplayCortinaFontScale(),
+      edgePaddingVmin: getDisplayEdgePaddingVmin(),
       mode: "normal",
     };
     const signature = JSON.stringify(payload);
@@ -3708,6 +3847,7 @@ const updateExternalDisplay = () => {
     imageDimOpacity: getDisplayImageDimOpacity(),
     fontScale: getDisplayFontScale(),
     cortinaFontScale: getDisplayCortinaFontScale(),
+    edgePaddingVmin: getDisplayEdgePaddingVmin(),
     mode: "normal",
   };
   const signature = JSON.stringify(payload);
@@ -4949,7 +5089,7 @@ const showClipboardClearModal = async () => {
   removeEmptyInput.checked = false;
   listEl.innerHTML = "";
   clipboardCollections
-    .filter((collection) => collection.id !== CLIPBOARD_NEW_ID)
+    .filter((collection) => !isReadOnlyCollectionId(collection.id))
     .forEach((collection) => {
       const row = document.createElement("label");
       row.className = "clipboard-clear-row";
@@ -5045,6 +5185,241 @@ const showPlaylistClearModal = async () => {
   playlistClearModalEl.classList.remove("hidden");
   return new Promise<"clear" | "autofill" | null>((resolve) => {
     playlistClearModalResolve = resolve;
+  });
+};
+
+const renderMiniChart = (
+  root: HTMLDivElement | null,
+  rows: { label: string; value: number }[],
+  options?: {
+    maxBars?: number;
+    includeZero?: boolean;
+    className?: string;
+  },
+) => {
+  if (!root) {
+    return;
+  }
+  root.innerHTML = "";
+  root.classList.remove("orchestra", "compact");
+  if (options?.className) {
+    root.classList.add(options.className);
+  }
+  const includeZero = options?.includeZero ?? false;
+  const maxBars = options?.maxBars ?? Number.POSITIVE_INFINITY;
+  const data = rows
+    .filter((row) =>
+      includeZero
+        ? Number.isFinite(row.value) && row.value >= 0
+        : Number.isFinite(row.value) && row.value > 0,
+    )
+    .slice(0, maxBars);
+  if (data.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "mini-chart-empty";
+    empty.textContent = t("playlistStatsNoData");
+    root.appendChild(empty);
+    return;
+  }
+  const maxValue = Math.max(...data.map((row) => row.value));
+  const ORCHESTRA_LABEL_MAX = "Enrique Rodrigues".length;
+  data.forEach((row) => {
+    const item = document.createElement("div");
+    item.className = "mini-chart-item";
+    const bar = document.createElement("div");
+    bar.className = "mini-chart-bar";
+    const ratio = maxValue > 0 ? row.value / maxValue : 0;
+    if (row.value <= 0) {
+      bar.classList.add("is-zero");
+      bar.style.height = "0";
+    } else {
+      bar.style.height = `${Math.max(4, Math.round(ratio * 100))}%`;
+    }
+    const label = document.createElement("div");
+    label.className = "mini-chart-label";
+    const labelText =
+      options?.className === "orchestra" && row.label.length > ORCHESTRA_LABEL_MAX
+        ? `${row.label.slice(0, ORCHESTRA_LABEL_MAX - 1)}...`
+        : row.label;
+    label.textContent = labelText;
+    label.title =
+      options?.className === "orchestra"
+        ? `${row.label}: ${formatTime(row.value)}`
+        : `${row.label}: ${Math.round(row.value)}`;
+    item.append(bar, label);
+    root.appendChild(item);
+  });
+};
+
+const colorForStyleKey = (styleKey: string) => {
+  const key = styleKey.toLowerCase();
+  if (key.includes("milonga")) {
+    return "#1fbf75";
+  }
+  if (key.includes("vals") || key.includes("waltz")) {
+    return "#3d7dff";
+  }
+  if (key.includes("tango")) {
+    return "#ff7847";
+  }
+  return "#8f9aad";
+};
+
+const patternForStyleKey = (styleKey: string) => {
+  const key = styleKey.toLowerCase();
+  if (key.includes("milonga")) {
+    // Diagonal hatch
+    return "repeating-linear-gradient(45deg, rgba(0,0,0,0.26) 0 2px, rgba(255,255,255,0) 2px 6px)";
+  }
+  if (key.includes("vals") || key.includes("waltz")) {
+    // Opposite diagonal hatch
+    return "repeating-linear-gradient(-45deg, rgba(0,0,0,0.26) 0 2px, rgba(255,255,255,0) 2px 6px)";
+  }
+  if (key.includes("tango")) {
+    // Vertical hatch
+    return "repeating-linear-gradient(90deg, rgba(0,0,0,0.2) 0 2px, rgba(255,255,255,0) 2px 6px)";
+  }
+  // Dot-ish checker for unknown
+  return "repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0 2px, rgba(255,255,255,0) 2px 5px), repeating-linear-gradient(90deg, rgba(0,0,0,0.12) 0 2px, rgba(255,255,255,0) 2px 5px)";
+};
+
+const renderOrchestraChart = (
+  root: HTMLDivElement | null,
+  rows: ReturnType<typeof aggregateOrchestraDurations>,
+  maxBars = Number.POSITIVE_INFINITY,
+) => {
+  if (!root) {
+    return;
+  }
+  root.innerHTML = "";
+  root.classList.remove("compact");
+  root.classList.add("orchestra");
+  const data = rows.filter((row) => row.totalSeconds > 0).slice(0, maxBars);
+  if (data.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "mini-chart-empty";
+    empty.textContent = t("playlistStatsNoData");
+    root.appendChild(empty);
+    return;
+  }
+  const maxValue = Math.max(...data.map((row) => row.totalSeconds));
+  const ORCHESTRA_LABEL_MAX = "Enrique Rodrigues".length;
+  data.forEach((row, index) => {
+    const item = document.createElement("div");
+    item.className = "mini-chart-item orchestra-item";
+    const upper = document.createElement("div");
+    upper.className = "mini-chart-upper";
+    const count = document.createElement("div");
+    count.className = "mini-chart-top";
+    count.textContent = `${Math.round(row.tandaCount)}`;
+    const barWrap = document.createElement("div");
+    barWrap.className = "mini-chart-stack-wrap";
+    const ratio = maxValue > 0 ? row.totalSeconds / maxValue : 0;
+    barWrap.style.height = `${Math.max(4, Math.round(ratio * 100))}%`;
+    const stack = document.createElement("div");
+    stack.className = "mini-chart-stack";
+    const styleRows = Object.entries(row.styleSeconds)
+      .map(([style, seconds]) => ({ style, seconds }))
+      .filter((entry) => entry.seconds > 0)
+      .sort((a, b) => b.seconds - a.seconds);
+    styleRows.forEach((styleRow) => {
+      const segment = document.createElement("div");
+      segment.className = "mini-chart-segment";
+      const segmentRatio = styleRow.seconds / row.totalSeconds;
+      segment.style.height = `${Math.max(4, Math.round(segmentRatio * 100))}%`;
+      segment.style.backgroundColor = colorForStyleKey(styleRow.style);
+      segment.style.backgroundImage = patternForStyleKey(styleRow.style);
+      stack.appendChild(segment);
+    });
+    barWrap.appendChild(stack);
+    upper.append(count, barWrap);
+    const label = document.createElement("div");
+    label.className = "mini-chart-label";
+    label.textContent =
+      row.label.length > ORCHESTRA_LABEL_MAX
+        ? `${row.label.slice(0, ORCHESTRA_LABEL_MAX - 1)}...`
+        : row.label;
+    const styleDetail = styleRows
+      .map((styleRow) => `${styleRow.style}: ${formatTime(styleRow.seconds)}`)
+      .join(", ");
+    item.title = `${row.label}: ${formatTime(row.totalSeconds)} (${row.tandaCount} tanda)\n${styleDetail}`;
+    item.append(upper, label);
+    root.appendChild(item);
+  });
+};
+
+const setPlaylistStatsModalVisible = (visible: boolean) => {
+  if (!playlistStatsModal) {
+    return;
+  }
+  playlistStatsModal.classList.toggle("open", visible);
+  playlistStatsModal.setAttribute("aria-hidden", visible ? "false" : "true");
+};
+
+const renderPlaylistStats = () => {
+  const orchestraEntries: {
+    artist: string;
+    seconds: number;
+    style: string;
+    tandaId: string | null;
+  }[] = [];
+  const yearBuckets = new Map<number, number>();
+  const tempoBuckets = new Map<number, number>();
+  playlistItems.forEach((item) => {
+    if (!item) {
+      return;
+    }
+    const tandaStyleFallback =
+      item.kind === "tanda"
+        ? (() => {
+            const tanda = resolveTandaDraft(item.tandaId);
+            if (!tanda || tanda.styles.length === 0) {
+              return "";
+            }
+            const normalized = tanda.styles
+              .map((style) => normalizeStyleName(style))
+              .filter(Boolean);
+            if (normalized.length === 0) {
+              return "";
+            }
+            return normalized[0] ?? "";
+          })()
+        : "";
+    const tracks = resolvePlaylistTracks(item);
+    tracks.forEach((track) => {
+      const seconds = Math.max(1, Math.round(getEffectiveTrackDurationMs(track) / 1000));
+      const orchestra =
+        resolveCanonicalArtistName(track.artist_summary || track.artist || "") ||
+        t("nowPlayingUnknown");
+      const style =
+        normalizeStyleName(track.genre ?? "") || tandaStyleFallback || "unknown";
+      orchestraEntries.push({
+        artist: orchestra,
+        seconds,
+        style,
+        tandaId: item.kind === "tanda" ? item.tandaId : null,
+      });
+      const year = yearValue(track);
+      if (year !== null) {
+        yearBuckets.set(year, (yearBuckets.get(year) ?? 0) + 1);
+      }
+      if (track.bpm !== null && track.bpm !== undefined && Number.isFinite(track.bpm)) {
+        const bpm = Math.round(track.bpm);
+        tempoBuckets.set(bpm, (tempoBuckets.get(bpm) ?? 0) + 1);
+      }
+    });
+  });
+  const orchestraRows = aggregateOrchestraDurations(orchestraEntries);
+  const yearRows = buildAdaptiveNumericDistribution(yearBuckets, 30, 30);
+  const tempoRows = buildAdaptiveNumericDistribution(tempoBuckets, 30, 30);
+  renderOrchestraChart(playlistStatsOrchestraEl, orchestraRows);
+  renderMiniChart(playlistStatsYearEl, yearRows, {
+    includeZero: true,
+    className: "compact",
+  });
+  renderMiniChart(playlistStatsTempoEl, tempoRows, {
+    includeZero: true,
+    className: "compact",
   });
 };
 
@@ -5661,7 +6036,8 @@ const renderTrackRow = (
 ) => {
   const activeCollection = context === "clipboard" ? getActiveCollection() : null;
   const canRemoveFromClipboard =
-    context === "clipboard" && activeCollection?.id !== CLIPBOARD_NEW_ID;
+    context === "clipboard" &&
+    Boolean(activeCollection && !isReadOnlyCollectionId(activeCollection.id));
   const row = document.createElement("div");
   const active = getNowPlayingState();
   const isPlaying = active?.state.currentTrackId === track.id;
@@ -6143,6 +6519,55 @@ const getClipboardTandaFilterText = (tanda: TandaDraft) => {
   return parts.join(" ").toLowerCase();
 };
 
+const clearPlaylistFilterTimer = () => {
+  if (playlistFilterClearTimer !== undefined) {
+    window.clearTimeout(playlistFilterClearTimer);
+    playlistFilterClearTimer = undefined;
+  }
+};
+
+const clearPlaylistFilter = () => {
+  clearPlaylistFilterTimer();
+  if (playlistFilterText && getPlaylistTargetIndex() !== null) {
+    centerPlaylistTargetOnNextRender = true;
+  }
+  playlistFilterText = "";
+  if (playlistFilterInput) {
+    playlistFilterInput.value = "";
+  }
+  renderPlaylist();
+};
+
+const schedulePlaylistFilterAutoClear = () => {
+  clearPlaylistFilterTimer();
+  if (!playlistFilterText) {
+    return;
+  }
+  const runCheck = () => {
+    if (!playlistFilterText) {
+      clearPlaylistFilterTimer();
+      return;
+    }
+    const remainingMs = computeAutoClearRemainingMs({
+      lastInteractionAt: lastUserInteractionAt,
+      now: Date.now(),
+      idleMs: PLAYLIST_FILTER_AUTO_CLEAR_MS,
+    });
+    if (remainingMs <= 0) {
+      clearPlaylistFilter();
+      return;
+    }
+    playlistFilterClearTimer = window.setTimeout(runCheck, Math.max(remainingMs, 250));
+  };
+  runCheck();
+};
+
+const getPlaylistTrackFilterText = (track: TrackRow) =>
+  buildTrackSearchQuery(track).toLowerCase();
+
+const getPlaylistTandaFilterText = (tanda: TandaDraft) =>
+  getClipboardTandaFilterText(tanda);
+
 const buildSearchQueryForTanda = (tanda: TandaDraft) => {
   const tracks = tanda.trackSlots
     .map((trackId) => (trackId ? trackCache.get(trackId) ?? null : null))
@@ -6202,7 +6627,8 @@ const renderTandaRow = (
 ) => {
   const activeCollection = context === "clipboard" ? getActiveCollection() : null;
   const canRemoveFromClipboard =
-    context === "clipboard" && activeCollection?.id !== CLIPBOARD_NEW_ID;
+    context === "clipboard" &&
+    Boolean(activeCollection && !isReadOnlyCollectionId(activeCollection.id));
   const row = document.createElement("div");
   row.className = "list-row tanda-row";
   row.dataset.tandaId = tanda.id;
@@ -6529,6 +6955,157 @@ const loadTandaSearchResults = async () => {
   renderTandaSearchResults();
 };
 
+const resolveCanonicalArtistName = (rawArtist: string) =>
+  resolveOrchestraCanonical({
+    rawArtist,
+    entries: orchestraRegistry,
+    aliasIndex: orchestraAliasIndex,
+  }) ?? summarizeArtistName(rawArtist) ?? rawArtist;
+
+const collectionArtistGroupKey = (track: TrackRow) =>
+  normalizeArtistGroupKey(
+    resolveCanonicalArtistName(track.artist_summary || track.artist || ""),
+  );
+
+const getOrchestraEntryByGroupKey = (groupKey: string) => {
+  const normalized = normalizeArtistGroupKey(groupKey);
+  return orchestraRegistry.find(
+    (entry) => normalizeArtistGroupKey(entry.canonical) === normalized,
+  );
+};
+
+const getPlaylistArtistGroups = () => {
+  const used = new Set<string>();
+  playlistItems.forEach((item) => {
+    if (!item) {
+      return;
+    }
+    resolvePlaylistTracks(item).forEach((track) => {
+      const key = collectionArtistGroupKey(track);
+      if (key) {
+        used.add(key);
+        const entry = getOrchestraEntryByGroupKey(key);
+        if (entry) {
+          entry.related.forEach((related) => {
+            const relatedCanonical =
+              resolveOrchestraCanonical({
+                rawArtist: related,
+                entries: orchestraRegistry,
+                aliasIndex: orchestraAliasIndex,
+              }) ?? related;
+            const relatedKey = normalizeArtistGroupKey(relatedCanonical);
+            if (relatedKey) {
+              used.add(relatedKey);
+            }
+          });
+        }
+      }
+    });
+  });
+  return used;
+};
+
+const buildTopOrLeastCollectionIds = async (least: boolean) => {
+  await ensureSmartCollectionCaches();
+  const tracks = allTracksForSmartCollections ?? [];
+  const tandas = allTandasForSmartCollections ?? [];
+  const countForTrack = (id: string) => playCounts.tracks[id] ?? 0;
+  const countForTanda = (id: string) => playCounts.tandas[id] ?? 0;
+  const trackIds = tracks
+    .filter((track) => (least ? true : countForTrack(track.id) > 0))
+    .slice()
+    .sort((left, right) => {
+      const diff = countForTrack(left.id) - countForTrack(right.id);
+      const byCount = least ? diff : -diff;
+      if (byCount !== 0) {
+        return byCount;
+      }
+      return buildTrackLabel(left).localeCompare(buildTrackLabel(right));
+    })
+    .slice(0, SMART_COLLECTION_LIMIT)
+    .map((track) => track.id);
+  const tandaIds = tandas
+    .filter((tanda) => (least ? true : countForTanda(tanda.id) > 0))
+    .slice()
+    .sort((left, right) => {
+      const diff = countForTanda(left.id) - countForTanda(right.id);
+      const byCount = least ? diff : -diff;
+      if (byCount !== 0) {
+        return byCount;
+      }
+      return getTandaSortKey(left).localeCompare(getTandaSortKey(right));
+    })
+    .slice(0, SMART_COLLECTION_LIMIT)
+    .map((tanda) => tanda.id);
+  return { trackIds, tandaIds };
+};
+
+const buildAvailableCollectionIds = async () => {
+  await ensureSmartCollectionCaches();
+  const tracks = allTracksForSmartCollections ?? [];
+  const tandas = allTandasForSmartCollections ?? [];
+  const requiredCount = Math.max(1, getDefaultTandaSize());
+  const usedGroups = getPlaylistArtistGroups();
+  const eligibleGroups = collectEligibleArtistGroups({
+    items: tracks,
+    usedGroups,
+    requiredCount,
+    getArtistGroupKey: collectionArtistGroupKey,
+    getTitleKey: normalizeTrackTitleForAutofill,
+  });
+  const trackIds = tracks
+    .filter((track) => {
+      const group = collectionArtistGroupKey(track);
+      return group.length > 0 && eligibleGroups.has(group);
+    })
+    .slice()
+    .sort((left, right) => {
+      const leftGroup = collectionArtistGroupKey(left);
+      const rightGroup = collectionArtistGroupKey(right);
+      const groupOrder = leftGroup.localeCompare(rightGroup);
+      if (groupOrder !== 0) {
+        return groupOrder;
+      }
+      return buildTrackLabel(left).localeCompare(buildTrackLabel(right));
+    })
+    .slice(0, SMART_COLLECTION_LIMIT)
+    .map((track) => track.id);
+  const tandaIds = tandas
+    .filter((tanda) => {
+      const tandaTracks = getTandaTracks(tanda);
+      if (tandaTracks.length !== requiredCount) {
+        return false;
+      }
+      const groups = Array.from(new Set(tandaTracks.map(collectionArtistGroupKey)));
+      if (groups.length !== 1) {
+        return false;
+      }
+      return eligibleGroups.has(groups[0] ?? "");
+    })
+    .slice()
+    .sort((left, right) => getTandaSortKey(left).localeCompare(getTandaSortKey(right)))
+    .slice(0, SMART_COLLECTION_LIMIT)
+    .map((tanda) => tanda.id);
+  return { trackIds, tandaIds };
+};
+
+const getCollectionContentIds = async (collectionId: string) => {
+  if (!collectionIsSmart(collectionId)) {
+    const collection = clipboardCollections.find((item) => item.id === collectionId);
+    return {
+      trackIds: collection?.trackIds ?? [],
+      tandaIds: collection?.tandaIds ?? [],
+    };
+  }
+  if (collectionId === CLIPBOARD_TOP_ID) {
+    return buildTopOrLeastCollectionIds(false);
+  }
+  if (collectionId === CLIPBOARD_LEAST_ID) {
+    return buildTopOrLeastCollectionIds(true);
+  }
+  return buildAvailableCollectionIds();
+};
+
 const renderClipboard = async () => {
   if (!clipTracksEl) {
     return;
@@ -6536,22 +7113,19 @@ const renderClipboard = async () => {
   const visibleCollectionIds = getVisibleCollectionIds();
   const visibleTrackIds: string[] = [];
   const visibleTandaIds: string[] = [];
-  visibleCollectionIds.forEach((id) => {
-    const collection = clipboardCollections.find((item) => item.id === id);
-    if (!collection) {
-      return;
-    }
-    collection.trackIds.forEach((trackId) => {
+  for (const id of visibleCollectionIds) {
+    const content = await getCollectionContentIds(id);
+    content.trackIds.forEach((trackId) => {
       if (!visibleTrackIds.includes(trackId)) {
         visibleTrackIds.push(trackId);
       }
     });
-    collection.tandaIds.forEach((tandaId) => {
+    content.tandaIds.forEach((tandaId) => {
       if (!visibleTandaIds.includes(tandaId)) {
         visibleTandaIds.push(tandaId);
       }
     });
-  });
+  }
   await ensureClipboardTracksLoaded(visibleTrackIds);
   await ensureClipboardTandasLoaded(visibleTandaIds);
   clipboardTracks = visibleTrackIds
@@ -6768,6 +7342,7 @@ const renderPlaylist = () => {
     return;
   }
   normalizePlaylist();
+  const targetIndex = getPlaylistTargetIndex();
   recomputePlaylistMismatches();
   savePlaylistToStorage();
   const fragment = document.createDocumentFragment();
@@ -6787,7 +7362,26 @@ const renderPlaylist = () => {
   }
   const startTimes = getPlaylistStartTimes();
   const cortinaStartTimes = getCortinaStartTimes();
+  const filterText = normalizeClipboardFilter(playlistFilterText);
+  const hasFilter = filterText.length > 0;
+  let visibleItems = 0;
   playlistItems.forEach((item, index) => {
+    if (hasFilter) {
+      if (!item) {
+        return;
+      }
+      if (item.kind === "track") {
+        if (!getPlaylistTrackFilterText(item.track).includes(filterText)) {
+          return;
+        }
+      } else {
+        const tandaForFilter =
+          resolveTandaDraft(item.tandaId) ?? createPlaceholderTanda(item.tandaId);
+        if (!getPlaylistTandaFilterText(tandaForFilter).includes(filterText)) {
+          return;
+        }
+      }
+    }
     const isLocked = isPlaylistIndexLocked(index);
     const isPlayed =
       appMode === "live" &&
@@ -6807,8 +7401,9 @@ const renderPlaylist = () => {
       row.dataset.index = index.toString();
       applyPulseToRow(row, pulsePlaylistIndices, index);
       fragment.appendChild(row);
+      visibleItems += 1;
     } else if (item && item.kind === "tanda") {
-      if (isCortinaEnabled()) {
+      if (isCortinaEnabled() && !hasFilter) {
         const cortinaRow = document.createElement("div");
         cortinaRow.className = "list-row cortina-row";
         cortinaRow.dataset.cortinaIndex = index.toString();
@@ -6881,7 +7476,7 @@ const renderPlaylist = () => {
         }
       }
       row.dataset.index = index.toString();
-      if (playlistTargetIndex === index) {
+      if (targetIndex === index) {
         row.classList.add("playlist-target");
         const cancel = document.createElement("button");
         cancel.type = "button";
@@ -6894,7 +7489,11 @@ const renderPlaylist = () => {
       }
       applyPulseToRow(row, pulsePlaylistIndices, index);
       fragment.appendChild(row);
+      visibleItems += 1;
     } else {
+      if (hasFilter) {
+        return;
+      }
       const row = document.createElement("div");
       row.className = "list-row";
       if (isPlayed) {
@@ -6930,7 +7529,7 @@ const renderPlaylist = () => {
       fragment.appendChild(row);
     }
   });
-  if (isCortinaEnabled() && playlistItems.some((item) => item?.kind === "tanda")) {
+  if (!hasFilter && isCortinaEnabled() && playlistItems.some((item) => item?.kind === "tanda")) {
     const endRow = document.createElement("div");
     endRow.className = "list-row cortina-row";
     endRow.dataset.cortinaIndex = playlistItems.length.toString();
@@ -6965,7 +7564,25 @@ const renderPlaylist = () => {
     applyPulseToRow(endRow, pulseCortinaIndices, playlistItems.length);
     fragment.appendChild(endRow);
   }
+  if (hasFilter && visibleItems === 0) {
+    const row = document.createElement("div");
+    row.className = "list-row";
+    const label = document.createElement("span");
+    label.textContent = t("playlistFilterNoMatch");
+    row.append(label);
+    fragment.appendChild(row);
+  }
   playlistListEl.replaceChildren(fragment);
+  const shouldCenterTarget =
+    targetIndex !== null &&
+    (centerPlaylistTargetOnNextRender || (!hasFilter && lastRenderedPlaylistHasFilter));
+  centerPlaylistTargetOnNextRender = false;
+  lastRenderedPlaylistHasFilter = hasFilter;
+  if (shouldCenterTarget) {
+    requestAnimationFrame(() => {
+      scrollPlaylistToIndex(targetIndex);
+    });
+  }
   updateTabCount(playlistPanel, "playlist-tab", getPlaylistCount());
   updatePlaylistControls();
   renderSearchResults();
@@ -6977,12 +7594,13 @@ const renderPlaylist = () => {
 const updatePlaylistControls = () => {
   const hasItems = playlistItems.some((item) => item !== null);
   if (playlistStartBtn) {
-    playlistStartBtn.disabled =
-      !hasItems || playlistPlayback.status === "playing";
-  }
-  if (playlistResumeBtn) {
-    playlistResumeBtn.disabled =
-      playlistPlayback.status !== "paused" || !playlistPlayback.resume;
+    if (playlistPlayback.status === "playing") {
+      playlistStartBtn.disabled = true;
+    } else if (playlistPlayback.status === "paused") {
+      playlistStartBtn.disabled = !playlistPlayback.resume;
+    } else {
+      playlistStartBtn.disabled = !hasItems;
+    }
   }
   if (playlistStopBtn) {
     playlistStopBtn.disabled = playlistPlayback.status !== "playing";
@@ -7462,6 +8080,9 @@ const runPlaylistPlayback = async (
       if (!ended) {
         return;
       }
+      if (appMode === "live") {
+        incrementTrackPlayCount(track.id);
+      }
       if (index < tracks.length - 1) {
         const ok = await waitForGap(getGapBetweenTracks() * 1000, runId);
         if (!ok) {
@@ -7470,6 +8091,12 @@ const runPlaylistPlayback = async (
       }
     }
     playedAny = true;
+    if (appMode === "live" && item.kind === "tanda") {
+      incrementTandaPlayCount(item.tandaId);
+    }
+    if (appMode === "live") {
+      savePlayCounts();
+    }
     playlistPlayback.playedThroughIndex = Math.max(
       playlistPlayback.playedThroughIndex,
       playlistPlayback.currentIndex,
@@ -7647,8 +8274,11 @@ const pickAutofillTandaForSlot = (
   artistCounts: Map<string, number>,
   recentYears: number[],
   recentBpms: number[],
+  currentTotalMs: number,
+  repeatGapMs: number,
+  artistLastPlayedAtMs: Map<string, number>,
 ) => {
-  const usable = candidates
+  const asScored = candidates
     .filter((candidate) => !usedTandaIds.has(candidate.id))
     .map((candidate) => {
       const tracks = getTandaTracks(candidate);
@@ -7672,9 +8302,20 @@ const pickAutofillTandaForSlot = (
       };
     })
     .filter(Boolean) as { tanda: TandaDraft; score: number }[];
-  if (usable.length === 0) {
+  if (asScored.length === 0) {
     return null;
   }
+  const respectsGap = (tanda: TandaDraft) =>
+    areArtistsGapSatisfied({
+      items: getTandaTracks(tanda),
+      getArtistKey: artistKey,
+      currentTotalMs,
+      repeatGapMs,
+      artistLastPlayedAtMs,
+    });
+  const usable = asScored.some((entry) => respectsGap(entry.tanda))
+    ? asScored.filter((entry) => respectsGap(entry.tanda))
+    : asScored;
   usable.sort((left, right) => left.score - right.score);
   const top = usable.slice(0, Math.min(8, usable.length));
   return top[Math.floor(Math.random() * top.length)]?.tanda ?? null;
@@ -7687,6 +8328,9 @@ const pickGeneratedTandaForSlot = (
   allTracks: TrackRow[],
   usedTrackTitles: Set<string>,
   artistCounts: Map<string, number>,
+  currentTotalMs: number,
+  repeatGapMs: number,
+  artistLastPlayedAtMs: Map<string, number>,
 ) => {
   const targetCount = Math.max(1, getDefaultPlaylistTandaSize(slotIndex));
   const defaultStyles = getDefaultPlaylistStyles(slotIndex).map(canonicalizeStyleForMatching);
@@ -7711,6 +8355,8 @@ const pickGeneratedTandaForSlot = (
     "style-only",
   ];
   for (const phase of phases) {
+    const gapModes = repeatGapMs > 0 ? [true, false] : [false];
+    for (const enforceGap of gapModes) {
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const seed = pool[Math.floor(Math.random() * pool.length)] ?? null;
       if (!seed) {
@@ -7802,6 +8448,18 @@ const pickGeneratedTandaForSlot = (
       if (chosen.length < targetCount) {
         continue;
       }
+      if (
+        enforceGap &&
+        !areArtistsGapSatisfied({
+          items: chosen,
+          getArtistKey: artistKey,
+          currentTotalMs,
+          repeatGapMs,
+          artistLastPlayedAtMs,
+        })
+      ) {
+        continue;
+      }
       chosen.forEach((track) => trackCache.set(track.id, track));
       const generated: TandaDraft = {
         id: crypto.randomUUID(),
@@ -7827,6 +8485,7 @@ const pickGeneratedTandaForSlot = (
       ensureTandaDraft(generated, "playlist");
       return generated;
     }
+    }
   }
   return null;
 };
@@ -7838,6 +8497,8 @@ const registerAutofillUsage = (
   artistCounts: Map<string, number>,
   recentYears: number[],
   recentBpms: number[],
+  artistLastPlayedAtMs: Map<string, number>,
+  currentTotalMs: number,
 ) => {
   usedTandaIds.add(tanda.id);
   const tracks = getTandaTracks(tanda);
@@ -7846,6 +8507,7 @@ const registerAutofillUsage = (
     const key = artistKey(track);
     if (key) {
       artistCounts.set(key, (artistCounts.get(key) ?? 0) + 1);
+      artistLastPlayedAtMs.set(key, currentTotalMs);
     }
     const year = yearValue(track);
     if (year !== null) {
@@ -7939,8 +8601,10 @@ const clearAndAutofillPlaylist = async () => {
   const usedTrackTitles = collectUsedTrackTitles();
   const usedTandaIds = new Set<string>();
   const artistCounts = new Map<string, number>();
+  const artistLastPlayedAtMs = new Map<string, number>();
   const recentYears: number[] = [];
   const recentBpms: number[] = [];
+  const repeatGapMs = getPlaylistArtistRepeatGapMinutes() * 60 * 1000;
   let slotIndex = 0;
   let added = 0;
   let blocked = false;
@@ -7960,12 +8624,18 @@ const clearAndAutofillPlaylist = async () => {
         artistCounts,
         recentYears,
         recentBpms,
+        currentTotalMs,
+        repeatGapMs,
+        artistLastPlayedAtMs,
       ) ??
       pickGeneratedTandaForSlot(
         slotIndex,
         allTracks,
         usedTrackTitles,
         artistCounts,
+        currentTotalMs,
+        repeatGapMs,
+        artistLastPlayedAtMs,
       );
     if (!selected) {
       const placeholder = createAutofillPlaceholderTandaForSlot(slotIndex);
@@ -8021,6 +8691,8 @@ const clearAndAutofillPlaylist = async () => {
       artistCounts,
       recentYears,
       recentBpms,
+      artistLastPlayedAtMs,
+      currentTotalMs,
     );
     added += 1;
     slotIndex += 1;
@@ -8514,7 +9186,7 @@ const addTrackToCollection = (collectionId: string, track: TrackRow) => {
   if (!collection) {
     return;
   }
-  if (collection.id === CLIPBOARD_NEW_ID) {
+  if (isReadOnlyCollectionId(collection.id)) {
     setStatus(t("statusClipboardCollectionReadOnly"));
     return;
   }
@@ -8531,7 +9203,7 @@ const addTandaToCollection = (collectionId: string, tandaId: string) => {
   if (!collection) {
     return;
   }
-  if (collection.id === CLIPBOARD_NEW_ID) {
+  if (isReadOnlyCollectionId(collection.id)) {
     setStatus(t("statusClipboardCollectionReadOnly"));
     return;
   }
@@ -8555,6 +9227,7 @@ const refreshNewCollectionTracks = async () => {
   const tandaIds = await window.tanda.listRecentTandas(limit);
   collection.trackIds = ids;
   collection.tandaIds = tandaIds;
+  invalidateSmartCollectionsCache();
   saveClipboardCollections();
 };
 
@@ -8570,6 +9243,7 @@ const findFirstEmptyPlaylistSlot = () =>
 
 const clearPlaylistTarget = () => {
   playlistTargetIndex = null;
+  playlistTargetTandaId = null;
 };
 
 const clearPlaylistOpenTanda = () => {
@@ -8630,15 +9304,36 @@ const applyPlaylistTargetStyles = (index: number) => {
   renderClipboard();
 };
 
-const getPlaylistTargetIndex = () => {
-  if (playlistTargetIndex === null) {
-    return null;
-  }
-  if (playlistTargetIndex < 0 || playlistTargetIndex >= playlistItems.length) {
+const retainPlaylistTargetAtIndex = (index: number) => {
+  const item = playlistItems[index] ?? null;
+  if (item?.kind !== "tanda") {
     clearPlaylistTarget();
     return null;
   }
-  return playlistTargetIndex;
+  playlistTargetIndex = index;
+  playlistTargetTandaId = item.tandaId;
+  return index;
+};
+
+const getPlaylistTargetIndex = () => {
+  if (playlistTargetTandaId) {
+    const resolvedIndex = playlistItems.findIndex(
+      (item) => item?.kind === "tanda" && item.tandaId === playlistTargetTandaId,
+    );
+    if (resolvedIndex >= 0) {
+      playlistTargetIndex = resolvedIndex;
+      return resolvedIndex;
+    }
+    if (playlistTargetIndex !== null) {
+      return retainPlaylistTargetAtIndex(playlistTargetIndex);
+    }
+    clearPlaylistTarget();
+    return null;
+  }
+  if (playlistTargetIndex === null) {
+    return null;
+  }
+  return retainPlaylistTargetAtIndex(playlistTargetIndex);
 };
 
 const getOpenPlaylistTandaIndex = () => {
@@ -8773,7 +9468,8 @@ const appendTrackToPlaylist = (
       clearPlaylistOpenTanda();
     }
     if (targetIndex !== null) {
-      clearPlaylistTarget();
+      retainPlaylistTargetAtIndex(targetIndex);
+      centerPlaylistTargetOnNextRender = true;
     }
     renderPlaylist();
     requestAnimationFrame(() => scrollPlaylistToIndex(insertIndex));
@@ -8816,7 +9512,8 @@ const appendTrackToPlaylist = (
   openTandaInDesigner(tanda.id, tanda, "playlist-tab");
   markPlaylistPulse(insertIndex);
   if (targetIndex !== null) {
-    clearPlaylistTarget();
+    retainPlaylistTargetAtIndex(targetIndex);
+    centerPlaylistTargetOnNextRender = true;
   }
   renderPlaylist();
   requestAnimationFrame(() => scrollPlaylistToIndex(insertIndex));
@@ -8988,6 +9685,17 @@ const getDisplayCortinaFontScale = () => {
     return DEFAULT_DISPLAY_CORTINA_FONT_SCALE;
   }
   return Math.min(2.4, Math.max(0.7, value / 100));
+};
+
+const getDisplayEdgePaddingVmin = () => {
+  const raw = localStorage.getItem(DISPLAY_EDGE_PADDING_KEY);
+  const value = raw
+    ? Number.parseFloat(raw)
+    : DEFAULT_DISPLAY_EDGE_PADDING_VMIN;
+  if (!Number.isFinite(value)) {
+    return DEFAULT_DISPLAY_EDGE_PADDING_VMIN;
+  }
+  return Math.min(16, Math.max(1, value));
 };
 
 const ensureCortinaDurationDefault = () => {
@@ -9534,7 +10242,8 @@ const addTandaToPlaylist = (tandaId: string, source?: TandaDraft | null) => {
   }
   const placed = placeTandaInPlaylistSlot(tandaId, insertIndex);
   if (placed && targetIndex !== null) {
-    clearPlaylistTarget();
+    retainPlaylistTargetAtIndex(targetIndex);
+    centerPlaylistTargetOnNextRender = true;
   }
 };
 
@@ -9616,7 +10325,7 @@ const removeClipboardTrack = (trackId: string) => {
   if (!collection) {
     return;
   }
-  if (collection.id === CLIPBOARD_NEW_ID) {
+  if (isReadOnlyCollectionId(collection.id)) {
     setStatus(t("statusClipboardCollectionReadOnly"));
     return;
   }
@@ -9636,7 +10345,7 @@ const removeClipboardTanda = (tandaId: string) => {
   if (!collection) {
     return;
   }
-  if (collection.id === CLIPBOARD_NEW_ID) {
+  if (isReadOnlyCollectionId(collection.id)) {
     setStatus(t("statusClipboardCollectionReadOnly"));
     return;
   }
@@ -9702,6 +10411,22 @@ const clearAlert = () => {
 
 const getDefaultCollectionName = () => t("clipboardCollectionGeneral");
 const getNewCollectionName = () => t("clipboardCollectionNew");
+const getTopCollectionName = () => t("clipboardCollectionTop");
+const getLeastCollectionName = () => t("clipboardCollectionLeast");
+const getAvailableCollectionName = () => t("clipboardCollectionAvailable");
+
+const isReadOnlyCollectionId = (id: string) =>
+  id === CLIPBOARD_NEW_ID ||
+  id === CLIPBOARD_TOP_ID ||
+  id === CLIPBOARD_LEAST_ID ||
+  id === CLIPBOARD_AVAILABLE_ID;
+
+const isPinnedCollectionId = (id: string) =>
+  id === "general" ||
+  id === CLIPBOARD_NEW_ID ||
+  id === CLIPBOARD_TOP_ID ||
+  id === CLIPBOARD_LEAST_ID ||
+  id === CLIPBOARD_AVAILABLE_ID;
 
 const defaultCollectionNames = () =>
   (Object.keys(translations) as LanguageKey[]).map(
@@ -9711,6 +10436,21 @@ const defaultCollectionNames = () =>
 const newCollectionNames = () =>
   (Object.keys(translations) as LanguageKey[]).map(
     (lang) => translations[lang].clipboardCollectionNew,
+  );
+
+const topCollectionNames = () =>
+  (Object.keys(translations) as LanguageKey[]).map(
+    (lang) => translations[lang].clipboardCollectionTop,
+  );
+
+const leastCollectionNames = () =>
+  (Object.keys(translations) as LanguageKey[]).map(
+    (lang) => translations[lang].clipboardCollectionLeast,
+  );
+
+const availableCollectionNames = () =>
+  (Object.keys(translations) as LanguageKey[]).map(
+    (lang) => translations[lang].clipboardCollectionAvailable,
   );
 
 const normalizeCollectionName = (name: string) => name.trim();
@@ -9749,6 +10489,60 @@ const ensureNewCollection = () => {
   }
 };
 
+const ensureTopCollection = () => {
+  const existing = clipboardCollections.find((item) => item.id === CLIPBOARD_TOP_ID);
+  if (!existing) {
+    const newIndex = clipboardCollections.findIndex((item) => item.id === CLIPBOARD_NEW_ID);
+    const insertIndex = newIndex >= 0 ? newIndex + 1 : clipboardCollections.length;
+    clipboardCollections.splice(insertIndex, 0, {
+      id: CLIPBOARD_TOP_ID,
+      name: getTopCollectionName(),
+      trackIds: [],
+      tandaIds: [],
+    });
+    return;
+  }
+  if (topCollectionNames().includes(existing.name)) {
+    existing.name = getTopCollectionName();
+  }
+};
+
+const ensureLeastCollection = () => {
+  const existing = clipboardCollections.find((item) => item.id === CLIPBOARD_LEAST_ID);
+  if (!existing) {
+    const topIndex = clipboardCollections.findIndex((item) => item.id === CLIPBOARD_TOP_ID);
+    const insertIndex = topIndex >= 0 ? topIndex + 1 : clipboardCollections.length;
+    clipboardCollections.splice(insertIndex, 0, {
+      id: CLIPBOARD_LEAST_ID,
+      name: getLeastCollectionName(),
+      trackIds: [],
+      tandaIds: [],
+    });
+    return;
+  }
+  if (leastCollectionNames().includes(existing.name)) {
+    existing.name = getLeastCollectionName();
+  }
+};
+
+const ensureAvailableCollection = () => {
+  const existing = clipboardCollections.find((item) => item.id === CLIPBOARD_AVAILABLE_ID);
+  if (!existing) {
+    const leastIndex = clipboardCollections.findIndex((item) => item.id === CLIPBOARD_LEAST_ID);
+    const insertIndex = leastIndex >= 0 ? leastIndex + 1 : clipboardCollections.length;
+    clipboardCollections.splice(insertIndex, 0, {
+      id: CLIPBOARD_AVAILABLE_ID,
+      name: getAvailableCollectionName(),
+      trackIds: [],
+      tandaIds: [],
+    });
+    return;
+  }
+  if (availableCollectionNames().includes(existing.name)) {
+    existing.name = getAvailableCollectionName();
+  }
+};
+
 const getNewCollectionLimit = () => {
   const raw = localStorage.getItem(CLIPBOARD_NEW_LIMIT_KEY);
   const parsed = raw ? Number.parseInt(raw, 10) : DEFAULT_NEW_LIMIT;
@@ -9757,6 +10551,78 @@ const getNewCollectionLimit = () => {
   }
   return Math.max(0, Math.min(500, parsed));
 };
+
+const getPlaylistArtistRepeatGapMinutes = () => {
+  const raw = localStorage.getItem(PLAYLIST_ARTIST_REPEAT_GAP_MIN_KEY);
+  const parsed = raw ? Number.parseInt(raw, 10) : DEFAULT_PLAYLIST_ARTIST_REPEAT_GAP_MIN;
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_PLAYLIST_ARTIST_REPEAT_GAP_MIN;
+  }
+  return Math.max(0, Math.min(180, parsed));
+};
+
+const loadPlayCounts = () => {
+  const raw = localStorage.getItem(PLAY_COUNTS_KEY);
+  if (!raw) {
+    playCounts = { tracks: {}, tandas: {} };
+    return;
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<PlayCounts>;
+    playCounts = {
+      tracks: parsed.tracks ?? {},
+      tandas: parsed.tandas ?? {},
+    };
+  } catch {
+    playCounts = { tracks: {}, tandas: {} };
+  }
+};
+
+const savePlayCounts = () => {
+  localStorage.setItem(PLAY_COUNTS_KEY, JSON.stringify(playCounts));
+};
+
+const clearPlayCounts = () => {
+  playCounts = { tracks: {}, tandas: {} };
+  savePlayCounts();
+  void renderClipboard();
+  setStatus(t("statusPlayCountsCleared"));
+};
+
+const incrementTrackPlayCount = (trackId: string) => {
+  playCounts.tracks[trackId] = (playCounts.tracks[trackId] ?? 0) + 1;
+};
+
+const incrementTandaPlayCount = (tandaId: string) => {
+  playCounts.tandas[tandaId] = (playCounts.tandas[tandaId] ?? 0) + 1;
+};
+
+const invalidateSmartCollectionsCache = () => {
+  allTracksForSmartCollections = null;
+  allTandasForSmartCollections = null;
+};
+
+const ensureSmartCollectionCaches = async () => {
+  if (!window.tanda) {
+    return;
+  }
+  if (!allTracksForSmartCollections) {
+    allTracksForSmartCollections = await window.tanda.listTracks();
+    allTracksForSmartCollections.forEach((track) => trackCache.set(track.id, track));
+  }
+  if (!allTandasForSmartCollections) {
+    const rows = await window.tanda.listTandas();
+    rows.forEach(upsertTandaCache);
+    allTandasForSmartCollections = rows
+      .map((row) => resolveTandaDraft(row.id))
+      .filter(Boolean) as TandaDraft[];
+  }
+};
+
+const collectionIsSmart = (collectionId: string) =>
+  collectionId === CLIPBOARD_TOP_ID ||
+  collectionId === CLIPBOARD_LEAST_ID ||
+  collectionId === CLIPBOARD_AVAILABLE_ID;
 
 const saveClipboardCollections = () => {
   localStorage.setItem(
@@ -9802,6 +10668,9 @@ const loadClipboardCollections = () => {
   }
   ensureDefaultCollection();
   ensureNewCollection();
+  ensureTopCollection();
+  ensureLeastCollection();
+  ensureAvailableCollection();
   activeClipboardCollectionId =
     localStorage.getItem(CLIPBOARD_ACTIVE_KEY) ??
     clipboardCollections[0]?.id ??
@@ -9829,8 +10698,12 @@ const getActiveCollection = () =>
   null;
 
 const addTrackToActiveCollection = (track: TrackRow) => {
+  const preferredActive =
+    activeClipboardCollectionId && isReadOnlyCollectionId(activeClipboardCollectionId)
+      ? getGeneralCollection()?.id ?? null
+      : activeClipboardCollectionId;
   const target = resolveCollectionForClipboardWrite(
-    activeClipboardCollectionId,
+    preferredActive,
     getGeneralCollection()?.id ?? null,
     CLIPBOARD_NEW_ID,
   );
@@ -9852,8 +10725,12 @@ const addTrackToActiveCollection = (track: TrackRow) => {
 };
 
 const addTandaToActiveCollection = (tandaId: string) => {
+  const preferredActive =
+    activeClipboardCollectionId && isReadOnlyCollectionId(activeClipboardCollectionId)
+      ? getGeneralCollection()?.id ?? null
+      : activeClipboardCollectionId;
   const target = resolveCollectionForClipboardWrite(
-    activeClipboardCollectionId,
+    preferredActive,
     getGeneralCollection()?.id ?? null,
     CLIPBOARD_NEW_ID,
   );
@@ -9902,8 +10779,7 @@ const renderClipboardCollections = () => {
       collection.id === activeClipboardCollectionId,
     );
     button.dataset.collectionId = collection.id;
-    button.draggable =
-      collection.id !== "general" && collection.id !== CLIPBOARD_NEW_ID;
+    button.draggable = !isPinnedCollectionId(collection.id);
     button.addEventListener("click", () => {
       activeClipboardCollectionId = collection.id;
       includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
@@ -9914,11 +10790,7 @@ const renderClipboardCollections = () => {
       renderClipboard();
     });
     button.addEventListener("dragstart", (event) => {
-      if (
-        collection.id === "general" ||
-        collection.id === CLIPBOARD_NEW_ID ||
-        !event.dataTransfer
-      ) {
+      if (isPinnedCollectionId(collection.id) || !event.dataTransfer) {
         return;
       }
       event.dataTransfer.effectAllowed = "move";
@@ -9929,7 +10801,7 @@ const renderClipboardCollections = () => {
       event.dataTransfer.setData("text/plain", collection.name);
     });
     button.addEventListener("dragover", (event) => {
-      if (collection.id === CLIPBOARD_NEW_ID) {
+      if (isReadOnlyCollectionId(collection.id)) {
         return;
       }
       if (
@@ -9945,7 +10817,7 @@ const renderClipboardCollections = () => {
       if (
         event.dataTransfer?.types.includes("application/x-tanda-track")
       ) {
-        if (collection.id === CLIPBOARD_NEW_ID) {
+        if (isReadOnlyCollectionId(collection.id)) {
           return;
         }
         const payload =
@@ -9977,10 +10849,7 @@ const renderClipboardCollections = () => {
         renderClipboard();
         return;
       }
-      if (
-        collection.id === "general" ||
-        collection.id === CLIPBOARD_NEW_ID
-      ) {
+      if (isPinnedCollectionId(collection.id)) {
         return;
       }
       const fromId =
@@ -9992,7 +10861,7 @@ const renderClipboardCollections = () => {
         clipboardCollections,
         fromId,
         collection.id,
-        ["general", CLIPBOARD_NEW_ID],
+        ["general", CLIPBOARD_NEW_ID, CLIPBOARD_TOP_ID, CLIPBOARD_LEAST_ID, CLIPBOARD_AVAILABLE_ID],
       );
       if (reordered === clipboardCollections) {
         return;
@@ -10064,6 +10933,96 @@ const renderStyleList = () => {
     });
     row.append(name, remove);
     styleList.appendChild(row);
+  });
+};
+
+const rebuildOrchestraAliasIndex = () => {
+  orchestraAliasIndex = buildOrchestraAliasIndex(orchestraRegistry);
+};
+
+const saveOrchestraRegistry = () => {
+  localStorage.setItem(ORCHESTRA_REGISTRY_KEY, JSON.stringify(orchestraRegistry));
+  rebuildOrchestraAliasIndex();
+  invalidateSmartCollectionsCache();
+  void renderClipboard();
+};
+
+const loadOrchestraRegistry = () => {
+  const raw = localStorage.getItem(ORCHESTRA_REGISTRY_KEY);
+  if (!raw) {
+    orchestraRegistry = convertSeedToRegistry(ORCHESTRA_SEED_DATA);
+    localStorage.setItem(ORCHESTRA_REGISTRY_KEY, JSON.stringify(orchestraRegistry));
+    rebuildOrchestraAliasIndex();
+    return;
+  }
+  try {
+    const parsed = JSON.parse(raw) as OrchestraRegistryEntry[];
+    orchestraRegistry = Array.isArray(parsed)
+      ? parsed
+          .filter((entry) => entry && typeof entry.canonical === "string")
+          .map((entry) => normalizeRegistryEntry(entry))
+      : convertSeedToRegistry(ORCHESTRA_SEED_DATA);
+  } catch {
+    orchestraRegistry = convertSeedToRegistry(ORCHESTRA_SEED_DATA);
+  }
+  rebuildOrchestraAliasIndex();
+};
+
+const renderOrchestraRegistry = () => {
+  if (!orchestraListEl) {
+    return;
+  }
+  orchestraListEl.innerHTML = "";
+  const normalizedFilter = orchestraFilterText.trim().toLowerCase();
+  const visible = orchestraRegistry.filter((entry) => {
+    if (!normalizedFilter) {
+      return true;
+    }
+    const haystack = [entry.canonical, ...entry.aliases, ...entry.related]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(normalizedFilter);
+  });
+  visible.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "orchestra-row";
+    const canonical = document.createElement("input");
+    canonical.type = "text";
+    canonical.value = entry.canonical;
+    canonical.placeholder = t("orchestraCanonicalLabel");
+    canonical.addEventListener("change", () => {
+      entry.canonical = canonical.value.trim();
+    });
+    const aliases = document.createElement("textarea");
+    aliases.rows = 2;
+    aliases.value = entry.aliases.join(", ");
+    aliases.placeholder = t("orchestraAliasesLabel");
+    aliases.addEventListener("change", () => {
+      entry.aliases = aliases.value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    });
+    const related = document.createElement("input");
+    related.type = "text";
+    related.value = entry.related.join(", ");
+    related.placeholder = t("orchestraRelatedLabel");
+    related.addEventListener("change", () => {
+      entry.related = related.value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = t("orchestraDelete");
+    remove.addEventListener("click", () => {
+      orchestraRegistry = orchestraRegistry.filter((item) => item.id !== entry.id);
+      saveOrchestraRegistry();
+      renderOrchestraRegistry();
+    });
+    row.append(canonical, aliases, related, remove);
+    orchestraListEl.appendChild(row);
   });
 };
 
@@ -10976,7 +11935,10 @@ const init = async () => {
   const message = await window.tanda.ping();
   setStatus(t("statusMainProcess", { message }));
   await loadTandaDrafts();
+  loadPlayCounts();
+  loadOrchestraRegistry();
   loadClipboardCollections();
+  invalidateSmartCollectionsCache();
   await refreshNewCollectionTracks();
   renderClipboardCollections();
   await renderClipboard();
@@ -11045,7 +12007,13 @@ const init = async () => {
       {
         selectedIds: result.selectedIds,
         removeEmpty: result.removeEmpty,
-        protectedIds: ["general", CLIPBOARD_NEW_ID],
+        protectedIds: [
+          "general",
+          CLIPBOARD_NEW_ID,
+          CLIPBOARD_TOP_ID,
+          CLIPBOARD_LEAST_ID,
+          CLIPBOARD_AVAILABLE_ID,
+        ],
       },
     );
     clipboardCollections = updated;
@@ -11081,6 +12049,36 @@ const init = async () => {
     });
   }
 
+  if (playlistFilterInput) {
+    playlistFilterInput.value = playlistFilterText;
+    playlistFilterInput.addEventListener("input", () => {
+      markUserInteraction();
+      playlistFilterText = playlistFilterInput.value;
+      schedulePlaylistFilterAutoClear();
+      if (getPlaylistTargetIndex() !== null) {
+        centerPlaylistTargetOnNextRender = true;
+      }
+      renderPlaylist();
+    });
+    playlistFilterInput.addEventListener("keydown", () => {
+      markUserInteraction();
+      schedulePlaylistFilterAutoClear();
+    });
+    playlistFilterInput.addEventListener("search", () => {
+      markUserInteraction();
+      playlistFilterText = playlistFilterInput.value;
+      if (!playlistFilterText) {
+        clearPlaylistFilterTimer();
+      } else {
+        schedulePlaylistFilterAutoClear();
+      }
+      if (getPlaylistTargetIndex() !== null) {
+        centerPlaylistTargetOnNextRender = true;
+      }
+      renderPlaylist();
+    });
+  }
+
   playlistClearBtn?.addEventListener("click", async () => {
     if (activeRightTab === "tanda-designer-tab") {
       await clearTandaDesignerDrafts();
@@ -11095,6 +12093,19 @@ const init = async () => {
       return;
     }
     await clearPlaylist();
+  });
+
+  playlistStatsBtn?.addEventListener("click", () => {
+    renderPlaylistStats();
+    setPlaylistStatsModalVisible(true);
+  });
+  playlistStatsCloseBtn?.addEventListener("click", () => {
+    setPlaylistStatsModalVisible(false);
+  });
+  playlistStatsModal?.addEventListener("click", (event) => {
+    if (event.target === playlistStatsModal) {
+      setPlaylistStatsModalVisible(false);
+    }
   });
 
   window.tanda?.onAppCloseRequest(() => {
@@ -11127,8 +12138,12 @@ const init = async () => {
       applyTranslations();
       ensureDefaultCollection();
       ensureNewCollection();
+      ensureTopCollection();
+      ensureLeastCollection();
+      ensureAvailableCollection();
       saveClipboardCollections();
       renderClipboardCollections();
+      renderOrchestraRegistry();
       await renderDiagnosticsPaths();
       await ensureDefaultStyles("language");
       await loadStyles();
@@ -11425,6 +12440,21 @@ const init = async () => {
     });
   }
 
+  if (displayEdgePaddingInput) {
+    displayEdgePaddingInput.value = getDisplayEdgePaddingVmin().toString();
+    displayEdgePaddingInput.addEventListener("change", () => {
+      const next = Number.parseFloat(displayEdgePaddingInput.value);
+      if (!Number.isFinite(next)) {
+        displayEdgePaddingInput.value = getDisplayEdgePaddingVmin().toString();
+        return;
+      }
+      const clamped = Math.min(16, Math.max(1, next));
+      localStorage.setItem(DISPLAY_EDGE_PADDING_KEY, clamped.toString());
+      displayEdgePaddingInput.value = clamped.toString();
+      updateExternalDisplay();
+    });
+  }
+
   if (playlistStartTimeInput) {
     playlistStartTimeInput.value = getPlaylistStartTimeInput();
     playlistStartTimeInput.addEventListener("change", () => {
@@ -11449,6 +12479,66 @@ const init = async () => {
       localStorage.setItem(PLAYLIST_END_TIME_KEY, raw);
     });
   }
+
+  if (playlistArtistRepeatGapInput) {
+    playlistArtistRepeatGapInput.value = getPlaylistArtistRepeatGapMinutes().toString();
+    playlistArtistRepeatGapInput.addEventListener("change", () => {
+      const next = Number.parseInt(playlistArtistRepeatGapInput.value, 10);
+      if (!Number.isFinite(next)) {
+        playlistArtistRepeatGapInput.value = getPlaylistArtistRepeatGapMinutes().toString();
+        return;
+      }
+      const clamped = Math.max(0, Math.min(180, next));
+      localStorage.setItem(PLAYLIST_ARTIST_REPEAT_GAP_MIN_KEY, clamped.toString());
+      playlistArtistRepeatGapInput.value = clamped.toString();
+    });
+  }
+
+  clearPlayCountsBtn?.addEventListener("click", async () => {
+    const confirmed = await showConfirmModal(t("confirmClearPlayCounts"));
+    if (!confirmed) {
+      return;
+    }
+    clearPlayCounts();
+  });
+
+  orchestraAddBtn?.addEventListener("click", () => {
+    orchestraRegistry.push(
+      normalizeRegistryEntry({
+        canonical: "",
+        aliases: [],
+        related: [],
+      }),
+    );
+    renderOrchestraRegistry();
+  });
+  orchestraResetBtn?.addEventListener("click", async () => {
+    const confirmed = await showConfirmModal(t("confirmOrchestraRegistryReset"));
+    if (!confirmed) {
+      return;
+    }
+    orchestraRegistry = convertSeedToRegistry(ORCHESTRA_SEED_DATA);
+    saveOrchestraRegistry();
+    renderOrchestraRegistry();
+    setStatus(t("statusOrchestraRegistryReset"));
+  });
+  orchestraSaveBtn?.addEventListener("click", () => {
+    const hasInvalid = orchestraRegistry.some((entry) => !entry.canonical.trim());
+    if (hasInvalid) {
+      setStatus(t("statusOrchestraRegistryInvalid"));
+      return;
+    }
+    orchestraRegistry = orchestraRegistry.map((entry) =>
+      normalizeRegistryEntry(entry),
+    );
+    saveOrchestraRegistry();
+    renderOrchestraRegistry();
+    setStatus(t("statusOrchestraRegistrySaved"));
+  });
+  orchestraFilterInput?.addEventListener("input", () => {
+    orchestraFilterText = orchestraFilterInput.value;
+    renderOrchestraRegistry();
+  });
 
   if (styleAddBtn) {
     styleAddBtn.addEventListener("click", async () => {
@@ -11848,10 +12938,11 @@ const init = async () => {
   });
 
   playlistStartBtn?.addEventListener("click", () => {
+    if (playlistPlayback.status === "paused" && playlistPlayback.resume) {
+      resumePlaylistPlayback();
+      return;
+    }
     startPlaylistPlayback();
-  });
-  playlistResumeBtn?.addEventListener("click", () => {
-    resumePlaylistPlayback();
   });
   playlistStopBtn?.addEventListener("click", () => {
     void stopPlaylistPlayback();
@@ -12810,11 +13901,13 @@ const init = async () => {
         setStatus(t("statusPlaylistLocked"));
         return;
       }
-      if (playlistTargetIndex === index) {
+      if (getPlaylistTargetIndex() === index) {
         clearPlaylistTarget();
       } else {
-        playlistTargetIndex = index;
-        applyPlaylistTargetStyles(index);
+        if (retainPlaylistTargetAtIndex(index) !== null) {
+          applyPlaylistTargetStyles(index);
+          centerPlaylistTargetOnNextRender = true;
+        }
       }
       renderPlaylist();
       closeRowMenus();
@@ -12905,7 +13998,8 @@ const init = async () => {
         } else if (playlistOpenTandaIndex === targetIndex) {
           playlistOpenTandaIndex = index;
         }
-        clearPlaylistTarget();
+        retainPlaylistTargetAtIndex(targetIndex);
+        centerPlaylistTargetOnNextRender = true;
         markPlaylistPulse(index);
         markPlaylistPulse(targetIndex);
         renderPlaylist();
@@ -13255,6 +14349,10 @@ const init = async () => {
   });
 
   applyTranslations();
+  if (orchestraFilterInput) {
+    orchestraFilterInput.value = orchestraFilterText;
+  }
+  renderOrchestraRegistry();
   ensureCortinaDurationDefault();
   await renderDiagnosticsPaths();
   await renderPlaybackDiagnosticsLog();

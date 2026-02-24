@@ -115,7 +115,8 @@ body {
   position: relative;
   z-index: 3;
   height: 100%;
-  padding: 4.6vmin 5.4vmin;
+  --display-edge-padding-vmin: 5;
+  padding: calc(var(--display-edge-padding-vmin) * 1vmin);
   display: flex;
   flex-direction: column;
   justify-content: space-between;

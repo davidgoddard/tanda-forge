@@ -1547,3 +1547,558 @@
 - Verification:
   - `npm test` passed (31 files, 137 tests)
   - `npm run build` passed
+
+### Latest update
+- Added adjustable Display Board edge padding control:
+  - New settings input in Display Board config: `Display edge padding (vmin)`.
+  - Persists to local storage key: `tanda-display-edge-padding-vmin`.
+  - Propagates through external display update payload as `edgePaddingVmin`.
+  - Display renderer applies value to CSS variable `--display-edge-padding-vmin`, used for `.display-content` padding.
+  - Includes i18n label/help entries for all existing languages.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/display.css`
+  - `app/src/renderer/display.js`
+  - `app/src/shared/types.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (31 files, 137 tests)
+  - `npm run build` passed
+
+### Latest update
+- Added DJ-assist smart collections and diversity tooling:
+  - New read-only clipboard collections: `Top`, `Least`, `Available`.
+  - `Top`: up to 100 tracks and 100 tandas sorted by play count descending (non-zero only).
+  - `Least`: up to 100 tracks and 100 tandas sorted by play count ascending (zeros first).
+  - `Available`: artists not currently present in playlist; only artists with at least N distinct titles (N = configured tanda size), and tandas constrained to that required size.
+- Added live-mode play-count tracking:
+  - Track count increments when a track naturally completes in Live mode.
+  - Tanda count increments when all tracks in a tanda complete in Live mode.
+  - New System button clears all play counters.
+- Added playlist auto-fill artist-repeat aspiration:
+  - New playlist setting `Artist repeat gap aspiration (min)`.
+  - Autofill now prefers candidates satisfying the artist-gap window; falls back gracefully when no compliant option exists.
+- Added playlist diversity visualisation:
+  - New button next to playlist title opens a modal with:
+    - orchestra seconds distribution,
+    - year distribution,
+    - tempo distribution.
+- Refactoring/testing:
+  - Added shared helper module `app/src/shared/playlist-diversity.ts` for gap and eligibility logic.
+  - Added unit tests `tests/playlist-diversity.test.ts`.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/playlist-diversity.ts`
+  - `tests/playlist-diversity.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (32 files, 144 tests).
+
+### Latest update
+- Playlist stats chart refinements:
+  - Orchestra chart labels now render vertically for better name legibility in dense categories.
+  - Year and BPM distributions now use dense x-ranges by padding missing values between min and max observed values with zero-count bars.
+- Implementation details:
+  - Added shared helper `buildDenseNumericDistribution(...)` in `app/src/shared/playlist-diversity.ts`.
+  - Updated renderer stats chart logic to use dense year/BPM rows and chart class variants.
+  - Added CSS variants for orchestra vertical labels and compact dense charts.
+  - Added tests covering dense distribution behavior.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `app/src/shared/playlist-diversity.ts`
+  - `tests/playlist-diversity.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (32 files, 146 tests).
+
+### Latest update
+- Playlist stats UX refinement pass:
+  - Year and BPM charts changed from side-by-side to stacked full-width blocks.
+  - Stats modal width cap increased to better use available viewport width.
+  - Orchestra labels now truncate when longer than `"Enrique Rodrigues"` with full label preserved in tooltip hover text.
+  - Year/BPM chart x-axis labels now render vertically for dense ranges.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (32 files, 146 tests).
+
+### Latest update
+- Adaptive year/BPM chart resolution:
+  - Added adaptive distribution logic for numeric charts:
+    - dense per-value bars when range size <= 30,
+    - histogram fallback with 30 buckets when range size > 30.
+  - Histogram labels are contiguous numeric ranges (e.g., `1930-1934`).
+- Implementation:
+  - New helper: `buildAdaptiveNumericDistribution(...)` in `app/src/shared/playlist-diversity.ts`.
+  - Playlist stats now use adaptive distribution for year and BPM charts.
+  - Added/updated tests in `tests/playlist-diversity.test.ts` to cover dense and histogram modes.
+- Files:
+  - `app/src/shared/playlist-diversity.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/playlist-diversity.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (32 files, 147 tests).
+
+### Latest update
+- Added editable Orchestra Registry with seeded web-derived defaults:
+  - New settings tab: `Orchestras`.
+  - UI supports:
+    - filtering rows,
+    - adding/removing entries,
+    - editing canonical name, aliases (comma-separated), related orchestras (comma-separated),
+    - resetting to seeded list,
+    - saving registry.
+- Added seeded data + resolver utilities:
+  - `app/src/shared/orchestra-seed.ts` (large initial orchestra/alias seed).
+  - `app/src/shared/orchestra-registry.ts`:
+    - normalization,
+    - alias index builder,
+    - canonical resolver,
+    - seed -> registry converter.
+- Integrated canonical artist mapping into app behavior:
+  - `Available` smart collection artist grouping now uses canonical resolved orchestra names.
+  - Related-orchestra suppression is applied when an orchestra is already present in playlist.
+  - Playlist diversity orchestra chart now groups by canonical orchestra resolution.
+- Testing:
+  - Added `tests/orchestra-registry.test.ts`.
+  - Build/test verification passed.
+- Web sources used for initial seed curation:
+  - `https://en.wikipedia.org/wiki/List_of_tango_musicians`
+  - `https://en.wikipedia.org/wiki/Category:Tango_orchestras`
+  - `https://en.wikipedia.org/wiki/Orquesta_T%C3%ADpica_Victor`
+  - `https://www.todotango.com/english/creadores/lista/0/orquesta/`
+  - `https://musicbrainz.org`
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/orchestra-seed.ts`
+  - `app/src/shared/orchestra-registry.ts`
+  - `tests/orchestra-registry.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 151 tests).
+
+### Latest update
+- Playlist stats fitting improvements:
+  - Year/BPM chart containers now use compact block sizing (`.playlist-stats-block.compact`) to reduce vertical usage.
+  - Compact chart x-label band reduced (from 76px to 52px) for denser fit.
+  - Stats modal max-height allowance increased and chart grid now scrolls vertically as fallback.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 151 tests).
+
+### Latest update
+- Orchestra chart hover tooltip formatting:
+  - Playlist-stats orchestra tooltip now displays values as `minutes:seconds` (e.g., `12:34`) instead of raw seconds.
+  - Year/BPM tooltip formatting remains numeric counts.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 151 tests).
+
+### Latest update
+- Playlist stats button visual alignment:
+  - `#playlist-stats` now uses icon-button geometry (small circular control matching existing display/settings buttons).
+  - Replaced wide text glyph with a compact three-bar mini icon to reduce apparent icon width.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 151 tests).
+
+### Latest update
+- Playlist graph button icon correction:
+  - Restored the original graph-style glyph (`▃▆▂`) in the playlist stats button.
+  - Kept circular button geometry and compressed glyph styling to fit inside the round control.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 151 tests).
+
+### Latest update
+- Playlist stats button icon visibility fix:
+  - Root cause: global `.icon-button::before` pseudo-element still rendered on `#playlist-stats`, masking the intended graph glyph.
+  - Fix: explicit `#playlist-stats::before` suppression and slight glyph typography adjustment for readability in the circular control.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 151 tests).
+
+### Latest update
+- Playlist stats icon rendering refinement:
+  - Replaced character glyph with an inline SVG 3-bar chart icon for crisp and consistent appearance in the circular button.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 151 tests).
+
+### Latest update
+- Orchestra-seconds chart upgraded to show style composition + tanda counts:
+  - Replaced simple orchestra bars with stacked bars segmented by style time contribution.
+  - Added integer tanda-count label above each orchestra bar (unique tandas per artist).
+  - Orchestra tooltip now includes style breakdown in `m:ss` by segment.
+- Implementation:
+  - Added shared aggregator in `app/src/shared/playlist-diversity.ts`:
+    - `aggregateOrchestraDurations(...)`
+  - Updated playlist-stats renderer to consume aggregated orchestra rows and render stacked bars.
+  - Added supporting chart CSS (`mini-chart-top`, stack/segment classes).
+  - Added unit tests for aggregator behavior.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `app/src/shared/playlist-diversity.ts`
+  - `tests/playlist-diversity.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+
+### Latest update
+- Histogram rendering refinement for year/BPM charts:
+  - Added visible x-axis baseline on compact histogram charts.
+  - Zero-count histogram buckets now render with no visible bar (spacing/labels retained).
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+
+### Latest update
+- Orchestra chart coverage fix:
+  - Removed fixed orchestra bar cap (was 18) so all orchestra aggregates are rendered.
+  - Chart now reflects complete playlist orchestra aggregation, with horizontal overflow handling retained.
+- File:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+
+### Latest update
+- Playlist filtering added (find tandas/tracks quickly):
+  - New playlist header filter input: `#playlist-filter`.
+  - Filtering applies to playlist track/tanda rows using existing search text builders.
+  - While filter is active:
+    - non-matching rows are hidden,
+    - cortina rows and empty placeholders are suppressed,
+    - no-match message row appears if nothing matches.
+  - Auto-clear behavior:
+    - after 30 seconds of no keypress/input activity in the filter, filter clears automatically and full playlist view is restored.
+    - native search clear action also restores full view.
+- UI/i18n:
+  - Added `playlistFilterPlaceholder` and `playlistFilterNoMatch` keys (EN source map, fallback in other locales).
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+
+### Latest update
+- Orchestra chart performance/rendering refactor:
+  - Replaced DOM-heavy orchestra chart (many stacked divs + rotated labels) with single wide canvas rendering.
+  - Container now scrolls natively (`overflow-x: auto`) with no per-scroll chart re-render.
+  - Preserved behavior:
+    - stacked style-segment bars,
+    - tanda-count labels above bars,
+    - baseline,
+    - truncated labels,
+    - hover detail via per-bar hit zones.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+
+### Latest update
+- Orchestra style-segment accuracy fix:
+  - Added style fallback chain in playlist-stats orchestra aggregation:
+    - track `genre` (normalized) first,
+    - parent tanda style (normalized) second,
+    - `unknown` last.
+  - This corrects style-color rendering for tandas where track-level style metadata is missing.
+- File:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+
+### Latest update
+- Playlist transport/header UI compacting:
+  - Removed Resume button from playlist header.
+  - Converted Start/Stop to circular SVG icon buttons (play triangle / stop square) aligned with existing icon-button style.
+  - Increased practical room for `#playlist-filter` with responsive width.
+- Behavior update:
+  - Start now resumes playback when status is paused and resume state exists; otherwise it starts normal playlist playback.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+
+### Latest update
+- Orchestra chart renderer rollback:
+  - Reverted orchestra-seconds chart from single-canvas implementation back to prior pure-HTML multi-element renderer.
+  - Removed canvas wrapper CSS introduced for that path.
+  - Preserved stacked style segments, tanda count labels, truncated labels, and hover detail text.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+### Latest update
+- Orchestra chart accessibility styling update (color-vision friendly):
+  - Strengthened style segment differentiation in playlist diversity orchestra bars using high-contrast per-style patterns (vertical stripe, crosshatch, dot, horizontal stripe) plus clearer segment boundaries.
+  - Increased minimum style segment height so small style contributions remain visible.
+  - Kept existing stacked-by-style behavior and tanda-count labels unchanged.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+### Latest update
+- Orchestra hatch rendering rollback (visual correctness):
+  - Restored previous per-segment hatch rendering path (inline gradient patterns per style) after partial-hatching artifact was reported.
+  - Kept the improved higher-contrast style colors introduced in the prior accessibility pass.
+  - Removed newer CSS class-based hatch overlays/separators that caused inconsistent fill appearance.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+### Latest update
+- Playlist header fit fix for new filter + clear button:
+  - Adjusted playlist panel header layout so title/stats/transport controls remain fixed-width while header actions can shrink.
+  - Replaced fixed playlist filter width behavior with responsive flex sizing (`min-width`, `max-width`, and `flex-basis`) so `#playlist-clear` no longer clips at narrow header widths.
+  - Kept changes scoped to `.panel.playlist-panel` to avoid affecting other panel headers.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+### Latest update
+- Playlist header clipping follow-up fix:
+  - Replaced the playlist header’s panel-specific flex override with a grid layout to guarantee stable fit.
+  - Header now uses fixed columns for title/stats/transport and a final `minmax(0,1fr)` column for actions.
+  - Playlist actions now use a two-column grid (`minmax(0,1fr)` filter + `auto` clear button), ensuring `#playlist-clear` remains fully visible while only `#playlist-filter` shrinks.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+### Latest update
+- Playlist header spacing refinement:
+  - Capped playlist actions group width so `#playlist-filter` no longer consumes all remaining header width at larger panel sizes.
+  - Reduced `#playlist-clear` horizontal padding in playlist header for cleaner right-edge fit.
+  - Kept grid shrink behavior (`filter` shrinks, `Clear` remains visible) unchanged.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+### Latest update
+- Playlist header layout rework:
+  - Added dedicated playlist header classes in markup (`playlist-header`, `playlist-header-actions`) to decouple from generic panel-header rules.
+  - Replaced layered playlist panel overrides with a single clean flex layout:
+    - title/stats/transport fixed-size,
+    - actions right-aligned with bounded max width,
+    - filter shrinkable (`min-width: 0`, flexible basis),
+    - clear button non-shrinking and nowrap.
+  - Goal: eliminate right-edge clipping regressions caused by conflicting generic/follow-up overrides.
+- Files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (33 files, 152 tests).
+### Latest update
+- Playlist filter idle + target redraw behavior fix:
+  - Filter auto-clear timeout now respects app-wide inactivity, not just playlist-filter keypresses:
+    - introduced idle-delay helper `computeAutoClearRemainingMs(...)`,
+    - timeout checks remaining idle window against `lastUserInteractionAt` and reschedules until true idle threshold is reached.
+  - Playlist mark/target persistence across redraws improved:
+    - target now tracks both index and tanda id, allowing index re-resolution after normalization/reorder redraws,
+    - target is retained (not auto-cleared) after target-based replace/swap flows where a tanda remains at the target slot.
+  - Recenter behavior added for marked target on redraw:
+    - when playlist transitions from filtered to unfiltered, marked target scrolls back to center,
+    - target-driven replacement redraws also trigger a one-shot recenter.
+  - Added unit tests for idle-delay helper logic.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/playlist-filter.ts`
+  - `tests/playlist-filter.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist header verification marker:
+  - Added a temporary, explicit i18n placeholder marker for playlist filter input:
+    - `playlistFilterPlaceholder: "Filter playlist [HEADER-REWORK]"`.
+  - Purpose: confirm the running UI is from the updated renderer/header build.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist header deterministic grid layout:
+  - Replaced playlist-header flex layout with explicit 5-column grid:
+    - `max-content` title,
+    - `max-content` stats button,
+    - `max-content` transport controls,
+    - `minmax(0, 1fr)` filter,
+    - `max-content` clear button.
+  - Converted playlist header actions wrapper to a 2-column grid and pinned filter/clear to explicit columns.
+  - Goal: remove wrapper-flex competition and make right-side fit behavior predictable across panel widths.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist header fixed clear-slot sizing:
+  - Tightened header spacing and changed playlist actions grid to an explicit fixed clear-button slot (`78px`).
+  - `#playlist-clear` now has explicit width/min-width and zero horizontal padding; filter remains `minmax(0,1fr)`.
+  - Goal: guarantee no right-edge clipping by forcing filter to be the only flexible element.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Playlist header root-cause fix + UI verification test addition:
+  - Root cause identified: playlist-specific classes were applied to the Clipboard header, while Playlist header remained generic (`panel-header`/`panel-actions`), so prior playlist-header CSS changes never applied where intended.
+  - Fixed class placement:
+    - Clipboard header reverted to generic classes.
+    - Playlist header now correctly uses `playlist-header` and `playlist-header-actions`.
+  - Added Playwright E2E test:
+    - `22 - playlist header keeps clear button inside bounds`
+    - verifies right edge of `#playlist-clear` is within `.playlist-header` bounds.
+  - Playwright execution notes:
+    - first run failed due `better-sqlite3` ABI mismatch; resolved with `npm rebuild better-sqlite3`,
+    - second run failed in this environment with Electron launch error (`Process failed to launch!`), so UI assertion could not be completed here.
+- Files:
+  - `app/src/renderer/index.html`
+  - `tests/e2e/workflows.e2e.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+  - `npx playwright test tests/e2e/workflows.e2e.ts -g "22 - playlist header keeps clear button inside bounds"` could not complete in this environment (Electron process launch failure).
+### Latest update
+- Playlist rows scrollbar/content spacing correction:
+  - Fixed playlist row container so right scrollbar does not crowd/overlap tanda content.
+  - Playlist-specific changes:
+    - `#playlist-tab .list-rows.active` now uses `overflow-x: hidden`,
+    - added `padding-right: 12px`,
+    - added `box-sizing: border-box`,
+    - retained stable scrollbar gutter.
+- Files:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Label translation normalization pass (playlist + smart collections):
+  - Removed temporary playlist filter debug marker from i18n (`Filter playlist [HEADER-REWORK]` -> `Filter playlist`).
+  - Localized playlist-related labels for non-English maps:
+    - `tabPlaylist`,
+    - `playlistTitle`,
+    - `tabPlaylistSettings`.
+  - Localized smart-collection labels where still English in non-English maps:
+    - `clipboardCollectionTop`,
+    - refined `clipboardCollectionLeast` in German/Italian for clearer meaning.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (34 files, 156 tests).
