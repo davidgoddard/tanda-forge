@@ -426,6 +426,9 @@ Behavior:
   right-column tab: in Playlist view it shows playlist clear options (`clear` /
   `clear + auto-fill`), and in Tanda Designer view it clears designer drafts
   immediately without a confirmation modal.
+- UI-012.R18: Playlist diversity year and BPM distribution charts must use
+  container-fit column sizing so bars scale to fill available chart width
+  without requiring horizontal scrolling.
 
 ---
 

@@ -2484,3 +2484,94 @@
 - Verification:
   - `npm test` passed (37 files, 170 tests).
   - `npm run build` passed.
+### Latest update
+- Last-tanda cortina display text refinement:
+  - During cortina phase, when "current tanda is last" is enabled, external display now shows only localized `displayNoMoreTandas` as headline.
+  - Subtitle is intentionally blank in that case (no "Cortina" + no secondary line), preventing wrap/clutter.
+- Cortina fade-stop robustness:
+  - Added shared helper `computeFadeDurationMs(...)` in `app/src/shared/audio-fade.ts`.
+  - Replaced inline fade-duration calculation in playback auto-stop with helper to avoid abrupt hard cuts when remaining window is very small.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/audio-fade.ts`
+  - `tests/audio-fade.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test -- tests/audio-fade.test.ts tests/playlist-live.test.ts tests/playlist-flow.test.ts` passed.
+  - `npm test` passed (38 files, 174 tests).
+  - `npm run build` passed.
+### Latest update
+- Search ranking fix for notes-focused text queries:
+  - Removed automatic switch to similarity mode for plain two-word text queries; similarity mode now requires explicit similarity intent (year/tempo/style tokens).
+  - Increased lookup-mode notes influence (`notes` weight from `0` to `0.1`) so notes matches can rank competitively when query intent is textual lookup.
+  - Added quoted phrase boost for notes field in lookup mode to prioritize explicit notes phrase matches.
+- Regression coverage:
+  - Added test ensuring query `Guitar modern` ranks a notes-matching track above artist-only fuzzy matches.
+  - Added test ensuring quoted notes phrase (`"guitar modern"`) is boosted in lookup ranking.
+- Files:
+  - `app/src/main/library/fuzzy-search.ts`
+  - `tests/library-search.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (38 files, 176 tests).
+  - `npm run build` passed.
+### Latest update
+- Enforced style-as-filter policy in search scoring:
+  - Removed style scoring component and style tie-break from `app/src/main/library/fuzzy-search.ts`.
+  - Query parser now ignores style tokens for ranking text (style remains controlled by pills/filters).
+  - Similarity mode trigger now relies on numeric intent (year/tempo), not style words.
+- Search-similar style context from playlist position:
+  - Updated playlist tanda `search-similar` handler in `app/src/renderer/renderer.ts` to pass playlist-slot preferred styles (`resolveSearchStylesForPlaylistIndex`) into `runSearchForTanda(...)`.
+  - This aligns tanda search from playlist with sequence/slot style, not source track/tanda metadata.
+- Regression coverage:
+  - Added `tests/library-search.test.ts` case: `ignores style tokens in query text so style stays filter-driven`.
+- Files:
+  - `app/src/main/library/fuzzy-search.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/library-search.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (38 files, 177 tests).
+  - `npm run build` passed.
+### Latest update
+- Alias/orchestra-variant search integration:
+  - `app/src/main/library/fuzzy-search.ts` now imports seeded orchestra registry data and expands artist scoring text with canonical + aliases when a known orchestra variant is detected.
+  - Matching supports both exact normalized alias hits and embedded alias phrases inside longer artist strings.
+  - Artist phrase boosts now use expanded artist text, improving canonical↔alias retrieval consistency.
+- Added regression coverage:
+  - `tests/library-search.test.ts`
+    - canonical query (`Juan Maglio`) ranks alias-only artist metadata (`Pacho`) correctly.
+    - alias query (`Pacho`) ranks canonical artist metadata (`Juan Maglio`) correctly.
+- Design/docs alignment:
+  - Updated `design/06-search-and-similarity.md` to reflect style-filter-only ranking behavior and added requirement `FR-091.4.R13` for alias/variant expansion in scoring.
+  - Updated `design/tracking-and-feature-matrix.md` statuses/notes for FR-091 and FR-094.
+- Files:
+  - `app/src/main/library/fuzzy-search.ts`
+  - `tests/library-search.test.ts`
+  - `design/06-search-and-similarity.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (38 files, 179 tests).
+  - `npm run build` passed.
+### Latest update
+- Year/BPM chart width scaling improvement:
+  - Updated compact mini-chart rendering to use full-width container-fit columns.
+  - `app/src/renderer/renderer.ts`: `renderMiniChart(...)` now sets CSS variable `--mini-chart-columns` from data length for compact charts.
+  - `app/src/renderer/styles.css`: compact mini charts now use CSS grid with dynamic column count (`repeat(var(--mini-chart-columns), minmax(0, 1fr))`), no horizontal overflow, and per-item width auto-scaling.
+  - Result: year and BPM distributions expand to fill available chart width with adjustable bar widths, rather than fixed-width columns.
+- Design requirement update:
+  - Added `UI-012.R18` in `design/05-ui-principles-and-components.md` to formalize container-fit year/BPM chart behavior.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `design/05-ui-principles-and-components.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (38 files, 179 tests).
+  - `npm run build` passed.

@@ -1,4 +1,10 @@
 import { TrackRow } from "../../shared/types";
+import { ORCHESTRA_SEED_DATA } from "../../shared/orchestra-seed";
+import {
+  buildOrchestraAliasIndex,
+  convertSeedToRegistry,
+  normalizeOrchestraText,
+} from "../../shared/orchestra-registry";
 
 const stripDiacritics = (value: string) =>
   value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -67,6 +73,53 @@ const getTokens = (value: string) =>
     .split(" ")
     .map((token) => token.trim())
     .filter(Boolean);
+
+const containsWholePhrase = (haystack: string, needle: string) => {
+  if (!haystack || !needle) {
+    return false;
+  }
+  return ` ${haystack} `.includes(` ${needle} `);
+};
+
+const resolveOrchestraEntryForArtistField = (value: string) => {
+  const normalized = normalizeOrchestraText(value);
+  if (!normalized) {
+    return null;
+  }
+  const direct = ORCHESTRA_ALIAS_INDEX.get(normalized);
+  if (direct) {
+    return ORCHESTRA_BY_ID.get(direct) ?? null;
+  }
+  for (const entry of ORCHESTRA_REGISTRY) {
+    const keys = [entry.canonical, ...entry.aliases]
+      .map((candidate) => normalizeOrchestraText(candidate))
+      .filter(Boolean);
+    if (keys.some((key) => containsWholePhrase(normalized, key))) {
+      return entry;
+    }
+  }
+  return null;
+};
+
+const buildArtistFieldWithAliases = (artistField: string) => {
+  if (!artistField) {
+    return "";
+  }
+  const cached = ARTIST_FIELD_VARIANT_CACHE.get(artistField);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const entry = resolveOrchestraEntryForArtistField(artistField);
+  if (!entry) {
+    ARTIST_FIELD_VARIANT_CACHE.set(artistField, artistField);
+    return artistField;
+  }
+  const expanded = [artistField, entry.canonical, ...entry.aliases]
+    .filter(Boolean)
+    .join(" ");
+  ARTIST_FIELD_VARIANT_CACHE.set(artistField, expanded);
+  return expanded;
+};
 
 const levenshtein = (left: string, right: string) => {
   const a = left;
@@ -167,6 +220,12 @@ const isNumericQuery = (query: string) => /^\d+$/.test(query.trim());
 const YEAR_MIN = 1900;
 const YEAR_MAX = new Date().getFullYear() + 1;
 const STOPWORDS = new Set(["orquesta", "orchestra", "tipica", "tipico"]);
+const ORCHESTRA_REGISTRY = convertSeedToRegistry(ORCHESTRA_SEED_DATA);
+const ORCHESTRA_ALIAS_INDEX = buildOrchestraAliasIndex(ORCHESTRA_REGISTRY);
+const ORCHESTRA_BY_ID = new Map(
+  ORCHESTRA_REGISTRY.map((entry) => [entry.id, entry]),
+);
+const ARTIST_FIELD_VARIANT_CACHE = new Map<string, string>();
 
 type SearchMode = "lookup" | "similarity";
 type StyleToken = "" | "tango" | "milonga" | "waltz";
@@ -178,7 +237,6 @@ type ParsedQuery = {
   hasQuotedPhrase: boolean;
   yearTokens: number[];
   tempoTokens: number[];
-  styleTokens: StyleToken[];
 };
 
 const normalizeStyleToken = (token: string): StyleToken => {
@@ -226,13 +284,11 @@ const parseQuery = (query: string): ParsedQuery => {
       hasQuotedPhrase: phrases.length > 0,
       yearTokens: [],
       tempoTokens: [],
-      styleTokens: [],
     };
   }
   const tokens = normalized.split(" ").filter(Boolean);
   const yearTokens: number[] = [];
   const tempoTokens: number[] = [];
-  const styleTokens: StyleToken[] = [];
   const textTokens: string[] = [];
   tokens.forEach((token) => {
     if (STOPWORDS.has(token)) {
@@ -240,7 +296,7 @@ const parseQuery = (query: string): ParsedQuery => {
     }
     const style = normalizeStyleToken(token);
     if (style) {
-      styleTokens.push(style);
+      // Style is controlled via style pills/filter, not query scoring text.
       return;
     }
     if (/^\d{4}$/.test(token)) {
@@ -256,11 +312,8 @@ const parseQuery = (query: string): ParsedQuery => {
     }
     textTokens.push(token);
   });
-  const hasSimilarityIntent =
-    yearTokens.length > 0 || tempoTokens.length > 0 || styleTokens.length > 0;
-  const mode: SearchMode = hasSimilarityIntent || textTokens.length === 2
-    ? "similarity"
-    : "lookup";
+  const hasSimilarityIntent = yearTokens.length > 0 || tempoTokens.length > 0;
+  const mode: SearchMode = hasSimilarityIntent ? "similarity" : "lookup";
   return {
     mode,
     textTokens,
@@ -268,7 +321,6 @@ const parseQuery = (query: string): ParsedQuery => {
     hasQuotedPhrase: phrases.length > 0,
     yearTokens,
     tempoTokens,
-    styleTokens,
   };
 };
 
@@ -359,30 +411,6 @@ const scoreTempoIntent = (
   return best;
 };
 
-const scoreStyleIntent = (
-  queryStyles: StyleToken[],
-  styleField: string,
-) => {
-  if (queryStyles.length === 0) {
-    return null;
-  }
-  const styleTokens = getTokens(styleField);
-  if (styleTokens.length === 0) {
-    return 0.3;
-  }
-  const canonicalTrackStyles = new Set(
-    styleTokens
-      .map((token) => normalizeStyleToken(token))
-      .filter(Boolean),
-  );
-  if (canonicalTrackStyles.size === 0) {
-    return 0;
-  }
-  return queryStyles.some((queryStyle) => canonicalTrackStyles.has(queryStyle))
-    ? 1
-    : 0;
-};
-
 const scoreFieldText = (queryText: string, candidateField: string) =>
   Math.max(
     scoreText(queryText, candidateField),
@@ -413,7 +441,6 @@ type ScoreBreakdown = {
   mode: SearchMode;
   artistScore: number;
   titleScore: number;
-  styleScore: number | null;
   yearScore: number | null;
   tempoScore: number | null;
   notesScore: number | null;
@@ -461,7 +488,6 @@ const scoreTrackWithBreakdown = (
       mode: "lookup",
       artistScore: 0,
       titleScore: 0,
-      styleScore: null,
       yearScore: null,
       tempoScore: null,
       notesScore: null,
@@ -477,7 +503,6 @@ const scoreTrackWithBreakdown = (
       mode: "similarity",
       artistScore: 0,
       titleScore: 0,
-      styleScore: null,
       yearScore: trimmed.length === 4 ? score : null,
       tempoScore: trimmed.length === 4 ? null : score,
       notesScore: null,
@@ -486,16 +511,14 @@ const scoreTrackWithBreakdown = (
   const parsed = parseQuery(trimmed);
   const components: Array<{ score: number; weight: number }> = [];
   const lookupWeights = {
-    title: 0.46,
-    artist: 0.36,
+    title: 0.4,
+    artist: 0.32,
     year: 0.1,
     tempo: 0.05,
-    style: 0.03,
-    notes: 0,
+    notes: 0.1,
   };
   const similarityWeights = {
     artist: 0.4,
-    style: 0.22,
     tempo: 0.16,
     year: 0.16,
     title: 0.04,
@@ -510,15 +533,16 @@ const scoreTrackWithBreakdown = (
   ]
     .filter(Boolean)
     .join(" ");
+  const expandedArtistField = buildArtistFieldWithAliases(artistField);
   const titleField = track.title || "";
-  const artistTermScore = scoreTermsAgainstField(textTerms, artistField);
+  const artistTermScore = scoreTermsAgainstField(textTerms, expandedArtistField);
   const titleTermScore = scoreTermsAgainstField(textTerms, titleField);
   const phraseBoost = parsed.hasQuotedPhrase && parsed.phraseTokens.length > 0
     ? Math.max(
         ...parsed.phraseTokens.map((phrase) =>
           Math.max(
             scorePhraseInQuery(phrase, titleField),
-            scorePhraseInQuery(phrase, artistField),
+            scorePhraseInQuery(phrase, expandedArtistField),
           )
         ),
       )
@@ -533,10 +557,6 @@ const scoreTrackWithBreakdown = (
     components.push({ score: artistScore, weight: weights.artist });
     components.push({ score: titleScore, weight: weights.title });
   }
-  const styleScore = scoreStyleIntent(parsed.styleTokens, track.genre || "");
-  if (styleScore !== null) {
-    components.push({ score: styleScore, weight: weights.style });
-  }
   const yearScore = scoreYearIntent(parsed.yearTokens, track.year ?? "");
   if (yearScore !== null) {
     components.push({ score: yearScore, weight: weights.year });
@@ -545,7 +565,13 @@ const scoreTrackWithBreakdown = (
   if (tempoScore !== null) {
     components.push({ score: tempoScore, weight: weights.tempo });
   }
-  const notesScore = scoreNotesText(textTerms, track);
+  const notesScoreBase = scoreNotesText(textTerms, track);
+  const notesPhraseBoost = parsed.hasQuotedPhrase && parsed.phraseTokens.length > 0
+    ? Math.max(...parsed.phraseTokens.map((phrase) => scorePhraseInQuery(phrase, track.notes || "")))
+    : 0;
+  const notesScore = notesScoreBase === null
+    ? null
+    : Math.min(1, notesScoreBase + (parsed.mode === "lookup" ? 0.2 * notesPhraseBoost : 0));
   if (notesScore !== null && weights.notes > 0) {
     components.push({ score: notesScore, weight: weights.notes });
   }
@@ -571,7 +597,6 @@ const scoreTrackWithBreakdown = (
       mode: parsed.mode,
       artistScore,
       titleScore,
-      styleScore,
       yearScore,
       tempoScore,
       notesScore,
@@ -587,7 +612,6 @@ const scoreTrackWithBreakdown = (
     mode: parsed.mode,
     artistScore,
     titleScore,
-    styleScore,
     yearScore,
     tempoScore,
     notesScore,
@@ -629,11 +653,6 @@ export const filterAndScoreTracks = (
       }
       if (b.breakdown.artistScore !== a.breakdown.artistScore) {
         return b.breakdown.artistScore - a.breakdown.artistScore;
-      }
-      const leftStyle = a.breakdown.styleScore ?? -1;
-      const rightStyle = b.breakdown.styleScore ?? -1;
-      if (rightStyle !== leftStyle) {
-        return rightStyle - leftStyle;
       }
       const leftTempo = a.breakdown.tempoScore ?? -1;
       const rightTempo = b.breakdown.tempoScore ?? -1;

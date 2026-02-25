@@ -64,6 +64,7 @@ import {
   gainDbToLinear,
   resolvePlaybackNormalization,
 } from "../shared/audio-normalization.js";
+import { computeFadeDurationMs } from "../shared/audio-fade.js";
 import {
   chooseAvailableOutputDeviceId,
   dedupeAudioOutputs,
@@ -3849,15 +3850,18 @@ const updateExternalDisplay = () => {
     return;
   }
   const nextStyle = getNextTandaStyle();
+  const isMarkedLast = isCurrentTandaMarkedLast();
+  const cortinaHeadline = isMarkedLast ? t("displayNoMoreTandas") : t("cortinaRowLabel");
+  const cortinaSubline = isMarkedLast
+    ? ""
+    : nextStyle
+      ? t("displayThisTanda", { style: nextStyle })
+      : "";
   if (cortinaDisplayPhase !== "none") {
     holdCortinaDisplayWhenIdle = true;
     const payload: DisplayUpdatePayload = {
-      title: t("cortinaRowLabel"),
-      artist: isCurrentTandaMarkedLast()
-        ? t("displayNoMoreTandas")
-        : nextStyle
-          ? t("displayThisTanda", { style: nextStyle })
-          : "",
+      title: cortinaHeadline,
+      artist: cortinaSubline,
       progressText: "",
       nextTandaText: "",
       backgroundIntervalSec: getDisplayBackgroundIntervalSec(),
@@ -3880,12 +3884,8 @@ const updateExternalDisplay = () => {
   if (!active) {
     if (holdCortinaDisplayWhenIdle) {
       const payload: DisplayUpdatePayload = {
-        title: t("cortinaRowLabel"),
-        artist: isCurrentTandaMarkedLast()
-          ? t("displayNoMoreTandas")
-          : nextStyle
-            ? t("displayThisTanda", { style: nextStyle })
-            : "",
+        title: cortinaHeadline,
+        artist: cortinaSubline,
         progressText: "",
         nextTandaText: "",
         backgroundIntervalSec: getDisplayBackgroundIntervalSec(),
@@ -4801,7 +4801,7 @@ const playOnChannel = async (
         );
         if (autoStopFadeMs > 0 || isTrimmedEarly) {
           const preferredFadeMs = autoStopFadeMs > 0 ? autoStopFadeMs : 140;
-          const fadeMs = Math.max(80, Math.min(preferredFadeMs, remainingMs));
+          const fadeMs = computeFadeDurationMs(preferredFadeMs, remainingMs);
           if (fadeMs > 0) {
             await fadeOutAudio(next, fadeMs);
           }
@@ -5310,6 +5310,7 @@ const renderMiniChart = (
     return;
   }
   root.innerHTML = "";
+  root.style.removeProperty("--mini-chart-columns");
   root.classList.remove("orchestra", "compact");
   if (options?.className) {
     root.classList.add(options.className);
@@ -5331,6 +5332,9 @@ const renderMiniChart = (
     return;
   }
   const maxValue = Math.max(...data.map((row) => row.value));
+  if (options?.className === "compact") {
+    root.style.setProperty("--mini-chart-columns", `${Math.max(1, data.length)}`);
+  }
   const ORCHESTRA_LABEL_MAX = "Enrique Rodrigues".length;
   data.forEach((row) => {
     const item = document.createElement("div");
@@ -6731,11 +6735,11 @@ const resolveSearchStylesForTanda = (
     availableStyles,
   });
 
-const runSearchForTanda = (tanda: TandaDraft) => {
+const runSearchForTanda = (tanda: TandaDraft, preferredStyles?: string[]) => {
   const tracks = tanda.trackSlots
     .map((trackId) => (trackId ? trackCache.get(trackId) ?? null : null))
     .filter(Boolean) as TrackRow[];
-  const styles = resolveSearchStylesForTanda(tanda, tracks);
+  const styles = preferredStyles ?? resolveSearchStylesForTanda(tanda, tracks);
   if (styles.length > 0 || selectedStyles.length > 0) {
     selectedStyles = [...styles];
     loadStyles();
@@ -14235,7 +14239,10 @@ const init = async () => {
       if (tandaId) {
         const tanda = resolveTandaForSearch(tandaId);
         if (tanda) {
-        runSearchForTanda(tanda);
+          const playlistIndex = resolvePlaylistRowIndex(row);
+          const preferredStyles =
+            playlistIndex >= 0 ? resolveSearchStylesForPlaylistIndex(playlistIndex) : undefined;
+          runSearchForTanda(tanda, preferredStyles);
         }
       }
       closeRowMenus();

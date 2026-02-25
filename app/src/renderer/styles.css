@@ -2389,6 +2389,10 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
 
 .mini-chart.compact {
   position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--mini-chart-columns, 1), minmax(0, 1fr));
+  overflow-x: hidden;
+  gap: 0.22rem;
 }
 
 .mini-chart.compact::after {
@@ -2412,6 +2416,12 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   justify-self: center;
   align-self: end;
   line-height: 1.05;
+}
+
+.mini-chart.compact .mini-chart-item {
+  min-width: 0;
+  width: 100%;
+  flex: initial;
 }
 
 .mini-chart.compact .mini-chart-bar.is-zero {

@@ -115,14 +115,16 @@ to prefer the closest word match (e.g., `francico` → `Francisco`).
 - FR-091.4.R8: Year and tempo intent use proximity scoring curves and configurable
   missing-metadata fallback scores.
 - FR-091.4.R9: Style chip selection remains a hard filter gate; style text tokens
-  in the query influence ranking even when no style chip is set.
+  in the query must not influence ranking.
 - FR-091.4.R10: Quoted phrases in the query are treated as explicit phrase intent
   and boost lookup ranking for matching title/artist text.
-- FR-091.4.R11: Very short text-only queries with two tokens default to
-  similarity profile to better support orchestra-led tanda building.
+- FR-091.4.R11: Text-only queries default to lookup profile; similarity profile
+  is triggered by numeric intent (year and/or tempo).
 - FR-091.4.R12: Score ties in relevance ordering are broken with deterministic
-  component ordering: artist score, style score, tempo proximity, year proximity,
-  then title score.
+  component ordering: artist score, tempo proximity, year proximity, then title score.
+- FR-091.4.R13: Artist/orchestra matching must expand canonical names with alias
+  and variant metadata during scoring so canonical and alias queries rank
+  equivalently (e.g. canonical↔nickname matching in both directions).
 
 ## FR-092 — Similarity Search Shortcuts
 

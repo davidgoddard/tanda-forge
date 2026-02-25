@@ -263,4 +263,115 @@ describe("fuzzy search helpers", () => {
     });
     expect(result[0].track.id).toBe("phrase");
   });
+
+  it("keeps plain two-token text queries in lookup mode and promotes notes matches", () => {
+    const notesMatch = buildTrack({
+      id: "notes-match",
+      title: "Para Ti Madre",
+      artist: "Osmar Maderna",
+      notes: "Guitar modern",
+    });
+    const artistOnly = buildTrack({
+      id: "artist-only",
+      title: "Otra",
+      artist: "Osmar Maderna",
+      notes: "",
+    });
+    const result = filterAndScoreTracks([artistOnly, notesMatch], {
+      query: "Guitar modern",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("notes-match");
+  });
+
+  it("boosts quoted notes phrases in lookup queries", () => {
+    const notesPhrase = buildTrack({
+      id: "notes-phrase",
+      title: "Track A",
+      artist: "Artist One",
+      notes: "Guitar modern color in the intro",
+    });
+    const noPhrase = buildTrack({
+      id: "no-phrase",
+      title: "Track B",
+      artist: "Artist One",
+      notes: "Traditional arrangement",
+    });
+    const result = filterAndScoreTracks([noPhrase, notesPhrase], {
+      query: "\"guitar modern\" artist",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("notes-phrase");
+  });
+
+  it("ignores style tokens in query text so style stays filter-driven", () => {
+    const base = buildTrack({
+      id: "base",
+      title: "Recuerdo",
+      artist: "Juan D'Arienzo",
+    });
+    const withStyleWord = filterAndScoreTracks([base], {
+      query: "tango recuerdo",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    })[0].score;
+    const withoutStyleWord = filterAndScoreTracks([base], {
+      query: "recuerdo",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    })[0].score;
+    expect(withStyleWord).toBe(withoutStyleWord);
+  });
+
+  it("matches canonical orchestra query against alias-only artist metadata", () => {
+    const canonicalQueryAliasTrack = buildTrack({
+      id: "alias-track",
+      artist: "Pacho",
+      title: "Track A",
+    });
+    const unrelated = buildTrack({
+      id: "other-track",
+      artist: "Random Artist",
+      title: "Track B",
+    });
+    const result = filterAndScoreTracks([unrelated, canonicalQueryAliasTrack], {
+      query: "Juan Maglio",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("alias-track");
+  });
+
+  it("matches alias query against canonical orchestra artist metadata", () => {
+    const canonicalTrack = buildTrack({
+      id: "canonical-track",
+      artist: "Juan Maglio",
+      title: "Track A",
+    });
+    const unrelated = buildTrack({
+      id: "other-track",
+      artist: "Random Artist",
+      title: "Track B",
+    });
+    const result = filterAndScoreTracks([unrelated, canonicalTrack], {
+      query: "Pacho",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("canonical-track");
+  });
 });
