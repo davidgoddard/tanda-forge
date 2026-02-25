@@ -83,6 +83,7 @@ import {
 } from "../shared/playlist-flow.js";
 import { computeAutoClearRemainingMs } from "../shared/playlist-filter.js";
 import { normalizePlaylistItems } from "../shared/playlist-normalize.js";
+import { computeScaledPercent } from "../shared/chart-scale.js";
 import {
   collectStoredPlaylistTrackIds,
   type PlaylistTandaSnapshot,
@@ -5336,12 +5337,13 @@ const renderMiniChart = (
     item.className = "mini-chart-item";
     const bar = document.createElement("div");
     bar.className = "mini-chart-bar";
-    const ratio = maxValue > 0 ? row.value / maxValue : 0;
     if (row.value <= 0) {
       bar.classList.add("is-zero");
       bar.style.height = "0";
     } else {
-      bar.style.height = `${Math.max(4, Math.round(ratio * 100))}%`;
+      bar.style.height = `${computeScaledPercent(row.value, maxValue, {
+        minPercent: 4,
+      })}%`;
     }
     const label = document.createElement("div");
     label.className = "mini-chart-label";
@@ -5422,8 +5424,9 @@ const renderOrchestraChart = (
     count.textContent = `${Math.round(row.tandaCount)}`;
     const barWrap = document.createElement("div");
     barWrap.className = "mini-chart-stack-wrap";
-    const ratio = maxValue > 0 ? row.totalSeconds / maxValue : 0;
-    barWrap.style.height = `${Math.max(4, Math.round(ratio * 100))}%`;
+    barWrap.style.height = `${computeScaledPercent(row.totalSeconds, maxValue, {
+      minPercent: 4,
+    })}%`;
     const stack = document.createElement("div");
     stack.className = "mini-chart-stack";
     const styleRows = Object.entries(row.styleSeconds)

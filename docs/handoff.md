@@ -2464,3 +2464,23 @@
   - Symptom: app startup error reported `better_sqlite3.node` built for NODE_MODULE_VERSION 127 while Electron runtime expected 119.
   - Action: ran `npx electron-builder install-app-deps` to rebuild native dependencies for Electron 28.3.3.
   - Result: `better-sqlite3` rebuild completed successfully.
+### Latest update
+- Graph auto-scaling improvements:
+  - Added shared helper `computeScaledPercent(...)` to standardize bar-height scaling.
+  - Applied to `renderMiniChart(...)` and `renderOrchestraChart(...)` so the maximum value in each chart scales to full available chart height (with existing non-zero minimum visibility preserved).
+  - Added unit coverage in `tests/chart-scale.test.ts`.
+- Chart layout robustness:
+  - Updated mini-chart CSS to use full-height bar regions (`height: 100%`, `minmax(0, 1fr)` tracks), improving visual scaling consistency and ensuring max bars render at full chart height.
+- Narrow-window usability improvements:
+  - At `@media (max-width: 1100px)`, workspace now supports vertical scrolling and stacked section rows with explicit minimum heights.
+  - Panels/columns get minimum height in stacked mode, preventing clipped, unreachable list content when width collapses.
+- Files:
+  - `app/src/shared/chart-scale.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `tests/chart-scale.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (37 files, 170 tests).
+  - `npm run build` passed.
