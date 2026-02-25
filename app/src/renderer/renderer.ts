@@ -44,6 +44,8 @@ import {
   computeTimelineOffsetsMs,
   computeTimelineTotalMs,
   getMinutesOfDayFromMs,
+  isPlaylistIndexLockedDuringLive,
+  isPlaylistTandaSlotLockedDuringLive,
   shouldShowDisplayNextTanda,
   type TimelineEntry,
 } from "../shared/playlist-live.js";
@@ -75,10 +77,17 @@ import {
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
   shouldSkipLeadInCortinaForSelectedStart,
+  shouldStopAfterMarkedLastTanda,
   shouldTreatClickStartAsIdle,
   type PlaylistTrackSource,
 } from "../shared/playlist-flow.js";
 import { computeAutoClearRemainingMs } from "../shared/playlist-filter.js";
+import { normalizePlaylistItems } from "../shared/playlist-normalize.js";
+import {
+  collectStoredPlaylistTrackIds,
+  type PlaylistTandaSnapshot,
+  type StoredPlaylistItem,
+} from "../shared/playlist-storage.js";
 import {
   aggregateOrchestraDurations,
   areArtistsGapSatisfied,
@@ -271,6 +280,8 @@ const mainOutputSelect =
   document.querySelector<HTMLSelectElement>("#main-output-select");
 const headphoneOutputSelect =
   document.querySelector<HTMLSelectElement>("#headphone-output-select");
+const cortinaLevelPercentInput =
+  document.querySelector<HTMLInputElement>("#cortina-level-percent");
 const DEFAULT_OUTPUT_ID = "default";
 const tandaSizeInput =
   document.querySelector<HTMLInputElement>("#tanda-size-input");
@@ -317,6 +328,8 @@ const displayCortinaFontSizeInput =
   document.querySelector<HTMLInputElement>("#display-cortina-font-size");
 const displayEdgePaddingInput =
   document.querySelector<HTMLInputElement>("#display-edge-padding");
+const playlistLastTandaToggle =
+  document.querySelector<HTMLInputElement>("#playlist-last-tanda");
 const searchButton = document.querySelector<HTMLButtonElement>("#search-button");
 const alertBanner = document.querySelector<HTMLDivElement>("#alert-banner");
 const openDiagnosticsMain =
@@ -479,6 +492,9 @@ const DISPLAY_CORTINA_FONT_SCALE_KEY = "tanda-display-cortina-font-scale";
 const DEFAULT_DISPLAY_CORTINA_FONT_SCALE = 1;
 const DISPLAY_EDGE_PADDING_KEY = "tanda-display-edge-padding-vmin";
 const DEFAULT_DISPLAY_EDGE_PADDING_VMIN = 5;
+const CORTINA_LEVEL_PERCENT_KEY = "tanda-cortina-level-percent";
+const DEFAULT_CORTINA_LEVEL_PERCENT = 100;
+const PLAYLIST_LAST_TANDA_KEY = "tanda-playlist-current-last";
 const PLAYLIST_END_TIME_KEY = "tanda-playlist-end-time";
 const DEFAULT_PLAYLIST_END_TIME = "03:00";
 
@@ -515,6 +531,8 @@ let playlistItems: (PlaylistItem | null)[] = [null];
 let playlistSaveSnapshot = "";
 let playlistTargetIndex: number | null = null;
 let playlistTargetTandaId: string | null = null;
+let playlistTrackTargetIndex: number | null = null;
+let playlistTrackTargetTrackId: string | null = null;
 let playlistAutofillInProgress = false;
 let lastUserInteractionAt = Date.now();
 let cortinaSets: string[] = [];
@@ -560,10 +578,6 @@ const pulseClipboardTandaIds = new Set<string>();
 let legacyImportRootPath: string | null = null;
 let tandaEditorReturnTab: RightPanelTab | null = null;
 
-type StoredPlaylistItem =
-  | { kind: "track"; id: string }
-  | { kind: "tanda"; id: string; mismatch?: "style" | "count" }
-  | null;
 let selectedClipboardTrackId: string | null = null;
 let selectedClipboardTandaId: string | null = null;
 let selectedStyles: string[] = [];
@@ -762,6 +776,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistTitle: "Playlist",
     playlistHint:
       "Use a tanda menu to mark a playlist slot for replacement, then choose a track/tanda from Clipboard or Search. Without a marked slot, sent tracks/tandas go to the first free slot.",
+    playlistCurrentIsLast: "Current tanda is the last tanda",
     playlistClear: "Clear",
     tandasEmpty: "Tandas coming soon.",
     playlistEmptySlot: "Empty tanda",
@@ -819,6 +834,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionAddPlaylistShort: "P",
     actionMarkPlaylist: "Mark playlist target",
     actionMarkPlaylistShort: "M",
+    actionMarkPlaylistTrack: "Mark track target",
+    actionMarkPlaylistTrackShort: "M",
     actionSwapPlaylist: "Cross swap with marked",
     actionSwapPlaylistShort: "X",
     cancelTarget: "Cancel target",
@@ -1085,6 +1102,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaSelected: "Cortina selected: {title}.",
     statusCortinaLocked: "This cortina has already played and cannot be changed.",
     stopFade: "Stop fade (sec)",
+    cortinaLevelPercentLabel: "Cortina level (% of main output)",
     addTanda: "Add Tanda",
     tandaNameLabel: "Tanda name",
     tandaStylesLabel: "Styles",
@@ -1122,6 +1140,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayPlayingTrack: "Playing track {index} of {count}",
     displayThisTanda: "This tanda: {style}",
     displayNextTanda: "Next Tanda: {style}",
+    displayThisIsLastTanda: "This is the last tanda",
+    displayNoMoreTandas: "That's all folks",
     lang_en: "English",
     lang_es: "Spanish",
     lang_fr: "French",
@@ -1165,6 +1185,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistTitle: "Lista",
     playlistHint:
       "Usa el menu de tanda para marcar un hueco de la lista para reemplazo y luego elige una pista/tanda desde Portapapeles o Busqueda. Sin hueco marcado, los envios van al primer hueco libre.",
+    playlistCurrentIsLast: "La tanda actual es la ultima tanda",
     playlistClear: "Limpiar",
     tandasEmpty: "Tandas pronto.",
     playlistEmptySlot: "Tanda vacia",
@@ -1223,6 +1244,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionAddPlaylistShort: "P",
     actionMarkPlaylist: "Marcar objetivo en playlist",
     actionMarkPlaylistShort: "M",
+    actionMarkPlaylistTrack: "Marcar objetivo de pista",
+    actionMarkPlaylistTrackShort: "M",
     cancelTarget: "Cancelar objetivo",
     cancel: "Cancelar",
     confirmOk: "OK",
@@ -1446,6 +1469,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaSelected: "Cortina seleccionada: {title}.",
     statusCortinaLocked: "Esta cortina ya se reprodujo y no se puede cambiar.",
     stopFade: "Desvanecer al detener (s)",
+    cortinaLevelPercentLabel: "Nivel de cortina (% de salida principal)",
     addTanda: "Agregar tanda",
     tandaNameLabel: "Nombre de tanda",
     tandaStylesLabel: "Estilos",
@@ -1483,6 +1507,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayPlayingTrack: "Reproduciendo pista {index} de {count}",
     displayThisTanda: "Esta tanda: {style}",
     displayNextTanda: "Proxima tanda: {style}",
+    displayThisIsLastTanda: "Esta es la ultima tanda",
+    displayNoMoreTandas: "Eso es todo, amigos",
     lang_en: "Ingles",
     lang_es: "Espanol",
     lang_fr: "Frances",
@@ -1526,6 +1552,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistTitle: "Liste",
     playlistHint:
       "Utilisez le menu de tanda pour marquer un emplacement a remplacer, puis choisissez une piste/tanda depuis le presse-papiers ou la recherche. Sans emplacement marque, les envois vont dans le premier emplacement libre.",
+    playlistCurrentIsLast: "La tanda en cours est la derniere",
     playlistClear: "Vider",
     tandasEmpty: "Tandas bientot.",
     playlistEmptySlot: "Tanda vide",
@@ -1584,6 +1611,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionAddPlaylistShort: "P",
     actionMarkPlaylist: "Marquer la cible de playlist",
     actionMarkPlaylistShort: "M",
+    actionMarkPlaylistTrack: "Marquer la cible de piste",
+    actionMarkPlaylistTrackShort: "M",
     cancelTarget: "Annuler la cible",
     cancel: "Annuler",
     confirmOk: "OK",
@@ -1807,6 +1836,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaSelected: "Cortina choisie: {title}.",
     statusCortinaLocked: "Cette cortina a deja joue et ne peut pas etre modifiee.",
     stopFade: "Fondu a l'arret (s)",
+    cortinaLevelPercentLabel: "Niveau cortina (% de la sortie principale)",
     addTanda: "Ajouter tanda",
     tandaNameLabel: "Nom de tanda",
     tandaStylesLabel: "Styles",
@@ -1844,6 +1874,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayPlayingTrack: "Lecture piste {index} sur {count}",
     displayThisTanda: "Cette tanda: {style}",
     displayNextTanda: "Prochaine tanda: {style}",
+    displayThisIsLastTanda: "C'est la derniere tanda",
+    displayNoMoreTandas: "C'est tout, les amis",
     lang_en: "Anglais",
     lang_es: "Espagnol",
     lang_fr: "Francais",
@@ -1887,6 +1919,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistTitle: "Liste",
     playlistHint:
       "Mit dem Tanda-Menue einen Playlist-Slot zum Ersetzen markieren und dann Track/Tanda aus Zwischenablage oder Suche waehlen. Ohne markierten Slot gehen gesendete Tracks/Tandas in den ersten freien Slot.",
+    playlistCurrentIsLast: "Aktuelle Tanda ist die letzte Tanda",
     playlistClear: "Leeren",
     tandasEmpty: "Tandas bald verfugbar.",
     playlistEmptySlot: "Leere Tanda",
@@ -1945,6 +1978,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionAddPlaylistShort: "P",
     actionMarkPlaylist: "Playlistziel markieren",
     actionMarkPlaylistShort: "M",
+    actionMarkPlaylistTrack: "Trackziel markieren",
+    actionMarkPlaylistTrackShort: "M",
     cancelTarget: "Ziel aufheben",
     cancel: "Abbrechen",
     confirmOk: "OK",
@@ -2168,6 +2203,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaSelected: "Cortina gewahlt: {title}.",
     statusCortinaLocked: "Diese Cortina wurde bereits gespielt und kann nicht geandert werden.",
     stopFade: "Stop-Ausblenden (s)",
+    cortinaLevelPercentLabel: "Cortina-Lautstaerke (% vom Hauptausgang)",
     addTanda: "Tanda hinzufugen",
     tandaNameLabel: "Tanda-Name",
     tandaStylesLabel: "Stile",
@@ -2205,6 +2241,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayPlayingTrack: "Spiele Track {index} von {count}",
     displayThisTanda: "Diese tanda: {style}",
     displayNextTanda: "Naechste Tanda: {style}",
+    displayThisIsLastTanda: "Das ist die letzte Tanda",
+    displayNoMoreTandas: "Das war's, Leute",
     lang_en: "Englisch",
     lang_es: "Spanisch",
     lang_fr: "Franzoesisch",
@@ -2248,6 +2286,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistTitle: "Lista",
     playlistHint:
       "Use o menu da tanda para marcar um slot da playlist para substituicao e depois escolha faixa/tanda no Bloco ou na Busca. Sem slot marcado, os envios vao para o primeiro slot livre.",
+    playlistCurrentIsLast: "A tanda atual e a ultima tanda",
     playlistClear: "Limpar",
     tandasEmpty: "Tandas em breve.",
     playlistEmptySlot: "Tanda vazia",
@@ -2306,6 +2345,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionAddPlaylistShort: "P",
     actionMarkPlaylist: "Marcar alvo da playlist",
     actionMarkPlaylistShort: "M",
+    actionMarkPlaylistTrack: "Marcar alvo da faixa",
+    actionMarkPlaylistTrackShort: "M",
     cancelTarget: "Cancelar alvo",
     cancel: "Cancelar",
     confirmOk: "OK",
@@ -2527,6 +2568,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaSelected: "Cortina selecionada: {title}.",
     statusCortinaLocked: "Esta cortina ja tocou e nao pode ser alterada.",
     stopFade: "Desvanecer ao parar (s)",
+    cortinaLevelPercentLabel: "Nivel da cortina (% da saida principal)",
     addTanda: "Adicionar tanda",
     tandaNameLabel: "Nome da tanda",
     tandaStylesLabel: "Estilos",
@@ -2564,6 +2606,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayPlayingTrack: "Tocando faixa {index} de {count}",
     displayThisTanda: "Esta tanda: {style}",
     displayNextTanda: "Proxima tanda: {style}",
+    displayThisIsLastTanda: "Esta e a ultima tanda",
+    displayNoMoreTandas: "E isso, pessoal",
     lang_en: "Ingles",
     lang_es: "Espanhol",
     lang_fr: "Frances",
@@ -2607,6 +2651,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistTitle: "Scaletta",
     playlistHint:
       "Usa il menu della tanda per segnare uno slot playlist da sostituire, poi scegli brano/tanda da Appunti o Ricerca. Senza slot segnato, gli invii vanno al primo slot libero.",
+    playlistCurrentIsLast: "La tanda corrente e l'ultima tanda",
     playlistClear: "Svuota",
     tandasEmpty: "Tandas in arrivo.",
     playlistEmptySlot: "Tanda vuota",
@@ -2665,6 +2710,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     actionAddPlaylistShort: "P",
     actionMarkPlaylist: "Segna obiettivo playlist",
     actionMarkPlaylistShort: "M",
+    actionMarkPlaylistTrack: "Segna obiettivo brano",
+    actionMarkPlaylistTrackShort: "M",
     cancelTarget: "Annulla obiettivo",
     cancel: "Annulla",
     confirmOk: "OK",
@@ -2893,6 +2940,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaLocked:
       "Questa cortina e gia stata riprodotta e non puo essere cambiata.",
     stopFade: "Dissolvenza stop (s)",
+    cortinaLevelPercentLabel: "Livello cortina (% uscita principale)",
     addTanda: "Aggiungi tanda",
     tandaNameLabel: "Nome tanda",
     tandaStylesLabel: "Stili",
@@ -2930,6 +2978,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     displayPlayingTrack: "Riproduzione brano {index} di {count}",
     displayThisTanda: "Questa tanda: {style}",
     displayNextTanda: "Prossima tanda: {style}",
+    displayThisIsLastTanda: "Questa e l'ultima tanda",
+    displayNoMoreTandas: "E' tutto, amici",
     lang_en: "Inglese",
     lang_es: "Spagnolo",
     lang_fr: "Francese",
@@ -3421,14 +3471,16 @@ const getLiveBaseStartMs = (
   if (appMode !== "live" || playlistPlayback.status !== "playing") {
     return null;
   }
+  const elapsedMs = getLiveElapsedMs(timeline);
+  if (elapsedMs !== null) {
+    const recalibrated = Date.now() - elapsedMs;
+    playlistPlayback.liveBaseStartMs = recalibrated;
+    return recalibrated;
+  }
   if (playlistPlayback.liveBaseStartMs) {
     return playlistPlayback.liveBaseStartMs;
   }
-  const elapsedMs = getLiveElapsedMs(timeline);
-  if (elapsedMs === null) {
-    return null;
-  }
-  return Date.now() - elapsedMs;
+  return null;
 };
 
 const getLiveElapsedMs = (
@@ -3484,11 +3536,14 @@ const getPlaylistStartTimes = () => {
   const timeline = buildPlaylistTimeline();
   const baseStartMs = getLiveBaseStartMs(timeline);
   const startMinutes = getPlaylistStartTimeMinutes();
+  const nowMs = Date.now();
   const startTimes = new Map<number, number>();
   timeline.offsets.forEach((offsetMs, idx) => {
-    const minutes = baseStartMs
-      ? getMinutesOfDayFromMs(baseStartMs + offsetMs)
-      : startMinutes + Math.round(offsetMs / 60000);
+    const eventMs = baseStartMs ? baseStartMs + offsetMs : null;
+    const minutes =
+      eventMs !== null
+        ? getMinutesOfDayFromMs(eventMs + (eventMs > nowMs ? 59_999 : 0))
+        : startMinutes + Math.ceil(offsetMs / 60000);
     startTimes.set(timeline.entries[idx].index, minutes);
   });
   return startTimes;
@@ -3498,6 +3553,7 @@ const getCortinaStartTimes = () => {
   const timeline = buildPlaylistTimeline();
   const baseStartMs = getLiveBaseStartMs(timeline);
   const startMinutes = getPlaylistStartTimeMinutes();
+  const nowMs = Date.now();
   const startTimes = new Map<number, number>();
   if (!isCortinaEnabled()) {
     return startTimes;
@@ -3517,16 +3573,20 @@ const getCortinaStartTimes = () => {
       cortinaDurationMs,
       cortinaFadeMs,
     );
-    const minutes = baseStartMs
-      ? getMinutesOfDayFromMs(baseStartMs + cortinaStartMs)
-      : startMinutes + Math.round(cortinaStartMs / 60000);
+    const eventMs = baseStartMs ? baseStartMs + cortinaStartMs : null;
+    const minutes =
+      eventMs !== null
+        ? getMinutesOfDayFromMs(eventMs + (eventMs > nowMs ? 59_999 : 0))
+        : startMinutes + Math.ceil(cortinaStartMs / 60000);
     startTimes.set(timeline.entries[idx].index, minutes);
   });
   const totalMs = computeTimelineTotalMs(timeline.offsets, timeline.entries);
   const endStartMs = totalMs + gapBeforeCortinaMs;
-  const endMinutes = baseStartMs
-    ? getMinutesOfDayFromMs(baseStartMs + endStartMs)
-    : startMinutes + Math.round(endStartMs / 60000);
+  const endMs = baseStartMs ? baseStartMs + endStartMs : null;
+  const endMinutes =
+    endMs !== null
+      ? getMinutesOfDayFromMs(endMs + (endMs > nowMs ? 59_999 : 0))
+      : startMinutes + Math.ceil(endStartMs / 60000);
   startTimes.set(playlistItems.length, endMinutes);
   return startTimes;
 };
@@ -3551,6 +3611,15 @@ const getGapBeforeCortina = () =>
   parseSettingNumber("tanda-gap-before-cortina", 0, 0, 30);
 const getStopFadeSeconds = () =>
   parseSettingNumber("tanda-stop-fade", 2, 0, 10);
+const getCortinaLevelPercent = () =>
+  parseSettingNumber(
+    CORTINA_LEVEL_PERCENT_KEY,
+    DEFAULT_CORTINA_LEVEL_PERCENT,
+    0,
+    100,
+  );
+const isCurrentTandaMarkedLast = () =>
+  localStorage.getItem(PLAYLIST_LAST_TANDA_KEY) === "1";
 const getPlaylistStartTimeMinutes = () => {
   return parseClockMinutes(
     getPlaylistStartTimeInput().trim() || DEFAULT_PLAYLIST_START_TIME,
@@ -3736,6 +3805,9 @@ const getCurrentProgressText = () => {
 };
 
 const getNextTandaStyle = () => {
+  if (isCurrentTandaMarkedLast()) {
+    return "";
+  }
   if (!shouldShowDisplayNextTanda(playlistPlayback.status)) {
     return "";
   }
@@ -3761,6 +3833,9 @@ const getNextTandaStyle = () => {
 };
 
 const getNextTandaLabel = () => {
+  if (isCurrentTandaMarkedLast()) {
+    return t("displayThisIsLastTanda");
+  }
   const style = getNextTandaStyle();
   if (style) {
     return t("displayNextTanda", { style });
@@ -3777,7 +3852,11 @@ const updateExternalDisplay = () => {
     holdCortinaDisplayWhenIdle = true;
     const payload: DisplayUpdatePayload = {
       title: t("cortinaRowLabel"),
-      artist: nextStyle ? t("displayThisTanda", { style: nextStyle }) : "",
+      artist: isCurrentTandaMarkedLast()
+        ? t("displayNoMoreTandas")
+        : nextStyle
+          ? t("displayThisTanda", { style: nextStyle })
+          : "",
       progressText: "",
       nextTandaText: "",
       backgroundIntervalSec: getDisplayBackgroundIntervalSec(),
@@ -3801,7 +3880,11 @@ const updateExternalDisplay = () => {
     if (holdCortinaDisplayWhenIdle) {
       const payload: DisplayUpdatePayload = {
         title: t("cortinaRowLabel"),
-        artist: nextStyle ? t("displayThisTanda", { style: nextStyle }) : "",
+        artist: isCurrentTandaMarkedLast()
+          ? t("displayNoMoreTandas")
+          : nextStyle
+            ? t("displayThisTanda", { style: nextStyle })
+            : "",
         progressText: "",
         nextTandaText: "",
         backgroundIntervalSec: getDisplayBackgroundIntervalSec(),
@@ -4531,7 +4614,10 @@ const playOnChannel = async (
     appliedGainDb = stepGuard.gainDb;
     stepCorrectionDb = stepGuard.correctionDb;
   }
-  const targetVolume = gainForTrack(appliedGainDb);
+  let targetVolume = gainForTrack(appliedGainDb);
+  if (options?.isCortinaPlayback && channel === "main") {
+    targetVolume *= getCortinaLevelPercent() / 100;
+  }
   const gainSource =
     normalization.source === "gain"
       ? "gain_db"
@@ -4691,20 +4777,35 @@ const playOnChannel = async (
       trimmedEndSeconds !== null && durationCutoffSeconds !== null
         ? Math.min(trimmedEndSeconds, durationCutoffSeconds)
         : trimmedEndSeconds ?? durationCutoffSeconds;
+    const fadeLeadSeconds =
+      autoStopFadeMs > 0 ? Math.max(0, autoStopFadeMs / 1000) : 0.14;
+    const fadeStartSeconds =
+      effectiveEndSeconds !== null
+        ? Math.max(0, effectiveEndSeconds - fadeLeadSeconds)
+        : null;
     if (
       !trimHandled &&
       effectiveEndSeconds !== null &&
-      next.currentTime >= effectiveEndSeconds - 0.15
+      fadeStartSeconds !== null &&
+      next.currentTime >= fadeStartSeconds
     ) {
       trimHandled = true;
       const isTrimmedEarly =
         trackDurationSeconds > 0 &&
         effectiveEndSeconds < Math.max(0, trackDurationSeconds - 0.05);
       const finalize = async () => {
-        if (isTrimmedEarly) {
-          const fadeMs = autoStopFadeMs > 0 ? autoStopFadeMs : 140;
-          await fadeOutAudio(next, fadeMs);
+        const remainingMs = Math.max(
+          0,
+          (effectiveEndSeconds - next.currentTime) * 1000,
+        );
+        if (autoStopFadeMs > 0 || isTrimmedEarly) {
+          const preferredFadeMs = autoStopFadeMs > 0 ? autoStopFadeMs : 140;
+          const fadeMs = Math.max(80, Math.min(preferredFadeMs, remainingMs));
+          if (fadeMs > 0) {
+            await fadeOutAudio(next, fadeMs);
+          }
         }
+        setAudioLevel(next, 0);
         next.currentTime = effectiveEndSeconds ?? next.currentTime;
         next.pause();
         next.dispatchEvent(new Event("ended"));
@@ -6140,6 +6241,14 @@ const renderTrackRow = (
       ),
     );
   }
+  const trackTargetButton =
+    context === "playlist"
+      ? buildActionButton(
+          "actionMarkPlaylistTrack",
+          "actionMarkPlaylistTrackShort",
+          "mark-playlist-track-target",
+        )
+      : null;
   let duplicateStatus: "partial" | "full" | undefined;
   let duplicateReason = "";
   if (context !== "playlist" && duplicateIndex) {
@@ -6148,6 +6257,9 @@ const renderTrackRow = (
   } else if (context === "playlist" && duplicateCounts) {
     duplicateStatus = (duplicateCounts.trackCounts.get(track.id) ?? 0) > 1 ? "full" : undefined;
     duplicateReason = getDuplicateReasonForTrack(track, duplicateStatus);
+  }
+  if (trackTargetButton) {
+    actions.appendChild(trackTargetButton);
   }
   actions.append(
     menu,
@@ -6463,13 +6575,32 @@ const resolveSearchStylesForTrack = (track: TrackRow) => {
   return match ? [match] : [];
 };
 
-const runSearchForTrack = (track: TrackRow) => {
-  const styles = resolveSearchStylesForTrack(track);
+const runSearchForTrack = (track: TrackRow, preferredStyles?: string[]) => {
+  const styles = preferredStyles ?? resolveSearchStylesForTrack(track);
   if (styles.length > 0 || selectedStyles.length > 0) {
     selectedStyles = [...styles];
     loadStyles();
   }
   runSearchQuery(buildSearchQueryForTrack(track), true);
+};
+
+const resolveSearchStylesForPlaylistIndex = (index: number) => {
+  const item = playlistItems[index] ?? null;
+  if (item?.kind === "tanda") {
+    const tanda = resolveTandaDraft(item.tandaId);
+    if (tanda) {
+      const tracks = resolvePlaylistTracks(item);
+      const tandaStyles = resolveSearchStylesForTanda(tanda, tracks);
+      if (tandaStyles.length > 0) {
+        return tandaStyles;
+      }
+    }
+  }
+  const rule = getRuleForSlot(index);
+  if (!rule?.code || rule.code === "*" || rule.code === "ANY") {
+    return [] as string[];
+  }
+  return [...(getPlaylistStyleMap()[rule.code] ?? [])];
 };
 
 const getTrackEditorFieldQueryValue = (field: string) => {
@@ -6741,7 +6872,7 @@ const renderTandaRow = (
       }
       menu.appendChild(swapButton);
     }
-    if (options?.allowSendToClipboard) {
+    if (options?.allowSendToClipboard && !options?.locked) {
       menu.appendChild(
         buildActionButton(
           "actionSendClipboard",
@@ -6815,6 +6946,12 @@ const renderTandaRow = (
           "actionSendClipboardShort",
           "send-playlist-tanda-track",
         );
+        const playlistIndex = options?.playlistIndex ?? -1;
+        const slotLocked =
+          line.slotIndex !== undefined && playlistIndex >= 0
+            ? isPlaylistTandaSlotLocked(playlistIndex, line.slotIndex)
+            : options?.locked ?? false;
+        sendButton.disabled = slotLocked;
         sendButton.classList.add("detail-send");
         menuWrap.appendChild(sendButton);
       }
@@ -7239,15 +7376,39 @@ const renderClipboard = async () => {
 };
 
 const normalizePlaylist = () => {
-  while (
-    playlistItems.length > 1 &&
-    playlistItems[playlistItems.length - 1] === null &&
-    playlistItems[playlistItems.length - 2] === null
-  ) {
-    playlistItems.pop();
+  playlistItems = normalizePlaylistItems(playlistItems);
+};
+
+const countPlaylistSequenceMismatches = (items: (PlaylistItem | null)[]) => {
+  let mismatches = 0;
+  items.forEach((item, index) => {
+    if (!item || item.kind !== "tanda") {
+      return;
+    }
+    const tanda = resolveTandaDraft(item.tandaId);
+    if (!tanda) {
+      return;
+    }
+    const validation = validateTandaForSlot(tanda, index);
+    if (!validation.ok && validation.reason) {
+      mismatches += 1;
+    }
+  });
+  return mismatches;
+};
+
+const maybeRepairLeadingPlaylistSlot = () => {
+  if (playlistItems.length === 0 || playlistItems[0] === null) {
+    return;
   }
-  if (playlistItems[playlistItems.length - 1] !== null) {
-    playlistItems.push(null);
+  if (!playlistItems.some((item) => item?.kind === "tanda")) {
+    return;
+  }
+  const currentMismatchCount = countPlaylistSequenceMismatches(playlistItems);
+  const candidate = normalizePlaylistItems([null, ...playlistItems]);
+  const shiftedMismatchCount = countPlaylistSequenceMismatches(candidate);
+  if (shiftedMismatchCount + 1 < currentMismatchCount) {
+    playlistItems = candidate;
   }
 };
 
@@ -7278,7 +7439,23 @@ const serializePlaylistItems = (items: (PlaylistItem | null)[]) => {
     if (item.kind === "track") {
       return { kind: "track", id: item.track.id };
     }
-    return { kind: "tanda", id: item.tandaId, mismatch: item.mismatch };
+    const snapshotSource = resolveTandaDraft(item.tandaId);
+    const snapshot: PlaylistTandaSnapshot | undefined = snapshotSource
+      ? {
+          id: snapshotSource.id,
+          name: snapshotSource.name,
+          styles: [...snapshotSource.styles],
+          rating: snapshotSource.rating,
+          trackSlots: [...snapshotSource.trackSlots],
+          totalDurationMs: snapshotSource.totalDurationMs,
+        }
+      : undefined;
+    return {
+      kind: "tanda",
+      id: item.tandaId,
+      mismatch: item.mismatch,
+      snapshot,
+    };
   });
   return JSON.stringify(serialized);
 };
@@ -7312,11 +7489,7 @@ const loadPlaylistFromStorage = async () => {
   if (parsed.length === 0) {
     return;
   }
-  const trackIds = parsed
-    .filter((item): item is { kind: "track"; id: string } =>
-      Boolean(item && item.kind === "track"),
-    )
-    .map((item) => item.id);
+  const trackIds = collectStoredPlaylistTrackIds(parsed);
   const tandaIds = parsed
     .filter((item): item is { kind: "tanda"; id: string } =>
       Boolean(item && item.kind === "tanda"),
@@ -7336,9 +7509,28 @@ const loadPlaylistFromStorage = async () => {
       const track = trackMap.get(item.id);
       return track ? { kind: "track", track } : null;
     }
+    if (item.snapshot) {
+      const snapshot = item.snapshot;
+      const hydrated: TandaDraft = {
+        id: item.id,
+        name: snapshot.name,
+        styles: [...snapshot.styles],
+        rating: snapshot.rating,
+        trackSlots: [...snapshot.trackSlots],
+        totalDurationMs: snapshot.totalDurationMs,
+        origin: "playlist",
+      };
+      ensureTandaDraft(hydrated, "playlist");
+      tandaCache.set(hydrated.id, cloneTanda(hydrated));
+      return { kind: "tanda", tandaId: hydrated.id, mismatch: item.mismatch };
+    }
     const tanda = tandaMap.get(item.id);
-    return tanda ? { kind: "tanda", tandaId: item.id, mismatch: item.mismatch } : null;
+    if (tanda) {
+      return { kind: "tanda", tandaId: item.id, mismatch: item.mismatch };
+    }
+    return null;
   });
+  maybeRepairLeadingPlaylistSlot();
   playlistSaveSnapshot = serializePlaylistItems(playlistItems);
   clearPlaylistTarget();
   resetCortinaPlans();
@@ -7350,6 +7542,7 @@ const renderPlaylist = () => {
   }
   normalizePlaylist();
   const targetIndex = getPlaylistTargetIndex();
+  const trackTargetIndex = getPlaylistTrackTargetIndex();
   recomputePlaylistMismatches();
   savePlaylistToStorage();
   const fragment = document.createDocumentFragment();
@@ -7371,6 +7564,7 @@ const renderPlaylist = () => {
   const cortinaStartTimes = getCortinaStartTimes();
   const filterText = normalizeClipboardFilter(playlistFilterText);
   const hasFilter = filterText.length > 0;
+  const hideLeadingPlaceholder = !hasFilter && playlistItems[0] === null;
   let visibleItems = 0;
   if (playlistAutofillInProgress && !hasFilter) {
     const loadingRow = document.createElement("div");
@@ -7379,6 +7573,9 @@ const renderPlaylist = () => {
     fragment.appendChild(loadingRow);
   }
   playlistItems.forEach((item, index) => {
+    if (hideLeadingPlaceholder && index === 0 && item === null) {
+      return;
+    }
     if (hasFilter) {
       if (!item) {
         return;
@@ -7410,6 +7607,23 @@ const renderPlaylist = () => {
       }
       if (isLocked) {
         row.classList.add("locked");
+      }
+      const markButton = row.querySelector<HTMLButtonElement>(
+        'button[data-action="mark-playlist-track-target"]',
+      );
+      if (markButton) {
+        markButton.disabled = isLocked;
+      }
+      if (trackTargetIndex === index) {
+        row.classList.add("playlist-target");
+        const cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.className = "playlist-target-cancel";
+        cancel.dataset.action = "playlist-target-cancel";
+        cancel.textContent = "×";
+        cancel.setAttribute("aria-label", t("cancelTarget"));
+        cancel.title = t("cancelTarget");
+        row.appendChild(cancel);
       }
       row.dataset.index = index.toString();
       applyPulseToRow(row, pulsePlaylistIndices, index);
@@ -7462,7 +7676,7 @@ const renderPlaylist = () => {
         activeTrackId: isActive ? playlistPlayback.activeTrackId : null,
         played: isPlayed,
         locked: isLocked,
-        allowSendToClipboard: !isLocked,
+        allowSendToClipboard: true,
         playlistStartTime: startLabel,
         playlistDuration: durationLabel,
         duplicateCounts,
@@ -7628,18 +7842,20 @@ const waitForGap = (ms: number, runId: number) =>
       resolve(true);
       return;
     }
-    const start = Date.now();
-    const interval = window.setInterval(() => {
+    const deadline = performance.now() + ms;
+    const tick = () => {
       if (!isPlaylistRunActive(runId)) {
-        window.clearInterval(interval);
         resolve(false);
         return;
       }
-      if (Date.now() - start >= ms) {
-        window.clearInterval(interval);
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) {
         resolve(true);
+        return;
       }
-    }, 120);
+      window.setTimeout(tick, Math.min(50, Math.max(10, remaining)));
+    };
+    tick();
   });
 
 const waitBeforeCortina = (runId: number) =>
@@ -7711,15 +7927,23 @@ const waitForCortina = async (
   audio: HTMLAudioElement,
   runId: number,
   durationMs: number,
+  fadeMs: number,
 ) =>
   new Promise<boolean>((resolve) => {
     const cutoffMs =
-      Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 20_000;
+      Number.isFinite(durationMs) && durationMs > 0
+        ? durationMs + Math.max(0, fadeMs) + 250
+        : 20_000;
     const start = Date.now();
     const interval = window.setInterval(() => {
       if (!isPlaylistRunActive(runId)) {
         window.clearInterval(interval);
         resolve(false);
+        return;
+      }
+      if (audio.paused || audio.ended) {
+        window.clearInterval(interval);
+        resolve(true);
         return;
       }
       if (cortinaStopRequested) {
@@ -7764,6 +7988,7 @@ const playCortina = async (runId: number, targetIndex: number) => {
     Number.isFinite(configuredDurationMs) && configuredDurationMs > 0
       ? configuredDurationMs
       : 20_000;
+  const autoStopFadeMs = Math.max(2000, getStopFadeSeconds() * 1000 + 1000);
   setCortinaControlsVisible(true);
   renderPlaylist();
   const started = await playOnChannel(
@@ -7776,7 +8001,7 @@ const playCortina = async (runId: number, targetIndex: number) => {
       allowToggle: false,
       isCortinaPlayback: true,
       maxDurationSeconds: effectiveDurationMs / 1000,
-      autoStopFadeMs: Math.max(2000, getStopFadeSeconds() * 1000 + 1000),
+      autoStopFadeMs,
     },
   );
   if (!started) {
@@ -7799,7 +8024,7 @@ const playCortina = async (runId: number, targetIndex: number) => {
     renderPlaylist();
     return false;
   }
-  await waitForCortina(activeAudio, runId, effectiveDurationMs);
+  await waitForCortina(activeAudio, runId, effectiveDurationMs, autoStopFadeMs);
   if (!cortinaAllowFull || cortinaStopRequested) {
     if (activeAudio.paused || activeAudio.ended) {
       cortinaDisplayPhase = "after";
@@ -7809,11 +8034,21 @@ const playCortina = async (runId: number, targetIndex: number) => {
       renderPlaylist();
       return true;
     }
-    const fadeMs = Math.max(2000, getStopFadeSeconds() * 1000 + 1000);
-    if (fadeMs > 0) {
-      await fadeOutAudio(activeAudio, fadeMs);
+    if (cortinaStopRequested) {
+      if (autoStopFadeMs > 0) {
+        await fadeOutAudio(activeAudio, autoStopFadeMs);
+      }
+      activeAudio.pause();
+    } else {
+      const settled = await waitForGap(Math.max(300, autoStopFadeMs + 250), runId);
+      if (!settled) {
+        return false;
+      }
+      if (!activeAudio.paused && !activeAudio.ended) {
+        await fadeOutAudio(activeAudio, Math.max(400, getStopFadeSeconds() * 1000));
+        activeAudio.pause();
+      }
     }
-    activeAudio.pause();
   } else {
     await waitForAudioEnd(activeAudio, runId);
   }
@@ -8100,6 +8335,10 @@ const runPlaylistPlayback = async (
       }
     }
     playedAny = true;
+    const stopAfterThisTanda = shouldStopAfterMarkedLastTanda(
+      item.kind,
+      isCurrentTandaMarkedLast(),
+    );
     if (appMode === "live" && item.kind === "tanda") {
       incrementTandaPlayCount(item.tandaId);
     }
@@ -8115,6 +8354,27 @@ const runPlaylistPlayback = async (
     playlistPlayback.activeTrackId = null;
     playlistPlayback.activeTandaId = null;
     renderPlaylist();
+    if (stopAfterThisTanda) {
+      if (isCortinaEnabled()) {
+        cortinaDisplayPhase = "about";
+        const gapOk = await waitBeforeCortina(runId);
+        if (!gapOk) {
+          return;
+        }
+        const ok = await playCortina(runId, playlistPlayback.currentIndex);
+        if (!ok) {
+          return;
+        }
+      }
+      playlistPlayback.status = "idle";
+      cortinaDisplayPhase = "none";
+      playlistPlayback.activeTrackId = null;
+      playlistPlayback.activeTandaId = null;
+      playlistPlayback.resume = null;
+      playlistPlayback.liveBaseStartMs = null;
+      renderPlaylist();
+      return;
+    }
   }
 };
 
@@ -9262,6 +9522,8 @@ const findFirstEmptyPlaylistSlot = () =>
 const clearPlaylistTarget = () => {
   playlistTargetIndex = null;
   playlistTargetTandaId = null;
+  playlistTrackTargetIndex = null;
+  playlistTrackTargetTrackId = null;
 };
 
 const clearPlaylistOpenTanda = () => {
@@ -9328,8 +9590,23 @@ const retainPlaylistTargetAtIndex = (index: number) => {
     clearPlaylistTarget();
     return null;
   }
+  playlistTrackTargetIndex = null;
+  playlistTrackTargetTrackId = null;
   playlistTargetIndex = index;
   playlistTargetTandaId = item.tandaId;
+  return index;
+};
+
+const retainPlaylistTrackTargetAtIndex = (index: number) => {
+  const item = playlistItems[index] ?? null;
+  if (item && item.kind !== "track") {
+    clearPlaylistTarget();
+    return null;
+  }
+  playlistTargetIndex = null;
+  playlistTargetTandaId = null;
+  playlistTrackTargetIndex = index;
+  playlistTrackTargetTrackId = item?.kind === "track" ? item.track.id : null;
   return index;
 };
 
@@ -9352,6 +9629,37 @@ const getPlaylistTargetIndex = () => {
     return null;
   }
   return retainPlaylistTargetAtIndex(playlistTargetIndex);
+};
+
+const getPlaylistTrackTargetIndex = () => {
+  if (playlistTrackTargetTrackId) {
+    const resolvedIndex = playlistItems.findIndex(
+      (item) => item?.kind === "track" && item.track.id === playlistTrackTargetTrackId,
+    );
+    if (resolvedIndex >= 0) {
+      playlistTrackTargetIndex = resolvedIndex;
+      return resolvedIndex;
+    }
+    if (playlistTrackTargetIndex !== null) {
+      const item = playlistItems[playlistTrackTargetIndex] ?? null;
+      if (!item || item.kind === "track") {
+        return playlistTrackTargetIndex;
+      }
+      clearPlaylistTarget();
+      return null;
+    }
+    clearPlaylistTarget();
+    return null;
+  }
+  if (playlistTrackTargetIndex === null) {
+    return null;
+  }
+  const item = playlistItems[playlistTrackTargetIndex] ?? null;
+  if (!item || item.kind === "track") {
+    return playlistTrackTargetIndex;
+  }
+  clearPlaylistTarget();
+  return null;
 };
 
 const getOpenPlaylistTandaIndex = () => {
@@ -9401,15 +9709,39 @@ const appendTrackToPlaylist = (
 ) => {
   normalizePlaylist();
   const targetIndex = getPlaylistTargetIndex();
+  const trackTargetIndex = getPlaylistTrackTargetIndex();
   const openIndex = getOpenPlaylistTandaIndex();
   const insertIndex =
-    options?.forcedIndex ?? targetIndex ?? openIndex ?? findFirstEmptyPlaylistSlot();
+    options?.forcedIndex ??
+    trackTargetIndex ??
+    targetIndex ??
+    openIndex ??
+    findFirstEmptyPlaylistSlot();
   if (insertIndex < 0) {
     setStatus(t("statusPlaylistNoEmptySlot"));
     return;
   }
   if (isPlaylistIndexLocked(insertIndex)) {
     setStatus(t("statusPlaylistLocked"));
+    return;
+  }
+  if (
+    options?.forcedIndex === undefined &&
+    trackTargetIndex !== null &&
+    insertIndex === trackTargetIndex
+  ) {
+    const existingTrack = playlistItems[insertIndex];
+    if (existingTrack && existingTrack.kind !== "track") {
+      clearPlaylistTarget();
+      renderPlaylist();
+      return;
+    }
+    playlistItems[insertIndex] = { kind: "track", track };
+    trackCache.set(track.id, track);
+    markPlaylistPulse(insertIndex);
+    retainPlaylistTrackTargetAtIndex(insertIndex);
+    renderPlaylist();
+    requestAnimationFrame(() => scrollPlaylistToIndex(insertIndex));
     return;
   }
   const existing = playlistItems[insertIndex];
@@ -10059,17 +10391,29 @@ const ensureTandaDraft = (tanda: TandaDraft, origin?: TandaDraft["origin"]) => {
 };
 
 const isPlaylistIndexLocked = (index: number) => {
-  if (appMode !== "live") {
-    return false;
-  }
-  if (playlistPlayback.status !== "playing") {
-    return false;
-  }
-  if (index <= playlistPlayback.playedThroughIndex) {
-    return true;
-  }
-  return index === playlistPlayback.currentIndex;
+  return isPlaylistIndexLockedDuringLive(
+    {
+      liveMode: appMode === "live",
+      playbackStatus: playlistPlayback.status,
+      playedThroughIndex: playlistPlayback.playedThroughIndex,
+      currentIndex: playlistPlayback.currentIndex,
+    },
+    index,
+  );
 };
+
+const isPlaylistTandaSlotLocked = (playlistIndex: number, slotIndex: number) =>
+  isPlaylistTandaSlotLockedDuringLive(
+    {
+      liveMode: appMode === "live",
+      playbackStatus: playlistPlayback.status,
+      playedThroughIndex: playlistPlayback.playedThroughIndex,
+      currentIndex: playlistPlayback.currentIndex,
+      currentTrackIndex: playlistPlayback.currentTrackIndex,
+    },
+    playlistIndex,
+    slotIndex,
+  );
 
 const isCortinaIndexEditable = (index: number | null) => {
   if (index === null) {
@@ -12346,6 +12690,31 @@ const init = async () => {
     });
   }
 
+  if (cortinaLevelPercentInput) {
+    cortinaLevelPercentInput.value = getCortinaLevelPercent().toString();
+    cortinaLevelPercentInput.addEventListener("change", () => {
+      const next = Number.parseInt(cortinaLevelPercentInput.value, 10);
+      if (!Number.isFinite(next)) {
+        cortinaLevelPercentInput.value = getCortinaLevelPercent().toString();
+        return;
+      }
+      const clamped = Math.min(100, Math.max(0, next));
+      localStorage.setItem(CORTINA_LEVEL_PERCENT_KEY, clamped.toString());
+      cortinaLevelPercentInput.value = clamped.toString();
+    });
+  }
+
+  if (playlistLastTandaToggle) {
+    playlistLastTandaToggle.checked = isCurrentTandaMarkedLast();
+    playlistLastTandaToggle.addEventListener("change", () => {
+      localStorage.setItem(
+        PLAYLIST_LAST_TANDA_KEY,
+        playlistLastTandaToggle.checked ? "1" : "0",
+      );
+      updateExternalDisplay();
+    });
+  }
+
   if (playlistCortinaSetSelect) {
     playlistCortinaSetSelect.value = getCortinaSet();
     playlistCortinaSetSelect.addEventListener("change", async () => {
@@ -13872,6 +14241,7 @@ const init = async () => {
     if (action === "search-track") {
       const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
       const detailTrackId = detailLine?.dataset.trackId ?? null;
+      const playlistIndex = resolvePlaylistRowIndex(row);
       const data = getTrackDataFromRow(row);
       const track = detailTrackId
         ? trackCache.get(detailTrackId) ?? resolveTrackById(detailTrackId)
@@ -13879,7 +14249,9 @@ const init = async () => {
           ? resolveTrackById(data.trackId)
           : null;
       if (track) {
-        runSearchForTrack(track);
+        const preferredStyles =
+          playlistIndex >= 0 ? resolveSearchStylesForPlaylistIndex(playlistIndex) : undefined;
+        runSearchForTrack(track, preferredStyles);
       }
       closeRowMenus();
       return;
@@ -13923,6 +14295,27 @@ const init = async () => {
         clearPlaylistTarget();
       } else {
         if (retainPlaylistTargetAtIndex(index) !== null) {
+          applyPlaylistTargetStyles(index);
+          centerPlaylistTargetOnNextRender = true;
+        }
+      }
+      renderPlaylist();
+      closeRowMenus();
+      return;
+    }
+    if (action === "mark-playlist-track-target") {
+      const index = resolvePlaylistRowIndex(row);
+      if (index < 0) {
+        return;
+      }
+      if (isPlaylistIndexLocked(index)) {
+        setStatus(t("statusPlaylistLocked"));
+        return;
+      }
+      if (getPlaylistTrackTargetIndex() === index) {
+        clearPlaylistTarget();
+      } else {
+        if (retainPlaylistTrackTargetAtIndex(index) !== null) {
           applyPlaylistTargetStyles(index);
           centerPlaylistTargetOnNextRender = true;
         }
@@ -14155,6 +14548,8 @@ const init = async () => {
         return;
       }
       playlistItems[index] = null;
+      // Keep this slot as the next single-track replacement target.
+      retainPlaylistTrackTargetAtIndex(index);
       normalizePlaylist();
       renderPlaylist();
       renderClipboard();
@@ -14162,10 +14557,6 @@ const init = async () => {
       return;
     }
     if (action === "send-playlist-tanda-track") {
-      if (isLocked) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
       const tandaId = row.dataset.tandaId;
       if (!tandaId) {
         return;
@@ -14175,6 +14566,10 @@ const init = async () => {
       const slotIndexRaw = detailLine?.dataset.slotIndex;
       const slotIndex = slotIndexRaw ? Number.parseInt(slotIndexRaw, 10) : -1;
       if (slotIndex < 0) {
+        return;
+      }
+      if (isPlaylistTandaSlotLocked(index, slotIndex)) {
+        setStatus(t("statusPlaylistLocked"));
         return;
       }
       const resolvedIndex =
@@ -14302,6 +14697,61 @@ const init = async () => {
         }
         return;
       }
+    }
+    if (selectedClipboardTrackId && detailLine && playlistItem?.kind === "tanda") {
+      const slotIndexRaw = detailLine.dataset.slotIndex ?? "";
+      const slotIndex = Number.parseInt(slotIndexRaw, 10);
+      if (!Number.isFinite(slotIndex) || slotIndex < 0) {
+        return;
+      }
+      if (isPlaylistTandaSlotLocked(index, slotIndex)) {
+        setStatus(t("statusPlaylistLocked"));
+        return;
+      }
+      const activeCollection = getActiveCollection();
+      const clipTrack = clipboardTracks.find(
+        (track) => track.id === selectedClipboardTrackId,
+      );
+      if (!clipTrack || !activeCollection?.trackIds.includes(clipTrack.id)) {
+        setStatus(t("statusClipboardReadonlyRemove"));
+        return;
+      }
+      const tanda = ensurePlaylistEditableTanda(playlistItem.tandaId, index);
+      if (!tanda || slotIndex >= tanda.trackSlots.length) {
+        return;
+      }
+      const replacedTrackId = tanda.trackSlots[slotIndex] ?? null;
+      tanda.trackSlots[slotIndex] = clipTrack.id;
+      const tracks = tanda.trackSlots.map((id) =>
+        id ? trackCache.get(id) ?? null : null,
+      );
+      const derivedStyles = collectStylesFromTracks(tracks, availableStyles);
+      const normalizedExisting = tanda.styles
+        .map((style) => normalizeStyleName(style))
+        .map((normalized) =>
+          availableStyles.find(
+            (style) => normalizeStyleName(style) === normalized,
+          ),
+        )
+        .filter(Boolean) as string[];
+      tanda.styles = Array.from(new Set([...normalizedExisting, ...derivedStyles]));
+      const selectedIndex = activeCollection.trackIds.indexOf(clipTrack.id);
+      if (selectedIndex >= 0) {
+        if (replacedTrackId && !activeCollection.trackIds.includes(replacedTrackId)) {
+          activeCollection.trackIds[selectedIndex] = replacedTrackId;
+        } else {
+          activeCollection.trackIds = activeCollection.trackIds.filter(
+            (id) => id !== clipTrack.id,
+          );
+        }
+      }
+      trackCache.set(clipTrack.id, clipTrack);
+      selectedClipboardTrackId = null;
+      saveClipboardCollections();
+      markPlaylistPulse(index);
+      renderClipboard();
+      renderPlaylist();
+      return;
     }
     const mainActive = playback.main.active;
     const isMainPlaying = !!mainActive && !mainActive.paused;

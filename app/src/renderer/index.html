@@ -366,9 +366,12 @@
                   id="playlist-tanda-editor"
                   class="tanda-list playlist-tanda-editor hidden"
                 ></div>
-                <div class="playlist-hint" data-i18n="playlistHint">
-                  Click a clipboard item, then click a playlist slot to swap.
-                </div>
+                <label class="playlist-last-toggle" for="playlist-last-tanda">
+                  <input id="playlist-last-tanda" type="checkbox" />
+                  <span data-i18n="playlistCurrentIsLast">
+                    Current tanda is the last tanda
+                  </span>
+                </label>
               </div>
               <div id="tanda-designer-tab" class="tab-panel">
                 <div class="tanda-toolbar">
@@ -826,6 +829,18 @@
                 <p data-i18n="languageHelp">
                   Language selection affects UI labels and formatting.
                 </p>
+              </div>
+              <div class="settings-field">
+                <label for="cortina-level-percent" data-i18n="cortinaLevelPercentLabel">
+                  Cortina level (% of main output)
+                </label>
+                <input
+                  id="cortina-level-percent"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                />
               </div>
               <div class="settings-field">
                 <label for="style-name-input" data-i18n="styleManagerLabel">

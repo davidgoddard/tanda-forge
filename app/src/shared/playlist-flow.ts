@@ -38,6 +38,11 @@ export const shouldTreatClickStartAsIdle = (
   playbackStatus === "idle" ||
   (!isMainChannelActivelyPlaying && playbackStatus !== "playing");
 
+export const shouldStopAfterMarkedLastTanda = (
+  itemKind: "track" | "tanda",
+  markedLast: boolean,
+) => itemKind === "tanda" && markedLast;
+
 export const resolveContinuationIndexAfterEndCortina = (
   currentIndex: number,
   playedThroughIndex: number,

@@ -3,6 +3,8 @@ import {
   computeCortinaStartOffsetMs,
   computeElapsedMsForEntry,
   computeTimelineTotalMs,
+  isPlaylistIndexLockedDuringLive,
+  isPlaylistTandaSlotLockedDuringLive,
   shouldShowDisplayNextTanda,
 } from "../app/src/shared/playlist-live";
 
@@ -38,5 +40,31 @@ describe("playlist live timing helpers", () => {
     expect(shouldShowDisplayNextTanda("playing")).toBe(true);
     expect(shouldShowDisplayNextTanda("paused")).toBe(false);
     expect(shouldShowDisplayNextTanda("idle")).toBe(false);
+  });
+
+  it("locks only played and current playlist items during live playback", () => {
+    const context = {
+      liveMode: true,
+      playbackStatus: "playing" as const,
+      playedThroughIndex: 1,
+      currentIndex: 2,
+    };
+    expect(isPlaylistIndexLockedDuringLive(context, 1)).toBe(true);
+    expect(isPlaylistIndexLockedDuringLive(context, 2)).toBe(true);
+    expect(isPlaylistIndexLockedDuringLive(context, 3)).toBe(false);
+  });
+
+  it("locks only past/current tracks within the current tanda during live playback", () => {
+    const context = {
+      liveMode: true,
+      playbackStatus: "playing" as const,
+      playedThroughIndex: 0,
+      currentIndex: 1,
+      currentTrackIndex: 1,
+    };
+    expect(isPlaylistTandaSlotLockedDuringLive(context, 1, 0)).toBe(true);
+    expect(isPlaylistTandaSlotLockedDuringLive(context, 1, 1)).toBe(true);
+    expect(isPlaylistTandaSlotLockedDuringLive(context, 1, 2)).toBe(false);
+    expect(isPlaylistTandaSlotLockedDuringLive(context, 2, 0)).toBe(false);
   });
 });

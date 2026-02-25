@@ -75,3 +75,44 @@ export const getMinutesOfDayFromMs = (ms: number) => {
 export const shouldShowDisplayNextTanda = (
   playlistStatus: "idle" | "playing" | "paused",
 ) => playlistStatus === "playing";
+
+type PlaylistLockContext = {
+  liveMode: boolean;
+  playbackStatus: "idle" | "playing" | "paused";
+  playedThroughIndex: number;
+  currentIndex: number;
+};
+
+export const isPlaylistIndexLockedDuringLive = (
+  context: PlaylistLockContext,
+  index: number,
+) => {
+  if (!context.liveMode || context.playbackStatus !== "playing") {
+    return false;
+  }
+  if (index <= context.playedThroughIndex) {
+    return true;
+  }
+  return index === context.currentIndex;
+};
+
+export const isPlaylistTandaSlotLockedDuringLive = (
+  context: PlaylistLockContext & { currentTrackIndex: number },
+  playlistIndex: number,
+  slotIndex: number,
+) => {
+  if (!context.liveMode || context.playbackStatus !== "playing") {
+    return false;
+  }
+  if (playlistIndex <= context.playedThroughIndex) {
+    return true;
+  }
+  if (playlistIndex < context.currentIndex) {
+    return true;
+  }
+  if (playlistIndex > context.currentIndex) {
+    return false;
+  }
+  const currentTrackIndex = Math.max(-1, context.currentTrackIndex);
+  return slotIndex <= currentTrackIndex;
+};

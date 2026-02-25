@@ -2281,3 +2281,186 @@
 - Verification:
   - `npm run build` passed.
   - `npm test` passed (34 files, 156 tests).
+### Latest update
+- Cortina fade behavior and timing:
+  - Updated renderer playback fade scheduling so fade starts based on available remaining time (not a fixed near-end trigger), caps fade duration to playable remainder, and explicitly reaches volume 0 before stop/pause dispatch for cortina/main channel playback.
+- Search-similar token normalization order:
+  - Updated shared token-key normalization to strip diacritics before unique-term filtering so accented/unaccented forms dedupe correctly.
+  - Added/updated unit coverage for accent normalization dedupe behavior.
+- Live-mode playlist lock granularity and editing:
+  - Added shared live-lock helpers for index and tanda-slot lock decisions.
+  - Playlist now allows future-slot actions within the currently playing tanda while keeping already-played/currently-playing slots locked.
+  - Added unit tests for live lock behavior.
+- Playlist track-level target mark (single-track replacement):
+  - Added track-level target mark state and `M` action in playlist track rows.
+  - Append/replace flow now prioritizes replacing marked track target (single slot) before tanda-level target behavior; target retention/clearing is handled consistently.
+- Separate cortina output level control:
+  - Added system setting `cortinaLevelPercent` (0-100) in config UI.
+  - Cortina playback volume now scales as a percentage of current main output level.
+- Playlist footer toggle replacing static help text:
+  - Replaced bottom playlist help text block with localized checkbox toggle for "current tanda is last".
+  - Toggle state persisted via localStorage key and reflected immediately in display behavior.
+- Display board + cortina text when current tanda marked last:
+  - Suppressed next-tanda label/style payload when last-tanda toggle is enabled.
+  - Cortina display text now uses localized "no more tandas" message equivalent to "That's all folks".
+- Playlist search-similar style source:
+  - In playlist context, search-similar style preferences now derive from tanda/slot intent and playlist sequence fallback, rather than solely original track genre metadata.
+- Tanda start-time drift mitigation:
+  - Live timing base now recalibrates from current playback elapsed position when available, reducing accumulated drift in projected next-tanda start times.
+- i18n additions:
+  - Added localized keys used by new controls/actions/messages (`playlistCurrentIsLast`, `actionMarkPlaylistTrack`, `actionMarkPlaylistTrackShort`, `cortinaLevelPercentLabel`, `displayNoMoreTandas`).
+- Files:
+  - `app/src/shared/search-query.ts`
+  - `app/src/shared/playlist-live.ts`
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `app/src/renderer/renderer.ts`
+  - `tests/search-query.test.ts`
+  - `tests/playlist-live.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (34 files, 159 tests).
+  - `npm run build` passed.
+### Latest update
+- Follow-up reliability fixes for bundled playlist/cortina/search concerns:
+  - Cortina fade cut-off:
+    - Updated cortina wait/finalization flow so natural cortina cutoff includes fade window and does not trigger an immediate second forced cut.
+    - Added paused/ended detection in cortina wait loop and split manual-stop vs natural-stop handling.
+  - Timing drift reduction:
+    - Replaced coarse interval polling in `waitForGap(...)` with deadline-based short timeouts for tighter timing.
+    - Adjusted displayed start-time minute conversion to avoid showing future start times earlier than actual minute boundaries.
+  - Search-similar normalization:
+    - Strengthened token uniqueness key normalization to strip diacritics and punctuation before dedupe.
+    - Added unit test for diacritics+punctuation variant dedupe.
+  - Playlist track target (`M`) persistence:
+    - Removed render-time clearing of track target state so marked single-track replacement targets persist as intended.
+- Files touched in this pass:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/search-query.ts`
+  - `tests/search-query.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (34 files, 160 tests).
+  - `npm run build` passed.
+### Latest update
+- Fixed track replacement flow after `send-playlist-track`:
+  - Root cause: track-target resolution discarded target when the marked slot became empty (`null`), so next add did not reuse that slot.
+  - Changes:
+    - `retainPlaylistTrackTargetAtIndex(...)` now supports empty playlist slots.
+    - `getPlaylistTrackTargetIndex()` now keeps valid empty/track slots as target instead of clearing.
+    - `appendTrackToPlaylist(...)` now permits replacement when target slot is empty (and still blocks tanda slots).
+    - `send-playlist-track` now explicitly marks the emptied index as the next single-track replacement target.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test -- tests/playlist-flow.test.ts tests/clipboard-target.test.ts tests/playlist-live.test.ts` passed.
+  - `npm run build` passed.
+### Latest update
+- Display board last-tanda next-text behavior:
+  - Added localized key `displayThisIsLastTanda` (en/es/fr/de/pt/it).
+  - Updated `getNextTandaLabel()` so when current tanda is marked last, bottom-right display text shows "This is the last tanda" (localized) instead of next-tanda text.
+  - Existing cortina/idle "That's all folks" messaging remains unchanged.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test -- tests/playlist-live.test.ts` passed.
+  - `npm run build` passed.
+### Latest update
+- Enforced terminal stop when "Current tanda is the last tanda" is enabled:
+  - Playback loop now checks after each completed item whether the completed item was a tanda and last-tanda mode is active.
+  - If true:
+    - plays the post-tanda cortina first when cortinas are enabled,
+    - then sets playlist playback to idle and stops further automatic progression.
+  - This prevents auto-continuing into subsequent tandas even if they exist in the playlist.
+- Shared logic and tests:
+  - Added `shouldStopAfterMarkedLastTanda(...)` in `app/src/shared/playlist-flow.ts`.
+  - Added tests in `tests/playlist-flow.test.ts`.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/playlist-flow.ts`
+  - `tests/playlist-flow.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test -- tests/playlist-flow.test.ts tests/playlist-live.test.ts` passed.
+  - `npm run build` passed.
+### Latest update
+- Playlist startup leading-empty-slot fix with trailing placeholder preserved:
+  - Added shared helper `normalizePlaylistItems(...)` to:
+    - remove leading empty slots before the first playable item,
+    - preserve internal empty slots,
+    - enforce exactly one trailing placeholder slot.
+  - Wired renderer `normalizePlaylist()` to use the shared helper.
+  - Result: no accidental empty tanda at top on startup, while end placeholder behavior is retained (including position before final cortina row when cortinas are enabled).
+- Files:
+  - `app/src/shared/playlist-normalize.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/playlist-normalize.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test -- tests/playlist-normalize.test.ts tests/playlist-flow.test.ts tests/playlist-live.test.ts` passed.
+  - `npm run build` passed.
+### Latest update
+- Playlist sequence integrity fix for startup/restore:
+  - Refined `normalizePlaylistItems(...)` to collapse duplicated leading empty slots to exactly one leading placeholder.
+  - Retained existing trailing-placeholder rule (exactly one trailing empty slot) and internal-slot preservation.
+  - This prevents index drift caused by multiple leading empties while keeping sequence alignment and placeholder-at-end behavior.
+- Files:
+  - `app/src/shared/playlist-normalize.ts`
+  - `tests/playlist-normalize.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (35 files, 166 tests).
+  - `npm run build` passed.
+### Latest update
+- Fixed first-tanda loss after restart when tanda was edited in playlist designer but not saved to DB:
+  - Root cause: playlist persistence stored only tanda IDs; playlist-only draft IDs are not resolvable from DB on restart.
+  - Added tanda snapshot persistence in playlist storage and hydration fallback during load:
+    - serialize tanda rows with optional inline snapshot `{name, styles, rating, trackSlots, totalDurationMs}`.
+    - on load, if DB tanda is missing but snapshot exists, hydrate a playlist draft from snapshot and keep slot intact.
+  - Included snapshot track IDs in preload query so hydrated tandas have track cache entries immediately.
+- New shared utility:
+  - `app/src/shared/playlist-storage.ts` with `StoredPlaylistItem` type and `collectStoredPlaylistTrackIds(...)`.
+- Test coverage:
+  - Added `tests/playlist-storage.test.ts`.
+- Files:
+  - `app/src/shared/playlist-storage.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/playlist-storage.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (36 files, 167 tests).
+  - `npm run build` passed.
+### Latest update
+- Added persistence fix for playlist-edited tandas when DB tanda exists:
+  - On playlist load, if a stored tanda row contains an inline snapshot, restore from snapshot first (playlist-local state), then fall back to DB tanda only when no snapshot exists.
+  - This prevents edited playlist tandas from reverting to original DB content after restart.
+- Added E2E coverage for restart regression:
+  - New test `23 - edited first playlist tanda persists after app restart` in `tests/e2e/workflows.e2e.ts`.
+  - Added restart helper in `tests/e2e/support/electron-app.ts`:
+    - `close({ cleanup?: boolean })`
+    - `relaunchSeededApp(tempRoot)` for same data/user-data roots across app restarts.
+- Shared storage utility:
+  - Added `app/src/shared/playlist-storage.ts` with `StoredPlaylistItem`, `PlaylistTandaSnapshot`, and `collectStoredPlaylistTrackIds(...)`.
+- Additional unit coverage:
+  - Added `tests/playlist-storage.test.ts`.
+- Verification:
+  - `npm test` passed (36 files, 167 tests).
+  - `npm run build` passed.
+  - Attempted E2E run:
+    - `npx playwright test tests/e2e/workflows.e2e.ts -g "23 - edited first playlist tanda persists after app restart"`
+    - blocked in this environment by Electron launch error: `Process failed to launch!`.
+### Latest update
+- Resolved local runtime ABI mismatch for native sqlite module:
+  - Symptom: app startup error reported `better_sqlite3.node` built for NODE_MODULE_VERSION 127 while Electron runtime expected 119.
+  - Action: ran `npx electron-builder install-app-deps` to rebuild native dependencies for Electron 28.3.3.
+  - Result: `better-sqlite3` rebuild completed successfully.

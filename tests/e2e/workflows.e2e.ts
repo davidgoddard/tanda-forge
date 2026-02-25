@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
-import { launchSeededApp } from "./support/electron-app";
+import { launchSeededApp, relaunchSeededApp } from "./support/electron-app";
 
 const runSearch = async (page: Page, query: string) => {
   await page.locator("#search-input").fill(query);
@@ -392,6 +392,48 @@ test.describe("Electron app end-to-end workflows", () => {
       expect(clearRight).toBeLessThanOrEqual(headerRight + 1);
     } finally {
       await launched.close();
+    }
+  });
+
+  test("23 - edited first playlist tanda persists after app restart", async () => {
+    const launched = await launchSeededApp("full");
+    const tempRoot = launched.tempRoot;
+    let relaunched: Awaited<ReturnType<typeof relaunchSeededApp>> | null = null;
+    try {
+      const { page } = launched;
+      await runSearch(page, "Tempo 72 Test");
+      await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "add-clip");
+
+      await page.locator("#playlist-clear").click();
+      await page
+        .locator('.playlist-clear-modal .confirm-ok[data-option="autofill"]')
+        .click();
+      await expect(page.locator("#playlist-list .tanda-row").first()).toBeVisible();
+
+      const firstTanda = page.locator("#playlist-list .tanda-row").first();
+      await clickRowAction(firstTanda, "tanda-edit");
+      const editor = page.locator("#playlist-tanda-editor");
+      await expect(editor).not.toHaveClass(/hidden/);
+
+      await editor
+        .locator('.tanda-track-row:nth-child(2) button[data-action="tanda-remove"]')
+        .click();
+      await clickRowAction(clipboardTrackRow(page, "Tempo 72 Test"), "add-tanda");
+      await editor.locator('button[data-action="tanda-done"]').click();
+
+      const editedFirstTanda = page.locator("#playlist-list .tanda-row").first();
+      await expect(editedFirstTanda).toContainText("Tempo 72 Test");
+
+      await launched.close({ cleanup: false });
+      relaunched = await relaunchSeededApp(tempRoot);
+      const firstAfterRestart = relaunched.page.locator("#playlist-list .tanda-row").first();
+      await expect(firstAfterRestart).toContainText("Tempo 72 Test");
+    } finally {
+      if (relaunched) {
+        await relaunched.close();
+      } else {
+        await launched.close();
+      }
     }
   });
 });

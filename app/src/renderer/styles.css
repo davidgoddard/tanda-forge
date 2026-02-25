@@ -1167,6 +1167,11 @@ body.theme-dark-classic .collection-tabs button.active {
   color: var(--panel);
 }
 
+.action-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .headphone-button {
   width: var(--action-size);
   height: var(--action-size);
@@ -1783,9 +1788,18 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   color: var(--muted);
 }
 
-.playlist-hint {
+.playlist-last-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   font-size: 0.85rem;
   color: var(--muted);
+  user-select: none;
+}
+
+.playlist-last-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
 }
 
 .error-list {

@@ -21,10 +21,13 @@ const pushIf = (items: string[], value?: string | null) => {
   }
 };
 
+const stripDiacritics = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
 const normalizeTokenKey = (token: string) => {
-  const lowered = token.toLowerCase();
-  const stripped = lowered.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "");
-  return stripped || lowered;
+  const lowered = stripDiacritics(token).toLowerCase();
+  const collapsed = lowered.replace(/[^a-z0-9]+/g, "");
+  return collapsed;
 };
 
 export const dedupeQueryTokens = (query: string) => {

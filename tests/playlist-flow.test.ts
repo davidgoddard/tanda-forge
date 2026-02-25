@@ -5,6 +5,7 @@ import {
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
   shouldSkipLeadInCortinaForSelectedStart,
+  shouldStopAfterMarkedLastTanda,
   shouldTreatClickStartAsIdle,
 } from "../app/src/shared/playlist-flow.js";
 
@@ -59,6 +60,17 @@ describe("shouldTreatClickStartAsIdle", () => {
   it("does not treat active playback as idle", () => {
     expect(shouldTreatClickStartAsIdle("playing", true)).toBe(false);
     expect(shouldTreatClickStartAsIdle("paused", true)).toBe(false);
+  });
+});
+
+describe("shouldStopAfterMarkedLastTanda", () => {
+  it("stops after tanda when marked as last", () => {
+    expect(shouldStopAfterMarkedLastTanda("tanda", true)).toBe(true);
+  });
+
+  it("does not stop for tracks or when not marked", () => {
+    expect(shouldStopAfterMarkedLastTanda("track", true)).toBe(false);
+    expect(shouldStopAfterMarkedLastTanda("tanda", false)).toBe(false);
   });
 });
 

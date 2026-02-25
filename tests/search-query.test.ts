@@ -92,6 +92,16 @@ describe("dedupeQueryTokens", () => {
     const query = dedupeQueryTokens("Canaro, Canaro canaro.");
     expect(query).toBe("Canaro,");
   });
+
+  it("normalizes diacritics before token de-duplication", () => {
+    const query = dedupeQueryTokens("D\u00e9jame Dejame dejame");
+    expect(query).toBe("D\u00e9jame");
+  });
+
+  it("normalizes diacritics and punctuation before token de-duplication", () => {
+    const query = dedupeQueryTokens("D'Ar\u00edenzo Darienzo d\u00e1rienzo");
+    expect(query).toBe("D'Ar\u00edenzo");
+  });
 });
 
 describe("appendQueryTokens", () => {

@@ -9,14 +9,14 @@ export type LaunchedApp = {
   app: ElectronApplication;
   page: Page;
   tempRoot: string;
-  close: () => Promise<void>;
+  close: (options?: { cleanup?: boolean }) => Promise<void>;
 };
 
-export const launchSeededApp = async (kind: SeedKind): Promise<LaunchedApp> => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "tpl-e2e-"));
-  const dataRoot = path.join(tempRoot, "data");
-  const userDataRoot = path.join(tempRoot, "user-data");
-  seedDataRoot(dataRoot, kind);
+const launchWithRoots = async (
+  tempRoot: string,
+  dataRoot: string,
+  userDataRoot: string,
+): Promise<LaunchedApp> => {
   fs.mkdirSync(userDataRoot, { recursive: true });
 
   const app = await electron.launch({
@@ -33,10 +33,26 @@ export const launchSeededApp = async (kind: SeedKind): Promise<LaunchedApp> => {
   const page = await app.firstWindow();
   await page.waitForSelector("#search-input");
 
-  const close = async () => {
+  const close = async (options?: { cleanup?: boolean }) => {
     await app.close();
-    fs.rmSync(tempRoot, { recursive: true, force: true });
+    if (options?.cleanup ?? true) {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
   };
 
   return { app, page, tempRoot, close };
+};
+
+export const launchSeededApp = async (kind: SeedKind): Promise<LaunchedApp> => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "tpl-e2e-"));
+  const dataRoot = path.join(tempRoot, "data");
+  const userDataRoot = path.join(tempRoot, "user-data");
+  seedDataRoot(dataRoot, kind);
+  return launchWithRoots(tempRoot, dataRoot, userDataRoot);
+};
+
+export const relaunchSeededApp = async (tempRoot: string): Promise<LaunchedApp> => {
+  const dataRoot = path.join(tempRoot, "data");
+  const userDataRoot = path.join(tempRoot, "user-data");
+  return launchWithRoots(tempRoot, dataRoot, userDataRoot);
 };
