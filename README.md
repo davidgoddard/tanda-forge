@@ -6,7 +6,7 @@ Tanda Player Lite is a cut down version of the Tanda Player app that ran on a Ra
 
 It is now a desktop app for tango DJs who want to build and save tandas and use various tools to help locate tandas when DJing and making it simple to build and modify the playlist whole tandas at a time or track by track if required.
 
-Unlike the original Tanda Player, music similarity is now assessed soley on user entered data such as artist, year, singers, beats per minute and notes.  The original used user perception of sounds to find similar sounding songs and used multi-coloured tags for tracks allowing the similarity of tracks to be visually verified.  There are many features of the old app that are not relevant to the new one and this app now focusses just on the Live DJing aspect.
+Unlike the original Tanda Player, music similarity is now assessed soley on user entered data such as artist, year, singers, beats per minute and notes.  The original used user perception of sounds to find similar sounding songs and used multi-coloured tags representing the individual properties for tracks allowing the similarity of tracks to be visually verified.  There are many features of the old app that are not relevant to the new one and this app now focusses just on the Live DJing aspect.
 
 ![Main screen layout](images/user-guide/01-main-layout.png)
 
