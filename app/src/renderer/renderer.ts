@@ -94,7 +94,7 @@ import {
   aggregateOrchestraDurations,
   areArtistsGapSatisfied,
   buildAdaptiveNumericDistribution,
-  collectEligibleArtistGroups,
+  collectEligibleArtistStyleGroups,
   normalizeArtistGroupKey,
 } from "../shared/playlist-diversity.js";
 import { ORCHESTRA_SEED_DATA } from "../shared/orchestra-seed.js";
@@ -7118,38 +7118,30 @@ const collectionArtistGroupKey = (track: TrackRow) =>
     resolveCanonicalArtistName(track.artist_summary || track.artist || ""),
   );
 
-const getOrchestraEntryByGroupKey = (groupKey: string) => {
-  const normalized = normalizeArtistGroupKey(groupKey);
-  return orchestraRegistry.find(
-    (entry) => normalizeArtistGroupKey(entry.canonical) === normalized,
-  );
-};
-
-const getPlaylistArtistGroups = () => {
+const getPlaylistArtistStyleGroups = () => {
   const used = new Set<string>();
   playlistItems.forEach((item) => {
     if (!item) {
       return;
     }
-    resolvePlaylistTracks(item).forEach((track) => {
-      const key = collectionArtistGroupKey(track);
-      if (key) {
-        used.add(key);
-        const entry = getOrchestraEntryByGroupKey(key);
-        if (entry) {
-          entry.related.forEach((related) => {
-            const relatedCanonical =
-              resolveOrchestraCanonical({
-                rawArtist: related,
-                entries: orchestraRegistry,
-                aliasIndex: orchestraAliasIndex,
-              }) ?? related;
-            const relatedKey = normalizeArtistGroupKey(relatedCanonical);
-            if (relatedKey) {
-              used.add(relatedKey);
+    const tandaStyleFallback =
+      item.kind === "tanda"
+        ? (() => {
+            const tanda = resolveTandaDraft(item.tandaId);
+            if (!tanda || tanda.styles.length === 0) {
+              return "";
             }
-          });
-        }
+            const normalized = tanda.styles
+              .map((style) => normalizeStyleName(style))
+              .filter(Boolean);
+            return normalized[0] ?? "";
+          })()
+        : "";
+    resolvePlaylistTracks(item).forEach((track) => {
+      const artist = collectionArtistGroupKey(track);
+      const style = normalizeStyleName(track.genre ?? "") || tandaStyleFallback;
+      if (artist && style) {
+        used.add(`${artist}|${style}`);
       }
     });
   });
@@ -7196,17 +7188,20 @@ const buildAvailableCollectionIds = async () => {
   const tracks = allTracksForSmartCollections ?? [];
   const tandas = allTandasForSmartCollections ?? [];
   const requiredCount = Math.max(1, getDefaultTandaSize());
-  const usedGroups = getPlaylistArtistGroups();
-  const eligibleGroups = collectEligibleArtistGroups({
+  const usedGroups = getPlaylistArtistStyleGroups();
+  const eligibleGroups = collectEligibleArtistStyleGroups({
     items: tracks,
     usedGroups,
     requiredCount,
     getArtistGroupKey: collectionArtistGroupKey,
+    getStyleKey: (track) => normalizeStyleName(track.genre ?? ""),
     getTitleKey: normalizeTrackTitleForAutofill,
   });
   const trackIds = tracks
     .filter((track) => {
-      const group = collectionArtistGroupKey(track);
+      const artist = collectionArtistGroupKey(track);
+      const style = normalizeStyleName(track.genre ?? "");
+      const group = artist && style ? `${artist}|${style}` : "";
       return group.length > 0 && eligibleGroups.has(group);
     })
     .slice()
@@ -7227,11 +7222,27 @@ const buildAvailableCollectionIds = async () => {
       if (tandaTracks.length !== requiredCount) {
         return false;
       }
-      const groups = Array.from(new Set(tandaTracks.map(collectionArtistGroupKey)));
-      if (groups.length !== 1) {
+      const artists = Array.from(new Set(tandaTracks.map(collectionArtistGroupKey)));
+      if (artists.length !== 1) {
         return false;
       }
-      return eligibleGroups.has(groups[0] ?? "");
+      const styles = Array.from(
+        new Set(
+          tandaTracks
+            .map((track) => normalizeStyleName(track.genre ?? ""))
+            .filter(Boolean),
+        ),
+      );
+      const styleFromTracks = styles.length === 1 ? styles[0] ?? "" : "";
+      const styleFromTanda = tanda.styles
+        .map((style) => normalizeStyleName(style))
+        .find(Boolean) ?? "";
+      const style = styleFromTracks || styleFromTanda;
+      if (!style) {
+        return false;
+      }
+      const group = `${artists[0] ?? ""}|${style}`;
+      return eligibleGroups.has(group);
     })
     .slice()
     .sort((left, right) => getTandaSortKey(left).localeCompare(getTandaSortKey(right)))

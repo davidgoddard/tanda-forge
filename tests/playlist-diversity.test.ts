@@ -5,6 +5,7 @@ import {
   areArtistsGapSatisfied,
   buildAdaptiveNumericDistribution,
   collectEligibleArtistGroups,
+  collectEligibleArtistStyleGroups,
   isArtistGapSatisfied,
   normalizeArtistGroupKey,
 } from "../app/src/shared/playlist-diversity.js";
@@ -96,6 +97,41 @@ describe("collectEligibleArtistGroups", () => {
       getTitleKey: (item) => item.title,
     });
     expect(Array.from(groups)).toEqual(["troilo"]);
+  });
+});
+
+describe("collectEligibleArtistStyleGroups", () => {
+  it("keeps alternative styles available for the same artist", () => {
+    const groups = collectEligibleArtistStyleGroups({
+      items: [
+        { artist: "d'arienzo", style: "tango", title: "A" },
+        { artist: "d'arienzo", style: "tango", title: "B" },
+        { artist: "d'arienzo", style: "waltz", title: "C" },
+        { artist: "d'arienzo", style: "waltz", title: "D" },
+      ],
+      usedGroups: new Set(["d'arienzo|tango"]),
+      requiredCount: 2,
+      getArtistGroupKey: (item) => item.artist,
+      getStyleKey: (item) => item.style,
+      getTitleKey: (item) => item.title,
+    });
+    expect(Array.from(groups)).toEqual(["d'arienzo|waltz"]);
+  });
+
+  it("requires distinct titles inside each artist+style group", () => {
+    const groups = collectEligibleArtistStyleGroups({
+      items: [
+        { artist: "troilo", style: "milonga", title: "A" },
+        { artist: "troilo", style: "milonga", title: "A" },
+        { artist: "troilo", style: "milonga", title: "B" },
+      ],
+      usedGroups: new Set<string>(),
+      requiredCount: 2,
+      getArtistGroupKey: (item) => item.artist,
+      getStyleKey: (item) => item.style,
+      getTitleKey: (item) => item.title,
+    });
+    expect(Array.from(groups)).toEqual(["troilo|milonga"]);
   });
 });
 

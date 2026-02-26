@@ -2575,3 +2575,27 @@
 - Verification:
   - `npm test` passed (38 files, 179 tests).
   - `npm run build` passed.
+### Latest update
+- `Available` smart collection refined to artist+style grouping:
+  - Changed availability gating from canonical artist-only groups to canonical `artist|style` groups.
+  - Playlist usage tracking now records `artist|style` from playlist tracks (with tanda-style fallback when track genre is missing).
+  - Candidate track/tanda eligibility now checks the corresponding `artist|style` group, so used artist/style combinations are excluded while other styles for the same artist remain available.
+- Alias/variant handling:
+  - Artist group keys continue to use canonical artist resolution via orchestra alias registry, so variants map to the same canonical artist before style grouping.
+- Shared logic/testing:
+  - Added `collectEligibleArtistStyleGroups(...)` in `app/src/shared/playlist-diversity.ts`.
+  - Added unit coverage in `tests/playlist-diversity.test.ts` for style-specific eligibility behavior.
+- Design/docs updates:
+  - Added `UI-082.R13` to `design/05-ui-principles-and-components.md` documenting canonical artist+style semantics and alias-aware matching.
+  - Updated `design/tracking-and-feature-matrix.md` UI-082 implementation note.
+- Files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/playlist-diversity.ts`
+  - `tests/playlist-diversity.test.ts`
+  - `design/05-ui-principles-and-components.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+- Verification:
+  - `npm test` passed (38 files, 181 tests).
+  - `npm run build` passed.

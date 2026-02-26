@@ -628,6 +628,13 @@ Behavior:
   recently added music tracks (no cortinas).
 - UI-082.R11: The New collection is read-only and cannot be removed or reordered.
 - UI-082.R12: The size of the New collection is configurable in System settings.
+- UI-082.R13: The system provides an `Available` smart collection keyed by
+  canonical `artist + style` groups:
+  - UI-082.R13.a: Once a playlist uses a canonical artist in a specific style,
+    only that same artist+style group is excluded from `Available`.
+  - UI-082.R13.b: Other styles for the same canonical artist remain eligible.
+  - UI-082.R13.c: Canonical artist matching must use orchestra alias/variant
+    resolution (e.g., D'Arienzo variants resolve to the same canonical artist).
 
 ---
 

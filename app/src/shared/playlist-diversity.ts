@@ -63,6 +63,48 @@ export const collectEligibleArtistGroups = <T>(params: {
   );
 };
 
+export const collectEligibleArtistStyleGroups = <T>(params: {
+  items: T[];
+  usedGroups: Set<string>;
+  requiredCount: number;
+  getArtistGroupKey: (item: T) => string;
+  getStyleKey: (item: T) => string;
+  getTitleKey: (item: T) => string;
+}) => {
+  const {
+    items,
+    usedGroups,
+    requiredCount,
+    getArtistGroupKey,
+    getStyleKey,
+    getTitleKey,
+  } = params;
+  const grouped = new Map<string, Set<string>>();
+  items.forEach((item) => {
+    const artist = normalizeArtistGroupKey(getArtistGroupKey(item));
+    const style = getStyleKey(item).trim().toLowerCase();
+    if (!artist || !style) {
+      return;
+    }
+    const group = `${artist}|${style}`;
+    if (usedGroups.has(group)) {
+      return;
+    }
+    const title = getTitleKey(item).trim();
+    if (!title) {
+      return;
+    }
+    const titles = grouped.get(group) ?? new Set<string>();
+    titles.add(title);
+    grouped.set(group, titles);
+  });
+  return new Set(
+    Array.from(grouped.entries())
+      .filter(([, titles]) => titles.size >= requiredCount)
+      .map(([group]) => group),
+  );
+};
+
 export const buildAdaptiveNumericDistribution = (
   counts: Map<number, number>,
   maxDensePoints = 30,
