@@ -6,6 +6,7 @@ import {
   buildAdaptiveNumericDistribution,
   collectEligibleArtistGroups,
   collectEligibleArtistStyleGroups,
+  isTandaArtistStyleAvailable,
   isArtistGapSatisfied,
   normalizeArtistGroupKey,
 } from "../app/src/shared/playlist-diversity.js";
@@ -132,6 +133,32 @@ describe("collectEligibleArtistStyleGroups", () => {
       getTitleKey: (item) => item.title,
     });
     expect(Array.from(groups)).toEqual(["troilo|milonga"]);
+  });
+});
+
+describe("isTandaArtistStyleAvailable", () => {
+  it("allows tanda when artist+style group is unused and size matches", () => {
+    expect(
+      isTandaArtistStyleAvailable({
+        artistGroup: "d'arienzo",
+        styleGroup: "tango",
+        trackCount: 3,
+        requiredCount: 3,
+        usedGroups: new Set(["d'arienzo|waltz"]),
+      }),
+    ).toBe(true);
+  });
+
+  it("blocks tanda when same artist+style group is already used", () => {
+    expect(
+      isTandaArtistStyleAvailable({
+        artistGroup: "d'arienzo",
+        styleGroup: "tango",
+        trackCount: 3,
+        requiredCount: 3,
+        usedGroups: new Set(["d'arienzo|tango"]),
+      }),
+    ).toBe(false);
   });
 });
 

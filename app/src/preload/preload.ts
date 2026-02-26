@@ -99,6 +99,7 @@ const api: AppApi = {
   logClientError: async (params) =>
     ipcRenderer.invoke("app:logClientError", params),
   toggleFullscreen: async () => ipcRenderer.invoke("app:toggleFullscreen"),
+  seedE2eData: async (payload) => ipcRenderer.invoke("e2e:seedData", payload),
 };
 
 contextBridge.exposeInMainWorld("tanda", api);

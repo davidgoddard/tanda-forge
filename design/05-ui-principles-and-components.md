@@ -635,6 +635,9 @@ Behavior:
   - UI-082.R13.b: Other styles for the same canonical artist remain eligible.
   - UI-082.R13.c: Canonical artist matching must use orchestra alias/variant
     resolution (e.g., D'Arienzo variants resolve to the same canonical artist).
+  - UI-082.R13.d: Tanda availability must be evaluated from tanda-level style
+    metadata when track-level style tags are missing or inconsistent, provided
+    tanda size and artist+style usage constraints are satisfied.
 
 ---
 

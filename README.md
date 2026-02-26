@@ -1,6 +1,30 @@
 # Tanda Player Lite
 
-Tanda Player Lite is a desktop tool for tango DJs who want to build tandas, plan a playlist, and run a set with cortinas, timing guidance, and headphone preview. It is designed for DJs who curate tandas and need predictable timing without giving up hands-on control.
+This project is a collaboration between David Goddard who came up with the design and detailed requirements and ChatGPT's Codex which wrote 100% of the code, tests and documentation.
+
+Tanda Player Lite is a cut down version of the Tanda Player app that ran on a Raspberry Pi.
+
+It is now a desktop app for tango DJs who want to build and save tandas and use various tools to help locate tandas when DJing and making it simple to build and modify the playlist whole tandas at a time or track by track if required.
+
+Unlike the original Tanda Player, music similarity is now assessed soley on user entered data such as artist, year, singers, beats per minute and notes.  The original used user perception of sounds to find similar sounding songs and used multi-coloured tags for tracks allowing the similarity of tracks to be visually verified.  There are many features of the old app that are not relevant to the new one and this app now focusses just on the Live DJing aspect.
+
+![Main screen layout](images/user-guide/01-main-layout.png)
+
+![Display screen layout](images/user-guide/02-display-board.png)
+
+This app:
+
+- Requires FFMPEG to already be installed
+- Supports dual outputs: main/live speakers and headphones
+- normalises sound levels
+- trims silences off both ends of a song
+- auto fade cortinas or override and let them play in full
+- allows importing of legacy tanda player's tandas and track data
+- highlights songs and tandas already in the playlist and locates them to show you
+- allows filtering of the playlist to quickly view tandas by a specific artist for example
+- provides real-time graphs of artist use, years and tempos covered.
+- provides built-in collections such as `New` tandas and songs to help find new creations easily and allows user-defined collections manually maintained such as `Favourites` or `Last Tandas` etc.
+- optionally provides a display for use on separate monitor or projector for the dancers.
 
 ## Download and Install (Releases)
 
@@ -17,15 +41,6 @@ If you download the wrong macOS build, macOS will say the app is not supported.
 You can confirm the architecture in Finder (**Get Info**) where it will show
 **Application (Intel)** or **Application (Apple silicon)**.
 
-### CI build note (macOS)
-
-We build macOS Intel and Apple Silicon on separate GitHub runners:
-- **Intel (x64)**: built on `macos-15-intel`
-- **Apple Silicon (arm64)**: built on `macos-14`
-
-If you update runner labels later, keep this section aligned with
-`.github/workflows/release.yml` so users know which assets are which.
-
 ### 2) macOS Gatekeeper (unsigned app)
 
 Because the app is not signed, macOS will block the first launch:
@@ -34,8 +49,6 @@ Because the app is not signed, macOS will block the first launch:
 2. Right‑click the app → **Open** → **Open** again.
 3. If blocked: **System Settings → Privacy & Security** → scroll to the warning and click **Open Anyway**.
 4. Confirm the prompt. After the first launch, it should open normally.
-
-Once opened once, it should launch normally.
 
 ## ffmpeg / ffprobe Setup
 
@@ -66,7 +79,9 @@ If `ffmpeg` and `ffprobe` are already installed and available in `PATH`, the app
 Settings → **Library**
 1. Add **Music** folders.
 2. Add **Cortina** folders (optional).
-3. Scan music and cortinas.
+3. Add **Background images** folders (optional).
+4. Import legacy tandas etc. (optional and if key legacy files are found where the music files are stored)
+5. Scan music and cortinas.
 
 ### 2) Audio Outputs
 Settings → **System**
@@ -107,6 +122,12 @@ The main screen is split into three columns:
 
 There is also a **Tanda Designer** tab for building or editing tandas.
 
+Display of content in each section is linked to user operations, i.e. marking a Waltz tanda ready to be replaced sets the style of each column to Waltz so that all data shown is a potential replacement. 
+
+Track data can be edited via a pop-up editor and fields from this can be used to drive searches directly.
+
+A graph page is available to view the spread of artists, years and tempos within the current playlist allowing the DJ to easily see artists being over-played and the collections in the clipboard such as 'Available' show as yet un-used artists encouraging diversity.
+
 ### Typical Workflow
 
 1. Search for tracks/tandas.
@@ -122,26 +143,3 @@ There is also a **Tanda Designer** tab for building or editing tandas.
 - **Cortina preview**: headphone icon lets you cue.
 - **Legacy import**: keeps your curated metadata.
 - **Trim padding**: extend start/end trims if track tails are being cut too early.
-
-## Building Locally (for Developers)
-
-```
-npm install
-npm run build
-npm start
-```
-
-To package:
-```
-npm run package
-```
-
-Artifacts appear in `dist/` (do not commit).
-
-## Repository Hygiene
-
-Do not commit large generated files or binaries:
-- `node_modules/`
-- `dist/`
-- `tmp/`
-- `app/resources/ffmpeg/*` binaries

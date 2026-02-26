@@ -30,7 +30,7 @@ import {
   fetchSearchCandidates,
   fuzzySearchTracks,
 } from "./library/search";
-import type { CortinaTrackRow, DisplayUpdatePayload } from "../shared/types";
+import type { CortinaTrackRow, DisplayUpdatePayload, E2ESeedPayload } from "../shared/types";
 import { filterAndScoreTracks } from "./library/fuzzy-search";
 import {
   DEFAULT_CORTINA_SET_ID,
@@ -1592,6 +1592,89 @@ const registerIpc = () => {
     resetDb();
     legacyOverridesByRootId = new Map();
     clearDiagnosticsArtifacts();
+    return { ok: true };
+  });
+
+  ipcMain.handle("e2e:seedData", async (_event, payload: E2ESeedPayload) => {
+    if (process.env.NODE_ENV !== "test") {
+      throw new Error("e2e seeding is only available in test mode");
+    }
+    const db = getDb();
+    const now = new Date().toISOString();
+    const runSeed = db.transaction((seed: E2ESeedPayload) => {
+      db.exec(`
+        delete from playlist_items;
+        delete from playlists;
+        delete from tanda_styles;
+        delete from tanda_tracks;
+        delete from tandas;
+        delete from tracks;
+        delete from styles;
+        delete from library_roots;
+      `);
+
+      const insertRoot = db.prepare(`
+        insert into library_roots (id, kind, path, label, created_at)
+        values (?, ?, ?, ?, ?)
+      `);
+      insertRoot.run("root-music", "music", seed.roots.musicRoot, "music", now);
+      insertRoot.run("root-cortina", "cortina", seed.roots.cortinaRoot, "cortinas", now);
+      insertRoot.run("root-background", "background", seed.roots.backgroundRoot, "backgrounds", now);
+
+      const insertStyle = db.prepare("insert into styles (name, normalized) values (?, ?)");
+      seed.styles.forEach((styleName) => {
+        insertStyle.run(styleName, normalizeStyleName(styleName));
+      });
+
+      const insertTrack = db.prepare(`
+        insert into tracks (
+          id, root_id, relative_path, full_path, file_hash, file_size, file_mtime_ms,
+          title, artist, artist_summary, album, album_artist, singer, year, genre, bpm,
+          notes, instrumental, duration_ms, start_offset_ms, end_trim_ms, loudness_db,
+          gain_db, tag_error, analysis_error, tag_json, analysis_json, created_at, updated_at, last_scanned_at
+        ) values (
+          @id, @root_id, @relative_path, @full_path, @file_hash, @file_size, @file_mtime_ms,
+          @title, @artist, @artist_summary, @album, @album_artist, @singer, @year, @genre, @bpm,
+          @notes, @instrumental, @duration_ms, 0, 0, -14.5, -1.5, '', '', '{}', '{}', @created_at, @updated_at, @last_scanned_at
+        )
+      `);
+      seed.tracks.forEach((track) => {
+        insertTrack.run({
+          ...track,
+          created_at: now,
+          updated_at: now,
+          last_scanned_at: now,
+        });
+      });
+
+      const insertTanda = db.prepare(`
+        insert into tandas (
+          id, name, rating, instrumental, total_duration_ms, slot_count, invalid, updated_at
+        ) values (?, ?, ?, ?, ?, ?, 0, ?)
+      `);
+      const insertTandaTrack = db.prepare(
+        "insert into tanda_tracks (tanda_id, track_id, position) values (?, ?, ?)",
+      );
+      const insertTandaStyle = db.prepare(
+        "insert into tanda_styles (tanda_id, style_name) values (?, ?)",
+      );
+      seed.tandas.forEach((tanda) => {
+        insertTanda.run(
+          tanda.id,
+          tanda.name,
+          tanda.rating,
+          tanda.instrumental,
+          tanda.tracks.length * 180000,
+          tanda.tracks.length,
+          now,
+        );
+        tanda.tracks.forEach((trackId, index) => {
+          insertTandaTrack.run(tanda.id, trackId, index);
+        });
+        insertTandaStyle.run(tanda.id, tanda.style);
+      });
+    });
+    runSeed(payload);
     return { ok: true };
   });
 

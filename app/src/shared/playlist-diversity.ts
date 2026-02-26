@@ -105,6 +105,29 @@ export const collectEligibleArtistStyleGroups = <T>(params: {
   );
 };
 
+export const isTandaArtistStyleAvailable = (params: {
+  artistGroup: string;
+  styleGroup: string;
+  trackCount: number;
+  requiredCount: number;
+  usedGroups: Set<string>;
+}) => {
+  const {
+    artistGroup,
+    styleGroup,
+    trackCount,
+    requiredCount,
+    usedGroups,
+  } = params;
+  if (!artistGroup || !styleGroup) {
+    return false;
+  }
+  if (trackCount !== requiredCount) {
+    return false;
+  }
+  return !usedGroups.has(`${artistGroup}|${styleGroup}`);
+};
+
 export const buildAdaptiveNumericDistribution = (
   counts: Map<number, number>,
   maxDensePoints = 30,

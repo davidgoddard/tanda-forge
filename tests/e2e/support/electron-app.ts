@@ -18,16 +18,19 @@ const launchWithRoots = async (
   userDataRoot: string,
 ): Promise<LaunchedApp> => {
   fs.mkdirSync(userDataRoot, { recursive: true });
+  delete process.env.ELECTRON_RUN_AS_NODE;
+  const launchEnv = {
+    ...process.env,
+    NODE_ENV: "test",
+    TANDA_DATA_ROOT: dataRoot,
+    TANDA_USER_DATA_ROOT: userDataRoot,
+    ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
+  } as NodeJS.ProcessEnv;
+  delete launchEnv.ELECTRON_RUN_AS_NODE;
 
   const app = await electron.launch({
     args: ["."],
-    env: {
-      ...process.env,
-      NODE_ENV: "test",
-      TANDA_DATA_ROOT: dataRoot,
-      TANDA_USER_DATA_ROOT: userDataRoot,
-      ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
-    },
+    env: launchEnv,
   });
 
   const page = await app.firstWindow();
@@ -47,8 +50,16 @@ export const launchSeededApp = async (kind: SeedKind): Promise<LaunchedApp> => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "tpl-e2e-"));
   const dataRoot = path.join(tempRoot, "data");
   const userDataRoot = path.join(tempRoot, "user-data");
-  seedDataRoot(dataRoot, kind);
-  return launchWithRoots(tempRoot, dataRoot, userDataRoot);
+  const seeded = seedDataRoot(dataRoot, kind);
+  const launched = await launchWithRoots(tempRoot, dataRoot, userDataRoot);
+  if (seeded.payload) {
+    await launched.page.evaluate(async (payload) => {
+      await window.tanda?.seedE2eData(payload);
+    }, seeded.payload);
+    await launched.page.reload();
+    await launched.page.waitForSelector("#search-input");
+  }
+  return launched;
 };
 
 export const relaunchSeededApp = async (tempRoot: string): Promise<LaunchedApp> => {

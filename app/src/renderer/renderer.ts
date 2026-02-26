@@ -95,6 +95,7 @@ import {
   areArtistsGapSatisfied,
   buildAdaptiveNumericDistribution,
   collectEligibleArtistStyleGroups,
+  isTandaArtistStyleAvailable,
   normalizeArtistGroupKey,
 } from "../shared/playlist-diversity.js";
 import { ORCHESTRA_SEED_DATA } from "../shared/orchestra-seed.js";
@@ -7219,9 +7220,6 @@ const buildAvailableCollectionIds = async () => {
   const tandaIds = tandas
     .filter((tanda) => {
       const tandaTracks = getTandaTracks(tanda);
-      if (tandaTracks.length !== requiredCount) {
-        return false;
-      }
       const artists = Array.from(new Set(tandaTracks.map(collectionArtistGroupKey)));
       if (artists.length !== 1) {
         return false;
@@ -7238,11 +7236,13 @@ const buildAvailableCollectionIds = async () => {
         .map((style) => normalizeStyleName(style))
         .find(Boolean) ?? "";
       const style = styleFromTracks || styleFromTanda;
-      if (!style) {
-        return false;
-      }
-      const group = `${artists[0] ?? ""}|${style}`;
-      return eligibleGroups.has(group);
+      return isTandaArtistStyleAvailable({
+        artistGroup: artists[0] ?? "",
+        styleGroup: style,
+        trackCount: tandaTracks.length,
+        requiredCount,
+        usedGroups,
+      });
     })
     .slice()
     .sort((left, right) => getTandaSortKey(left).localeCompare(getTandaSortKey(right)))
@@ -14288,17 +14288,6 @@ const init = async () => {
     }
     if (action === "tanda-toggle") {
       toggleTandaRow(row);
-      closeRowMenus();
-      return;
-    }
-    if (action === "tanda-edit") {
-      const tandaId = row.dataset.tandaId;
-      if (!tandaId) {
-        closeRowMenus();
-        return;
-      }
-      const source = resolveTandaDraft(tandaId) ?? null;
-      openTandaInDesigner(tandaId, source, "playlist-tab");
       closeRowMenus();
       return;
     }

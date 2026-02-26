@@ -111,6 +111,48 @@ export type TrackSearchRequest = {
   bpmRange?: number;
 };
 
+export type E2ESeedTrack = {
+  id: string;
+  root_id: "root-music" | "root-cortina";
+  relative_path: string;
+  full_path: string;
+  file_hash: string;
+  file_size: number;
+  file_mtime_ms: number;
+  title: string;
+  artist: string;
+  artist_summary: string;
+  album: string;
+  album_artist: string;
+  singer: string;
+  year: string;
+  genre: string;
+  bpm: number;
+  notes: string;
+  instrumental: number;
+  duration_ms: number;
+};
+
+export type E2ESeedTanda = {
+  id: string;
+  name: string;
+  rating: number;
+  instrumental: number;
+  tracks: string[];
+  style: string;
+};
+
+export type E2ESeedPayload = {
+  roots: {
+    musicRoot: string;
+    cortinaRoot: string;
+    backgroundRoot: string;
+  };
+  styles: string[];
+  tracks: E2ESeedTrack[];
+  tandas: E2ESeedTanda[];
+};
+
 export type AppApi = {
   ping: () => Promise<string>;
   pickRoot: (kind: "music" | "cortina" | "background") => Promise<string | null>;
@@ -259,6 +301,7 @@ export type AppApi = {
   onAppCloseRequest: (handler: () => void) => () => void;
   logClientError: (params: { message: string; stack?: string }) => Promise<void>;
   toggleFullscreen: () => Promise<{ fullscreen: boolean }>;
+  seedE2eData: (payload: E2ESeedPayload) => Promise<{ ok: boolean }>;
 };
 
 declare global {
