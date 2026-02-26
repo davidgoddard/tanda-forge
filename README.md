@@ -6,7 +6,7 @@ Tanda Player Lite is a cut down version of the Tanda Player app that ran on a Ra
 
 It is now a desktop app for tango DJs who want to build and save tandas and use various tools to help locate tandas when DJing and making it simple to build and modify the playlist whole tandas at a time or track by track if required.
 
-Unlike the original Tanda Player, music similarity is now assessed soley on user entered data such as artist, year, singers, beats per minute and notes.  The original used user perception of sounds to find similar sounding songs and used multi-coloured tags representing the individual properties for tracks allowing the similarity of tracks to be visually verified.  There are many features of the old app that are not relevant to the new one and this app now focusses just on the Live DJing aspect.
+Unlike the original Tanda Player, music similarity is now assessed soley on user entered data such as artist, year, singers, beats per minute and notes.  The original used user perception of sounds to find similar sounding songs and used multi-coloured tags representing the individual properties    for tracks allowing the similarity of tracks to be visually verified.  There are many features of the old app that are not relevant to the new one and this app now focusses just on the Live DJing aspect.
 
 ![Main screen layout](images/user-guide/01-main-layout.png)
 
@@ -14,6 +14,7 @@ Unlike the original Tanda Player, music similarity is now assessed soley on user
 
 This app:
 
+- Is multi-lingual, set your choice of language and everything in the app. other than the song data is translated
 - Requires FFMPEG to already be installed
 - Supports dual outputs: main/live speakers and headphones
 - normalises sound levels
@@ -30,6 +31,7 @@ This app:
 - gives approximate timings for each tanda allowing in advance to know which is likely to be the last tanda.
 - allows many different sets of cortinas to be setup and the entire set within the playlist can be swapped at any time and individual specific choices can be made at any time
 - If left idle, the Playlist will scroll to show the currently playing tanda and open the current tanda and show its tracks closing all other tandas to show just their summary.
+- Uses simple pop-out menus for all operations meaning swapping songs or tandas etc. is done by mouse clicks and not drag/drop; clunky but safer!
 
 ## Download and Install (Releases)
 
