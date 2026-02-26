@@ -25,6 +25,11 @@ This app:
 - provides real-time graphs of artist use, years and tempos covered.
 - provides built-in collections such as `New` tandas and songs to help find new creations easily and allows user-defined collections manually maintained such as `Favourites` or `Last Tandas` etc.
 - optionally provides a display for use on separate monitor or projector for the dancers.
+- uses one of three modes: Live, preparation and edit; Edit keeps the editor open meaning just click a track and update the details, Live means once music is playing you cannot accidentally play another song or prematurely stop the current one etc.  Preparation mode is for preparation of tandas, playlists and playing around - no limitations; click on a track - it will play!
+- Inform the system and dancers "this tandas is the last tanda" with a single tick-box; when it finishes you the final cortina, a farewell message and no more music regardless of where in the playlist you were.
+- gives approximate timings for each tanda allowing in advance to know which is likely to be the last tanda.
+- allows many different sets of cortinas to be setup and the entire set within the playlist can be swapped at any time and individual specific choices can be made at any time
+- If left idle, the Playlist will scroll to show the currently playing tanda and open the current tanda and show its tracks closing all other tandas to show just their summary.
 
 ## Download and Install (Releases)
 
