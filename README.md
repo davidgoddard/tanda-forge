@@ -15,6 +15,7 @@ Unlike the original Tanda Player, music similarity is now assessed soley on user
 This app:
 
 - Is multi-lingual, set your choice of language and everything in the app. other than the song data is translated
+- Colour themed; choice of a few light and dark themes
 - Requires FFMPEG to already be installed
 - Supports dual outputs: main/live speakers and headphones
 - normalises sound levels
@@ -32,6 +33,7 @@ This app:
 - allows many different sets of cortinas to be setup and the entire set within the playlist can be swapped at any time and individual specific choices can be made at any time
 - If left idle, the Playlist will scroll to show the currently playing tanda and open the current tanda and show its tracks closing all other tandas to show just their summary.
 - Uses simple pop-out menus for all operations meaning swapping songs or tandas etc. is done by mouse clicks and not drag/drop; clunky but safer!
+
 
 ## Download and Install (Releases)
 
