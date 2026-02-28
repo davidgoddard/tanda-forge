@@ -1205,7 +1205,8 @@ body.theme-dark-classic .collection-tabs button.active {
 }
 
 .playlist-list-body {
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-gutter: auto;
 }
 
@@ -2521,6 +2522,60 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
 .settings-grid .settings-field.wide {
   grid-column: 1 / -1;
   max-width: none;
+}
+
+.settings-system-grid {
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+
+.settings-group {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 84%, var(--accent-soft));
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.8rem;
+  align-content: start;
+}
+
+.settings-group h4 {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.settings-group-grid {
+  display: grid;
+  gap: 0.65rem 0.8rem;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  align-items: start;
+}
+
+.settings-group .settings-field {
+  gap: 0.3rem;
+}
+
+.settings-group-wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1280px) {
+  .settings-system-grid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .settings-system-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-group-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .settings-inline {

@@ -11,8 +11,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && node scripts/copy-renderer-assets.js",
     "package": "npm run build && electron-builder",
-    "start": "electron .",
+    "start": "env -u ELECTRON_RUN_AS_NODE electron .",
     "preflight": "npm run test && npm run build",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "postinstall": "electron-builder install-app-deps",
     "test": "vitest run"
@@ -23,10 +24,11 @@
   "devDependencies": {
     "@playwright/test": "^1.51.0",
     "@types/better-sqlite3": "^7.6.0",
+    "@vitest/coverage-v8": "^1.6.1",
     "electron": "^28.3.3",
     "electron-builder": "26.8.1",
-    "vitest": "^1.6.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
   },
   "build": {
     "productName": "Tanda Player Lite",

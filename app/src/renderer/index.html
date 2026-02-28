@@ -229,8 +229,17 @@
               <span data-i18n="tandaNameLabel">Tanda name</span>
               <span class="actions-label" data-i18n="colActions">Actions</span>
             </div>
-            <div class="list-body" id="search-list-body">
-              <div id="search-tracks" class="list-rows active"></div>
+            <div class="list-body" id="search-list-body" data-state="idle" data-loading="idle">
+              <div
+                id="search-tracks"
+                class="list-rows active"
+                data-state="idle"
+                data-loading="idle"
+                data-ready-token="0"
+                data-refresh-token="0"
+                data-count="0"
+                data-rendered-rows="0"
+              ></div>
               <div id="search-tandas" class="list-rows" data-i18n="tandasEmpty">
                 Tandas coming soon.
               </div>
@@ -361,11 +370,17 @@
             </div>
             <div class="list-body">
               <div id="playlist-tab" class="tab-panel active">
-                <div id="playlist-list" class="list-rows active"></div>
                 <div
-                  id="playlist-tanda-editor"
-                  class="tanda-list playlist-tanda-editor hidden"
+                  id="playlist-list"
+                  class="list-rows active"
+                  data-state="visible"
+                  data-rendered-rows="0"
                 ></div>
+              <div
+                id="playlist-tanda-editor"
+                class="tanda-list playlist-tanda-editor hidden"
+                data-state="hidden"
+              ></div>
                 <label class="playlist-last-toggle" for="playlist-last-tanda">
                   <input id="playlist-last-tanda" type="checkbox" />
                   <span data-i18n="playlistCurrentIsLast">
@@ -377,7 +392,7 @@
                 <div class="tanda-toolbar">
                   <button id="add-tanda" data-i18n="addTanda">Add Tanda</button>
                 </div>
-                <div id="tanda-list" class="tanda-list"></div>
+                <div id="tanda-list" class="tanda-list" data-state="hidden"></div>
               </div>
             </div>
           </div>
@@ -805,120 +820,161 @@
           </div>
           <div class="settings-tab" data-tab="system">
             <h3 data-i18n="system">System</h3>
-            <div class="settings-grid">
-              <div class="settings-field">
-                <label for="main-output-select" data-i18n="mainOutput">
-                  Main Output
-                </label>
-                <select id="main-output-select"></select>
-              </div>
-              <div class="settings-field">
-                <label
-                  for="headphone-output-select"
-                  data-i18n="headphoneOutput"
-                >
-                  Headphones Output
-                </label>
-                <select id="headphone-output-select"></select>
-              </div>
-              <div class="settings-field">
-                <label for="language-select" data-i18n="language">
-                  Language
-                </label>
-                <select id="language-select"></select>
-                <p data-i18n="languageHelp">
-                  Language selection affects UI labels and formatting.
-                </p>
-              </div>
-              <div class="settings-field">
-                <label for="cortina-level-percent" data-i18n="cortinaLevelPercentLabel">
-                  Cortina level (% of main output)
-                </label>
-                <input
-                  id="cortina-level-percent"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="1"
-                />
-              </div>
-              <div class="settings-field">
-                <label for="style-name-input" data-i18n="styleManagerLabel">
-                  Styles
-                </label>
-                <div class="settings-inline">
-                  <input id="style-name-input" type="text" />
-                  <button id="style-add" data-i18n="styleAdd">Add</button>
+            <div class="settings-grid settings-system-grid">
+              <section class="settings-group">
+                <h4 data-i18n="systemGroupLanguage">Language</h4>
+                <div class="settings-group-grid">
+                  <div class="settings-field">
+                    <label for="language-select" data-i18n="language">
+                      Language
+                    </label>
+                    <select id="language-select"></select>
+                    <p data-i18n="languageHelp">
+                      Language selection affects UI labels and formatting.
+                    </p>
+                  </div>
                 </div>
-                <div id="style-list" class="style-list"></div>
-              </div>
-              <div class="settings-field">
-                <label for="search-min-score" data-i18n="searchMinScoreLabel">
-                  Search minimum score
-                </label>
-                <input id="search-min-score" type="number" min="0" max="1" step="0.01" />
-              </div>
-              <div class="settings-field">
-                <label for="search-bpm-range" data-i18n="searchBpmRangeLabel">
-                  BPM search range
-                </label>
-                <input id="search-bpm-range" type="number" min="0" max="20" step="1" />
-              </div>
-              <div class="settings-field">
-                <label for="trim-padding" data-i18n="trimPaddingLabel">
-                  Trim padding (sec)
-                </label>
-                <input id="trim-padding" type="number" min="0" max="5" step="0.05" />
-                <p data-i18n="trimPaddingHelp">
-                  Reduces auto-detected start/end trims by this amount.
-                </p>
-              </div>
-              <div class="settings-field">
-                <label for="tanda-size-input" data-i18n="defaultTandaSize">
-                  Default tanda size
-                </label>
-                <input
-                  id="tanda-size-input"
-                  type="number"
-                  min="1"
-                  max="10"
-                  step="1"
-                />
-              </div>
-              <div class="settings-field">
-                <label for="clipboard-new-limit" data-i18n="clipboardNewLimitLabel">
-                  New collection size
-                </label>
-                <input
-                  id="clipboard-new-limit"
-                  type="number"
-                  min="0"
-                  max="500"
-                  step="1"
-                />
-              </div>
-              <div class="settings-field">
-                <label for="clear-play-counts" data-i18n="clearPlayCountsLabel">
-                  Playback counters
-                </label>
-                <button id="clear-play-counts" data-i18n="clearPlayCountsButton">
-                  Clear play counts
-                </button>
-              </div>
-              <div class="settings-field wide">
-                <label for="data-location-path" data-i18n="dataLocationLabel">
-                  Data location
-                </label>
-                <div class="settings-inline">
-                  <input id="data-location-path" type="text" readonly />
-                  <button id="data-location-choose" data-i18n="dataLocationChoose">
-                    Choose…
-                  </button>
+              </section>
+
+              <section class="settings-group">
+                <h4 data-i18n="systemGroupOutputs">Outputs</h4>
+                <div class="settings-group-grid">
+                  <div class="settings-field">
+                    <label for="main-output-select" data-i18n="mainOutput">
+                      Main Output
+                    </label>
+                    <select id="main-output-select"></select>
+                  </div>
+                  <div class="settings-field">
+                    <label
+                      for="headphone-output-select"
+                      data-i18n="headphoneOutput"
+                    >
+                      Headphones Output
+                    </label>
+                    <select id="headphone-output-select"></select>
+                  </div>
+                  <div class="settings-field">
+                    <label for="cortina-level-percent" data-i18n="cortinaLevelPercentLabel">
+                      Cortina level (% of main output)
+                    </label>
+                    <input
+                      id="cortina-level-percent"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                    />
+                  </div>
                 </div>
-                <p data-i18n="dataLocationHelp">
-                  Data is stored in a _tp_data folder at the selected location.
-                </p>
-              </div>
+              </section>
+
+              <section class="settings-group">
+                <h4 data-i18n="systemGroupStyles">Styles</h4>
+                <div class="settings-group-grid">
+                  <div class="settings-field">
+                    <label for="style-name-input" data-i18n="styleManagerLabel">
+                      Styles
+                    </label>
+                    <div class="settings-inline">
+                      <input id="style-name-input" type="text" />
+                      <button id="style-add" data-i18n="styleAdd">Add</button>
+                    </div>
+                    <div id="style-list" class="style-list"></div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h4 data-i18n="systemGroupSearch">Searching / scoring</h4>
+                <div class="settings-group-grid">
+                  <div class="settings-field">
+                    <label for="search-min-score" data-i18n="searchMinScoreLabel">
+                      Search minimum score
+                    </label>
+                    <input id="search-min-score" type="number" min="0" max="1" step="0.01" />
+                  </div>
+                  <div class="settings-field">
+                    <label for="search-bpm-range" data-i18n="searchBpmRangeLabel">
+                      BPM search range
+                    </label>
+                    <input id="search-bpm-range" type="number" min="0" max="20" step="1" />
+                  </div>
+                  <div class="settings-field">
+                    <label for="trim-padding" data-i18n="trimPaddingLabel">
+                      Trim padding (sec)
+                    </label>
+                    <input id="trim-padding" type="number" min="0" max="5" step="0.05" />
+                    <p data-i18n="trimPaddingHelp">
+                      Reduces auto-detected start/end trims by this amount.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h4 data-i18n="systemGroupCollections">Collections</h4>
+                <div class="settings-group-grid">
+                  <div class="settings-field">
+                    <label for="clipboard-new-limit" data-i18n="clipboardNewLimitLabel">
+                      New collection size
+                    </label>
+                    <input
+                      id="clipboard-new-limit"
+                      type="number"
+                      min="0"
+                      max="500"
+                      step="1"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h4 data-i18n="systemGroupCounts">Counts</h4>
+                <div class="settings-group-grid">
+                  <div class="settings-field">
+                    <label for="tanda-size-input" data-i18n="defaultTandaSize">
+                      Default tanda size
+                    </label>
+                    <input
+                      id="tanda-size-input"
+                      type="number"
+                      min="1"
+                      max="10"
+                      step="1"
+                    />
+                  </div>
+                  <div class="settings-field">
+                    <label for="clear-play-counts" data-i18n="clearPlayCountsLabel">
+                      Playback counters
+                    </label>
+                    <button id="clear-play-counts" data-i18n="clearPlayCountsButton">
+                      Clear play counts
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group settings-group-wide">
+                <h4 data-i18n="systemGroupData">Data</h4>
+                <div class="settings-group-grid">
+                  <div class="settings-field wide">
+                    <label for="data-location-path" data-i18n="dataLocationLabel">
+                      Data location
+                    </label>
+                    <div class="settings-inline">
+                      <input id="data-location-path" type="text" readonly />
+                      <button id="data-location-choose" data-i18n="dataLocationChoose">
+                        Choose…
+                      </button>
+                    </div>
+                    <p data-i18n="dataLocationHelp">
+                      Data is stored in a _tp_data folder at the selected location.
+                    </p>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
           <div class="settings-tab" data-tab="display-board">

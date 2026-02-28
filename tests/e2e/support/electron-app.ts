@@ -25,8 +25,8 @@ const launchWithRoots = async (
     TANDA_DATA_ROOT: dataRoot,
     TANDA_USER_DATA_ROOT: userDataRoot,
     ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
+    ELECTRON_RUN_AS_NODE: "",
   } as NodeJS.ProcessEnv;
-  delete launchEnv.ELECTRON_RUN_AS_NODE;
 
   const app = await electron.launch({
     args: ["."],

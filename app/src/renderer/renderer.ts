@@ -525,6 +525,30 @@ let searchState: SearchState = {
 let pendingSearchRefreshTimer: number | null = null;
 let pendingSearchFrame: number | null = null;
 let searchRefreshVersion = 0;
+const setSearchUiState = (
+  state: "idle" | "loading",
+  token?: number,
+  count?: number,
+) => {
+  if (searchListBody) {
+    searchListBody.dataset.state = state;
+    searchListBody.dataset.loading = state;
+  }
+  if (searchTracksEl) {
+    searchTracksEl.dataset.state = state;
+    searchTracksEl.dataset.loading = state;
+    if (typeof count === "number") {
+      searchTracksEl.dataset.count = `${count}`;
+    }
+    if (typeof token === "number") {
+      searchTracksEl.dataset.refreshToken = `${token}`;
+      if (state === "idle") {
+        searchTracksEl.dataset.readyToken = `${token}`;
+      }
+    }
+  }
+};
+setSearchUiState("idle", 0, 0);
 let clipboardTracks: TrackRow[] = [];
 let clipboardFilterText = "";
 type PlaylistItem =
@@ -659,6 +683,8 @@ type PlaybackState = {
   active?: HTMLAudioElement;
   currentTrackId?: string;
   track?: TrackRow;
+  appliedGainDb?: number | null;
+  isCortinaPlayback?: boolean;
 };
 
 const playback: Record<OutputChannel, PlaybackState> = {
@@ -905,6 +931,14 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     scanMusic: "Scan Music",
     scanCortinas: "Scan Cortinas",
     system: "System",
+    systemGroupLanguage: "Language",
+    systemGroupOutputs: "Outputs",
+    systemGroupStyles: "Styles",
+    systemGroupSearch: "Searching / scoring",
+    systemGroupCollections: "Collections",
+    systemGroupCounts: "Counts",
+    systemGroupDynamics: "Compressor / limiter",
+    systemGroupData: "Data",
     mainOutput: "Main Output",
     headphoneOutput: "Headphones Output",
     language: "Language",
@@ -1085,6 +1119,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistClearAutofill: "Clear and auto-fill",
     outputSelectionFailed: "Output selection failed.",
     outputSelectionFailedDetail: "Output selection failed: {message}",
+    statusDspBypassedOutput:
+      "Dynamics DSP is bypassed for non-default output devices. Use Default Output to hear compression.",
     playbackFailed: "Playback failed.",
     playbackFailedDetail: "Playback failed: {message}",
     outputDefault: "Default Output",
@@ -1106,6 +1142,18 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaLocked: "This cortina has already played and cannot be changed.",
     stopFade: "Stop fade (sec)",
     cortinaLevelPercentLabel: "Cortina level (% of main output)",
+    audioDspEnabledLabel: "Enable real-time dynamics DSP",
+    audioDynamicsPresetLabel: "Playback dynamics preset",
+    audioDynamicsPresetOff: "Off",
+    audioDynamicsPresetGentle: "Gentle",
+    audioDynamicsPresetBalanced: "Balanced",
+    audioDynamicsPresetStrong: "Strong",
+    audioDynamicsPresetCustom: "Custom",
+    audioDynamicsThresholdLabel: "Compressor threshold (dB)",
+    audioDynamicsRatioLabel: "Compressor ratio",
+    audioDynamicsMakeupLabel: "Makeup gain (dB)",
+    audioDynamicsLimiterLabel: "Limiter ceiling (dB)",
+    audioLiveBoostLabel: "Live boost",
     addTanda: "Add Tanda",
     tandaNameLabel: "Tanda name",
     tandaStylesLabel: "Styles",
@@ -1313,6 +1361,14 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     scanMusic: "Escanear musica",
     scanCortinas: "Escanear cortinas",
     system: "Sistema",
+    systemGroupLanguage: "Idioma",
+    systemGroupOutputs: "Salidas",
+    systemGroupStyles: "Estilos",
+    systemGroupSearch: "Busqueda / puntuacion",
+    systemGroupCollections: "Colecciones",
+    systemGroupCounts: "Conteos",
+    systemGroupDynamics: "Compresor / limitador",
+    systemGroupData: "Datos",
     mainOutput: "Salida principal",
     headphoneOutput: "Salida de auriculares",
     language: "Idioma",
@@ -1452,6 +1508,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistClearAutofill: "Borrar y autocompletar",
     outputSelectionFailed: "Fallo al seleccionar salida.",
     outputSelectionFailedDetail: "Fallo al seleccionar salida: {message}",
+    statusDspBypassedOutput:
+      "El DSP de dinamica se omite para salidas no predeterminadas. Use Salida predeterminada para oir compresion.",
     playbackFailed: "Fallo de reproduccion.",
     playbackFailedDetail: "Fallo de reproduccion: {message}",
     outputDefault: "Salida predeterminada",
@@ -1473,6 +1531,18 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaLocked: "Esta cortina ya se reprodujo y no se puede cambiar.",
     stopFade: "Desvanecer al detener (s)",
     cortinaLevelPercentLabel: "Nivel de cortina (% de salida principal)",
+    audioDspEnabledLabel: "Habilitar DSP de dinamica en tiempo real",
+    audioDynamicsPresetLabel: "Preajuste de dinamica",
+    audioDynamicsPresetOff: "Apagado",
+    audioDynamicsPresetGentle: "Suave",
+    audioDynamicsPresetBalanced: "Equilibrado",
+    audioDynamicsPresetStrong: "Fuerte",
+    audioDynamicsPresetCustom: "Personalizado",
+    audioDynamicsThresholdLabel: "Umbral del compresor (dB)",
+    audioDynamicsRatioLabel: "Relacion del compresor",
+    audioDynamicsMakeupLabel: "Ganancia de compensacion (dB)",
+    audioDynamicsLimiterLabel: "Techo del limitador (dB)",
+    audioLiveBoostLabel: "Refuerzo en vivo",
     addTanda: "Agregar tanda",
     tandaNameLabel: "Nombre de tanda",
     tandaStylesLabel: "Estilos",
@@ -1680,6 +1750,14 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     scanMusic: "Scanner musique",
     scanCortinas: "Scanner cortinas",
     system: "Systeme",
+    systemGroupLanguage: "Langue",
+    systemGroupOutputs: "Sorties",
+    systemGroupStyles: "Styles",
+    systemGroupSearch: "Recherche / score",
+    systemGroupCollections: "Collections",
+    systemGroupCounts: "Comptages",
+    systemGroupDynamics: "Compresseur / limiteur",
+    systemGroupData: "Donnees",
     mainOutput: "Sortie principale",
     headphoneOutput: "Sortie casque",
     language: "Langue",
@@ -1819,6 +1897,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistClearAutofill: "Effacer et remplir automatiquement",
     outputSelectionFailed: "Selection de sortie impossible.",
     outputSelectionFailedDetail: "Selection de sortie impossible: {message}",
+    statusDspBypassedOutput:
+      "Le DSP dynamique est ignore pour les sorties non par defaut. Utilisez la sortie par defaut pour entendre la compression.",
     playbackFailed: "Lecture impossible.",
     playbackFailedDetail: "Lecture impossible: {message}",
     outputDefault: "Sortie par defaut",
@@ -1840,6 +1920,18 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaLocked: "Cette cortina a deja joue et ne peut pas etre modifiee.",
     stopFade: "Fondu a l'arret (s)",
     cortinaLevelPercentLabel: "Niveau cortina (% de la sortie principale)",
+    audioDspEnabledLabel: "Activer le DSP dynamique en temps reel",
+    audioDynamicsPresetLabel: "Preréglage dynamique",
+    audioDynamicsPresetOff: "Desactive",
+    audioDynamicsPresetGentle: "Doux",
+    audioDynamicsPresetBalanced: "Equilibre",
+    audioDynamicsPresetStrong: "Fort",
+    audioDynamicsPresetCustom: "Personnalise",
+    audioDynamicsThresholdLabel: "Seuil du compresseur (dB)",
+    audioDynamicsRatioLabel: "Ratio du compresseur",
+    audioDynamicsMakeupLabel: "Gain de compensation (dB)",
+    audioDynamicsLimiterLabel: "Plafond du limiteur (dB)",
+    audioLiveBoostLabel: "Renfort en direct",
     addTanda: "Ajouter tanda",
     tandaNameLabel: "Nom de tanda",
     tandaStylesLabel: "Styles",
@@ -2047,6 +2139,14 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     scanMusic: "Musik scannen",
     scanCortinas: "Cortinas scannen",
     system: "System",
+    systemGroupLanguage: "Sprache",
+    systemGroupOutputs: "Ausgange",
+    systemGroupStyles: "Stile",
+    systemGroupSearch: "Suche / Bewertung",
+    systemGroupCollections: "Sammlungen",
+    systemGroupCounts: "Anzahlen",
+    systemGroupDynamics: "Kompressor / Limiter",
+    systemGroupData: "Daten",
     mainOutput: "Hauptausgang",
     headphoneOutput: "Kopfhorer",
     language: "Sprache",
@@ -2186,6 +2286,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistClearAutofill: "Leeren und automatisch fuellen",
     outputSelectionFailed: "Auswahl fehlgeschlagen.",
     outputSelectionFailedDetail: "Auswahl fehlgeschlagen: {message}",
+    statusDspBypassedOutput:
+      "Dynamik-DSP wird bei nicht standardmaessigen Ausgaengen umgangen. Fuer Kompression Standardausgabe verwenden.",
     playbackFailed: "Wiedergabe fehlgeschlagen.",
     playbackFailedDetail: "Wiedergabe fehlgeschlagen: {message}",
     outputDefault: "Standardausgang",
@@ -2207,6 +2309,18 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaLocked: "Diese Cortina wurde bereits gespielt und kann nicht geandert werden.",
     stopFade: "Stop-Ausblenden (s)",
     cortinaLevelPercentLabel: "Cortina-Lautstaerke (% vom Hauptausgang)",
+    audioDspEnabledLabel: "Echtzeit-Dynamik-DSP aktivieren",
+    audioDynamicsPresetLabel: "Dynamik-Voreinstellung",
+    audioDynamicsPresetOff: "Aus",
+    audioDynamicsPresetGentle: "Sanft",
+    audioDynamicsPresetBalanced: "Ausgewogen",
+    audioDynamicsPresetStrong: "Stark",
+    audioDynamicsPresetCustom: "Benutzerdefiniert",
+    audioDynamicsThresholdLabel: "Kompressor-Schwelle (dB)",
+    audioDynamicsRatioLabel: "Kompressor-Verhaeltnis",
+    audioDynamicsMakeupLabel: "Makeup-Gain (dB)",
+    audioDynamicsLimiterLabel: "Limiter-Grenze (dB)",
+    audioLiveBoostLabel: "Live-Verstaerkung",
     addTanda: "Tanda hinzufugen",
     tandaNameLabel: "Tanda-Name",
     tandaStylesLabel: "Stile",
@@ -2412,6 +2526,14 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     addBackgroundFolder: "Adicionar fundos",
     scanLibrary: "Escanear biblioteca",
     system: "Sistema",
+    systemGroupLanguage: "Idioma",
+    systemGroupOutputs: "Saidas",
+    systemGroupStyles: "Estilos",
+    systemGroupSearch: "Pesquisa / pontuacao",
+    systemGroupCollections: "Colecoes",
+    systemGroupCounts: "Contagens",
+    systemGroupDynamics: "Compressor / limitador",
+    systemGroupData: "Dados",
     mainOutput: "Saida principal",
     headphoneOutput: "Saida de fone",
     language: "Idioma",
@@ -2551,6 +2673,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistClearAutofill: "Limpar e preencher automaticamente",
     outputSelectionFailed: "Falha ao selecionar saida.",
     outputSelectionFailedDetail: "Falha ao selecionar saida: {message}",
+    statusDspBypassedOutput:
+      "O DSP de dinamica e ignorado para saidas nao padrao. Use Saida padrao para ouvir compressao.",
     playbackFailed: "Falha na reproducao.",
     playbackFailedDetail: "Falha na reproducao: {message}",
     outputDefault: "Saida padrao",
@@ -2572,6 +2696,18 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaLocked: "Esta cortina ja tocou e nao pode ser alterada.",
     stopFade: "Desvanecer ao parar (s)",
     cortinaLevelPercentLabel: "Nivel da cortina (% da saida principal)",
+    audioDspEnabledLabel: "Ativar DSP de dinamica em tempo real",
+    audioDynamicsPresetLabel: "Predefinicao de dinamica",
+    audioDynamicsPresetOff: "Desligado",
+    audioDynamicsPresetGentle: "Suave",
+    audioDynamicsPresetBalanced: "Equilibrado",
+    audioDynamicsPresetStrong: "Forte",
+    audioDynamicsPresetCustom: "Personalizado",
+    audioDynamicsThresholdLabel: "Limiar do compressor (dB)",
+    audioDynamicsRatioLabel: "Razao do compressor",
+    audioDynamicsMakeupLabel: "Ganho de compensacao (dB)",
+    audioDynamicsLimiterLabel: "Teto do limitador (dB)",
+    audioLiveBoostLabel: "Reforco ao vivo",
     addTanda: "Adicionar tanda",
     tandaNameLabel: "Nome da tanda",
     tandaStylesLabel: "Estilos",
@@ -2779,6 +2915,14 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     scanMusic: "Scansiona musica",
     scanCortinas: "Scansiona cortine",
     system: "Sistema",
+    systemGroupLanguage: "Lingua",
+    systemGroupOutputs: "Uscite",
+    systemGroupStyles: "Stili",
+    systemGroupSearch: "Ricerca / punteggio",
+    systemGroupCollections: "Collezioni",
+    systemGroupCounts: "Conteggi",
+    systemGroupDynamics: "Compressore / limiter",
+    systemGroupData: "Dati",
     mainOutput: "Uscita principale",
     headphoneOutput: "Uscita cuffie",
     language: "Lingua",
@@ -2922,6 +3066,8 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     playlistClearAutofill: "Svuota e riempi automaticamente",
     outputSelectionFailed: "Selezione uscita fallita.",
     outputSelectionFailedDetail: "Selezione uscita fallita: {message}",
+    statusDspBypassedOutput:
+      "Il DSP dinamico viene ignorato per uscite non predefinite. Usa l'uscita predefinita per sentire la compressione.",
     playbackFailed: "Riproduzione fallita.",
     playbackFailedDetail: "Riproduzione fallita: {message}",
     outputDefault: "Uscita predefinita",
@@ -2944,6 +3090,18 @@ const translations: Record<LanguageKey, Record<string, string>> = {
       "Questa cortina e gia stata riprodotta e non puo essere cambiata.",
     stopFade: "Dissolvenza stop (s)",
     cortinaLevelPercentLabel: "Livello cortina (% uscita principale)",
+    audioDspEnabledLabel: "Abilita DSP dinamica in tempo reale",
+    audioDynamicsPresetLabel: "Preset dinamica",
+    audioDynamicsPresetOff: "Spento",
+    audioDynamicsPresetGentle: "Leggero",
+    audioDynamicsPresetBalanced: "Bilanciato",
+    audioDynamicsPresetStrong: "Forte",
+    audioDynamicsPresetCustom: "Personalizzato",
+    audioDynamicsThresholdLabel: "Soglia compressore (dB)",
+    audioDynamicsRatioLabel: "Rapporto compressore",
+    audioDynamicsMakeupLabel: "Guadagno makeup (dB)",
+    audioDynamicsLimiterLabel: "Soglia limiter (dB)",
+    audioLiveBoostLabel: "Boost live",
     addTanda: "Aggiungi tanda",
     tandaNameLabel: "Nome tanda",
     tandaStylesLabel: "Stili",
@@ -3060,10 +3218,11 @@ const gainForTrack = (gainDb: number | null | undefined) => {
 };
 const audioLevels = new WeakMap<HTMLAudioElement, number>();
 
+const releaseAudioDspRuntime = async (_audio: HTMLAudioElement) => {};
+
 const setAudioLevel = (audio: HTMLAudioElement, level: number) => {
   const safe = Math.max(0, level);
   audioLevels.set(audio, safe);
-  // Keep per-element sink routing reliable: avoid shared AudioContext graph.
   audio.volume = Math.min(1, safe);
 };
 
@@ -3075,7 +3234,9 @@ const getAudioLevel = (audio: HTMLAudioElement) => {
   return Math.max(0, audio.volume || 0);
 };
 
-const resumeAudioContextForElement = async (_audio: HTMLAudioElement) => {};
+const resumeAudioContextForElement = async (audio: HTMLAudioElement) => {
+  void audio;
+};
 
 const formatTime = (seconds: number) => {
   if (!Number.isFinite(seconds) || seconds <= 0) {
@@ -3621,6 +3782,23 @@ const getCortinaLevelPercent = () =>
     0,
     100,
   );
+const applyAudioDynamicsToGain = (linearGain: number) => linearGain;
+const applyDynamicLevelToChannel = (channel: OutputChannel) => {
+  const state = playback[channel];
+  if (!state.active) {
+    return;
+  }
+  const linearGain = gainForTrack(state.appliedGainDb);
+  let targetVolume = applyAudioDynamicsToGain(linearGain);
+  if (state.isCortinaPlayback && channel === "main") {
+    targetVolume *= getCortinaLevelPercent() / 100;
+  }
+  setAudioLevel(state.active, targetVolume);
+};
+const applyDynamicLevelToActivePlayback = () => {
+  applyDynamicLevelToChannel("main");
+  applyDynamicLevelToChannel("headphone");
+};
 const isCurrentTandaMarkedLast = () =>
   localStorage.getItem(PLAYLIST_LAST_TANDA_KEY) === "1";
 const getPlaylistStartTimeMinutes = () => {
@@ -4370,6 +4548,7 @@ const fadeBetween = (
     if (t >= 1) {
       from.pause();
       from.currentTime = 0;
+      void releaseAudioDspRuntime(from);
       return;
     }
     window.requestAnimationFrame(step);
@@ -4594,9 +4773,12 @@ const playOnChannel = async (
     }
     state.active.pause();
     state.active.currentTime = 0;
+    await releaseAudioDspRuntime(state.active);
     state.currentTrackId = undefined;
     state.active = undefined;
     state.track = undefined;
+    state.appliedGainDb = null;
+    state.isCortinaPlayback = false;
     lastAppliedGainDbByChannel[channel] = null;
     updateNowPlayingDisplay();
     return false;
@@ -4617,9 +4799,6 @@ const playOnChannel = async (
     stepCorrectionDb = stepGuard.correctionDb;
   }
   let targetVolume = gainForTrack(appliedGainDb);
-  if (options?.isCortinaPlayback && channel === "main") {
-    targetVolume *= getCortinaLevelPercent() / 100;
-  }
   const gainSource =
     normalization.source === "gain"
       ? "gain_db"
@@ -4628,6 +4807,10 @@ const playOnChannel = async (
         : "none";
   setAudioLevel(next, targetVolume);
   const requestedOutputDeviceId = resolveOutputDeviceIdForChannel(channel);
+  targetVolume = applyAudioDynamicsToGain(targetVolume);
+  if (options?.isCortinaPlayback && channel === "main") {
+    targetVolume *= getCortinaLevelPercent() / 100;
+  }
   const preAttachRouting = await applyOutputDevice(next, requestedOutputDeviceId);
   next.src = filePath;
   const postAttachRouting = await applyOutputDevice(next, requestedOutputDeviceId);
@@ -4636,6 +4819,7 @@ const playOnChannel = async (
       ? postAttachRouting
       : preAttachRouting;
   if (requestedOutputDeviceId && !outputRouting.appliedDeviceId) {
+    await releaseAudioDspRuntime(next);
     void window.tanda?.logPlaybackDiagnostic?.({
       channel,
       mode: appMode,
@@ -4711,6 +4895,8 @@ const playOnChannel = async (
   state.active = next;
   state.currentTrackId = trackId;
   state.track = track ?? undefined;
+  state.appliedGainDb = appliedGainDb;
+  state.isCortinaPlayback = options?.isCortinaPlayback ?? false;
   void updateWaveformSource(trackId);
   const { startOffsetMs, endTrimMs } = getAdjustedTrimValues(track);
   const startOffsetSeconds = startOffsetMs > 0 ? startOffsetMs / 1000 : 0;
@@ -4744,9 +4930,12 @@ const playOnChannel = async (
 
   next.addEventListener("ended", () => {
     if (state.active === next) {
+      void releaseAudioDspRuntime(next);
       state.active = undefined;
       state.currentTrackId = undefined;
       state.track = undefined;
+      state.appliedGainDb = null;
+      state.isCortinaPlayback = false;
       updateNowPlayingDisplay();
     }
   });
@@ -4825,6 +5014,7 @@ const playOnChannel = async (
     updateNowPlayingDisplay();
     return true;
   } catch (error) {
+    await releaseAudioDspRuntime(next);
     setStatus(
       error instanceof Error
         ? t("playbackFailedDetail", { message: error.message })
@@ -4892,9 +5082,12 @@ const stopChannelPlayback = async (channel: OutputChannel, fadeMs: number) => {
   }
   active.pause();
   active.currentTime = 0;
+  await releaseAudioDspRuntime(active);
   state.active = undefined;
   state.currentTrackId = undefined;
   state.track = undefined;
+  state.appliedGainDb = null;
+  state.isCortinaPlayback = false;
   lastAppliedGainDbByChannel[channel] = null;
   updateNowPlayingDisplay();
 };
@@ -5910,6 +6103,7 @@ const closeRowMenus = () => {
     );
     if (row) {
       row.classList.remove("menu-open");
+      row.dataset.menuOpen = "0";
       openRowMenuId = null;
       return;
     }
@@ -5917,6 +6111,7 @@ const closeRowMenus = () => {
   const openRow = document.querySelector<HTMLElement>(".list-row.menu-open");
   if (openRow) {
     openRow.classList.remove("menu-open");
+    openRow.dataset.menuOpen = "0";
   }
   openRowMenuId = null;
 };
@@ -6013,12 +6208,14 @@ const toggleRowMenu = (row: HTMLElement) => {
   }
   if (openRowMenuId === menuId && row.classList.contains("menu-open")) {
     row.classList.remove("menu-open");
+    row.dataset.menuOpen = "0";
     openRowMenuId = null;
     return;
   }
   closeDetailMenus();
   closeRowMenus();
   row.classList.add("menu-open");
+  row.dataset.menuOpen = "1";
   openRowMenuId = menuId;
 };
 
@@ -6166,6 +6363,7 @@ const renderTrackRow = (
   row.dataset.trackId = track.id;
   row.dataset.filePath = track.full_path;
   row.dataset.menuId = `${context}-track-${track.id}`;
+  row.dataset.menuOpen = "0";
   row.dataset.gainDb =
     track.gain_db !== null && track.gain_db !== undefined
       ? track.gain_db.toString()
@@ -6313,6 +6511,10 @@ const renderSearchResults = () => {
   searchState.items.forEach((track) => {
     searchTracksEl.appendChild(renderTrackRow(track, "search", false, duplicateIndex));
   });
+  searchTracksEl.dataset.renderedRows = `${searchState.items.length}`;
+  if (searchState.isLoading) {
+    searchTracksEl.dataset.state = "loading";
+  }
   updateTabCount(searchTracksEl.closest(".panel"), "search-tracks", searchState.total);
 };
 
@@ -6546,6 +6748,7 @@ const runSearchQuery = (query: string, allowEmpty = false) => {
     return;
   }
   searchInput.value = value;
+  setSearchUiState("loading", searchRefreshVersion + 1, searchState.total);
   if (pendingSearchFrame !== null) {
     window.cancelAnimationFrame(pendingSearchFrame);
   }
@@ -6779,6 +6982,7 @@ const renderTandaRow = (
   row.className = "list-row tanda-row";
   row.dataset.tandaId = tanda.id;
   row.dataset.menuId = `${context}-tanda-${tanda.id}`;
+  row.dataset.menuOpen = "0";
   row.dataset.context = context;
   const expanded = options?.expanded ?? false;
   row.classList.toggle("expanded", expanded);
@@ -7814,6 +8018,8 @@ const renderPlaylist = () => {
     fragment.appendChild(row);
   }
   playlistListEl.replaceChildren(fragment);
+  playlistListEl.dataset.state = activeRightTab === "playlist-tab" ? "visible" : "hidden";
+  playlistListEl.dataset.renderedRows = `${visibleItems}`;
   const shouldCenterTarget =
     targetIndex !== null &&
     (centerPlaylistTargetOnNextRender || (!hasFilter && lastRenderedPlaylistHasFilter));
@@ -8430,10 +8636,13 @@ const stopPlaylistPlayback = async () => {
       await fadeOutAudio(active, durationMs);
     }
     active.pause();
+    await releaseAudioDspRuntime(active);
   }
   playback.main.active = undefined;
   playback.main.currentTrackId = undefined;
   playback.main.track = undefined;
+  playback.main.appliedGainDb = null;
+  playback.main.isCortinaPlayback = false;
   cortinaDisplayPhase = "none";
   playlistPlayback.activeTrackId = null;
   playlistPlayback.activeTandaId = null;
@@ -9390,6 +9599,9 @@ const renderTandaDesigner = () => {
   };
   if (tandaListEl) {
     renderInto(tandaListEl, orderedDesignerDrafts, designerSelectedId);
+    const designerVisible =
+      activeRightTab === "tanda-designer-tab" && tandaEditorHostTab !== "playlist-tab";
+    tandaListEl.dataset.state = designerVisible ? "visible" : "hidden";
   }
   if (playlistTandaEditorEl) {
     const resolvePlaylistEditorIndex = () => {
@@ -9436,6 +9648,7 @@ const renderTandaDesigner = () => {
       openIndex !== null &&
       playlistDrafts.length > 0;
     playlistTandaEditorEl.classList.toggle("hidden", !shouldShow);
+    playlistTandaEditorEl.dataset.state = shouldShow ? "visible" : "hidden";
   }
 };
 
@@ -11856,6 +12069,7 @@ const loadSearchPage = async (
     return;
   }
   searchState.isLoading = true;
+  setSearchUiState("loading", searchRefreshVersion, searchState.total);
   try {
     const params = paramsOverride ?? getSearchParams();
     const rows = await window.tanda.searchTracks({
@@ -11878,11 +12092,13 @@ const loadSearchPage = async (
     renderSearchResults();
   } finally {
     searchState.isLoading = false;
+    setSearchUiState("idle", searchRefreshVersion, searchState.total);
   }
 };
 
 const refreshSearch = async () => {
   const refreshVersion = ++searchRefreshVersion;
+  setSearchUiState("loading", refreshVersion, 0);
   const params = getSearchParams();
   updateSearchSortDefaults();
   // Avoid stale tab labels from previous searches while the new request is loading.
@@ -11911,6 +12127,7 @@ const refreshSearch = async () => {
   }
   if (activeSearchTab === "search-tandas") {
     void loadTandaSearchResults();
+    setSearchUiState("idle", refreshVersion, searchState.total);
     return;
   }
   window.setTimeout(() => {
@@ -11919,6 +12136,7 @@ const refreshSearch = async () => {
     }
     void loadTandaSearchResults();
   }, 250);
+  setSearchUiState("idle", refreshVersion, searchState.total);
 };
 
 const jumpToPrefix = async (prefix: string) => {
@@ -13260,6 +13478,7 @@ const init = async () => {
     const target = event.target as HTMLElement;
     if (
       target.closest("button") ||
+      target.closest(".now-playing-boost") ||
       target.closest("#waveform-container") ||
       target.closest("#track-editor-waveform-container")
     ) {

@@ -1,71 +1,64 @@
 # Tanda Player Lite
 
-This project is a collaboration between David Goddard who came up with the design and detailed requirements and ChatGPT's Codex which wrote 100% of the code, tests and documentation.
+Tanda Player Lite is a desktop app for tango DJs who want fast, safe, and flexible tanda preparation and live playback.
 
-Tanda Player Lite is a cut down version of the Tanda Player app that ran on a Raspberry Pi.
+It evolved from the original Raspberry Pi Tanda Player and focuses on practical live DJ workflows: building tandas, managing playlists, cueing audio, and adapting quickly during a milonga.
 
-It is now a desktop app for tango DJs who want to build and save tandas and use various tools to help locate tandas when DJing and making it simple to build and modify the playlist whole tandas at a time or track by track if required.
-
-Unlike the original Tanda Player, music similarity is now assessed soley on user entered data such as artist, year, singers, beats per minute and notes.  The original used user perception of sounds to find similar sounding songs and used multi-coloured tags representing the individual properties    for tracks allowing the similarity of tracks to be visually verified.  There are many features of the old app that are not relevant to the new one and this app now focusses just on the Live DJing aspect.
+This project is a collaboration between David Goddard (design and requirements) and ChatGPT Codex (implementation, tests, and documentation).
 
 ![Main screen layout](images/user-guide/01-main-layout.png)
-
 ![Display screen layout](images/user-guide/02-display-board.png)
 
-This app:
+## Why should DJs use it
 
-- Is multi-lingual, set your choice of language and everything in the app. other than the song data is translated
-- Colour themed; choice of a few light and dark themes
-- Requires FFMPEG to already be installed
-- Supports dual outputs: main/live speakers and headphones
-- normalises sound levels
-- trims silences off both ends of a song
-- auto fade cortinas or override and let them play in full
-- allows importing of legacy tanda player's tandas and track data
-- highlights songs and tandas already in the playlist and locates them to show you
-- allows filtering of the playlist to quickly view tandas by a specific artist for example
-- provides real-time graphs of artist use, years and tempos covered.
-- provides built-in collections such as `New` tandas and songs to help find new creations easily and allows user-defined collections manually maintained such as `Favourites` or `Last Tandas` etc.
-- optionally provides a display for use on separate monitor or projector for the dancers.
-- uses one of three modes: Live, preparation and edit; Edit keeps the editor open meaning just click a track and update the details, Live means once music is playing you cannot accidentally play another song or prematurely stop the current one etc.  Preparation mode is for preparation of tandas, playlists and playing around - no limitations; click on a track - it will play!
-- Inform the system and dancers "this tandas is the last tanda" with a single tick-box; when it finishes you the final cortina, a farewell message and no more music regardless of where in the playlist you were.
-- gives approximate timings for each tanda allowing in advance to know which is likely to be the last tanda.
-- allows many different sets of cortinas to be setup and the entire set within the playlist can be swapped at any time and individual specific choices can be made at any time
-- If left idle, the Playlist will scroll to show the currently playing tanda and open the current tanda and show its tracks closing all other tandas to show just their summary.
-- Uses simple pop-out menus for all operations meaning swapping songs or tandas etc. is done by mouse clicks and not drag/drop; clunky but safer!
+- Build and edit tandas quickly from tracks or existing tandas.
+- Use one workflow for preparation, one for live performance, and one for metadata editing.
+- Keep playlists diverse with built-in analysis and collection tools.
+- Route audio for cueing (main output + headphones).
+- Normalize playback levels and trim silence automatically.
+- Control cortinas globally or per slot, with fade behavior and manual override.
+- Show dancer-facing display content on a second screen.
 
+## Core features
 
-## Download and Install (Releases)
+- Multilingual UI (song metadata remains user data).
+- Light/dark themes.
+- Dual output routing (main + headphones).
+- Playback normalization and diagnostic logging.
+- Automatic silence trim with configurable padding.
+- Playlist timing estimates and tanda sequencing tools.
+- Legacy import from classic Tanda Player data.
+- Built-in and user collections (for example: `New`, `Top`, `Least`, `Available`, custom sets).
+- Playlist diversity graphs (artist/orchestra, year, tempo).
+- "Current tanda is last tanda" flow for clean session ending.
 
-### 1) Download the right build
+## Download and install
 
-Go to the GitHub **Releases** page and download the file that matches your system:
+### Choose the correct release artifact
 
-- **macOS Intel**: `...-mac-x64.dmg` or `...-mac-x64.zip`
-- **macOS Apple Silicon**: `...-mac-arm64.dmg` or `...-mac-arm64.zip`
-- **Windows**: `...-win-x64.exe`
-- **Linux**: `...-linux-x64.AppImage` or `...-linux-x64.deb`
+- macOS Intel: `...-mac-x64.dmg` or `...-mac-x64.zip`
+- macOS Apple Silicon: `...-mac-arm64.dmg` or `...-mac-arm64.zip`
+- Windows: `...-win-x64.exe`
+- Linux: `...-linux-x64.AppImage` or `...-linux-x64.deb`
 
-If you download the wrong macOS build, macOS will say the app is not supported.  
-You can confirm the architecture in Finder (**Get Info**) where it will show
-**Application (Intel)** or **Application (Apple silicon)**.
+If you install the wrong macOS architecture, macOS will reject launch.
 
-### 2) macOS Gatekeeper (unsigned app)
+### macOS Gatekeeper (unsigned builds)
 
-Because the app is not signed, macOS will block the first launch:
+For first launch:
 
-1. Open the `.dmg` or `.zip` and move **Tanda Player Lite.app** to Applications.
-2. Right‑click the app → **Open** → **Open** again.
-3. If blocked: **System Settings → Privacy & Security** → scroll to the warning and click **Open Anyway**.
-4. Confirm the prompt. After the first launch, it should open normally.
+1. Move **Tanda Player Lite.app** to Applications.
+2. Right-click app -> **Open** -> **Open**.
+3. If blocked: **System Settings -> Privacy & Security -> Open Anyway**.
 
-## ffmpeg / ffprobe Setup
+## ffmpeg / ffprobe
 
-The app uses `ffmpeg` and `ffprobe` for analysis and waveform generation. Provide them in one of these ways:
+The app requires `ffmpeg` and `ffprobe` for analysis and waveform generation.
 
-### Option A: Local binaries (recommended for packaged builds)
+### Option A: bundled binaries (recommended)
 
-Place binaries in:
+Place binaries at:
+
 - `app/resources/ffmpeg/darwin/ffmpeg`
 - `app/resources/ffmpeg/darwin/ffprobe`
 - `app/resources/ffmpeg/win32/ffmpeg.exe`
@@ -73,82 +66,118 @@ Place binaries in:
 - `app/resources/ffmpeg/linux/ffmpeg`
 - `app/resources/ffmpeg/linux/ffprobe`
 
-You can use:
-```
+Helper script:
+
+```bash
 scripts/fetch-ffmpeg.sh [macos|windows|linux|all]
 ```
 
-### Option B: System PATH
+### Option B: system PATH fallback
 
-If `ffmpeg` and `ffprobe` are already installed and available in `PATH`, the app will fall back to those.
+If `ffmpeg` and `ffprobe` are available in `PATH`, the app uses those automatically.
 
-## In‑App Configuration
+## First-time setup
 
-### 1) Library Roots
-Settings → **Library**
-1. Add **Music** folders.
-2. Add **Cortina** folders (optional).
-3. Add **Background images** folders (optional).
-4. Import legacy tandas etc. (optional and if key legacy files are found where the music files are stored)
-5. Scan music and cortinas.
+### 1) Library
 
-### 2) Audio Outputs
-Settings → **System**
-1. Choose **Main Output** and **Headphones Output**.
-2. Headphones output enables cueing.
+Settings -> **Library**
 
-### 3) Language, Styles, and Defaults
-Settings → **System**
-- Set **Language**.
-- Manage **Styles** (tango/waltz/milonga, etc.).
-- Adjust **Trim padding**, **Search settings**, and **Default tanda size**.
+1. Add Music folders.
+2. Add Cortina folders (optional).
+3. Add Background folders (optional).
+4. Import legacy data (optional, if detected).
+5. Scan music/cortinas.
 
-### 4) Playlist Timing and Cortinas
-Settings → **Playlist**
-- Set gaps between tracks, before tanda, and before cortina.
-- Select cortina set and duration.
-- Configure tanda sequence rules if you use them.
+### 2) System
 
-## Import Legacy Data
+Settings -> **System**
 
-If you point your music/cortina folders at a legacy Tanda Player drive that contains:
+- Language
+- Main and Headphones outputs
+- Styles
+- Search/scoring settings
+- Collection limits
+- Counts/defaults
+- Compressor/limiter settings
 
-- `config.js`
-- `tandas.dat`
-- `library.dat`
+### 3) Playlist
 
-the app will offer an **Import** prompt. If you confirm, it will:
-- Recreate tandas from `tandas.dat`.
-- Use metadata from `library.dat` in preference to fresh analysis (when present).
+Settings -> **Playlist**
 
-## How the App is Structured
+- Start/end timing
+- Sequence rules
+- Cortina timing and behavior
+- Gap controls
 
-The main screen is split into three columns:
+## Typical workflow
 
-- **Search (left)**: find tracks or tandas, filter by style, and send to clipboard/playlist.
-- **Clipboard (center)**: temporary collections and staging.
-- **Playlist (right)**: your running order with cortinas and predicted timing.
+1. Search tracks or tandas.
+2. Stage candidates in Clipboard collections.
+3. Build/refine tandas in Tanda Designer.
+4. Send tandas/tracks into the Playlist.
+5. Cue with headphones and run live playback.
 
-There is also a **Tanda Designer** tab for building or editing tandas.
+## Modes
 
-Display of content in each section is linked to user operations, i.e. marking a Waltz tanda ready to be replaced sets the style of each column to Waltz so that all data shown is a potential replacement. 
+- **Preparation**: unrestricted workflow and rapid auditioning.
+- **Live**: safer operation during performance.
+- **Edit**: metadata editing optimized for repeated updates.
 
-Track data can be edited via a pop-up editor and fields from this can be used to drive searches directly.
+## Legacy import
 
-A graph page is available to view the spread of artists, years and tempos within the current playlist allowing the DJ to easily see artists being over-played and the collections in the clipboard such as 'Available' show as yet un-used artists encouraging diversity.
+If legacy files are present (for example `config.js`, `tandas.dat`, `library.dat`), import can:
 
-### Typical Workflow
+- recreate tandas,
+- apply curated metadata,
+- preserve prior organization while upgrading to desktop workflow.
 
-1. Search for tracks/tandas.
-2. Add items to the clipboard.
-3. Build tandas in the Tanda Designer.
-4. Send tandas or tracks into the playlist.
-5. In live mode, start the playlist or click a tanda to jump in.
+## Development
 
-## Detailed Usage Highlights
+### Prerequisites
 
-- **Tanda sizes**: can be filtered in search and clipboard.
-- **Playlist timing**: predicted start times are based on track durations + gaps + cortina duration + cortina fade.
-- **Cortina preview**: headphone icon lets you cue.
-- **Legacy import**: keeps your curated metadata.
-- **Trim padding**: extend start/end trims if track tails are being cut too early.
+- Node.js `>=22.12.0`
+- npm
+
+### Install
+
+```bash
+npm install
+```
+
+### Build
+
+```bash
+npm run build
+```
+
+### Run
+
+```bash
+npm start
+```
+
+### Tests
+
+```bash
+npm test
+npm run test:coverage
+npm run test:e2e
+```
+
+Note: Playwright Electron tests require a valid GUI session and can fail in headless/sandboxed environments.
+
+## Project structure (high level)
+
+- `app/src/main`: Electron main process, IPC, DB and scan orchestration
+- `app/src/preload`: safe renderer bridge
+- `app/src/renderer`: UI, interactions, workflow logic
+- `app/src/shared`: domain logic and utilities
+- `tests`: unit and E2E coverage
+- `docs`: handoff, dialogue, and user guidance
+
+## Troubleshooting
+
+- Wrong mac architecture build: install matching `x64` or `arm64` artifact.
+- App blocked on macOS: use **Open Anyway** path above.
+- No analysis/waveform: verify `ffmpeg`/`ffprobe` availability.
+- Audio routing confusion: confirm output devices in Settings -> System and check diagnostics logs.
