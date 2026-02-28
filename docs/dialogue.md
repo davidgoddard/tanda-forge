@@ -1891,3 +1891,10 @@ Code diffs are omitted; only intent and outcomes are captured.
 - Assistant: Verification:
   - `npm run build` passed.
   - `npm test` passed (39 files, 189 tests).
+- User: Reported regression where prep mode behaved like live mode for playlist/tanda track clicks (lead-in/cortina behavior), and requested prep mode clicks to play selected track immediately.
+- Assistant: Confirmed regression path in renderer click handling (`startPlaylistFrom(...)` being called in prep), patched prep/edit click handling to preview-play clicked tracks directly, and restricted playlist-start behavior to live mode only.
+- Assistant: Added E2E regression test `25 - prep mode playlist track click plays selected track directly` in `tests/e2e/workflows.e2e.ts`.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (39 files, 189 tests).
+  - Targeted E2E run (`23|25`) failed in this environment before test logic due Electron launch failure (`Process failed to launch!`).

@@ -73,14 +73,12 @@ import {
   type AudioOutputDevice,
 } from "../shared/audio-outputs.js";
 import {
-  findPlaylistPositionForTrack,
   resolveContinuationIndexAfterEndCortina,
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
   shouldSkipLeadInCortinaForSelectedStart,
   shouldStopAfterMarkedLastTanda,
   shouldTreatClickStartAsIdle,
-  type PlaylistTrackSource,
 } from "../shared/playlist-flow.js";
 import { computeAutoClearRemainingMs } from "../shared/playlist-filter.js";
 import { normalizePlaylistItems } from "../shared/playlist-normalize.js";
@@ -5032,13 +5030,6 @@ const playTrackForMode = async (
   if (appMode === "live") {
     return false;
   }
-  if (appMode === "prep") {
-    const playlistPosition = findPlaylistStartForTrack(track.id);
-    if (playlistPosition) {
-      startPlaylistFrom(playlistPosition.itemIndex, track.id);
-      return true;
-    }
-  }
   const started = await playOnChannel(
     "main",
     data.filePath,
@@ -9290,39 +9281,6 @@ const startPlaylistFrom = (index: number, trackId?: string | null) => {
     startFromIdle: wasIdle,
     suppressLeadInCortinaForSelectedStart: appMode === "prep",
   });
-};
-
-const findPlaylistStartForTrack = (trackId: string) => {
-  const sources: PlaylistTrackSource[] = [];
-  const indexMap: number[] = [];
-  playlistItems.forEach((item, playlistIndex) => {
-    if (!item) {
-      return;
-    }
-    if (item.kind === "track") {
-      indexMap.push(playlistIndex);
-      sources.push({ kind: "track", trackId: item.track.id });
-      return;
-    }
-    const tanda = resolveTandaDraft(item.tandaId);
-    if (!tanda) {
-      return;
-    }
-    const trackIds = tanda.trackSlots.filter(Boolean) as string[];
-    if (trackIds.length === 0) {
-      return;
-    }
-    indexMap.push(playlistIndex);
-    sources.push({ kind: "tanda", trackIds });
-  });
-  const found = findPlaylistPositionForTrack(sources, trackId);
-  if (!found) {
-    return null;
-  }
-  return {
-    itemIndex: indexMap[found.itemIndex] ?? found.itemIndex,
-    trackIndex: found.trackIndex,
-  };
 };
 
 const renderAllLists = () => {
@@ -14900,30 +14858,22 @@ const init = async () => {
     }
     if (appMode === "edit" || appMode === "prep") {
       if (detailTrackId) {
-        if (appMode === "prep") {
-          startPlaylistFrom(index, detailTrackId);
-        } else {
-          const track = trackCache.get(detailTrackId);
-          if (track) {
-            await playTrackForMode(track, {
-              filePath: track.full_path,
-              trackId: track.id,
-              gainDb: track.gain_db ?? null,
-            });
-          }
+        const track = trackCache.get(detailTrackId);
+        if (track) {
+          await playTrackForMode(track, {
+            filePath: track.full_path,
+            trackId: track.id,
+            gainDb: track.gain_db ?? null,
+          });
         }
         return;
       }
       if (playlistItem?.kind === "track" && data) {
-        if (appMode === "prep") {
-          startPlaylistFrom(index, data.trackId);
-        } else {
-          await playTrackForMode(playlistItem.track, {
-            filePath: data.filePath,
-            trackId: data.trackId,
-            gainDb: data.gainDb,
-          });
-        }
+        await playTrackForMode(playlistItem.track, {
+          filePath: data.filePath,
+          trackId: data.trackId,
+          gainDb: data.gainDb,
+        });
         return;
       }
     }
@@ -14985,23 +14935,13 @@ const init = async () => {
     const mainActive = playback.main.active;
     const isMainPlaying = !!mainActive && !mainActive.paused;
     if (!selectedClipboardTrackId || detailLine) {
-      if (appMode === "live" && isMainPlaying) {
+      if (appMode !== "live") {
         return;
       }
-      if (!isMainPlaying) {
-        startPlaylistFrom(index, detailTrackId);
+      if (isMainPlaying) {
         return;
       }
-      const item = playlistItems[index];
-      if (item?.kind === "track" && data) {
-        await playOnChannel(
-          "main",
-          data.filePath,
-          data.trackId,
-          item.track,
-          data.gainDb,
-        );
-      }
+      startPlaylistFrom(index, detailTrackId);
       return;
     }
     if (isLocked) {

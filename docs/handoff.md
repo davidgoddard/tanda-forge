@@ -3087,3 +3087,17 @@
 - Verification:
   - `npm run build` passed.
   - `npm test` passed (39 files, 189 tests).
+### Latest update
+- Fixed prep-mode playlist click regression where prep interactions were incorrectly routed through playlist-start/live sequencing.
+- Code changes in `app/src/renderer/renderer.ts`:
+  - `playTrackForMode(...)`: removed prep-specific `startPlaylistFrom(...)` path; prep/edit now always use direct `playOnChannel(...)` preview behavior.
+  - Playlist click handler: when `appMode` is `prep` or `edit`, track clicks now always call `playTrackForMode(...)` (no prep `startPlaylistFrom(...)`).
+  - Playlist row fallback click path now routes `startPlaylistFrom(...)` only when `appMode === "live"`.
+  - Removed now-unused `findPlaylistStartForTrack(...)` helper and related imports from `playlist-flow`.
+- Test coverage update:
+  - Added E2E regression test in `tests/e2e/workflows.e2e.ts`:
+    - `25 - prep mode playlist track click plays selected track directly`
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (39 files, 189 tests).
+  - Targeted `npm run test:e2e -- --grep "23 - edited first playlist tanda persists after app restart|25 - prep mode playlist track click plays selected track directly"` failed in this environment due Electron launch failure (`Process failed to launch!`) before scenario logic.

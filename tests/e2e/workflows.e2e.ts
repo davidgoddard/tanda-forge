@@ -655,4 +655,33 @@ test.describe("Electron app end-to-end workflows", () => {
       await launched.close();
     }
   });
+
+  test("25 - prep mode playlist track click plays selected track directly", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await page.locator("#mode-select").selectOption("prep");
+      await clearPlaylistViaUi(page);
+
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await ensurePlaylistTab(page);
+
+      const playlistRow = playlistTandaRow(page, "Tango Trio");
+      await expect(playlistRow).toBeVisible();
+      if (!(await playlistRow.locator(".tanda-details").isVisible())) {
+        await playlistRow.locator(".tanda-summary").click();
+      }
+      const targetTrack = playlistRow
+        .locator(".tanda-detail-line", { hasText: "Alberto Gomez Tango Dos" })
+        .first();
+      await expect(targetTrack).toBeVisible();
+      await targetTrack.click();
+
+      await expect(page.locator("#now-playing-track")).toContainText("Tango Dos");
+    } finally {
+      await launched.close();
+    }
+  });
 });
