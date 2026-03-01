@@ -25,6 +25,7 @@ This project is a collaboration between David Goddard (design and requirements) 
 - Light/dark themes.
 - Dual output routing (main + headphones).
 - Playback normalization and diagnostic logging.
+- Live compression/limiter control for dynamic-range reduction on main output.
 - Automatic silence trim with configurable padding.
 - Playlist timing estimates and tanda sequencing tools.
 - Legacy import from classic Tanda Player data.
@@ -123,6 +124,24 @@ Settings -> **Playlist**
 - **Live**: safer operation during performance.
 - **Edit**: metadata editing optimized for repeated updates.
 
+## Compression use case (for noisy rooms)
+
+At the start of a tanda, floors can be chatty while the first phrases of a song are often quieter.
+In that situation, DJs usually do **not** want to turn the venue amplifier up, because louder sections
+later in the same song or tanda can then become too loud.
+
+Use the app's compression control instead:
+
+- raise quieter passages so dancers can hear musical detail sooner,
+- keep louder peaks constrained with the limiter,
+- maintain safer and more consistent overall room level.
+
+Typical practical flow:
+
+1. Start the tanda with compression depth increased.
+2. As room chatter falls, gradually reduce compression depth back toward normal.
+3. Keep amplifier/master venue gain unchanged.
+
 ## Legacy import
 
 If legacy files are present (for example `config.js`, `tandas.dat`, `library.dat`), import can:
@@ -130,6 +149,34 @@ If legacy files are present (for example `config.js`, `tandas.dat`, `library.dat
 - recreate tandas,
 - apply curated metadata,
 - preserve prior organization while upgrading to desktop workflow.
+
+### Legacy import vs scan (what wins)
+
+Legacy import writes track rows directly, including any available legacy
+`loudness_db` / `gain_db`, so playback normalization can work immediately
+without an immediate scan.
+
+If you run a scan afterward:
+
+- Track analysis values are recalculated with `ffmpeg`/`ffprobe` and overwrite
+  imported legacy analysis fields (`duration`, trim offsets, `loudness_db`,
+  `gain_db`, analysis JSON/error).
+- Tag-derived metadata is refreshed from file tags (with legacy overrides applied
+  when present in the scan context).
+- `bpm` and free-text notes are generally preserved unless explicitly changed.
+
+Why this happens:
+
+- Legacy-imported rows are marked as `legacy_import_pending_scan` and tagged with
+  `analysis_json.source = "legacy-import"`.
+- The scanner treats that marker as "do not reuse old analysis" and performs a
+  full analysis pass to normalize behavior with current tooling.
+
+Practical guidance:
+
+- Import only: fastest way to get started, keeps legacy analysis values.
+- Import + scan: recommended when you want fresh waveform/analysis consistency
+  from current `ffmpeg` processing.
 
 ## Development
 

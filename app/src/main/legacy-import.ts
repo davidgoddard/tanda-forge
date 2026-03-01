@@ -204,13 +204,9 @@ export const loadLegacyLibrary = (libraryPath: string) => {
       ? Math.max(0, Math.round(endTrimSec * 1000))
       : 0;
     const loudnessDb = parseLegacyNumber(analysis.meanGain);
-    const importedGainDb = parseLegacyNumber(analysis.gain);
-    const gainDb =
-      importedGainDb !== null
-        ? importedGainDb
-        : loudnessDb !== null
-          ? -16 - loudnessDb
-          : null;
+    // Legacy "gain" is the ffmpeg max_volume metric, not an applied playback gain.
+    // We intentionally do not map it directly to gainDb.
+    const gainDb = loudnessDb !== null ? -16 - loudnessDb : null;
     entries.set(normalizeLegacyPath(rawPath), {
       title: title || undefined,
       artist: artist || undefined,

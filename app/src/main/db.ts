@@ -93,6 +93,12 @@ const createSchema = (database: Database.Database) => {
       playlist_id text not null,
       tanda_id text not null
     );
+
+    create table if not exists app_state (
+      key text primary key,
+      value text not null,
+      updated_at text not null
+    );
   `);
 };
 
@@ -172,6 +178,11 @@ export const initDb = () => {
   try {
     db.exec(
       "create table if not exists tanda_styles (tanda_id text not null, style_name text not null)",
+    );
+  } catch {}
+  try {
+    db.exec(
+      "create table if not exists app_state (key text primary key, value text not null, updated_at text not null)",
     );
   } catch {}
   return db;

@@ -1898,3 +1898,505 @@ Code diffs are omitted; only intent and outcomes are captured.
   - `npm run build` passed.
   - `npm test` passed (39 files, 189 tests).
   - Targeted E2E run (`23|25`) failed in this environment before test logic due Electron launch failure (`Process failed to launch!`).
+- User: Requested a new two-stage dynamics chain (upward quiet boost + peak-safe limiter), with smooth engage/disengage, and clarified this should be main speaker output only.
+- Assistant: Implemented a main-output-only Web Audio dynamics runtime in renderer:
+  - wet/dry split with smoothed ramp (enable/disable and depth control),
+  - upward-lift stage driven by real-time RMS envelope + attack/release smoothing,
+  - limiter stage using Web Audio compressor in limiter configuration,
+  - bypass behavior for non-default main output routes retained with status message.
+- Assistant: Added System tab controls for dynamics (enable, depth, lift threshold, max lift, ratio, attack/release, gate threshold, limiter ceiling/release, ramp).
+- Assistant: Added pure helper module `app/src/shared/audio-dynamics.ts` and unit tests `tests/audio-dynamics.test.ts`.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - Per user instruction, E2E was not run.
+- User: Reported dynamics build produced no audio regardless of enable state and noted unit tests were insufficient.
+- Assistant: Added fail-safe runtime behavior in renderer to prevent silent output on DSP/runtime failures:
+  - `resumeAudioContextForElement(...)` now catches/resolves failed or non-running context by releasing DSP runtime and restoring plain audio.
+  - Added `syncDynamicsRuntimeForChannel(...)` / `syncDynamicsRuntimeForActivePlayback(...)` to immediately tear down DSP when disabled or unavailable and fall back to plain audio.
+  - Dynamics setting handlers now call runtime sync rather than only gain refresh.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E not run (per user instruction).
+- User: Reported DSP still non-functional in prep mode: enabling kills audible output while waveform progresses; disabling stops progression until restart.
+- Assistant: Implemented a second-pass root-cause fix for toggle silence:
+  - Avoids destructive DSP runtime teardown on settings toggle for active playback.
+  - Uses wet/dry bypass (`enabled:false, depth:0`) instead of releasing graph while track is playing.
+  - Added `ensureSharedAudioContextRunning()` and gated runtime creation behind a confirmed running context.
+  - Updated runtime sync to create/enable DSP only when safe, otherwise keep plain audio path.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E not run (per user instruction).
+- User: Reported DSP still silent: starting playback with DSP disabled is audible; starting with DSP enabled is silent; once silent, toggling enable/disable does not recover output.
+- Assistant: Patched DSP fallback behavior in `app/src/renderer/renderer.ts` to prevent mute lockups:
+  - capped wet mix (`DSP_MAX_WET_MIX = 0.8`) to retain a dry safety bed,
+  - changed `setAudioLevel(...)` to compute native dry mix from wet amount and AudioContext running state,
+  - made `syncDynamicsRuntimeForChannel(...)` release runtime and restore plain audio whenever DSP is disabled/unavailable or context is not running,
+  - ensured setting changes re-apply channel levels after runtime changes,
+  - added `ensureSharedAudioContextRunning()` trigger in `markUserInteraction()`.
+- Assistant: Verification run:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per user instruction.
+- User: Reported DSP still silent with a distinct symptom: first enabled playback is silent; on starting another track there is only a brief fade/start audible then silence again; requested pipeline correction.
+- Assistant: Reworked DSP routing in `app/src/renderer/renderer.ts` so DSP cannot mute playback:
+  - Native media-element audio is now the guaranteed dry path.
+  - WebAudio dry path is disconnected from destination.
+  - DSP wet path remains additive and depth-ramped.
+  - `setAudioLevel(...)` always sets native `audio.volume` from track gain, while still feeding DSP input gain.
+  - Removed runtime behavior that forced element volume to zero.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E not run per user instruction.
+- User: Reported DSP still broken: playback could start but sounded unchanged; disabling DSP dropped output. Requested a new UX: a live mixer slider under Now Playing (0-100%) controlling compression amount, while System config enable only controls whether the live control is shown. Disabled should force off; enabled should default off with control available.
+- Assistant: Implemented requested DSP UX + routing fix:
+  - Added live control under Now Playing (`#now-playing-dynamics`, `#now-playing-dynamics-mix`) mapped to 0-100 compression depth.
+  - System setting `audio-dynamics-enabled` now gates visibility/availability of the live control and resets live mix to `0` on toggle.
+  - Removed System-tab depth field (`#audio-dynamics-depth`) from UI.
+  - Restored WebAudio dry path in DSP graph (dry+wet connected to destination) and set runtime to use graph volume (`inputGain`) with `audio.volume=1` while runtime is attached.
+  - Updated runtime sync to bypass (dry=1, wet=0) instead of tearing down runtime when disabled/unavailable, avoiding mute-on-toggle behavior.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per user instruction.
+- User: Reported no audible difference between 0% and 100% live compression slider, asked why compression still cannot be heard.
+- Assistant: Adjusted DSP behavior so slider meaningfully changes compression response, not just wet mix:
+  - Increased max wet to full at 100% (`DSP_MAX_WET_MIX = 1`).
+  - Added depth-driven runtime macro (`resolveDynamicRuntimeConfig(...)`) that progressively increases effect as slider rises:
+    - lift threshold trends toward `-14 dBFS`,
+    - max lift trends toward `+24 dB`,
+    - upward ratio trends toward `8:1`,
+    - gate threshold trends toward `-50 dBFS`,
+    - limiter release trends toward `120 ms`.
+  - Applied macro config in both limiter setup and lift-envelope computation.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E not run per instruction.
+- User: Confirmed progress but reported remaining issue: compression still lifts loud sections overall; requested behavior should be relative within each song (quiet vs loud parts of the same track), not against absolute system max.
+- Assistant: Updated DSP detection and mixing behavior in `app/src/renderer/renderer.ts`:
+  - Added per-track rolling peak envelope (`runtime.peakDb`) and now computes lift from relative level (`inputDb - peakDb`).
+  - Effective lift threshold is now relative to rolling peak (`config.liftThresholdDb - peakDb`, clamped), so loudest moments in a track are minimally boosted.
+  - Preserved absolute gate protection by requiring `inputDb > gateThresholdDb` before applying lift.
+  - Switched wet/dry from linear to equal-power crossfade to reduce perceived broad gain rise while changing depth.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported remaining DSP artifact: prolonged quiet parts are boosted somewhat correctly, but occasional words/sounds get a short huge boost.
+- Assistant: Stabilized dynamics detector in `app/src/renderer/renderer.ts` to reduce transient pumping:
+  - Added `detectorDb` to `AudioDspRuntime`.
+  - Lift decisions now use smoothed program detector (`detectorDb`) instead of raw frame dB.
+  - Peak follower now tracks detector with slower decay (`12ms` attack / `2500ms` release) to keep a stable per-track loud anchor.
+  - Replaced unstable relative-threshold derivation with a stable mapped band: `relativeThresholdDb = clamp(liftThresholdDb + 20, -30, -6)`.
+  - Gate check now uses detector level.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported regression to no audible difference between 0% and 100%.
+- Assistant: Identified dominant dry/native path masking DSP effect and switched runtime to DSP-primary output when context is running:
+  - In `ensureAudioDspRuntime(...)` set `audio.volume = 0` on attach.
+  - In `setAudioLevel(...)`, when runtime exists:
+    - if AudioContext is running, keep native `audio.volume = 0` (DSP graph is audible path),
+    - if context is not running, fall back to native `audio.volume = safe`.
+  - In `resumeAudioContextForElement(...)`, after successful resume re-applies `setAudioLevel(...)` so native path is muted and DSP path takes over.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported hard regression: no sound at all.
+- Assistant: Reverted from DSP-only audible path to fail-safe mixed routing in `app/src/renderer/renderer.ts`:
+  - DSP graph now outputs wet-only signal (graph dry branch disconnected from destination).
+  - Native media element remains dry path with slider-scaled level while DSP runtime is attached.
+  - `setAudioLevel(...)` now computes native dry from equal-power crossfade (`cos(pi*wet/2)`) with floor `0.08` when DSP enabled and context running.
+  - If context is not running or DSP disabled, native path returns to full `safe` level.
+  - Runtime attach no longer forces `audio.volume = 0`.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported 0% and 100% still mostly silent with only some audio at 50%; compression effect still not behaving as expected.
+- Assistant: Corrected routing model to deterministic in-graph dry/wet mixing (not native-dry fallback while runtime active):
+  - Restored graph dry connection (`dryGain -> destination`) and equal-power dry/wet crossfade in `applyDynamicsWetDry(...)`.
+  - Runtime attach again sets `audio.volume = 0` so WebAudio graph is authoritative when context is running.
+  - `setAudioLevel(...)` now uses native volume fallback only when AudioContext is not running; otherwise native is muted and graph carries signal.
+  - When DSP feature is disabled while runtime exists, explicitly forces graph bypass (`dry=1`, `wet=0`).
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported complete regression again: no volume at all.
+- Assistant: Applied no-silence safety routing in `app/src/renderer/renderer.ts`:
+  - Graph changed to wet-only (`input -> lift/limiter -> wet -> destination`), dry graph branch disconnected from destination.
+  - Native element restored as guaranteed dry path while runtime is attached.
+  - `setAudioLevel(...)` now keeps native dry audible always, with only partial duck as wet mix increases (`nativeDryMix = 1 - 0.35 * wetMix`, floored).
+  - If AudioContext is not running, native path remains full fallback volume.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported current DSP behavior: little/no effect below ~10%, some effect above, but still not enough quiet-part lift against full orchestra sections.
+- Assistant: Increased low-end sensitivity and high-end compression dominance in `app/src/renderer/renderer.ts`:
+  - Added `getDepthMixFromPercent(...)` with non-linear mapping (`depth^0.55`) so low slider values are no longer near-zero effect.
+  - Switched both wet-mix calculation and runtime macro-depth to this non-linear mix.
+  - Strengthened runtime macro targets at higher depth:
+    - `liftThresholdDb` toward `-10`,
+    - `maxLiftDb` toward `30`,
+    - `ratio` toward `12`,
+    - `gateThresholdDb` toward `-45`.
+  - Increased native dry duck when wet rises (`1 - 0.85*wet`, floor `0.05`) so compressed signal can dominate more at high slider values.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported current DSP state: no audio at 0% mix, some effect above, but still insufficient quiet lift without boosting loudest parts.
+- Assistant: Reworked DSP routing and lift profile in `app/src/renderer/renderer.ts`:
+  - Restored graph dry path (`inputGain -> dryGain -> destination`) so 0% is guaranteed audible in runtime graph.
+  - Runtime attach now mutes native path (`audio.volume = 0`) when DSP runtime is active.
+  - `setAudioLevel(...)` keeps native fallback only when AudioContext is not running.
+  - Wet/dry mix now uses equal-power crossfade in-graph (0%=dry, 100%=wet).
+  - Increased high-depth lift capability:
+    - max lift upper bound raised to `40 dB`,
+    - macro target `maxLiftDb` raised to `40`, ratio to `16`.
+  - Added explicit no-boost-near-peak guard (`relativeInputDb >= -2 => 0 lift`).
+  - Adjusted relative threshold mapping to allow stronger quiet lift while preserving peak protection (`liftThresholdDb + 22`, clamped `-30..-2`).
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported no audio again and requested a serious rethink, clarifying intent: temporarily reduce dynamic range strongly so quiet parts become near loud-part audibility, then restore normal as chatter subsides.
+- Assistant: Applied immediate safety-first rollback in `app/src/renderer/renderer.ts` to prevent silence:
+  - Native media element is always the dry path while runtime is attached.
+  - DSP graph switched to wet-only overlay (graph dry branch disconnected).
+  - `setAudioLevel(...)` no longer mutes native path when context is running; instead it applies partial dry duck as wet rises.
+  - If context is not running or DSP disabled, native path stays full-safe.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported hard bug: at 0% mix there is no output at all.
+- Assistant: Fixed 0%-mix audibility path in `app/src/renderer/renderer.ts`:
+  - Restored in-graph dry path wiring (`inputGain -> dryGain -> destination`).
+  - Restored equal-power dry/wet crossfade (`dry = cos`, `wet = sin`) in `applyDynamicsWetDry(...)`.
+  - With runtime active and context running, native element is muted (`audio.volume = 0`) so graph becomes authoritative and deterministic.
+  - Fallback remains native volume when context is not running or DSP disabled.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported perceptual non-monotonic loudness: output was louder around 90% than at 100%.
+- Assistant: Adjusted DSP mix law in `app/src/renderer/renderer.ts`:
+  - Replaced equal-power full crossfade with a parallel-style blend.
+  - `wetTarget = wetMix`.
+  - `dryTarget = max(0.35, 1 - 0.65 * wetMix)` when enabled, else `1`.
+  - Purpose: preserve a dry floor so 100% does not sound quieter than near-maximum values while still increasing compression contribution.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Asked whether the DSP should be a true split/parallel/merge topology and reported persistent 0% no-audio issue.
+- Assistant: Confirmed user’s architecture expectation is correct and aligned implementation to true in-graph parallel routing:
+  - dry and wet branches now both originate from `inputGain` and both connect to destination,
+  - native element is muted when DSP runtime/context is running so graph is authoritative,
+  - native is used as fallback only when context is not running,
+  - runtime is now released when DSP is disabled or output route is not eligible, preventing stale graph ownership.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 193 tests).
+  - E2E intentionally not run per instruction.
+- User: Asked whether there are unit tests that fabricate low/high amplitude sine content and verify compression drives output toward the high-amplitude level.
+- Assistant: Verified current tests and confirmed only pure helper-unit coverage exists (`tests/audio-dynamics.test.ts`), with no fabricated-audio DSP integration test yet.
+- User: Requested adding stronger DSP tests to avoid repeated manual trial-and-error and asked for confirmation when there is currently no audio output.
+- Assistant: Added new deterministic DSP behavior tests and moved runtime math helpers into shared module:
+  - `app/src/shared/audio-dynamics.ts` additions:
+    - `depthPercentToMix(...)`
+    - `computeParallelMixGains(...)`
+    - `computeDynamicsFrame(...)`
+    - associated types.
+  - `tests/audio-dynamics.test.ts` additions:
+    - low-end depth mapping test,
+    - parallel dry/wet gain floor/monotonic test,
+    - synthetic loud-anchor then quiet-section dynamics test ensuring quiet gets lifted while loud remains near unlifted.
+  - `app/src/renderer/renderer.ts` now uses shared helpers for depth mapping, mix gains, and frame dynamics update.
+- Assistant: Verification:
+  - `npm test` passed (40 files, 196 tests).
+  - `npm run build` passed.
+  - E2E intentionally not run per instruction.
+- User: Noted architecture concern that DSP should be split into parallel dry/wet paths and merged, not sequentially chained; assistant verified and adjusted topology accordingly.
+- Assistant: Updated runtime ownership/topology in `app/src/renderer/renderer.ts`:
+  - ensured graph dry + graph wet parallel paths to destination,
+  - muted native element when runtime/context is running (`audio.volume=0`),
+  - native fallback only when context is not running,
+  - releases runtime when DSP is disabled/not eligible or context cannot run to avoid stale ownership.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 196 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported persistent complete silence and requested robust iteration support.
+- Assistant: Applied hard no-silence safeguard in runtime audio path (`app/src/renderer/renderer.ts`):
+  - Native media element is never hard-muted by DSP runtime.
+  - Graph dry branch kept at zero gain (native is dry path) and wet branch remains overlay.
+  - Runtime level setter always preserves native volume; applies only moderate dry duck when DSP/context is active.
+  - If DSP disabled or context not running, native path remains full-safe.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 196 tests).
+  - E2E intentionally not run per instruction.
+- User: Asked whether split/merge should simply be X% unprocessed + Y% compressed summing predictably, and questioned why mixing is problematic.
+- Assistant: Confirmed that model is correct; diagnosed a concrete implementation bug in `app/src/renderer/renderer.ts` where dry gain in `applyDynamicsWetDry(...)` had been hardcoded to `0`, causing silence at low-wet settings (especially 0%).
+- Assistant: Implemented fix in `app/src/renderer/renderer.ts`:
+  - `applyDynamicsWetDry(...)` now uses `dryTarget = mixGains.dry` (from `computeParallelMixGains`) instead of `0`.
+  - `setAudioLevel(...)` no longer applies dynamic native-volume ducking while runtime is active; it now sets `audio.volume` directly to the safe requested level and leaves wet/dry balance to the graph gains.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 196 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported current behavior is wrong: loud sections show slight distortion with compression while quieter sections drop and the compression slider has little audible effect.
+- Assistant: Diagnosed two issues in DSP helpers:
+  - additive dry-floor mix caused loud-section overload artifacts,
+  - upward lift targeting was too conservative for quiet-section recovery.
+- Assistant: Updated `app/src/shared/audio-dynamics.ts`:
+  - `computeParallelMixGains(...)` now uses predictable linear crossfade (`dry = 1 - wet`) so wet+dry remains bounded and avoids additive overload.
+  - `computeDynamicsFrame(...)` now targets quiet content toward a held-peak-relative level (`targetRelativeDb`) with gate protection and max-lift cap, making quiet lift stronger and more direct.
+- Assistant: Updated tests in `tests/audio-dynamics.test.ts` to assert crossfade sum behavior (`dry + wet ~= 1`) instead of dry-floor behavior.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 196 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported compressor now seems to work only slightly and requested a temporary produced-output waveform in the now-playing area to reason about quiet-versus-loud expectations.
+- Assistant: Implemented a temporary post-DSP output waveform monitor in the now-playing panel.
+- Assistant: Changes made:
+  - `app/src/renderer/index.html`: added `#output-waveform-container` with `#output-waveform-canvas`.
+  - `app/src/renderer/styles.css`: updated now-playing layout to wrap and added styles for the temporary output waveform row.
+  - `app/src/renderer/renderer.ts`:
+    - extended DSP runtime graph with explicit post-mix analyser (`outputAnalyser`) and mix node (`mixGain`),
+    - added real-time canvas rendering loop (`startOutputWaveformLoop` / `drawOutputWaveform`) using post-mix analyser samples,
+    - added click-ignore handling for `#output-waveform-container` so now-playing click-to-stop does not trigger from the diagnostic area,
+    - added i18n key usage for output waveform label.
+  - `app/src/shared/audio-dynamics.ts`: added `summarizeWaveform(...)` helper for converting time-domain samples into display bars.
+  - `tests/audio-dynamics.test.ts`: added unit tests for waveform summarization behavior.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 198 tests).
+  - E2E intentionally not run per instruction.
+- User: Requested output waveform rendering similar to full-track image/timeline because realtime waveform is hard to compare and screenshot.
+- Assistant: Reworked output waveform diagnostic from instant-scope rendering to progressive full-track timeline rendering.
+- Assistant: Changes made:
+  - `app/src/renderer/renderer.ts`:
+    - added output timeline state (`outputWaveformTrackId`, fixed bin buffer, seen-index),
+    - added `resetOutputWaveformTimeline(...)`,
+    - updated draw loop to sample post-DSP output analyser each frame, map sample peak into a timeline bin by playback progress, and render accumulated bars across full width.
+  - `app/src/shared/audio-dynamics.ts`:
+    - added `updateWaveformTimelinePeak(...)` helper for bounded bin updates.
+  - `tests/audio-dynamics.test.ts`:
+    - added unit test for timeline-bin peak update behavior.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 199 tests).
+  - E2E intentionally not run per instruction.
+- User: Provided 0% vs 99% screenshots and reported quiet sections still drop too much; requested much flatter output at high compression.
+- Assistant: Confirmed behavior from screenshots and applied stronger gain-riding/leveling tuning.
+- Assistant: Changes:
+  - `app/src/shared/audio-dynamics.ts`:
+    - peak anchor release greatly extended (`peakReleaseMs` now derived from release with long minimum) so loud reference is held through quiet passages,
+    - target relative level tightened (`targetRelativeDb`) so quiet sections are pulled much closer to the peak,
+    - retained gate/max-lift protection.
+  - `app/src/renderer/renderer.ts` (`resolveDynamicRuntimeConfig`):
+    - stronger high-depth runtime mapping: higher max lift, higher ratio, lower gate threshold, faster lift attack, longer lift release, slightly longer limiter release.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 199 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported ratio control cannot exceed 12 and quiet section still decays despite slower release settings.
+- Assistant: Identified hard UI/storage clamps as the immediate blocker and expanded dynamics parameter ranges.
+- Assistant: Changes:
+  - `app/src/renderer/index.html`: updated compressor controls to allow `max lift` up to `60` and `upward ratio` up to `24`.
+  - `app/src/renderer/renderer.ts`:
+    - updated config parsing limits to `maxLiftDb: 0..60` and `ratio: 1..24`,
+    - updated settings change handlers to clamp to same ranges.
+  - `app/src/shared/audio-dynamics.ts`:
+    - increased `computeUpwardLiftDb` ratio and max-lift support (`ratio <= 24`, `maxLift <= 60`),
+    - changed peak-anchor behavior to hold much longer during quiet program (`peakReleaseMs = 60000` when detector is below lift-threshold margin) to reduce quiet-section decay.
+  - `tests/audio-dynamics.test.ts`:
+    - added coverage for high-ratio/high-lift support and slower peak-anchor collapse behavior.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 201 tests).
+  - E2E intentionally not run per instruction.
+- User: Requested a comparative implementation and noted quiet section still visibly drops with the suggested settings.
+- Assistant: Implemented a second DSP processing mode (`Track leveler`) alongside existing `Upward compressor` mode.
+- Assistant: Changes made:
+  - `app/src/renderer/index.html`:
+    - added `audio-dynamics-mode` select with options `Upward compressor` and `Track leveler`.
+    - expanded UI input max values: `max lift` to 60, `upward ratio` to 24.
+  - `app/src/renderer/renderer.ts`:
+    - added config key `AUDIO_DYNAMICS_MODE_KEY` with default `upward`.
+    - extended dynamics config with `mode`.
+    - wired settings control read/write for mode.
+    - extended runtime state with `levelerMeanDb`.
+    - `updateRuntimeLift(...)` now branches by mode:
+      - `upward`: existing peak-relative upward logic.
+      - `track-leveler`: new track-mean comparative lift logic.
+    - expanded parse/change clamps for ratio (1..24) and max lift (0..60).
+    - added i18n keys for mode label/options in English map.
+  - `app/src/shared/audio-dynamics.ts`:
+    - added `computeTrackLevelerFrame(...)` and types.
+    - range support aligned (`upwardRatio` up to 24, `maxLiftDb` up to 60).
+    - kept long quiet-program anchor behavior.
+  - `tests/audio-dynamics.test.ts`:
+    - added unit test for `computeTrackLevelerFrame(...)` quiet-lift behavior.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 202 tests).
+  - E2E intentionally not run per instruction.
+- User: Reiterated requirement that cross-track normalization must remain authoritative so tracks present consistent perceived loudness across songs.
+- Assistant: Updated `Track leveler` behavior to preserve normalization baseline and avoid long-term positive loudness bias.
+- Assistant: Changes:
+  - `app/src/shared/audio-dynamics.ts`:
+    - `computeTrackLevelerFrame(...)` target changed from `mean + boost` to `mean` (no positive offset), so lift is applied only when local window is below track-relative mean.
+  - `tests/audio-dynamics.test.ts`:
+    - strengthened test to verify low steady-state lift at loud baseline and meaningful uplift only for quieter segments.
+- Assistant: Clarified behavior:
+  - cross-track normalization still sets baseline pre-DSP level,
+  - leveler mode now avoids systematically pushing whole tracks louder than that baseline.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 202 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported gain ramp/spike behavior in Track leveler (windows cannot anticipate upcoming transients), causing pump and spikes.
+- Assistant: Confirmed this is a no-lookahead limitation and implemented anti-spike damping in Track leveler.
+- Assistant: Changes:
+  - `app/src/shared/audio-dynamics.ts`:
+    - extended `TrackLevelerFrameState` with `peakDb`,
+    - added fast peak follower in `computeTrackLevelerFrame(...)`,
+    - added crest-factor-based lift damping (`targetLiftDb` scaled down when crest rises),
+    - added safer effective attack/release floors for leveler path (`attack >= 15ms`, `release >= 450ms`) to reduce jumpy gain modulation.
+  - `app/src/renderer/renderer.ts`:
+    - wired `peakDb` into leveler runtime state updates.
+  - `tests/audio-dynamics.test.ts`:
+    - updated state shape for existing leveler tests,
+    - added unit test asserting transient crest damp reduces lift versus steady condition.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 203 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported remaining beat-slam spikes in Track leveler where gain ramps in gaps then collides with incoming peaks.
+- Assistant: Implemented additional anti-spike control for Track leveler using recent-peak headroom capping.
+- Assistant: Changes:
+  - `app/src/shared/audio-dynamics.ts`:
+    - `TrackLevelerFrameState` now includes `peakDb`.
+    - `computeTrackLevelerFrame(...)` now:
+      - uses a longer-release peak follower,
+      - computes crest-factor damping,
+      - applies a hard headroom cap on lift based on recent peak and limiter ceiling (`allowedLiftByHeadroom`),
+      - keeps minimum effective attack/release floors.
+  - `app/src/renderer/renderer.ts`:
+    - wired `peakDb` state in Track-leveler runtime update path.
+  - `tests/audio-dynamics.test.ts`:
+    - added coverage for transient damping and headroom-cap behavior,
+    - adjusted tolerance for floating-point envelope response.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 204 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported overall output is now too quiet and showed very low-amplitude produced-output waveform even with system speaker volume high.
+- Assistant: Diagnosed likely double attenuation in runtime path: program level being applied via both `runtime.inputGain` and `audio.volume` when DSP runtime is active.
+- Assistant: Fix in `app/src/renderer/renderer.ts` (`setAudioLevel`):
+  - when runtime exists, keep media element at unity (`audio.volume = 1`) and apply level only once via `runtime.inputGain`.
+  - fallback non-runtime path remains `audio.volume = safe`.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 204 tests).
+  - E2E intentionally not run per instruction.
+- User: Reported cross-track normalization still appears ineffective (loud track vs clearly quieter track at compression 0%).
+- Assistant: Investigated renderer gain path and found additional effective bottleneck: `gainForTrack` capped linear gain to `2x` (~+6 dB), while normalization can compute up to +12 dB.
+- Assistant: Implemented fix in `app/src/renderer/renderer.ts`:
+  - `gainForTrack(...)` now uses `gainDbToLinear(..., 4)` to allow full normalization range (~+12 dB).
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (40 files, 204 tests).
+  - E2E intentionally not run per instruction.
+- User: "Quick request, in the 'scan' of music and cortinas, could you show the current filename. It's comforting feedback - gives the user something to read!"
+- User: "I think meta data was missing - I am now scanning hence the request. I will try the cross-track normalisation when the system has some data to work with!! :-)"
+- Assistant: Implemented filename scan feedback in progress labels:
+  - Added `basenameForDisplay(...)` helper in `app/src/shared/path-display.ts`.
+  - Added unit tests in `tests/path-display.test.ts`.
+  - Updated scan progress rendering in `app/src/renderer/renderer.ts` to show:
+    - `statusScanProgressWithFile` when a filename is available,
+    - `statusScanProgress` fallback otherwise.
+  - Added i18n key `statusScanProgressWithFile` for all supported languages.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (41 files, 207 tests).
+  - E2E intentionally not run.
+- User: Asked whether scan behavior can persist across restarts because scans can take hours and users may restart before scanning.
+- Assistant: Implemented persistence of legacy metadata overrides across restarts.
+- Assistant: Changes:
+  - Added `app_state` table for app-level persisted state in `app/src/main/db.ts`.
+  - Added override serializer/deserializer in `app/src/shared/legacy-overrides.ts`.
+  - Added tests in `tests/legacy-overrides.test.ts`.
+  - Updated `app/src/main/main.ts` to:
+    - load persisted legacy overrides at app startup (`loadLegacyOverrides()`),
+    - persist overrides after legacy import (`saveLegacyOverrides()`),
+    - reload overrides after data-location changes (`reopenDb()` + `loadLegacyOverrides()`).
+- Assistant: Effect:
+  - Legacy metadata overrides now survive app restart, so scan keeps using legacy metadata precedence without requiring import+scan in one session.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (42 files, 209 tests).
+  - E2E intentionally not run.
+- User: Requested a single waveform view by overlaying processed-output waveform onto the main waveform (contrasting/darker), only when compression is above zero; otherwise remove second waveform.
+- Assistant: Implemented single-waveform overlay approach.
+- Assistant: Changes:
+  - `app/src/renderer/index.html`:
+    - removed separate `#output-waveform-container`,
+    - added `#waveform-output-overlay` canvas inside `#waveform-container`.
+  - `app/src/renderer/styles.css`:
+    - removed standalone output-waveform block styles,
+    - added overlay canvas styles (`.waveform-output-overlay`) with darker contrast and layering.
+  - `app/src/renderer/renderer.ts`:
+    - rewired output-waveform rendering to draw on `#waveform-output-overlay`,
+    - overlay visibility now depends on both dynamics enabled and compression depth > 0,
+    - removed old click-ignore reference to removed `#output-waveform-container`.
+  - `app/src/shared/audio-dynamics.ts`:
+    - added `shouldShowDynamicsOverlay(enabled, depthPercent)` helper.
+  - `tests/audio-dynamics.test.ts`:
+    - added unit test for overlay visibility helper behavior.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (42 files, 210 tests).
+  - E2E intentionally not run.
+- User: Asked to update README and verify whether legacy gain data should require scanning, specifically checking legacy gain usage versus ffmpeg analysis.
+- Assistant: Reviewed import/scan behavior in:
+  - `app/src/main/legacy-import.ts`
+  - `app/src/main/library/scan.ts`
+  - `app/src/shared/audio-normalization.ts`
+- Assistant: Confirmed behavior:
+  - Legacy import writes `loudness_db`/`gain_db` and those are immediately usable for playback normalization.
+  - First scan after legacy import intentionally re-analyzes and overwrites legacy analysis/gain fields because rows are marked `legacy_import_pending_scan` with `analysis_json.source = "legacy-import"`.
+- Assistant: Updated `README.md` with a new "Legacy import vs scan (what wins)" section describing overwrite precedence and practical guidance.
+- User: Asked to update importer so legacy values are interpreted as originally intended, not by misleading legacy names.
+- Assistant: Updated legacy gain mapping in `app/src/main/legacy-import.ts`:
+  - legacy `analysis.meanGain` is used as loudness source,
+  - derived playback `gainDb` is now always computed from loudness target (`-16 - meanGain`) when meanGain exists,
+  - legacy `analysis.gain` is no longer treated as direct playback gain (it represented ffmpeg `max_volume` in the old system).
+- Assistant: Updated test coverage:
+  - `tests/legacy-import-gain.test.ts` now verifies that explicit legacy `analysis.gain` does not override gain derivation from `meanGain`.
+- Assistant: Verification:
+  - `npm run build` passed.
+  - `npm test` passed (41 files, 207 tests).
+  - E2E intentionally not run.
+- User: "In the app there is no way to see where a track actually resides on disk. Perhaps in the editor pop-up at the bottom you could write as background text similar to the tap bpm hint the full path of the file."
+- Assistant: Implemented track-editor file-path hint rendering in muted helper text below the BPM tap hint; it now shows the selected track `full_path` and clears when the editor state is reset/closed.
+- User: "You will need to re-position the waveform as it renders at the bottom but the actual waveform from ffmpeg goes + and - and so the mid point is not at the bottom! Also, possibly a stronger colour."
+- Assistant: Updated output-waveform overlay rendering to use a centered midline (symmetric + / - bars around waveform center) and increased overlay contrast/opacity for clearer visibility.
+- User: "Could you make these the system defaults as they seem to work well enough for now"
+- Assistant: Updated compressor/limiter default system values to match the provided settings: enabled by default, `track-leveler` mode, threshold `-60`, max lift `15`, ratio `5`, attack `35ms`, release `3000ms`, gate `-65`, limiter ceiling `-1`, limiter release `260ms`, ramp `800ms`.
+- User: Reported flaky e2e failure in test 12 (`search-track menu action adds track to playlist`) where fallback editor-row wait timed out.
+- Assistant: Simplified test 12 assertion to verify visible playlist rows contain `Tempo 72 Test` after add action, removing fallback dependence on editor visibility heuristics.
+- User: "Please add a section to the read me, mention in the features that it has compression and then later on have a section explaining the use case for compression as at the start of a tanda there may be lots of talking and the first song is quiet but the DJ does not want to turn the amplifier up to compensate, instead the quiet bits can be made louder without increasing overall sound levels."
+- Assistant: Updated `README.md` to include compression in core features and added a dedicated "Compression use case (for noisy rooms)" section describing the exact DJ workflow and rationale.

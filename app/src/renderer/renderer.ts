@@ -66,6 +66,19 @@ import {
 } from "../shared/audio-normalization.js";
 import { computeFadeDurationMs } from "../shared/audio-fade.js";
 import {
+  clampNumber,
+  computeDynamicsFrame,
+  computeParallelMixGains,
+  computeTrackLevelerFrame,
+  computeUpwardLiftDb,
+  depthPercentToMix,
+  dbToLinear,
+  linearToDb,
+  shouldShowDynamicsOverlay,
+  smoothToward,
+  updateWaveformTimelinePeak,
+} from "../shared/audio-dynamics.js";
+import {
   chooseAvailableOutputDeviceId,
   dedupeAudioOutputs,
   getOutputCandidateIds,
@@ -83,6 +96,7 @@ import {
 import { computeAutoClearRemainingMs } from "../shared/playlist-filter.js";
 import { normalizePlaylistItems } from "../shared/playlist-normalize.js";
 import { computeScaledPercent } from "../shared/chart-scale.js";
+import { basenameForDisplay } from "../shared/path-display.js";
 import {
   collectStoredPlaylistTrackIds,
   type PlaylistTandaSnapshot,
@@ -283,6 +297,28 @@ const headphoneOutputSelect =
   document.querySelector<HTMLSelectElement>("#headphone-output-select");
 const cortinaLevelPercentInput =
   document.querySelector<HTMLInputElement>("#cortina-level-percent");
+const audioDynamicsEnabledInput =
+  document.querySelector<HTMLInputElement>("#audio-dynamics-enabled");
+const audioDynamicsModeInput =
+  document.querySelector<HTMLSelectElement>("#audio-dynamics-mode");
+const audioDynamicsLiftThresholdInput =
+  document.querySelector<HTMLInputElement>("#audio-dynamics-lift-threshold");
+const audioDynamicsMaxLiftInput =
+  document.querySelector<HTMLInputElement>("#audio-dynamics-max-lift");
+const audioDynamicsRatioInput =
+  document.querySelector<HTMLInputElement>("#audio-dynamics-ratio");
+const audioDynamicsAttackInput =
+  document.querySelector<HTMLInputElement>("#audio-dynamics-attack");
+const audioDynamicsReleaseInput =
+  document.querySelector<HTMLInputElement>("#audio-dynamics-release");
+const audioDynamicsGateThresholdInput =
+  document.querySelector<HTMLInputElement>("#audio-dynamics-gate-threshold");
+const audioDynamicsLimiterCeilingInput =
+  document.querySelector<HTMLInputElement>("#audio-dynamics-limiter-ceiling");
+const audioDynamicsLimiterReleaseInput =
+  document.querySelector<HTMLInputElement>("#audio-dynamics-limiter-release");
+const audioDynamicsRampInput =
+  document.querySelector<HTMLInputElement>("#audio-dynamics-ramp");
 const DEFAULT_OUTPUT_ID = "default";
 const tandaSizeInput =
   document.querySelector<HTMLInputElement>("#tanda-size-input");
@@ -345,6 +381,12 @@ const nowPlayingSource =
   document.querySelector<HTMLSpanElement>("#now-playing-source");
 const nowPlayingSection =
   document.querySelector<HTMLElement>("#now-playing");
+const nowPlayingDynamicsControl =
+  document.querySelector<HTMLDivElement>("#now-playing-dynamics");
+const nowPlayingDynamicsMixInput =
+  document.querySelector<HTMLInputElement>("#now-playing-dynamics-mix");
+const nowPlayingDynamicsMixValue =
+  document.querySelector<HTMLSpanElement>("#now-playing-dynamics-mix-value");
 const waveformContainer =
   document.querySelector<HTMLDivElement>("#waveform-container");
 const waveformImage =
@@ -355,6 +397,8 @@ const waveformProgress =
   document.querySelector<HTMLDivElement>("#waveform-progress");
 const waveformPlayhead =
   document.querySelector<HTMLDivElement>("#waveform-playhead");
+const waveformOutputOverlay =
+  document.querySelector<HTMLCanvasElement>("#waveform-output-overlay");
 const trackEditorWaveformContainer =
   document.querySelector<HTMLDivElement>("#track-editor-waveform-container");
 const trackEditorWaveformImage =
@@ -408,6 +452,8 @@ const trackEditorSaveBtn =
   document.querySelector<HTMLButtonElement>("#track-editor-save");
 const trackEditorResetBtn =
   document.querySelector<HTMLButtonElement>("#track-editor-reset");
+const trackEditorPathHint =
+  document.querySelector<HTMLDivElement>("#track-editor-path");
 
 let headphoneAvailable = false;
 let audioOutputs: AudioOutputDevice[] = [];
@@ -494,6 +540,30 @@ const DEFAULT_DISPLAY_CORTINA_FONT_SCALE = 1;
 const DISPLAY_EDGE_PADDING_KEY = "tanda-display-edge-padding-vmin";
 const DEFAULT_DISPLAY_EDGE_PADDING_VMIN = 5;
 const CORTINA_LEVEL_PERCENT_KEY = "tanda-cortina-level-percent";
+const AUDIO_DYNAMICS_ENABLED_KEY = "tanda-audio-dynamics-enabled";
+const AUDIO_DYNAMICS_MODE_KEY = "tanda-audio-dynamics-mode";
+const AUDIO_DYNAMICS_DEPTH_KEY = "tanda-audio-dynamics-depth";
+const AUDIO_DYNAMICS_LIFT_THRESHOLD_KEY = "tanda-audio-dynamics-lift-threshold";
+const AUDIO_DYNAMICS_MAX_LIFT_KEY = "tanda-audio-dynamics-max-lift";
+const AUDIO_DYNAMICS_RATIO_KEY = "tanda-audio-dynamics-ratio";
+const AUDIO_DYNAMICS_ATTACK_KEY = "tanda-audio-dynamics-attack";
+const AUDIO_DYNAMICS_RELEASE_KEY = "tanda-audio-dynamics-release";
+const AUDIO_DYNAMICS_GATE_THRESHOLD_KEY = "tanda-audio-dynamics-gate-threshold";
+const AUDIO_DYNAMICS_LIMITER_CEILING_KEY = "tanda-audio-dynamics-limiter-ceiling";
+const AUDIO_DYNAMICS_LIMITER_RELEASE_KEY = "tanda-audio-dynamics-limiter-release";
+const AUDIO_DYNAMICS_RAMP_KEY = "tanda-audio-dynamics-ramp";
+const DEFAULT_AUDIO_DYNAMICS_ENABLED = true;
+const DEFAULT_AUDIO_DYNAMICS_MODE = "track-leveler";
+const DEFAULT_AUDIO_DYNAMICS_DEPTH = 100;
+const DEFAULT_AUDIO_DYNAMICS_LIFT_THRESHOLD = -60;
+const DEFAULT_AUDIO_DYNAMICS_MAX_LIFT = 15;
+const DEFAULT_AUDIO_DYNAMICS_RATIO = 5;
+const DEFAULT_AUDIO_DYNAMICS_ATTACK = 35;
+const DEFAULT_AUDIO_DYNAMICS_RELEASE = 3000;
+const DEFAULT_AUDIO_DYNAMICS_GATE_THRESHOLD = -65;
+const DEFAULT_AUDIO_DYNAMICS_LIMITER_CEILING = -1;
+const DEFAULT_AUDIO_DYNAMICS_LIMITER_RELEASE = 260;
+const DEFAULT_AUDIO_DYNAMICS_RAMP = 800;
 const DEFAULT_CORTINA_LEVEL_PERCENT = 100;
 const PLAYLIST_LAST_TANDA_KEY = "tanda-playlist-current-last";
 const PLAYLIST_END_TIME_KEY = "tanda-playlist-end-time";
@@ -694,6 +764,7 @@ const lastAppliedGainDbByChannel: Record<OutputChannel, number | null> = {
   headphone: null,
 };
 const MAX_GAIN_ONLY_STEP_DB = 4;
+const MAX_GAIN_ONLY_STEP_DB_NON_LIVE = 24;
 
 let waveformTrackId: string | null = null;
 let waveformRequestId = 0;
@@ -841,6 +912,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingUnknown: "Unknown track",
     nowPlayingTime: "{current} / {duration}",
     waveformLabel: "Waveform timeline",
+    outputWaveformLabel: "Output waveform",
     waveformLoading: "Generating waveform...",
     waveformUnavailable: "Waveform unavailable",
     cortinaPickerTitle: "Cortina Picker",
@@ -1045,6 +1117,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanInProgress: "Scan already running.",
     statusScanning: "Scanning...",
     statusScanProgress: "Scanning {current}/{total} ({root})",
+    statusScanProgressWithFile: "Scanning {current}/{total} ({root}) - {file}",
     statusScanComplete:
       "Scan complete. Scanned {scanned}, added {added}, updated {updated}, removed {removed}.",
     statusScanIssues: "Scan complete. {count} issues.",
@@ -1140,18 +1213,21 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusCortinaLocked: "This cortina has already played and cannot be changed.",
     stopFade: "Stop fade (sec)",
     cortinaLevelPercentLabel: "Cortina level (% of main output)",
-    audioDspEnabledLabel: "Enable real-time dynamics DSP",
-    audioDynamicsPresetLabel: "Playback dynamics preset",
-    audioDynamicsPresetOff: "Off",
-    audioDynamicsPresetGentle: "Gentle",
-    audioDynamicsPresetBalanced: "Balanced",
-    audioDynamicsPresetStrong: "Strong",
-    audioDynamicsPresetCustom: "Custom",
-    audioDynamicsThresholdLabel: "Compressor threshold (dB)",
-    audioDynamicsRatioLabel: "Compressor ratio",
-    audioDynamicsMakeupLabel: "Makeup gain (dB)",
-    audioDynamicsLimiterLabel: "Limiter ceiling (dB)",
-    audioLiveBoostLabel: "Live boost",
+    audioDynamicsEnabledLabel: "Enable live compression control",
+    audioDynamicsModeLabel: "Processing mode",
+    audioDynamicsModeUpward: "Upward compressor",
+    audioDynamicsModeLeveler: "Track leveler",
+    audioDynamicsDepthLabel: "Processing depth (%)",
+    audioDynamicsLiveMixLabel: "Compression",
+    audioDynamicsLiftThresholdLabel: "Lift threshold (dBFS)",
+    audioDynamicsMaxLiftLabel: "Max lift (dB)",
+    audioDynamicsRatioLabel: "Upward ratio",
+    audioDynamicsAttackLabel: "Lift attack (ms)",
+    audioDynamicsReleaseLabel: "Lift release (ms)",
+    audioDynamicsGateThresholdLabel: "Noise gate threshold (dBFS)",
+    audioDynamicsLimiterCeilingLabel: "Limiter ceiling (dBFS)",
+    audioDynamicsLimiterReleaseLabel: "Limiter release (ms)",
+    audioDynamicsRampLabel: "Enable/disable ramp (ms)",
     addTanda: "Add Tanda",
     tandaNameLabel: "Tanda name",
     tandaStylesLabel: "Styles",
@@ -1273,6 +1349,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingUnknown: "Pista desconocida",
     nowPlayingTime: "{current} / {duration}",
     waveformLabel: "Linea de onda",
+    outputWaveformLabel: "Forma de salida",
     waveformLoading: "Generando forma de onda...",
     waveformUnavailable: "Forma de onda no disponible",
     cortinaPickerTitle: "Selector de cortinas",
@@ -1433,6 +1510,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanInProgress: "El escaneo ya esta en curso.",
     statusScanning: "Escaneando...",
     statusScanProgress: "Escaneando {current}/{total} ({root})",
+    statusScanProgressWithFile: "Escaneando {current}/{total} ({root}) - {file}",
     statusScanComplete:
       "Escaneo completo. Escaneados {scanned}, agregados {added}, actualizados {updated}, eliminados {removed}.",
     statusScanIssues: "Escaneo completo. {count} problemas.",
@@ -1662,6 +1740,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingUnknown: "Piste inconnue",
     nowPlayingTime: "{current} / {duration}",
     waveformLabel: "Forme d'onde",
+    outputWaveformLabel: "Forme de sortie",
     waveformLoading: "Generation de la forme d'onde...",
     waveformUnavailable: "Forme d'onde indisponible",
     cortinaPickerTitle: "Selection de cortinas",
@@ -1822,6 +1901,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanInProgress: "Un scan est deja en cours.",
     statusScanning: "Scan en cours...",
     statusScanProgress: "Scan {current}/{total} ({root})",
+    statusScanProgressWithFile: "Scan {current}/{total} ({root}) - {file}",
     statusScanComplete:
       "Scan termine. Scannes {scanned}, ajoutes {added}, maj {updated}, supprimes {removed}.",
     statusScanIssues: "Scan termine. {count} problemes.",
@@ -2051,6 +2131,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingUnknown: "Unbekannter Track",
     nowPlayingTime: "{current} / {duration}",
     waveformLabel: "Wellenform",
+    outputWaveformLabel: "Ausgangswellenform",
     waveformLoading: "Wellenform wird erstellt...",
     waveformUnavailable: "Wellenform nicht verfugbar",
     cortinaPickerTitle: "Cortina-Auswahl",
@@ -2211,6 +2292,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanInProgress: "Scan lauft bereits.",
     statusScanning: "Scanne...",
     statusScanProgress: "Scan {current}/{total} ({root})",
+    statusScanProgressWithFile: "Scan {current}/{total} ({root}) - {file}",
     statusScanComplete:
       "Scan fertig. Gescant {scanned}, hinzugefugt {added}, aktualisiert {updated}, entfernt {removed}.",
     statusScanIssues: "Scan fertig. {count} Probleme.",
@@ -2440,6 +2522,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingUnknown: "Faixa desconhecida",
     nowPlayingTime: "{current} / {duration}",
     waveformLabel: "Forma de onda",
+    outputWaveformLabel: "Forma de saida",
     waveformLoading: "Gerando forma de onda...",
     waveformUnavailable: "Forma de onda indisponivel",
     cortinaPickerTitle: "Seletor de cortinas",
@@ -2598,6 +2681,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanInProgress: "O scan ja esta em andamento.",
     statusScanning: "Escaneando...",
     statusScanProgress: "Scan {current}/{total} ({root})",
+    statusScanProgressWithFile: "Scan {current}/{total} ({root}) - {file}",
     statusScanComplete:
       "Scan completo. Escaneados {scanned}, adicionados {added}, atualizados {updated}, removidos {removed}.",
     statusScanIssues: "Scan completo. {count} problemas.",
@@ -2827,6 +2911,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     nowPlayingUnknown: "Brano sconosciuto",
     nowPlayingTime: "{current} / {duration}",
     waveformLabel: "Timeline forma d'onda",
+    outputWaveformLabel: "Forma d'onda uscita",
     waveformLoading: "Generazione forma d'onda...",
     waveformUnavailable: "Forma d'onda non disponibile",
     cortinaPickerTitle: "Selettore cortina",
@@ -2987,6 +3072,7 @@ const translations: Record<LanguageKey, Record<string, string>> = {
     statusScanInProgress: "Scansione gia in corso.",
     statusScanning: "Scansione...",
     statusScanProgress: "Scansione {current}/{total} ({root})",
+    statusScanProgressWithFile: "Scansione {current}/{total} ({root}) - {file}",
     statusScanComplete:
       "Scansione completata. Scansionati {scanned}, aggiunti {added}, aggiornati {updated}, rimossi {removed}.",
     statusScanIssues: "Scansione completata. {count} problemi.",
@@ -3212,15 +3298,452 @@ const applyTranslations = () => {
 };
 
 const gainForTrack = (gainDb: number | null | undefined) => {
-  return gainDbToLinear(gainDb, 2);
+  // Keep cross-track normalization effective up to the configured gain-db cap.
+  // +12 dB is ~3.98x linear, so allow 4x here instead of clipping at 2x.
+  return gainDbToLinear(gainDb, 4);
 };
 const audioLevels = new WeakMap<HTMLAudioElement, number>();
+const DSP_MAX_WET_MIX = 1;
+type AudioDynamicsConfig = {
+  enabled: boolean;
+  mode: "upward" | "track-leveler";
+  depth: number;
+  liftThresholdDb: number;
+  maxLiftDb: number;
+  ratio: number;
+  attackMs: number;
+  releaseMs: number;
+  gateThresholdDb: number;
+  limiterCeilingDb: number;
+  limiterReleaseMs: number;
+  rampMs: number;
+};
 
-const releaseAudioDspRuntime = async (_audio: HTMLAudioElement) => {};
+type AudioDspRuntime = {
+  source: MediaElementAudioSourceNode;
+  inputGain: GainNode;
+  dryGain: GainNode;
+  liftGain: GainNode;
+  limiter: DynamicsCompressorNode;
+  wetGain: GainNode;
+  mixGain: GainNode;
+  analyser: AnalyserNode;
+  outputAnalyser: AnalyserNode;
+  isRunning: boolean;
+  currentLiftDb: number;
+  detectorDb: number;
+  peakDb: number;
+  levelerMeanDb: number;
+  lastUpdateMs: number;
+  updateRafId: number | null;
+};
+
+let sharedAudioContext: AudioContext | null = null;
+const audioDspRuntimes = new WeakMap<HTMLAudioElement, AudioDspRuntime>();
+const audioSampleBuffer = new Float32Array(2048);
+const outputWaveformSampleBuffer = new Float32Array(1024);
+let outputWaveformRafId: number | null = null;
+const OUTPUT_WAVEFORM_BIN_COUNT = 420;
+let outputWaveformTrackId: string | null = null;
+let outputWaveformBins = new Float32Array(OUTPUT_WAVEFORM_BIN_COUNT);
+let outputWaveformSeenIndex = -1;
+
+const getSharedAudioContext = () => {
+  if (!sharedAudioContext) {
+    sharedAudioContext = new AudioContext();
+  }
+  return sharedAudioContext;
+};
+
+const ensureSharedAudioContextRunning = async () => {
+  const context = getSharedAudioContext();
+  if (context.state === "running") {
+    return true;
+  }
+  try {
+    await context.resume();
+  } catch {
+    return false;
+  }
+  const nextState = context.state as AudioContextState;
+  return nextState === "running";
+};
+
+const getAudioDynamicsConfig = (): AudioDynamicsConfig => ({
+  enabled: localStorage.getItem(AUDIO_DYNAMICS_ENABLED_KEY) === "1",
+  mode:
+    localStorage.getItem(AUDIO_DYNAMICS_MODE_KEY) === "track-leveler"
+      ? "track-leveler"
+      : "upward",
+  depth: parseSettingNumber(AUDIO_DYNAMICS_DEPTH_KEY, DEFAULT_AUDIO_DYNAMICS_DEPTH, 0, 100),
+  liftThresholdDb: parseSettingNumber(
+    AUDIO_DYNAMICS_LIFT_THRESHOLD_KEY,
+    DEFAULT_AUDIO_DYNAMICS_LIFT_THRESHOLD,
+    -80,
+    -5,
+  ),
+  maxLiftDb: parseSettingNumber(
+    AUDIO_DYNAMICS_MAX_LIFT_KEY,
+    DEFAULT_AUDIO_DYNAMICS_MAX_LIFT,
+    0,
+    60,
+  ),
+  ratio: parseSettingNumber(AUDIO_DYNAMICS_RATIO_KEY, DEFAULT_AUDIO_DYNAMICS_RATIO, 1, 24),
+  attackMs: parseSettingNumber(AUDIO_DYNAMICS_ATTACK_KEY, DEFAULT_AUDIO_DYNAMICS_ATTACK, 1, 1000),
+  releaseMs: parseSettingNumber(
+    AUDIO_DYNAMICS_RELEASE_KEY,
+    DEFAULT_AUDIO_DYNAMICS_RELEASE,
+    10,
+    3000,
+  ),
+  gateThresholdDb: parseSettingNumber(
+    AUDIO_DYNAMICS_GATE_THRESHOLD_KEY,
+    DEFAULT_AUDIO_DYNAMICS_GATE_THRESHOLD,
+    -120,
+    -10,
+  ),
+  limiterCeilingDb: parseSettingNumber(
+    AUDIO_DYNAMICS_LIMITER_CEILING_KEY,
+    DEFAULT_AUDIO_DYNAMICS_LIMITER_CEILING,
+    -6,
+    -0.1,
+  ),
+  limiterReleaseMs: parseSettingNumber(
+    AUDIO_DYNAMICS_LIMITER_RELEASE_KEY,
+    DEFAULT_AUDIO_DYNAMICS_LIMITER_RELEASE,
+    10,
+    2000,
+  ),
+  rampMs: parseSettingNumber(AUDIO_DYNAMICS_RAMP_KEY, DEFAULT_AUDIO_DYNAMICS_RAMP, 50, 3000),
+});
+
+const getAudioDynamicsDepthPercent = () =>
+  parseSettingNumber(AUDIO_DYNAMICS_DEPTH_KEY, DEFAULT_AUDIO_DYNAMICS_DEPTH, 0, 100);
+
+const resolveDynamicRuntimeConfig = (config: AudioDynamicsConfig): AudioDynamicsConfig => {
+  const depthMix = depthPercentToMix(config.depth);
+  if (!config.enabled || depthMix <= 0) {
+    return config;
+  }
+  const lerp = (from: number, to: number) => from + (to - from) * depthMix;
+  return {
+    ...config,
+    // At higher depths, move toward stronger upward leveling behavior.
+    liftThresholdDb: lerp(config.liftThresholdDb, -10),
+    maxLiftDb: lerp(config.maxLiftDb, 54),
+    ratio: lerp(config.ratio, 24),
+    gateThresholdDb: lerp(config.gateThresholdDb, -70),
+    attackMs: lerp(config.attackMs, 10),
+    releaseMs: lerp(config.releaseMs, 450),
+    limiterReleaseMs: lerp(config.limiterReleaseMs, 180),
+  };
+};
+
+const renderNowPlayingDynamicsControl = () => {
+  const enabled = localStorage.getItem(AUDIO_DYNAMICS_ENABLED_KEY) === "1";
+  const depth = enabled ? getAudioDynamicsDepthPercent() : 0;
+  nowPlayingDynamicsControl?.classList.toggle("hidden", !enabled);
+  if (nowPlayingDynamicsMixInput) {
+    nowPlayingDynamicsMixInput.value = depth.toString();
+  }
+  if (nowPlayingDynamicsMixValue) {
+    nowPlayingDynamicsMixValue.textContent = `${depth}%`;
+  }
+};
+
+const isDynamicsAvailableForChannel = (
+  channel: OutputChannel,
+  requestedOutputDeviceId: string | null,
+) => {
+  if (channel !== "main") {
+    return false;
+  }
+  return !requestedOutputDeviceId || requestedOutputDeviceId === DEFAULT_OUTPUT_ID;
+};
+
+const applyDynamicsWetDry = (
+  runtime: AudioDspRuntime,
+  config: AudioDynamicsConfig,
+  immediate = false,
+) => {
+  const context = runtime.inputGain.context;
+  const now = context.currentTime;
+  const mixGains = computeParallelMixGains({
+    enabled: config.enabled,
+    depthPercent: config.depth,
+  });
+  const wetTarget = clampNumber(mixGains.wet, 0, DSP_MAX_WET_MIX);
+  const dryTarget = clampNumber(mixGains.dry, 0, 1);
+  const rampSeconds = immediate ? 0 : Math.max(0.02, config.rampMs / 1000);
+  runtime.wetGain.gain.cancelScheduledValues(now);
+  runtime.dryGain.gain.cancelScheduledValues(now);
+  runtime.wetGain.gain.setValueAtTime(runtime.wetGain.gain.value, now);
+  runtime.dryGain.gain.setValueAtTime(runtime.dryGain.gain.value, now);
+  runtime.wetGain.gain.linearRampToValueAtTime(wetTarget, now + rampSeconds);
+  runtime.dryGain.gain.linearRampToValueAtTime(dryTarget, now + rampSeconds);
+};
+
+const applyDynamicsToRuntime = (runtime: AudioDspRuntime, config: AudioDynamicsConfig) => {
+  const runtimeConfig = resolveDynamicRuntimeConfig(config);
+  runtime.limiter.threshold.value = runtimeConfig.limiterCeilingDb;
+  runtime.limiter.knee.value = 0;
+  runtime.limiter.ratio.value = 20;
+  runtime.limiter.attack.value = 0.003;
+  runtime.limiter.release.value = Math.max(0.01, runtimeConfig.limiterReleaseMs / 1000);
+  applyDynamicsWetDry(runtime, config);
+};
+
+const updateRuntimeLift = (runtime: AudioDspRuntime) => {
+  if (!runtime.isRunning) {
+    return;
+  }
+  const context = runtime.inputGain.context;
+  const config = resolveDynamicRuntimeConfig(getAudioDynamicsConfig());
+  runtime.analyser.getFloatTimeDomainData(audioSampleBuffer);
+  let sum = 0;
+  for (let i = 0; i < audioSampleBuffer.length; i += 1) {
+    const sample = audioSampleBuffer[i] ?? 0;
+    sum += sample * sample;
+  }
+  const rms = Math.sqrt(sum / audioSampleBuffer.length);
+  const inputDb = linearToDb(rms);
+  const nowMs = performance.now();
+  const frameMs = Math.max(1, nowMs - runtime.lastUpdateMs);
+  runtime.lastUpdateMs = nowMs;
+  if (config.mode === "track-leveler") {
+    const nextState = computeTrackLevelerFrame(
+      {
+        detectorDb: runtime.detectorDb,
+        peakDb: runtime.peakDb,
+        meanDb: runtime.levelerMeanDb,
+        liftDb: runtime.currentLiftDb,
+      },
+      inputDb,
+      frameMs,
+      {
+        maxLiftDb: config.maxLiftDb,
+        upwardRatio: config.ratio,
+        gateThresholdDb: config.gateThresholdDb,
+        limiterCeilingDb: config.limiterCeilingDb,
+        attackMs: config.attackMs,
+        releaseMs: config.releaseMs,
+      },
+    );
+    runtime.detectorDb = nextState.detectorDb;
+    runtime.peakDb = nextState.peakDb;
+    runtime.levelerMeanDb = nextState.meanDb;
+    runtime.currentLiftDb = nextState.liftDb;
+  } else {
+    const nextState = computeDynamicsFrame(
+      {
+        detectorDb: runtime.detectorDb,
+        peakDb: runtime.peakDb,
+        liftDb: runtime.currentLiftDb,
+      },
+      inputDb,
+      frameMs,
+      {
+        liftThresholdDb: config.liftThresholdDb,
+        maxLiftDb: config.maxLiftDb,
+        upwardRatio: config.ratio,
+        gateThresholdDb: config.gateThresholdDb,
+        attackMs: config.attackMs,
+        releaseMs: config.releaseMs,
+      },
+    );
+    runtime.detectorDb = nextState.detectorDb;
+    runtime.peakDb = nextState.peakDb;
+    runtime.currentLiftDb = nextState.liftDb;
+  }
+  runtime.liftGain.gain.setValueAtTime(dbToLinear(runtime.currentLiftDb), context.currentTime);
+  runtime.updateRafId = window.requestAnimationFrame(() => updateRuntimeLift(runtime));
+};
+
+const resetOutputWaveformTimeline = (trackId: string | null) => {
+  outputWaveformTrackId = trackId;
+  outputWaveformBins = new Float32Array(OUTPUT_WAVEFORM_BIN_COUNT);
+  outputWaveformSeenIndex = -1;
+};
+
+const drawOutputWaveform = () => {
+  if (!waveformOutputOverlay) {
+    return;
+  }
+  const enabled = localStorage.getItem(AUDIO_DYNAMICS_ENABLED_KEY) === "1";
+  const depthPercent = getAudioDynamicsDepthPercent();
+  const showOverlay = shouldShowDynamicsOverlay(enabled, depthPercent);
+  waveformOutputOverlay.classList.toggle("hidden", !showOverlay);
+  const ctx = waveformOutputOverlay.getContext("2d");
+  if (!ctx) {
+    return;
+  }
+  const width = Math.max(1, Math.floor(waveformOutputOverlay.clientWidth));
+  const height = Math.max(1, Math.floor(waveformOutputOverlay.clientHeight));
+  const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+  const targetWidth = Math.floor(width * pixelRatio);
+  const targetHeight = Math.floor(height * pixelRatio);
+  if (
+    waveformOutputOverlay.width !== targetWidth ||
+    waveformOutputOverlay.height !== targetHeight
+  ) {
+    waveformOutputOverlay.width = targetWidth;
+    waveformOutputOverlay.height = targetHeight;
+  }
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  if (!showOverlay) {
+    return;
+  }
+  const mainState = playback.main;
+  const active = mainState.active;
+  const runtime = active ? audioDspRuntimes.get(active) : null;
+  const analyser = runtime?.outputAnalyser;
+  const trackId = mainState.track?.id ?? null;
+  if (trackId !== outputWaveformTrackId) {
+    resetOutputWaveformTimeline(trackId);
+  }
+  const durationSeconds =
+    (mainState.track?.duration_ms ?? 0) > 0
+      ? (mainState.track?.duration_ms ?? 0) / 1000
+      : Number.isFinite(active?.duration)
+        ? Math.max(0, active?.duration ?? 0)
+        : 0;
+  if (analyser && runtime.inputGain.context.state === "running" && durationSeconds > 0) {
+    analyser.getFloatTimeDomainData(outputWaveformSampleBuffer);
+    let peak = 0;
+    for (let i = 0; i < outputWaveformSampleBuffer.length; i += 1) {
+      peak = Math.max(peak, Math.abs(outputWaveformSampleBuffer[i] ?? 0));
+    }
+    const currentTime = Math.max(0, active?.currentTime ?? 0);
+    const progressRatio = durationSeconds > 0 ? currentTime / durationSeconds : 0;
+    const updatedIndex = updateWaveformTimelinePeak(outputWaveformBins, progressRatio, peak);
+    outputWaveformSeenIndex = Math.max(outputWaveformSeenIndex, updatedIndex);
+  }
+  const barWidth = width / Math.max(1, outputWaveformBins.length);
+  const baseline = Math.floor(height / 2);
+  const maxHalfHeight = Math.max(1, Math.floor(height * 0.46));
+  const accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#ffffff";
+  const muted = getComputedStyle(document.body).getPropertyValue("--muted").trim() || accent;
+  ctx.fillStyle = `${muted}88`;
+  ctx.fillRect(0, baseline, width, 1);
+  const overlayColor = `${accent}d0`;
+  const unseenColor = `${muted}66`;
+  for (let i = 0; i < outputWaveformBins.length; i += 1) {
+    const value = outputWaveformBins[i] ?? 0;
+    if (value <= 0) {
+      continue;
+    }
+    const barHalfHeight = Math.max(1, Math.pow(value, 0.55) * maxHalfHeight);
+    const x = i * barWidth;
+    const top = Math.max(0, baseline - barHalfHeight);
+    const drawHeight = Math.min(height - top, Math.max(1, barHalfHeight * 2));
+    ctx.fillStyle = i <= outputWaveformSeenIndex ? overlayColor : unseenColor;
+    ctx.fillRect(x, top, Math.max(1, barWidth - 1), drawHeight);
+  }
+};
+
+const startOutputWaveformLoop = () => {
+  if (outputWaveformRafId !== null) {
+    return;
+  }
+  const tick = () => {
+    drawOutputWaveform();
+    outputWaveformRafId = window.requestAnimationFrame(tick);
+  };
+  outputWaveformRafId = window.requestAnimationFrame(tick);
+};
+
+const ensureAudioDspRuntime = (audio: HTMLAudioElement) => {
+  const existing = audioDspRuntimes.get(audio);
+  if (existing) {
+    return existing;
+  }
+  const context = getSharedAudioContext();
+  const source = context.createMediaElementSource(audio);
+  const inputGain = context.createGain();
+  const dryGain = context.createGain();
+  const liftGain = context.createGain();
+  const limiter = context.createDynamicsCompressor();
+  const wetGain = context.createGain();
+  const mixGain = context.createGain();
+  const analyser = context.createAnalyser();
+  const outputAnalyser = context.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.05;
+  outputAnalyser.fftSize = 1024;
+  outputAnalyser.smoothingTimeConstant = 0.08;
+
+  source.connect(inputGain);
+  inputGain.connect(dryGain);
+  inputGain.connect(liftGain);
+  inputGain.connect(analyser);
+  liftGain.connect(limiter);
+  limiter.connect(wetGain);
+  dryGain.connect(mixGain);
+  wetGain.connect(mixGain);
+  mixGain.connect(outputAnalyser);
+  mixGain.connect(context.destination);
+
+  const runtime: AudioDspRuntime = {
+    source,
+    inputGain,
+    dryGain,
+    liftGain,
+    limiter,
+    wetGain,
+    mixGain,
+    analyser,
+    outputAnalyser,
+    isRunning: true,
+    currentLiftDb: 0,
+    detectorDb: -120,
+    peakDb: -120,
+    levelerMeanDb: -120,
+    lastUpdateMs: performance.now(),
+    updateRafId: null,
+  };
+  applyDynamicsToRuntime(runtime, getAudioDynamicsConfig());
+  audio.volume = Math.min(1, Math.max(0, audio.volume || 1));
+  runtime.updateRafId = window.requestAnimationFrame(() => updateRuntimeLift(runtime));
+  audioDspRuntimes.set(audio, runtime);
+  return runtime;
+};
+
+const releaseAudioDspRuntime = async (audio: HTMLAudioElement) => {
+  const runtime = audioDspRuntimes.get(audio);
+  if (!runtime) {
+    return;
+  }
+  runtime.isRunning = false;
+  if (runtime.updateRafId !== null) {
+    window.cancelAnimationFrame(runtime.updateRafId);
+    runtime.updateRafId = null;
+  }
+  runtime.source.disconnect();
+  runtime.inputGain.disconnect();
+  runtime.dryGain.disconnect();
+  runtime.liftGain.disconnect();
+  runtime.limiter.disconnect();
+  runtime.wetGain.disconnect();
+  runtime.mixGain.disconnect();
+  runtime.analyser.disconnect();
+  runtime.outputAnalyser.disconnect();
+  audioDspRuntimes.delete(audio);
+  const level = audioLevels.get(audio);
+  audio.volume = Math.min(1, Math.max(0, level ?? audio.volume ?? 1));
+};
 
 const setAudioLevel = (audio: HTMLAudioElement, level: number) => {
   const safe = Math.max(0, level);
   audioLevels.set(audio, safe);
+  const runtime = audioDspRuntimes.get(audio);
+  if (runtime) {
+    // When routed through WebAudio runtime, keep media element at unity and
+    // apply program level only once via runtime input gain.
+    runtime.inputGain.gain.setValueAtTime(Math.min(1, safe), runtime.inputGain.context.currentTime);
+    audio.volume = 1;
+    return;
+  }
   audio.volume = Math.min(1, safe);
 };
 
@@ -3233,7 +3756,12 @@ const getAudioLevel = (audio: HTMLAudioElement) => {
 };
 
 const resumeAudioContextForElement = async (audio: HTMLAudioElement) => {
-  void audio;
+  const runtime = audioDspRuntimes.get(audio);
+  if (!runtime) {
+    return;
+  }
+  await ensureSharedAudioContextRunning();
+  setAudioLevel(audio, getAudioLevel(audio));
 };
 
 const formatTime = (seconds: number) => {
@@ -3262,6 +3790,10 @@ const isTrackEditorOpen = () => Boolean(trackEditor?.classList.contains("open"))
 
 const clearTrackEditorState = () => {
   trackEditorState.track = null;
+  if (trackEditorPathHint) {
+    trackEditorPathHint.textContent = "";
+    trackEditorPathHint.title = "";
+  }
   resetTapTempo();
 };
 
@@ -3362,6 +3894,11 @@ const fillTrackEditorFields = (track: TrackRow) => {
   trackEditorNotesInput.value = track.notes ?? "";
   trackEditorBpmInput.value =
     track.bpm !== null && track.bpm !== undefined ? `${Math.round(track.bpm)}` : "";
+  if (trackEditorPathHint) {
+    const pathText = track.full_path ?? "";
+    trackEditorPathHint.textContent = pathText;
+    trackEditorPathHint.title = pathText;
+  }
   resetTapTempo();
 };
 
@@ -3786,6 +4323,11 @@ const applyDynamicLevelToChannel = (channel: OutputChannel) => {
   if (!state.active) {
     return;
   }
+  const config = getAudioDynamicsConfig();
+  const runtime = audioDspRuntimes.get(state.active);
+  if (runtime) {
+    applyDynamicsToRuntime(runtime, config);
+  }
   const linearGain = gainForTrack(state.appliedGainDb);
   let targetVolume = applyAudioDynamicsToGain(linearGain);
   if (state.isCortinaPlayback && channel === "main") {
@@ -3793,9 +4335,54 @@ const applyDynamicLevelToChannel = (channel: OutputChannel) => {
   }
   setAudioLevel(state.active, targetVolume);
 };
-const applyDynamicLevelToActivePlayback = () => {
-  applyDynamicLevelToChannel("main");
-  applyDynamicLevelToChannel("headphone");
+const syncDynamicsRuntimeForChannel = async (channel: OutputChannel) => {
+  const state = playback[channel];
+  const active = state.active;
+  if (!active) {
+    return;
+  }
+  const config = getAudioDynamicsConfig();
+  const requestedOutputDeviceId = resolveOutputDeviceIdForChannel(channel);
+  const shouldUseRuntime =
+    config.enabled && isDynamicsAvailableForChannel(channel, requestedOutputDeviceId);
+  const runtime = audioDspRuntimes.get(active);
+
+  if (runtime) {
+    if (shouldUseRuntime) {
+      if (!(await ensureSharedAudioContextRunning())) {
+        await releaseAudioDspRuntime(active);
+        applyDynamicLevelToChannel(channel);
+        return;
+      }
+      applyDynamicsToRuntime(runtime, config);
+      applyDynamicLevelToChannel(channel);
+      return;
+    }
+    await releaseAudioDspRuntime(active);
+    applyDynamicLevelToChannel(channel);
+    return;
+  }
+
+  if (shouldUseRuntime) {
+    if (!(await ensureSharedAudioContextRunning())) {
+      applyDynamicLevelToChannel(channel);
+      return;
+    }
+    try {
+      const ensured = ensureAudioDspRuntime(active);
+      applyDynamicsToRuntime(ensured, config);
+      applyDynamicLevelToChannel(channel);
+      return;
+    } catch {
+      // Fall through to plain audio path.
+    }
+  }
+
+  applyDynamicLevelToChannel(channel);
+};
+
+const syncDynamicsRuntimeForActivePlayback = async () => {
+  await syncDynamicsRuntimeForChannel("main");
 };
 const isCurrentTandaMarkedLast = () =>
   localStorage.getItem(PLAYLIST_LAST_TANDA_KEY) === "1";
@@ -4788,10 +5375,12 @@ const playOnChannel = async (
   let appliedGainDb = normalization.gainDb;
   let stepCorrectionDb = 0;
   if (normalization.source === "gain" && normalization.loudnessDb === null) {
+    const maxStepDb =
+      appMode === "live" ? MAX_GAIN_ONLY_STEP_DB : MAX_GAIN_ONLY_STEP_DB_NON_LIVE;
     const stepGuard = applyGainStepGuard(
       normalization.gainDb,
       lastAppliedGainDbByChannel[channel],
-      MAX_GAIN_ONLY_STEP_DB,
+      maxStepDb,
     );
     appliedGainDb = stepGuard.gainDb;
     stepCorrectionDb = stepGuard.correctionDb;
@@ -4858,6 +5447,25 @@ const playOnChannel = async (
     );
     return false;
   }
+  const dynamicsConfig = getAudioDynamicsConfig();
+  const dynamicsRequested = dynamicsConfig.enabled && channel === "main";
+  let useDynamicsRuntime =
+    dynamicsRequested && isDynamicsAvailableForChannel(channel, requestedOutputDeviceId);
+  if (dynamicsRequested && !useDynamicsRuntime) {
+    setStatus(t("statusDspBypassedOutput"));
+  }
+  if (useDynamicsRuntime) {
+    if (!(await ensureSharedAudioContextRunning())) {
+      useDynamicsRuntime = false;
+    } else {
+      try {
+        const runtime = ensureAudioDspRuntime(next);
+        applyDynamicsToRuntime(runtime, dynamicsConfig);
+      } catch {
+        useDynamicsRuntime = false;
+      }
+    }
+  }
   void window.tanda?.logPlaybackDiagnostic?.({
     channel,
     mode: appMode,
@@ -4887,7 +5495,9 @@ const playOnChannel = async (
       ...postAttachRouting.attemptedDeviceIds,
     ],
   });
-  await resumeAudioContextForElement(next);
+  if (useDynamicsRuntime) {
+    await resumeAudioContextForElement(next);
+  }
 
   const previous = state.active;
   state.active = next;
@@ -6054,6 +6664,7 @@ const getDuplicateReasonForTanda = (
 
 const markUserInteraction = () => {
   lastUserInteractionAt = Date.now();
+  void ensureSharedAudioContextRunning();
 };
 
 const scrollPlaylistToIndex = (index: number) => {
@@ -12898,6 +13509,170 @@ const init = async () => {
     });
   }
 
+  if (audioDynamicsEnabledInput) {
+    audioDynamicsEnabledInput.checked = getAudioDynamicsConfig().enabled;
+    audioDynamicsEnabledInput.addEventListener("change", () => {
+      localStorage.setItem(
+        AUDIO_DYNAMICS_ENABLED_KEY,
+        audioDynamicsEnabledInput.checked ? "1" : "0",
+      );
+      localStorage.setItem(AUDIO_DYNAMICS_DEPTH_KEY, "0");
+      renderNowPlayingDynamicsControl();
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+  if (audioDynamicsModeInput) {
+    audioDynamicsModeInput.value = getAudioDynamicsConfig().mode;
+    audioDynamicsModeInput.addEventListener("change", () => {
+      const next = audioDynamicsModeInput.value === "track-leveler" ? "track-leveler" : "upward";
+      localStorage.setItem(AUDIO_DYNAMICS_MODE_KEY, next);
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+  renderNowPlayingDynamicsControl();
+  if (nowPlayingDynamicsMixInput) {
+    nowPlayingDynamicsMixInput.value = getAudioDynamicsDepthPercent().toString();
+    nowPlayingDynamicsMixInput.addEventListener("input", () => {
+      const next = Number.parseInt(nowPlayingDynamicsMixInput.value, 10);
+      const clamped = Number.isFinite(next) ? Math.min(100, Math.max(0, next)) : 0;
+      localStorage.setItem(AUDIO_DYNAMICS_DEPTH_KEY, clamped.toString());
+      if (nowPlayingDynamicsMixValue) {
+        nowPlayingDynamicsMixValue.textContent = `${clamped}%`;
+      }
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+  if (audioDynamicsLiftThresholdInput) {
+    audioDynamicsLiftThresholdInput.value = getAudioDynamicsConfig().liftThresholdDb.toString();
+    audioDynamicsLiftThresholdInput.addEventListener("change", () => {
+      const next = Number.parseFloat(audioDynamicsLiftThresholdInput.value);
+      if (!Number.isFinite(next)) {
+        audioDynamicsLiftThresholdInput.value =
+          getAudioDynamicsConfig().liftThresholdDb.toString();
+        return;
+      }
+      const clamped = Math.min(-5, Math.max(-80, next));
+      localStorage.setItem(AUDIO_DYNAMICS_LIFT_THRESHOLD_KEY, clamped.toString());
+      audioDynamicsLiftThresholdInput.value = clamped.toString();
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+  if (audioDynamicsMaxLiftInput) {
+    audioDynamicsMaxLiftInput.value = getAudioDynamicsConfig().maxLiftDb.toString();
+    audioDynamicsMaxLiftInput.addEventListener("change", () => {
+      const next = Number.parseFloat(audioDynamicsMaxLiftInput.value);
+      if (!Number.isFinite(next)) {
+        audioDynamicsMaxLiftInput.value = getAudioDynamicsConfig().maxLiftDb.toString();
+        return;
+      }
+      const clamped = Math.min(60, Math.max(0, next));
+      localStorage.setItem(AUDIO_DYNAMICS_MAX_LIFT_KEY, clamped.toString());
+      audioDynamicsMaxLiftInput.value = clamped.toString();
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+  if (audioDynamicsRatioInput) {
+    audioDynamicsRatioInput.value = getAudioDynamicsConfig().ratio.toString();
+    audioDynamicsRatioInput.addEventListener("change", () => {
+      const next = Number.parseFloat(audioDynamicsRatioInput.value);
+      if (!Number.isFinite(next)) {
+        audioDynamicsRatioInput.value = getAudioDynamicsConfig().ratio.toString();
+        return;
+      }
+      const clamped = Math.min(24, Math.max(1, next));
+      localStorage.setItem(AUDIO_DYNAMICS_RATIO_KEY, clamped.toString());
+      audioDynamicsRatioInput.value = clamped.toString();
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+  if (audioDynamicsAttackInput) {
+    audioDynamicsAttackInput.value = getAudioDynamicsConfig().attackMs.toString();
+    audioDynamicsAttackInput.addEventListener("change", () => {
+      const next = Number.parseFloat(audioDynamicsAttackInput.value);
+      if (!Number.isFinite(next)) {
+        audioDynamicsAttackInput.value = getAudioDynamicsConfig().attackMs.toString();
+        return;
+      }
+      const clamped = Math.min(1000, Math.max(1, next));
+      localStorage.setItem(AUDIO_DYNAMICS_ATTACK_KEY, clamped.toString());
+      audioDynamicsAttackInput.value = clamped.toString();
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+  if (audioDynamicsReleaseInput) {
+    audioDynamicsReleaseInput.value = getAudioDynamicsConfig().releaseMs.toString();
+    audioDynamicsReleaseInput.addEventListener("change", () => {
+      const next = Number.parseFloat(audioDynamicsReleaseInput.value);
+      if (!Number.isFinite(next)) {
+        audioDynamicsReleaseInput.value = getAudioDynamicsConfig().releaseMs.toString();
+        return;
+      }
+      const clamped = Math.min(3000, Math.max(10, next));
+      localStorage.setItem(AUDIO_DYNAMICS_RELEASE_KEY, clamped.toString());
+      audioDynamicsReleaseInput.value = clamped.toString();
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+  if (audioDynamicsGateThresholdInput) {
+    audioDynamicsGateThresholdInput.value = getAudioDynamicsConfig().gateThresholdDb.toString();
+    audioDynamicsGateThresholdInput.addEventListener("change", () => {
+      const next = Number.parseFloat(audioDynamicsGateThresholdInput.value);
+      if (!Number.isFinite(next)) {
+        audioDynamicsGateThresholdInput.value =
+          getAudioDynamicsConfig().gateThresholdDb.toString();
+        return;
+      }
+      const clamped = Math.min(-10, Math.max(-120, next));
+      localStorage.setItem(AUDIO_DYNAMICS_GATE_THRESHOLD_KEY, clamped.toString());
+      audioDynamicsGateThresholdInput.value = clamped.toString();
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+  if (audioDynamicsLimiterCeilingInput) {
+    audioDynamicsLimiterCeilingInput.value = getAudioDynamicsConfig().limiterCeilingDb.toString();
+    audioDynamicsLimiterCeilingInput.addEventListener("change", () => {
+      const next = Number.parseFloat(audioDynamicsLimiterCeilingInput.value);
+      if (!Number.isFinite(next)) {
+        audioDynamicsLimiterCeilingInput.value =
+          getAudioDynamicsConfig().limiterCeilingDb.toString();
+        return;
+      }
+      const clamped = Math.min(-0.1, Math.max(-6, next));
+      localStorage.setItem(AUDIO_DYNAMICS_LIMITER_CEILING_KEY, clamped.toString());
+      audioDynamicsLimiterCeilingInput.value = clamped.toString();
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+  if (audioDynamicsLimiterReleaseInput) {
+    audioDynamicsLimiterReleaseInput.value = getAudioDynamicsConfig().limiterReleaseMs.toString();
+    audioDynamicsLimiterReleaseInput.addEventListener("change", () => {
+      const next = Number.parseFloat(audioDynamicsLimiterReleaseInput.value);
+      if (!Number.isFinite(next)) {
+        audioDynamicsLimiterReleaseInput.value =
+          getAudioDynamicsConfig().limiterReleaseMs.toString();
+        return;
+      }
+      const clamped = Math.min(2000, Math.max(10, next));
+      localStorage.setItem(AUDIO_DYNAMICS_LIMITER_RELEASE_KEY, clamped.toString());
+      audioDynamicsLimiterReleaseInput.value = clamped.toString();
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+  if (audioDynamicsRampInput) {
+    audioDynamicsRampInput.value = getAudioDynamicsConfig().rampMs.toString();
+    audioDynamicsRampInput.addEventListener("change", () => {
+      const next = Number.parseFloat(audioDynamicsRampInput.value);
+      if (!Number.isFinite(next)) {
+        audioDynamicsRampInput.value = getAudioDynamicsConfig().rampMs.toString();
+        return;
+      }
+      const clamped = Math.min(3000, Math.max(50, next));
+      localStorage.setItem(AUDIO_DYNAMICS_RAMP_KEY, clamped.toString());
+      audioDynamicsRampInput.value = clamped.toString();
+      void syncDynamicsRuntimeForActivePlayback();
+    });
+  }
+
   if (playlistLastTandaToggle) {
     playlistLastTandaToggle.checked = isCurrentTandaMarkedLast();
     playlistLastTandaToggle.addEventListener("change", () => {
@@ -13379,27 +14154,32 @@ const init = async () => {
   attachModalDrag(cortinaModal);
 
   window.tanda.onScanProgress((progress) => {
+    const currentFile = basenameForDisplay(progress.filePath);
+    const progressText = currentFile
+      ? t("statusScanProgressWithFile", {
+          current: progress.current,
+          total: progress.total,
+          root: progress.rootLabel,
+          file: currentFile,
+        })
+      : t("statusScanProgress", {
+          current: progress.current,
+          total: progress.total,
+          root: progress.rootLabel,
+        });
     if (progressEl) {
       progressEl.max = progress.total || 1;
       progressEl.value = progress.current;
     }
     if (progressLabel) {
-      progressLabel.textContent = t("statusScanProgress", {
-        current: progress.current,
-        total: progress.total,
-        root: progress.rootLabel,
-      });
+      progressLabel.textContent = progressText;
     }
     if (progressElSettings) {
       progressElSettings.max = progress.total || 1;
       progressElSettings.value = progress.current;
     }
     if (progressLabelSettings) {
-      progressLabelSettings.textContent = t("statusScanProgress", {
-        current: progress.current,
-        total: progress.total,
-        root: progress.rootLabel,
-      });
+      progressLabelSettings.textContent = progressText;
     }
   });
 
@@ -14986,6 +15766,7 @@ const init = async () => {
   });
 
   applyTranslations();
+  startOutputWaveformLoop();
   if (orchestraFilterInput) {
     orchestraFilterInput.value = orchestraFilterText;
   }

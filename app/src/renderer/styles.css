@@ -192,8 +192,9 @@ body {
   border-radius: 14px;
   padding: 0.7rem 1rem;
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
-  align-items: center;
+  align-items: flex-start;
   min-width: 0;
   min-height: 78px;
 }
@@ -242,6 +243,30 @@ body {
   color: var(--muted);
 }
 
+.now-playing-boost {
+  display: grid;
+  grid-template-columns: auto minmax(140px, 220px) auto;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 0.2rem;
+}
+
+.now-playing-boost label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.now-playing-boost input[type="range"] {
+  width: 100%;
+}
+
+.now-playing-boost span {
+  min-width: 2.6rem;
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
 .cortina-controls {
   display: none;
   gap: 0.4rem;
@@ -261,6 +286,21 @@ body {
   background: rgba(0, 0, 0, 0.08);
   cursor: pointer;
   flex: 1 1 auto;
+}
+
+.waveform-output-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.82;
+}
+
+.waveform-output-overlay.hidden {
+  display: none;
 }
 
 .mode-live .waveform {
@@ -287,6 +327,7 @@ body {
   background: rgba(0, 0, 0, 0.18);
   pointer-events: none;
   transition: width 140ms linear;
+  z-index: 2;
 }
 
 .waveform-playhead {
@@ -299,6 +340,7 @@ body {
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
   pointer-events: none;
   transition: left 140ms linear;
+  z-index: 3;
 }
 
 .waveform.missing img,
@@ -2234,6 +2276,14 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
 .modal-hint {
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+.track-editor-path {
+  opacity: 0.78;
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .modal-footer {

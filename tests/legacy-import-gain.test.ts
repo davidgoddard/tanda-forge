@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 describe("loadLegacyLibrary gain parsing", () => {
-  it("accepts numeric strings and derives gain when only meanGain exists", () => {
+  it("accepts numeric strings and derives gain from meanGain (legacy gain is peak, not playback gain)", () => {
     const legacyPath = writeLegacyFile({
       "/music/test.mp3": {
         track: { title: "Test", artist: "Artist" },
@@ -43,6 +43,6 @@ describe("loadLegacyLibrary gain parsing", () => {
     expect(derived?.loudnessDb).toBeCloseTo(-19.5);
     expect(derived?.gainDb).toBeCloseTo(3.5);
     expect(explicit?.loudnessDb).toBeCloseTo(-12);
-    expect(explicit?.gainDb).toBeCloseTo(-2.3);
+    expect(explicit?.gainDb).toBeCloseTo(-4);
   });
 });

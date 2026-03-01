@@ -348,13 +348,17 @@ test.describe("Electron app end-to-end workflows", () => {
       const row = searchTrackRow(page, "Tempo 72 Test");
       await clickRowAction(row, "add-playlist-track");
       await confirmIfPrompted(page);
-      const playlistHitCount = await playlistTrackRow(page, "Tempo 72 Test").count();
-      if (playlistHitCount > 0) {
-        await expect(playlistTrackRow(page, "Tempo 72 Test")).toBeVisible();
-      } else {
-        const editor = await waitForAnyEditorRows(page, 1);
-        await expect(editor).toContainText("Tempo 72 Test");
-      }
+      await ensurePlaylistTab(page);
+      await expect
+        .poll(
+          async () =>
+            page
+              .locator("#playlist-list .track-row:visible, #playlist-list .tanda-row:visible")
+              .filter({ hasText: "Tempo 72 Test" })
+              .count(),
+          { timeout: 10_000 },
+        )
+        .toBeGreaterThan(0);
     } finally {
       await launched.close();
     }

@@ -104,6 +104,23 @@
               <span id="now-playing-source" data-i18n="nowPlayingMain">Main</span>
               <span id="now-playing-time">0:00 / 0:00</span>
             </div>
+            <div id="now-playing-dynamics" class="now-playing-boost hidden">
+              <label for="now-playing-dynamics-mix" data-i18n="audioDynamicsLiveMixLabel">
+                Compression
+              </label>
+              <input
+                id="now-playing-dynamics-mix"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="0"
+                data-i18n-attr="aria-label"
+                data-i18n="audioDynamicsLiveMixLabel"
+                aria-label="Compression"
+              />
+              <span id="now-playing-dynamics-mix-value">0%</span>
+            </div>
           </div>
           <div class="cortina-controls" id="cortina-controls">
             <button
@@ -140,6 +157,7 @@
           aria-label="Waveform timeline"
         >
           <img id="waveform-image" alt="" />
+          <canvas id="waveform-output-overlay" class="waveform-output-overlay hidden"></canvas>
           <div id="waveform-placeholder" class="waveform-placeholder" data-i18n="waveformUnavailable">
             Waveform unavailable
           </div>
@@ -587,6 +605,7 @@
               <div class="modal-hint" data-i18n="trackEditorTapHint">
                 Tap to set BPM
               </div>
+              <div id="track-editor-path" class="modal-hint track-editor-path"></div>
             </div>
           </div>
           <footer class="modal-footer">
@@ -952,6 +971,151 @@
                     <button id="clear-play-counts" data-i18n="clearPlayCountsButton">
                       Clear play counts
                     </button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h4 data-i18n="systemGroupDynamics">Compressor / limiter</h4>
+                <div class="settings-group-grid">
+                  <div class="settings-field">
+                    <label for="audio-dynamics-enabled" data-i18n="audioDynamicsEnabledLabel">
+                      Enable quiet boost + limiter
+                    </label>
+                    <input id="audio-dynamics-enabled" type="checkbox" />
+                  </div>
+                  <div class="settings-field">
+                    <label for="audio-dynamics-mode" data-i18n="audioDynamicsModeLabel">
+                      Processing mode
+                    </label>
+                    <select id="audio-dynamics-mode">
+                      <option value="upward" data-i18n="audioDynamicsModeUpward">
+                        Upward compressor
+                      </option>
+                      <option value="track-leveler" data-i18n="audioDynamicsModeLeveler">
+                        Track leveler
+                      </option>
+                    </select>
+                  </div>
+                  <div class="settings-field">
+                    <label
+                      for="audio-dynamics-lift-threshold"
+                      data-i18n="audioDynamicsLiftThresholdLabel"
+                    >
+                      Lift threshold (dBFS)
+                    </label>
+                    <input
+                      id="audio-dynamics-lift-threshold"
+                      type="number"
+                      min="-80"
+                      max="-5"
+                      step="1"
+                    />
+                  </div>
+                  <div class="settings-field">
+                    <label for="audio-dynamics-max-lift" data-i18n="audioDynamicsMaxLiftLabel">
+                      Max lift (dB)
+                    </label>
+                    <input
+                      id="audio-dynamics-max-lift"
+                      type="number"
+                      min="0"
+                      max="60"
+                      step="1"
+                    />
+                  </div>
+                  <div class="settings-field">
+                    <label for="audio-dynamics-ratio" data-i18n="audioDynamicsRatioLabel">
+                      Upward ratio
+                    </label>
+                    <input
+                      id="audio-dynamics-ratio"
+                      type="number"
+                      min="1"
+                      max="24"
+                      step="0.1"
+                    />
+                  </div>
+                  <div class="settings-field">
+                    <label for="audio-dynamics-attack" data-i18n="audioDynamicsAttackLabel">
+                      Lift attack (ms)
+                    </label>
+                    <input
+                      id="audio-dynamics-attack"
+                      type="number"
+                      min="1"
+                      max="1000"
+                      step="1"
+                    />
+                  </div>
+                  <div class="settings-field">
+                    <label for="audio-dynamics-release" data-i18n="audioDynamicsReleaseLabel">
+                      Lift release (ms)
+                    </label>
+                    <input
+                      id="audio-dynamics-release"
+                      type="number"
+                      min="10"
+                      max="3000"
+                      step="1"
+                    />
+                  </div>
+                  <div class="settings-field">
+                    <label
+                      for="audio-dynamics-gate-threshold"
+                      data-i18n="audioDynamicsGateThresholdLabel"
+                    >
+                      Noise gate threshold (dBFS)
+                    </label>
+                    <input
+                      id="audio-dynamics-gate-threshold"
+                      type="number"
+                      min="-120"
+                      max="-10"
+                      step="1"
+                    />
+                  </div>
+                  <div class="settings-field">
+                    <label
+                      for="audio-dynamics-limiter-ceiling"
+                      data-i18n="audioDynamicsLimiterCeilingLabel"
+                    >
+                      Limiter ceiling (dBFS)
+                    </label>
+                    <input
+                      id="audio-dynamics-limiter-ceiling"
+                      type="number"
+                      min="-6"
+                      max="-0.1"
+                      step="0.1"
+                    />
+                  </div>
+                  <div class="settings-field">
+                    <label
+                      for="audio-dynamics-limiter-release"
+                      data-i18n="audioDynamicsLimiterReleaseLabel"
+                    >
+                      Limiter release (ms)
+                    </label>
+                    <input
+                      id="audio-dynamics-limiter-release"
+                      type="number"
+                      min="10"
+                      max="2000"
+                      step="1"
+                    />
+                  </div>
+                  <div class="settings-field">
+                    <label for="audio-dynamics-ramp" data-i18n="audioDynamicsRampLabel">
+                      Enable/disable ramp (ms)
+                    </label>
+                    <input
+                      id="audio-dynamics-ramp"
+                      type="number"
+                      min="50"
+                      max="3000"
+                      step="10"
+                    />
                   </div>
                 </div>
               </section>

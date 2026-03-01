@@ -59,6 +59,10 @@ import {
   importLegacyData,
   type LegacyTrackOverride,
 } from "./legacy-import";
+import {
+  deserializeLegacyOverrides,
+  serializeLegacyOverrides,
+} from "../shared/legacy-overrides";
 
 const forcedUserDataRoot = process.env.TANDA_USER_DATA_ROOT?.trim();
 if (forcedUserDataRoot) {
@@ -67,6 +71,7 @@ if (forcedUserDataRoot) {
 
 let scanInProgress = false;
 let legacyOverridesByRootId = new Map<string, Map<string, LegacyTrackOverride>>();
+const LEGACY_OVERRIDES_STATE_KEY = "legacy-overrides-v1";
 const closeStateByWebContentsId = new Map<
   number,
   { allowClose: boolean; closeRequested: boolean }
@@ -233,6 +238,34 @@ const clearDiagnosticsLogs = () => {
       // Best-effort cleanup; log clear should not throw.
     }
   });
+};
+
+const saveLegacyOverrides = () => {
+  const db = getDb();
+  const now = new Date().toISOString();
+  if (legacyOverridesByRootId.size === 0) {
+    db.prepare("delete from app_state where key = ?").run(LEGACY_OVERRIDES_STATE_KEY);
+    return;
+  }
+  db.prepare(
+    `insert into app_state (key, value, updated_at)
+     values (?, ?, ?)
+     on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at`,
+  ).run(
+    LEGACY_OVERRIDES_STATE_KEY,
+    serializeLegacyOverrides(legacyOverridesByRootId),
+    now,
+  );
+};
+
+const loadLegacyOverrides = () => {
+  const db = getDb();
+  const row = db
+    .prepare("select value from app_state where key = ?")
+    .get(LEGACY_OVERRIDES_STATE_KEY) as { value?: string } | undefined;
+  legacyOverridesByRootId = deserializeLegacyOverrides(
+    typeof row?.value === "string" ? row.value : null,
+  );
 };
 
 const readLogTail = (logName: string, limit: number) => {
@@ -453,6 +486,7 @@ const registerIpc = () => {
     const next = setDataRoot(selectedPath);
     legacyOverridesByRootId = new Map();
     reopenDb();
+    loadLegacyOverrides();
     return { path: next };
   });
 
@@ -506,6 +540,7 @@ const registerIpc = () => {
     const { waveformsDir } = getDataPaths();
     const result = await importLegacyData(rootPath, roots, { waveformsDir });
     legacyOverridesByRootId = result.overridesByRootId;
+    saveLegacyOverrides();
     return {
       tandasImported: result.tandasImported,
       tracksUpdated: result.tracksUpdated,
@@ -1727,6 +1762,7 @@ const configureSessionPermissions = () => {
 app.whenReady().then(() => {
   try {
     initDb();
+    loadLegacyOverrides();
   } catch (error) {
     dialog.showErrorBox(
       "Database Error",
