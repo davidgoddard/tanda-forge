@@ -6,7 +6,7 @@ if (process.platform === "darwin" && process.arch === "x64") {
 }
 import fs from "fs";
 import os from "os";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import path from "path";
 import { initDb, getDb, resetDb, reopenDb } from "./db";
 import { getDataPaths, getDataRoot, getDefaultDataPath, setDataRoot } from "./data-location";
@@ -15,6 +15,7 @@ import type { LibraryRoot } from "./library/scan";
 import {
   getResolvedFfmpegPath,
   getResolvedFfprobePath,
+  renderCompressedAudio,
   renderWaveformPng,
 } from "./library/analysis";
 import {
@@ -94,6 +95,7 @@ const RENDERER_ERROR_LOG = "renderer-errors.log";
 const PLAYBACK_DIAGNOSTIC_LOG = "playback-diagnostics.log";
 const MAX_LOG_BYTES = 5 * 1024 * 1024;
 const KEEP_LOG_BYTES = 4 * 1024 * 1024;
+const compressedRenderInFlight = new Map<string, Promise<string>>();
 
 const toDataUrl = (filePath: string) => {
   const ext = path.extname(filePath).toLowerCase();
@@ -132,6 +134,36 @@ const walkImageFiles = async (rootPath: string): Promise<string[]> => {
     }
   }
   return files;
+};
+
+const getCompressedCacheDir = () => path.join(getDataRoot(), "compressed-audio-cache");
+const COMPRESSED_RENDER_PIPELINE_VERSION = 5;
+
+const buildCompressedCacheKey = (
+  filePath: string,
+  stat: fs.Stats,
+  params: {
+    loudnessDb?: number | null;
+    depthPercent: number;
+    mode: "upward" | "track-leveler";
+    liftThresholdDb: number;
+    maxLiftDb: number;
+    ratio: number;
+    attackMs: number;
+    releaseMs: number;
+    gateThresholdDb: number;
+    limiterCeilingDb: number;
+    limiterReleaseMs: number;
+  },
+) => {
+  const fingerprint = JSON.stringify({
+    pipelineVersion: COMPRESSED_RENDER_PIPELINE_VERSION,
+    filePath,
+    mtimeMs: stat.mtimeMs,
+    size: stat.size,
+    ...params,
+  });
+  return createHash("sha1").update(fingerprint).digest("hex");
 };
 
 const detectCortinaSetsFromRoot = (rootPath: string) => {
@@ -1304,6 +1336,69 @@ const registerIpc = () => {
       };
     }
   });
+
+  ipcMain.handle(
+    "audio:renderCompressedTrack",
+    async (
+      _event,
+      params: {
+        trackId: string;
+        filePath: string;
+        loudnessDb?: number | null;
+        depthPercent: number;
+        mode: "upward" | "track-leveler";
+        liftThresholdDb: number;
+        maxLiftDb: number;
+        ratio: number;
+        attackMs: number;
+        releaseMs: number;
+        gateThresholdDb: number;
+        limiterCeilingDb: number;
+        limiterReleaseMs: number;
+      },
+    ) => {
+      try {
+        if (!params?.filePath || !fs.existsSync(params.filePath)) {
+          return { ok: false, error: "Track file not found" };
+        }
+        const stat = fs.statSync(params.filePath);
+        const cacheKey = buildCompressedCacheKey(params.filePath, stat, params);
+        const cacheDir = getCompressedCacheDir();
+        const outputPath = path.join(cacheDir, `${cacheKey}.wav`);
+        fs.mkdirSync(cacheDir, { recursive: true });
+        if (fs.existsSync(outputPath)) {
+          return { ok: true, filePath: outputPath, cached: true };
+        }
+        const existing = compressedRenderInFlight.get(cacheKey);
+        if (existing) {
+          const filePath = await existing;
+          return { ok: true, filePath, cached: true };
+        }
+        const renderPromise = (async () => {
+          await renderCompressedAudio(params.filePath, outputPath, params);
+          return outputPath;
+        })();
+        compressedRenderInFlight.set(cacheKey, renderPromise);
+        const filePath = await renderPromise;
+        return { ok: true, filePath, cached: false };
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : "Compression render failed",
+        };
+      } finally {
+        if (params?.filePath && fs.existsSync(params.filePath)) {
+          try {
+            const stat = fs.statSync(params.filePath);
+            const cacheKey = buildCompressedCacheKey(params.filePath, stat, params);
+            compressedRenderInFlight.delete(cacheKey);
+          } catch {
+            // Ignore cleanup errors.
+          }
+        }
+      }
+    },
+  );
 
   ipcMain.handle("diagnostics:getPaths", () => {
     const userData = getDataRoot();

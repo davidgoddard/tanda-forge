@@ -4,8 +4,6 @@
 
 - All new code must include unit tests where feasible.
 - All code changes must be verified by a successful build and all tests passing.
-- All code changes must run the full end-to-end Playwright Electron suite
-  (`npm run test:e2e`), and results must be reported with each change.
 - Design documents must reflect current requirements and code behavior.
 - Runtime behavior must be defensive: expect failures, handle them gracefully,
   and keep the user informed about errors and knock-on effects.

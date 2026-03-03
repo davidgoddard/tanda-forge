@@ -288,21 +288,6 @@ body {
   flex: 1 1 auto;
 }
 
-.waveform-output-overlay {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.82;
-}
-
-.waveform-output-overlay.hidden {
-  display: none;
-}
-
 .mode-live .waveform {
   cursor: default;
   pointer-events: none;

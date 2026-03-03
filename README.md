@@ -1,6 +1,6 @@
 # Tanda Player Lite
 
-Tanda Player Lite is a desktop app for tango DJs who want fast, safe, and flexible tanda preparation and live playback.
+Tanda Player Lite is a desktop app for Argentine Tango DJs who want a fast, safe, and flexible tanda preparation and live playback app.
 
 It evolved from the original Raspberry Pi Tanda Player and focuses on practical live DJ workflows: building tandas, managing playlists, cueing audio, and adapting quickly during a milonga.
 
@@ -11,20 +11,22 @@ This project is a collaboration between David Goddard (design and requirements) 
 
 ## Why should DJs use it
 
-- Build and edit tandas quickly from tracks or existing tandas.
-- Use one workflow for preparation, one for live performance, and one for metadata editing.
+- Build, save and edit tandas quickly from tracks or existing tandas.
+- Use modes of operation; one for preparation, one live performance, and one for metadata editing (titles, artists etc.).
 - Keep playlists diverse with built-in analysis and collection tools.
-- Route audio for cueing (main output + headphones).
+- Dual audio - main output + headphones.
 - Normalize playback levels and trim silence automatically.
 - Control cortinas globally or per slot, with fade behavior and manual override.
 - Show dancer-facing display content on a second screen.
+- Cleanly end a session using a single tick-box and get automatic stop after playlist and final 'farewell' cortina.
+- Help dancers hear music over the chatter without use of a volume control.
 
 ## Core features
 
 - Multilingual UI (song metadata remains user data).
 - Light/dark themes.
 - Dual output routing (main + headphones).
-- Playback normalization and diagnostic logging.
+- Playback normalization
 - Live compression/limiter control for dynamic-range reduction on main output.
 - Automatic silence trim with configurable padding.
 - Playlist timing estimates and tanda sequencing tools.
@@ -32,6 +34,8 @@ This project is a collaboration between David Goddard (design and requirements) 
 - Built-in and user collections (for example: `New`, `Top`, `Least`, `Available`, custom sets).
 - Playlist diversity graphs (artist/orchestra, year, tempo).
 - "Current tanda is last tanda" flow for clean session ending.
+
+See the user guide for more information on the features.
 
 ## Download and install
 
@@ -228,3 +232,4 @@ Note: Playwright Electron tests require a valid GUI session and can fail in head
 - App blocked on macOS: use **Open Anyway** path above.
 - No analysis/waveform: verify `ffmpeg`/`ffprobe` availability.
 - Audio routing confusion: confirm output devices in Settings -> System and check diagnostics logs.
+

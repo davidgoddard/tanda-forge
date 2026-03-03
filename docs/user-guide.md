@@ -6,23 +6,151 @@ This guide introduces the layout, explains initial setup, and walks through sear
 
 The app is organized into three main columns plus a settings area:
 
-- **Search (left column)**: Find tracks and tandas, filter by styles, and send results to a clipboard or a playlist.
+- **Search (left column)**: Find tracks and tandas, filter by styles, and send results to a clipboard, an open tanda or a playlist.
 - **Clipboard (middle column)**: A staging area with collections. Store tracks/tandas temporarily, build sets, and move items into the playlist.
-- **Playlist (right column)**: Your running order. Add tandas/tracks, see predicted start times (when cortinas are enabled), and control playback.
-- **Settings (top-right gear)**: Configure audio outputs, library roots, language, styles, playlists, and diagnostics.
+- **Playlist (right column)**: Your running order. Add tandas/tracks, see predicted start times, and control playback.
+- **Settings (top-right gear)**: Configure audio outputs, library folders, language, styles, playlists, and diagnostics.
 
 ![Main screen layout](images/user-guide/01-main-layout.png)
 
+## Overview
+
+The application is in effect a single page application where the DJ can build and play a playlist.  A playlist in this context is a pre-defined
+sequence of tandas optionally separated by cortinas.
+
+The playlist is configured in the "config" page by clicking the "Settings" button in the top right and then clicking on the playlist tab.  The main things
+to set are the size and style of each tanda in the sequence required - typically this seems to be some variation of 3 or 4 tracks per tanda in the sequence of 
+some tangos, then a break such as a Waltz followed by more tangos and a milonga and then the sequence repeats.  This sequence is set using the sequence of numbers
+and letters; 3t or 4T etc.  So a simple playlist might be "4T 4T 3W 4T 4T 3M".  When adding tandas to the playlist the application will check the target position's size
+and style and warn if the user is about to drop a mis-matching tanda into it.
+
+The playlist can be pre-built prior to the event or built one tanda at a time as the evening progresses.  Currently the system only supports one playlist
+and re-opening the application will re-open the playlist ready to go.
+
+Cortinas are optional and if used, the DJ can set up sets of tracks such as Salsa, Swing, Blues or whatever and then choose which set to use for the playlist.
+Once chosen, each new tanda is automatically allocated a track from that set.  Individual cortinas can be changed for any track from any set and the DJ can listen
+on headphones to help choose.
+
+To build tandas, the DJ can pick ready made tandas from one of the built-in collections in the clipboard or start building a tanda, either straight into the playlist
+or using a tanda designer tab in the right hand column.  
+
+In the top right the DJ can click the display board button and a pop-out window will appear which shows the current playing track information and tanda information.  This can
+be dragged to another window to show on a connected TV or Projector.  Background images for this can be configured using the background images folder set in the library tab.
+If no images are set up then a simple set of coloured dots will come and go on the screen in the background instead.  Images work better.
+
+### Modes
+
+The system uses modes of operation to make the application easy to use or safe.
+
+- **Live** is for DJing on the night.  The only music that will play is what's next in the playlist.
+- **Preparation** is for exploring your collection whilst building tandas or playlists.  Clicking on a song plays it immediately.
+- **Edit** similar to "Preparation" mode but the editor window stays open allowing the DJ to click a song and quickly adjust the data or see the album it's from etc.
+
+### Controls
+
+In live mode, to start playing, the DJ can click the small "play" button at the top or click on any song in the playlist.  If the song clicked on happens to be the first
+of the tanda, and if cortinas are in use, the system will play the cortina just before this tanda first otherwise it will simply play the track.
+
+The stop button will cause a fade out and stop of the playlist.  Pressing play again will resume the playlist.
+
+Whilst a cortina plays, in the now playing area the system provides two buttons; stop and play.  "Stop" will cause a fade out and then playing of the first song in the next
+tanda.  "Play" will remove the auto-fade-out from the track and allow it to play in its entirity.  If having clicked "Play" the DJ wishes to then stop anyway clicking the 
+"Stop" will fade out and then continue in the playlist.
+
+Each track has a headphone icon shown next to the elipsis menu button if headphone output has been configured.  The system will try to ensure headphone output is not the live
+output when setting up but some systems can present the same output under different names such as "Default" and "Main speakers" and the app has no way to spot this so it is 
+still possible to set both to the same output but hopefully the DJ knows they have done this and manage the use of headphones appropriately!
+
+The compression slider when available will mix the reduced "dynamic range" version of the song with the normal track allowing some or all of the compression to be used.  Under 
+normal use the DJ should set this to 0%.
+
+When the DJ is playing the last tanda of the evening they can click on the "This is the last tanda" check-box and this will ensure that the music stops after this tanda has played
+completely and, if using cortinas, the final cortina has played.  The display board's final cortina will have the text "That's all folks" instead of the "Cortina" wording.  The
+track information in the display board will show "Last Tanda".
+
+### Menus
+
+The application uses single-letter menus on tracks and tandas to make a safe way to work instead of dragging and possibly accidentally dropping causing live playback!
+
+The general options are:
+- **S**: Search for similar - fills the search column's search field with the artist, year, tempo, notes etc. from the current track or tanda and starts the search.
+the Search results are scored and ranked.  However, the search results can be quickly navigated using the "Jump to" letters.  By default the letters apply to the title
+but the DJ can choose the artist or year columns instead.
+- **C**: Send to clipboard - sends the song to either the "General" collection if a built-in collection is in focus or to the currently open user collection.
+- **P**: Send to playlist - tandas are sent to the marked target in the playlist or to the end of the playlist if no target.  Style mis-mmatch or size mis-match warnings are given 
+but nothing is blocked.  Sending a track to the playlist will either create a new empty tanda and add the track as the first entry or append the current tanda until that
+tanda has the playlist's preferred track count in which case it will start another tanda.  So the playlist can be built track by track if required or a mix of tandas and tracks.
+- **T**: Send to the tanda designer - as for sending to the playlist except the target is in the tanda designer and has nothing to do with the playlist's contents.
+- **E**: Edit - used for tracks this pops up a window showing all track data.  Next to each value is a "S" button for searching and each button sends the current fields text to the search
+field in the search column.  Clicking more "S" buttons adds more text allowing the tempo and year and artist to be used for searching for example.
+- **R**: Remove - removes the track or tanda from the named collection or playlist.  Removal of a tanda from a playlist causes an empty placeholder to be added to maintain the playlist sequence.
+- **M**: Mark as target - any tanda in the playlist can be marked as the target of a "Send to Playlist" request or to receive a "X" swap-over.
+- **X**: Swap - send the current tanda to the current target and bring that target's tanda to the current position.  Style and size warnings may be given but nothing is blocked.
+
+In addition, the menu buttons - circles with the elipsis in it ("...") - can be coloured white which indicates either a full or partial overlap with the current playlist.  Clicking the button 
+opens the menu as normal but also causes the playlist to scroll to the first instance of the track or tanda that overlaps.
+
+### Collections
+
+All collections can hold tracks and tandas.  The DJ can add any named collection in addition to the built-in ones and can view any combination of them at the same time. 
+The music style such as Tango or Vals can be controlled through the "Search" column's style options and can be set to "Any" or any combination of styles.  The DJ can add
+more styles into the configuration page and then classify songs or tandas using the new styles for use later.
+
+The built-in collections are:
+
+- **General**: A general purpose dumping ground for possible playlist tandas or tracks and where cleared out tandas from the playlist are sent.
+- **New**: A collection of the last 100 tandas saved (edited or created) and the last 100 tracks added to the system
+- **Top**: Each time a tanda or track is played all the way through it is counted and this collection shows the ones with the highest counts - i.e. your most commonly played
+- **Lowest**: As for "Top" but of the lowest counts, i.e. the ones you seldom play - perhaps help the DJ to re-discover forgotten classics.
+- **Available**: Working with the graph of the playlist's diversity, this collection contains tracks and tandas that are by artists and styles not yet included in the playlist.  I.e. if 
+some "Di Sarli" Tango tandas are in the playlist, there will be no "Di Sarli" Tango tandas shown in the available list but his Waltzes and Milongas might be.  This helps offer quick options
+that will increase the artist diversity within the playlist.
+
+All are dynamic meaning they change their contents as the DJ works.
+
+Ideas for named collections might be some tandas that you like to play at the end of an event, or crowd-pleasers etc.
+
+All collections can be filtered by both the "search" style and any text such as song titles or artist names using the "filter" in the collections column.
+
+All non built-in collections including **General** can be cleard with a single click of the **Clear** button.
+
+### Now Playing
+
+The bar across the top of the app shows the song now playing.  As well as the artist and title etc. it also shows the "waveform" of the song's loudness over time.  In modes other than 
+"Live" clicking somewhere on that waveform will skip the playback to that position either forwards or backwards.  This is useful to quickly assess if there is singing in a song when 
+classifying or simply to hear how a track ends.
+
+Below the now playing text is a compression control.  "Compression" in this context is a dynamic-range compression in which the quieter parts of the track are made louder - almost as loud
+as the loudest parts of the song.  This removes the dynamic effects the orchestra intended but is useful when there is a lot of chatter on the dance floor, perhaps at the start of a new
+tanda or song as it makes the details otherwise lost stand out.  The DJ does not need to turn up the amplifier or mixer's volume control which might make the louder parts too loud and painful to hear.  This in turn allows those who wish to dance to hear the music's beat or details well enough to start dancing.  Once the chatter dies down
+the DJ can return the dynamic range by reducing the compression level back to zero.
+
+## Playlist
+
+A playlist can be built up as required and then cleared using the **Clear** button.  This button will offer to just clear or to clear and re-fill.
+
+### Clear and Auto-Fill
+
+- Click **Clear** in the playlist header to open playlist clear options.
+- Choose **Clear playlist** to empty the list without changing configuration.
+- Choose **Clear and auto-fill** to rebuild the playlist from your saved tandas
+  and sequence rules until projected playback reaches the configured end time.
+- If no suitable tanda is available for a slot, the app builds an ad-hoc tanda
+  from similar tracks (same style first, then progressively relaxed matching).
+- Auto-fill never reuses a track title already present in the generated playlist.
+
 ## Initial Setup
 
-### 1) Choose Library Roots
+### 1) Choose Library Root Folders
 
 You need at least one music folder, and optionally a cortina folder.
 
 1. Open **Settings** (gear icon).
 2. In **System**, click **Add Music Folder** and choose a folder.
 3. (Optional) Click **Add Cortina Folder** and choose a folder.
-4. Click **Scan Music** (and **Scan Cortinas** if needed).
+4. Import legacy Tanda Player tandas and track data (titles, artists, tempo etc.)
+5. Click **Scan Music** (and **Scan Cortinas** if needed).
+
 
 ![System settings - library roots](images/user-guide/02-settings-library-roots.png)
 
@@ -43,7 +171,7 @@ You need at least one music folder, and optionally a cortina folder.
 ### 4) Adjust Trim Padding (Optional)
 
 1. In **System**, set **Trim padding (sec)** to extend auto-detected track trims.
-2. Use this if song tails feel too short.
+2. Use this if song tails feel too short i.e. gets cut-off at the start or end.
 
 ![System settings - trim padding](images/user-guide/04b-settings-trim-padding.png)
 
@@ -60,130 +188,6 @@ Use **Styles** in Settings to add or remove style labels used for filtering and 
 
 ![Style manager](images/user-guide/06-settings-styles.png)
 
-## Finding Songs and Tandas
-
-### Search Basics
-
-- Use the search bar for titles, artists, albums, or notes.
-- Filter by **Styles** using the pill buttons.
-- Switch between **Tracks** and **Tandas** tabs.
-
-![Search panel - tracks](images/user-guide/07-search-tracks.png)
-
-### Search Tips
-
-- Typing a few letters is enough; results use fuzzy matching.
-- Sorting headers let you reorder results (Title, Artist, Year, etc.).
-- When sorting by relevance, the jump index is hidden because ranking is dynamic.
-
-![Search panel - sort and filter](images/user-guide/08-search-sort-filter.png)
-
-## Clipboards and Collections
-
-The clipboard is a flexible staging area for sets and ideas.
-
-### Adding to Clipboard
-
-- From Search results, click the **C** action to add to the clipboard.
-- Items appear in the **General** collection by default.
-
-![Clipboard add action](images/user-guide/09-clipboard-add.png)
-
-### Collections
-
-- Create collections to group tandas or themes.
-- Use the **Include** chips to show multiple collections at once.
-
-![Clipboard collections](images/user-guide/10-clipboard-collections.png)
-
-### Moving Between Clipboard and Playlist
-
-There are three common ways:
-
-1. **Click actions** (Add to Playlist).
-2. **Drag and drop** into the playlist.
-3. **Select in clipboard, click in playlist** to place into an empty slot.
-
-When a move succeeds, the target row pulses to confirm it arrived.
-
-![Clipboard to playlist move](images/user-guide/11-clipboard-to-playlist.png)
-
-### Clipboard Filter
-
-Use the **Filter** field at the top of the clipboard panel to narrow both tracks and tandas.
-Filtering is immediate and exact (no fuzzy matching). Clear the field to restore all items.
-
-![Clipboard filter](images/user-guide/11b-clipboard-filter.png)
-
-## Building Tandas
-
-### Tanda Designer
-
-Use the **Tanda Designer** tab to assemble a tanda:
-
-1. Add tracks from Search (action **T**) or from Clipboard.
-2. Adjust the tanda name, rating, and styles.
-3. The style badge and summary line update as the tanda evolves.
-
-![Tanda Designer](images/user-guide/12-tanda-designer.png)
-
-### Editing Tracks Within a Tanda
-
-- Click a track in a tanda to edit metadata (title, artist, bpm, notes).
-- Use headphones to preview without playing to the main output.
-- The editor is non-modal and stays in the workspace (top-right) while you keep working.
-- Each field has an **S** button that appends that field value to the current search query
-  (useful for chaining artist + year + singer when building a tanda).
-
-![Track editor](images/user-guide/13-track-editor.png)
-
-## Building Playlists
-
-### Add Tandas or Tracks
-
-- Add a tanda from the clipboard using the **Add to Playlist** action.
-- Add a track from search or clipboard to create an in-progress tanda in the playlist.
-  The editor appears below the playlist so you can finish the tanda before collapsing it.
-
-![Playlist with tandas](images/user-guide/14-playlist-tandas.png)
-
-### In-Playlist Tanda Editing
-
-When a track is sent to the playlist, an in-progress tanda editor appears below the
-playlist list. Fill the remaining slots, then click **Done** to collapse it into
-a normal playlist tanda. The editor stays pinned below the scrolling playlist list.
-
-![In-playlist tanda editor](images/user-guide/14b-playlist-tanda-editor.png)
-
-### Cortinas in the Playlist
-
-If cortinas are enabled:
-
-- Cortina rows appear between tandas with predicted start times.
-- Each cortina row shows the planned track and a headphone button to preview.
-- You can click a cortina row to choose a different cortina.
-  If you click **Play all** during a cortina, the now-playing duration switches
-  to the full track so you can see it is acknowledged.
-
-![Playlist cortinas](images/user-guide/15-playlist-cortinas.png)
-
-### Start, Resume, Stop
-
-- **Start** begins playback at the top.
-- **Resume** continues after a pause.
-- **Stop** pauses playback and allows resuming later.
-
-![Playlist controls](images/user-guide/16-playlist-controls.png)
-
-### Clear and Auto-Fill
-
-- Click **Clear** in the playlist header to open playlist clear options.
-- Choose **Clear playlist** to empty the list without changing configuration.
-- Choose **Clear and auto-fill** to rebuild the playlist from your saved tandas
-  and sequence rules until projected playback reaches the configured end time.
-- If no suitable tanda is available for a slot, the app builds an ad-hoc tanda
-  from similar tracks (same style first, then progressively relaxed matching).
-- Auto-fill never reuses a track title already present in the generated playlist.
 
 ## Tips and Good Practices
 
@@ -194,6 +198,18 @@ If cortinas are enabled:
 - Set a playlist **expected end time** (Settings → Playlist) so auto-fill knows
   when to stop, including sessions that end after midnight.
 
+## Compression Slider Behavior
+
+If **Enable live compression control** is checked in Settings -> System, the
+now-playing panel shows a **Compression** slider.
+
+- The slider value is your preferred blend amount.
+- If playback starts before the compressed companion file is ready, the slider
+  is temporarily disabled and displayed as `0%`.
+- When the compressed companion becomes available, the slider is enabled again
+  and returns to your stored value automatically.
+- If compression is disabled in Settings, no compressed companion files are built.
+
 ## Diagnostics (If Something Seems Off)
 
 Check **Settings → Diagnostics** for:
@@ -202,3 +218,4 @@ Check **Settings → Diagnostics** for:
 - Waveform paths and test button
 
 ![Diagnostics panel](images/user-guide/17-diagnostics.png)
+

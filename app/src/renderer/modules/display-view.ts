@@ -1,0 +1,79 @@
+import { toDisplayStyleLabel } from "../../shared/now-playing.js";
+
+export type PlaylistPlaybackStatus = "idle" | "playing" | "paused";
+
+export const resolveCurrentProgressText = (params: {
+  playbackStatus: PlaylistPlaybackStatus;
+  currentIndex: number;
+  currentTrackIndex: number;
+  playlistItems: Array<{ kind: "track" } | { kind: "tanda"; tandaId: string } | null>;
+  resolveTandaTrackCount: (tandaId: string) => number;
+  translatePlayingTrack: (index: number, count: number) => string;
+}) => {
+  if (params.playbackStatus !== "playing") {
+    return "";
+  }
+  const currentItem = params.playlistItems[params.currentIndex];
+  if (!currentItem) {
+    return "";
+  }
+  if (currentItem.kind === "track") {
+    return params.translatePlayingTrack(1, 1);
+  }
+  const count = params.resolveTandaTrackCount(currentItem.tandaId);
+  if (count <= 0) {
+    return "";
+  }
+  const index = Math.min(count, Math.max(1, params.currentTrackIndex + 1));
+  return params.translatePlayingTrack(index, count);
+};
+
+export const resolveNextTandaStyle = (params: {
+  isMarkedLast: boolean;
+  playbackStatus: PlaylistPlaybackStatus;
+  resumeItemIndex: number | null;
+  currentIndex: number;
+  playlistItems: Array<{ kind: "track" } | { kind: "tanda"; tandaId: string } | null>;
+  resolveTandaStyle: (tandaId: string) => string | null;
+  shouldShowDisplayNextTanda: (status: PlaylistPlaybackStatus) => boolean;
+}) => {
+  if (params.isMarkedLast) {
+    return "";
+  }
+  if (!params.shouldShowDisplayNextTanda(params.playbackStatus)) {
+    return "";
+  }
+  let startIndex = 0;
+  if (params.playbackStatus === "playing") {
+    startIndex = params.currentIndex + 1;
+  } else if (params.playbackStatus === "paused" && params.resumeItemIndex !== null) {
+    startIndex = params.resumeItemIndex;
+  }
+  for (let i = Math.max(0, startIndex); i < params.playlistItems.length; i += 1) {
+    const item = params.playlistItems[i];
+    if (!item || item.kind === "track") {
+      continue;
+    }
+    const style = toDisplayStyleLabel(params.resolveTandaStyle(item.tandaId));
+    if (!style) {
+      continue;
+    }
+    return style;
+  }
+  return "";
+};
+
+export const resolveNextTandaLabel = (params: {
+  isMarkedLast: boolean;
+  nextStyle: string;
+  translateLast: () => string;
+  translateNext: (style: string) => string;
+}) => {
+  if (params.isMarkedLast) {
+    return params.translateLast();
+  }
+  if (params.nextStyle) {
+    return params.translateNext(params.nextStyle);
+  }
+  return "";
+};

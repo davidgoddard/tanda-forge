@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeDynamicsFrame,
   computeParallelMixGains,
+  resolveWetCompensation,
   computeTrackLevelerFrame,
   computeUpwardLiftDb,
   depthPercentToMix,
@@ -94,6 +95,38 @@ describe("audio dynamics helpers", () => {
     expect(high.dry).toBeCloseTo(0, 6);
     expect(low.dry + low.wet).toBeCloseTo(1, 6);
     expect(high.dry + high.wet).toBeCloseTo(1, 6);
+  });
+
+  it("holds compensation reference near 100% wet mix", () => {
+    const seeded = resolveWetCompensation({
+      dryRms: 0.12,
+      wetRms: 0.06,
+      wetMix: 0.5,
+      frameMs: 16,
+    });
+    expect(seeded.referenceRatio).toBeDefined();
+    expect(seeded.targetGain).toBeGreaterThan(1.5);
+
+    const nearFullWet = resolveWetCompensation({
+      dryRms: 0.002,
+      wetRms: 0.08,
+      wetMix: 0.98,
+      previousReferenceRatio: seeded.referenceRatio,
+      frameMs: 16,
+    });
+    expect(nearFullWet.targetGain).toBeCloseTo(seeded.targetGain, 1);
+    expect(nearFullWet.targetGain).toBeGreaterThan(1.5);
+  });
+
+  it("raises compensation when wet path is quieter at balanced mix", () => {
+    const result = resolveWetCompensation({
+      dryRms: 0.2,
+      wetRms: 0.08,
+      wetMix: 0.5,
+      frameMs: 16,
+    });
+    expect(result.targetGain).toBeGreaterThan(2.3);
+    expect(result.targetGain).toBeLessThanOrEqual(4);
   });
 
   it("shows overlay only when dynamics are enabled and depth is above zero", () => {

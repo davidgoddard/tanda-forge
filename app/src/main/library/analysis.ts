@@ -64,6 +64,54 @@ export const parseLoudnessJson = (payload: string) => {
   };
 };
 
+type LoudnormPassOneStats = {
+  inputI: number;
+  inputTp: number;
+  inputLra: number;
+  inputThresh: number;
+  targetOffset: number;
+};
+
+const parseLoudnormPassOneJson = (payload: string): LoudnormPassOneStats | null => {
+  const blocks = payload.match(/\{[\s\S]*?\}/g) ?? [];
+  for (let i = blocks.length - 1; i >= 0; i -= 1) {
+    const candidate = blocks[i];
+    try {
+      const json = JSON.parse(candidate) as {
+        input_i?: string;
+        input_tp?: string;
+        input_lra?: string;
+        input_thresh?: string;
+        target_offset?: string;
+      };
+      const inputI = Number.parseFloat(json.input_i ?? "");
+      const inputTp = Number.parseFloat(json.input_tp ?? "");
+      const inputLra = Number.parseFloat(json.input_lra ?? "");
+      const inputThresh = Number.parseFloat(json.input_thresh ?? "");
+      const targetOffset = Number.parseFloat(json.target_offset ?? "");
+      if (
+        !Number.isFinite(inputI) ||
+        !Number.isFinite(inputTp) ||
+        !Number.isFinite(inputLra) ||
+        !Number.isFinite(inputThresh) ||
+        !Number.isFinite(targetOffset)
+      ) {
+        continue;
+      }
+      return {
+        inputI,
+        inputTp,
+        inputLra,
+        inputThresh,
+        targetOffset,
+      };
+    } catch {
+      continue;
+    }
+  }
+  return null;
+};
+
 const normalizeJsonParseError = (error: unknown) => {
   if (!(error instanceof Error)) {
     return null;
@@ -304,6 +352,108 @@ export const renderWaveformPng = async (
         await runCommand(fallback, legacyArgs);
       }
     }
+  }
+};
+
+type OfflineCompressionRequest = {
+  loudnessDb?: number | null;
+  depthPercent: number;
+  mode: "upward" | "track-leveler";
+  liftThresholdDb: number;
+  maxLiftDb: number;
+  ratio: number;
+  attackMs: number;
+  releaseMs: number;
+  gateThresholdDb: number;
+  limiterCeilingDb: number;
+  limiterReleaseMs: number;
+};
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const dbToLinear = (db: number) => Math.pow(10, db / 20);
+
+const buildCompressionFilter = (request: OfflineCompressionRequest) => {
+  // Fixed, strongly audible profile tuned for clear quiet-part lift.
+  // Single compressor path: no runtime mode switching or per-parameter tuning.
+  return [
+    "dynaudnorm=f=120:g=25:m=100:s=8:p=1:n=0",
+    "acompressor=threshold=-32dB:ratio=4:attack=5:release=250:makeup=8",
+    "alimiter=limit=0.8913:level=disabled:attack=1:release=150",
+  ].join(",");
+};
+
+export const renderCompressedAudio = async (
+  filePath: string,
+  outputPath: string,
+  request: OfflineCompressionRequest,
+) => {
+  const { binary, fallback } = resolveFfmpeg();
+  const compressionFilter = buildCompressionFilter(request);
+  const passOneArgs = [
+    "-v",
+    "info",
+    "-nostats",
+    "-i",
+    filePath,
+    "-vn",
+    "-sn",
+    "-dn",
+    "-af",
+    `${compressionFilter},loudnorm=I=-16:TP=-1:LRA=11:print_format=json`,
+    "-f",
+    "null",
+    "-",
+  ];
+  let loudnormStats: LoudnormPassOneStats | null = null;
+  const passOnePrimary = await runCommandAllowFailure(binary, passOneArgs).catch(() => null);
+  if (passOnePrimary) {
+    loudnormStats = parseLoudnormPassOneJson(passOnePrimary.stderr);
+  }
+  if (!loudnormStats) {
+    const passOneFallback = await runCommandAllowFailure(fallback, passOneArgs).catch(() => null);
+    if (passOneFallback) {
+      loudnormStats = parseLoudnormPassOneJson(passOneFallback.stderr);
+    }
+  }
+  const loudnormFilter = loudnormStats
+    ? [
+        "loudnorm=I=-16:TP=-1:LRA=11",
+        `measured_I=${loudnormStats.inputI.toFixed(2)}`,
+        `measured_TP=${loudnormStats.inputTp.toFixed(2)}`,
+        `measured_LRA=${loudnormStats.inputLra.toFixed(2)}`,
+        `measured_thresh=${loudnormStats.inputThresh.toFixed(2)}`,
+        `offset=${loudnormStats.targetOffset.toFixed(2)}`,
+        "linear=true",
+        "print_format=summary",
+      ].join(":")
+    : "loudnorm=I=-16:TP=-1:LRA=11";
+  const finalFilter = `${compressionFilter},${loudnormFilter}`;
+  const renderArgs = [
+    "-v",
+    "error",
+    "-y",
+    "-i",
+    filePath,
+    "-vn",
+    "-sn",
+    "-dn",
+    "-af",
+    finalFilter,
+    "-ar",
+    "48000",
+    "-ac",
+    "2",
+    "-c:a",
+    "pcm_s16le",
+    outputPath,
+  ];
+  try {
+    await runCommand(binary, renderArgs);
+    return;
+  } catch {
+    await runCommand(fallback, renderArgs);
   }
 };
 

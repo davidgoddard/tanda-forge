@@ -50,15 +50,26 @@ import {
   type TimelineEntry,
 } from "../shared/playlist-live.js";
 import {
-  computePlaylistWindowMinutes,
   parseClockMinutes,
 } from "../shared/playlist-window.js";
-import { evaluateDataReadiness } from "../shared/data-readiness.js";
 import { reorderClipboardCollections } from "../shared/clipboard-order.js";
 import { moveTrackToCollection } from "../shared/clipboard-move.js";
 import { applyClipboardClear } from "../shared/clipboard-clear.js";
 import { resolveCollectionForClipboardWrite } from "../shared/clipboard-target.js";
 import { computeTrimmedEnd } from "../shared/audio-trim.js";
+import {
+  resolveBaseDurationSeconds,
+  resolveClampedCurrentSeconds,
+  resolveDisplayDurationSeconds,
+  resolveEffectiveDurationSeconds,
+  resolveProgressRatio,
+  resolveWaveformSeekTargetSeconds,
+} from "../shared/now-playing.js";
+import {
+  isCompressionControlLockedForPrep,
+  shouldUseCompressionSource,
+} from "../shared/audio-compression.js";
+import { resolveCompressionSliderUiState } from "../shared/compression-ui.js";
 import {
   applyGainStepGuard,
   gainDbToLinear,
@@ -69,14 +80,13 @@ import {
   clampNumber,
   computeDynamicsFrame,
   computeParallelMixGains,
+  resolveWetCompensation,
   computeTrackLevelerFrame,
   computeUpwardLiftDb,
   depthPercentToMix,
   dbToLinear,
   linearToDb,
-  shouldShowDynamicsOverlay,
   smoothToward,
-  updateWaveformTimelinePeak,
 } from "../shared/audio-dynamics.js";
 import {
   chooseAvailableOutputDeviceId,
@@ -122,6 +132,42 @@ import {
   getCortinaRowIndices,
   getUnassignedCortinaRowIndices,
 } from "../shared/cortina-plan.js";
+import {
+  SUPPORTED_LANGUAGES,
+  translate,
+  translations,
+  type LanguageKey,
+} from "./i18n.js";
+import { resolveTrackEditorPathLines } from "./track-editor-path.js";
+import { setSearchUiState as setSearchUiStateView } from "./modules/search-view.js";
+import {
+  buildTrackLabel as buildTrackLabelView,
+  getNowPlayingState as getNowPlayingStateView,
+} from "./modules/playback-view.js";
+import { createWaveformController } from "./modules/waveform-view.js";
+import {
+  resolveCurrentProgressText,
+  resolveNextTandaLabel,
+  resolveNextTandaStyle,
+} from "./modules/display-view.js";
+import { createSearchController } from "./controllers/search-controller.js";
+import { createSettingsDiagnosticsController } from "./controllers/settings-diagnostics-controller.js";
+import { createPlaybackCompressionController } from "./controllers/playback-compression-controller.js";
+import { createPlaylistRuntimeController } from "./controllers/playlist-runtime-controller.js";
+import { computeTapTempoBpm } from "./modules/track-editor-view.js";
+import {
+  buildClipboardTandaFilterText,
+  normalizeClipboardFilter,
+} from "./modules/clipboard-view.js";
+import { resolvePlaylistWindowMs } from "./modules/playlist-view.js";
+import { resolveOutputModeValue } from "./modules/settings-view.js";
+import {
+  createRendererUiStore,
+  type SearchState,
+  type OutputMode,
+  type RightPanelTab,
+  type SearchTab,
+} from "../shared/state/renderer-ui-store.js";
 
 const statusEl = document.querySelector<HTMLParagraphElement>("#status");
 const addMusicBtn = document.querySelector<HTMLButtonElement>("#add-music");
@@ -299,8 +345,6 @@ const cortinaLevelPercentInput =
   document.querySelector<HTMLInputElement>("#cortina-level-percent");
 const audioDynamicsEnabledInput =
   document.querySelector<HTMLInputElement>("#audio-dynamics-enabled");
-const audioDynamicsModeInput =
-  document.querySelector<HTMLSelectElement>("#audio-dynamics-mode");
 const audioDynamicsLiftThresholdInput =
   document.querySelector<HTMLInputElement>("#audio-dynamics-lift-threshold");
 const audioDynamicsMaxLiftInput =
@@ -397,8 +441,6 @@ const waveformProgress =
   document.querySelector<HTMLDivElement>("#waveform-progress");
 const waveformPlayhead =
   document.querySelector<HTMLDivElement>("#waveform-playhead");
-const waveformOutputOverlay =
-  document.querySelector<HTMLCanvasElement>("#waveform-output-overlay");
 const trackEditorWaveformContainer =
   document.querySelector<HTMLDivElement>("#track-editor-waveform-container");
 const trackEditorWaveformImage =
@@ -454,6 +496,8 @@ const trackEditorResetBtn =
   document.querySelector<HTMLButtonElement>("#track-editor-reset");
 const trackEditorPathHint =
   document.querySelector<HTMLDivElement>("#track-editor-path");
+const trackEditorCompressedPathHint =
+  document.querySelector<HTMLDivElement>("#track-editor-compressed-path");
 
 let headphoneAvailable = false;
 let audioOutputs: AudioOutputDevice[] = [];
@@ -541,7 +585,6 @@ const DISPLAY_EDGE_PADDING_KEY = "tanda-display-edge-padding-vmin";
 const DEFAULT_DISPLAY_EDGE_PADDING_VMIN = 5;
 const CORTINA_LEVEL_PERCENT_KEY = "tanda-cortina-level-percent";
 const AUDIO_DYNAMICS_ENABLED_KEY = "tanda-audio-dynamics-enabled";
-const AUDIO_DYNAMICS_MODE_KEY = "tanda-audio-dynamics-mode";
 const AUDIO_DYNAMICS_DEPTH_KEY = "tanda-audio-dynamics-depth";
 const AUDIO_DYNAMICS_LIFT_THRESHOLD_KEY = "tanda-audio-dynamics-lift-threshold";
 const AUDIO_DYNAMICS_MAX_LIFT_KEY = "tanda-audio-dynamics-max-lift";
@@ -553,7 +596,6 @@ const AUDIO_DYNAMICS_LIMITER_CEILING_KEY = "tanda-audio-dynamics-limiter-ceiling
 const AUDIO_DYNAMICS_LIMITER_RELEASE_KEY = "tanda-audio-dynamics-limiter-release";
 const AUDIO_DYNAMICS_RAMP_KEY = "tanda-audio-dynamics-ramp";
 const DEFAULT_AUDIO_DYNAMICS_ENABLED = true;
-const DEFAULT_AUDIO_DYNAMICS_MODE = "track-leveler";
 const DEFAULT_AUDIO_DYNAMICS_DEPTH = 100;
 const DEFAULT_AUDIO_DYNAMICS_LIFT_THRESHOLD = -60;
 const DEFAULT_AUDIO_DYNAMICS_MAX_LIFT = 15;
@@ -569,18 +611,7 @@ const PLAYLIST_LAST_TANDA_KEY = "tanda-playlist-current-last";
 const PLAYLIST_END_TIME_KEY = "tanda-playlist-end-time";
 const DEFAULT_PLAYLIST_END_TIME = "03:00";
 
-type SearchState = {
-  items: TrackRow[];
-  total: number;
-  offsetStart: number;
-  sortBy: string;
-  sortDir: "asc" | "desc";
-  isLoading: boolean;
-  sortMode: "auto" | "manual";
-  lastQuery: string;
-};
-
-let searchState: SearchState = {
+let searchState: SearchState<TrackRow> = {
   items: [],
   total: 0,
   offsetStart: 0,
@@ -591,34 +622,21 @@ let searchState: SearchState = {
   lastQuery: "",
 };
 let pendingSearchRefreshTimer: number | null = null;
-let pendingSearchFrame: number | null = null;
 let searchRefreshVersion = 0;
-const setSearchUiState = (
-  state: "idle" | "loading",
-  token?: number,
-  count?: number,
-) => {
-  if (searchListBody) {
-    searchListBody.dataset.state = state;
-    searchListBody.dataset.loading = state;
-  }
-  if (searchTracksEl) {
-    searchTracksEl.dataset.state = state;
-    searchTracksEl.dataset.loading = state;
-    if (typeof count === "number") {
-      searchTracksEl.dataset.count = `${count}`;
-    }
-    if (typeof token === "number") {
-      searchTracksEl.dataset.refreshToken = `${token}`;
-      if (state === "idle") {
-        searchTracksEl.dataset.readyToken = `${token}`;
-      }
-    }
-  }
-};
-setSearchUiState("idle", 0, 0);
+let searchController: ReturnType<typeof createSearchController<TrackRow>> | null = null;
+let settingsDiagnosticsController:
+  | ReturnType<typeof createSettingsDiagnosticsController>
+  | null = null;
+const applySearchUiState = (state: "idle" | "loading", token?: number, count?: number) =>
+  setSearchUiStateView({
+    searchListBody,
+    searchTracksEl,
+    state,
+    token,
+    count,
+  });
+applySearchUiState("idle", 0, 0);
 let clipboardTracks: TrackRow[] = [];
-let clipboardFilterText = "";
 type PlaylistItem =
   | { kind: "track"; track: TrackRow }
   | { kind: "tanda"; tandaId: string; mismatch?: "style" | "count" };
@@ -732,27 +750,85 @@ let selectedTandaId: string | null = null;
 let clipboardTandas: TandaDraft[] = [];
 let tandaSearchResults: TandaSearchRow[] = [];
 
-type RightPanelTab = "playlist-tab" | "tanda-designer-tab";
 let activeRightTab: RightPanelTab = "playlist-tab";
-type SearchTab = "search-tracks" | "search-tandas";
 let activeSearchTab: SearchTab = "search-tracks";
 let playlistFilterText = "";
+let clipboardFilterText = "";
 let playlistFilterClearTimer: number | undefined;
 const PLAYLIST_FILTER_AUTO_CLEAR_MS = 30_000;
 let lastRenderedPlaylistHasFilter = false;
 let centerPlaylistTargetOnNextRender = false;
-
-type OutputMode = "prep" | "live" | "edit";
 let appMode: OutputMode = "prep";
+
+const rendererUiStore = createRendererUiStore({
+  appMode,
+  activeRightTab,
+  activeSearchTab,
+  playlistFilterText,
+  clipboardFilterText,
+  search: searchState,
+});
+
+const syncRendererUiLocals = () => {
+  const state = rendererUiStore.getState();
+  appMode = state.appMode;
+  activeRightTab = state.activeRightTab;
+  activeSearchTab = state.activeSearchTab;
+  playlistFilterText = state.playlistFilterText;
+  clipboardFilterText = state.clipboardFilterText;
+  searchState = state.search as SearchState<TrackRow>;
+};
+
+const setAppModeState = (mode: OutputMode) => {
+  rendererUiStore.dispatch({ type: "set_app_mode", appMode: mode });
+  syncRendererUiLocals();
+};
+
+const setActiveRightTabState = (tab: RightPanelTab) => {
+  rendererUiStore.dispatch({ type: "set_right_tab", tab });
+  syncRendererUiLocals();
+};
+
+const setActiveSearchTabState = (tab: SearchTab) => {
+  rendererUiStore.dispatch({ type: "set_search_tab", tab });
+  syncRendererUiLocals();
+};
+
+const setPlaylistFilterTextState = (value: string) => {
+  rendererUiStore.dispatch({ type: "set_playlist_filter", value });
+  syncRendererUiLocals();
+};
+
+const setClipboardFilterTextState = (value: string) => {
+  rendererUiStore.dispatch({ type: "set_clipboard_filter", value });
+  syncRendererUiLocals();
+};
+
+const setSearchState = (next: SearchState<TrackRow>) => {
+  rendererUiStore.dispatch({ type: "set_search", search: next });
+  syncRendererUiLocals();
+};
+
+const patchSearchState = (patch: Partial<SearchState<TrackRow>>) => {
+  rendererUiStore.dispatch({ type: "patch_search", patch });
+  syncRendererUiLocals();
+};
 
 type OutputChannel = "main" | "headphone";
 
 type PlaybackState = {
   active?: HTMLAudioElement;
+  compressedActive?: HTMLAudioElement;
   currentTrackId?: string;
   track?: TrackRow;
   appliedGainDb?: number | null;
   isCortinaPlayback?: boolean;
+  usingCompressedSource?: boolean;
+  activeSourcePath?: string;
+  originalSourcePath?: string;
+  compressedSourcePath?: string;
+  wetCompensationGain?: number;
+  wetCompensationReferenceRatio?: number;
 };
 
 const playback: Record<OutputChannel, PlaybackState> = {
@@ -763,11 +839,14 @@ const lastAppliedGainDbByChannel: Record<OutputChannel, number | null> = {
   main: null,
   headphone: null,
 };
+const compressedSourceCache = new Map<string, string>();
+const compressedSourceRequests = new Map<string, Promise<string | null>>();
+const compressedSourceErrorByTrackId = new Map<string, string>();
+const trackedCompressedCompanions = new Set<HTMLAudioElement>();
 const MAX_GAIN_ONLY_STEP_DB = 4;
 const MAX_GAIN_ONLY_STEP_DB_NON_LIVE = 24;
 
 let waveformTrackId: string | null = null;
-let waveformRequestId = 0;
 let openRowMenuId: string | null = null;
 let playlistOpenTandaIndex: number | null = null;
 let tandaEditorHostTab: RightPanelTab = "tanda-designer-tab";
@@ -831,2423 +910,14 @@ const playlistPlayback: PlaylistPlaybackState = {
 const trackCache = new Map<string, TrackRow>();
 let lastPlayingIndicatorTrackId: string | null = null;
 
-type LanguageKey = "en" | "es" | "fr" | "de" | "pt" | "it";
-
 const DEFAULT_PLAYLIST_SEQUENCE = "3t 3t 3w";
 const DEFAULT_STYLE_MAP = "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga";
 const DEFAULT_PLAYLIST_START_TIME = "20:00";
-
-const translations: Record<LanguageKey, Record<string, string>> = {
-  en: {
-    appTitle: "Tanda Player Lite",
-    closeApp: "Close app",
-    playlistStart: "Start",
-    playlistResume: "Resume",
-    playlistStop: "Stop",
-    searchTitle: "Search",
-    searchPlaceholder: "Search tracks or tandas",
-    searchButton: "Search",
-    styleLabel: "Styles",
-    searchTandaSizeLabel: "Tanda size",
-    searchTandaSizeAny: "Any",
-    styleAll: "All",
-    tabTracks: "Tracks",
-    tabTandas: "Tandas",
-    tabPlaylist: "Playlist",
-    tabTandaDesigner: "Tanda Designer",
-    clipboardTitle: "Clipboard",
-    clipboardCollectionsLabel: "Collections",
-    clipboardCollectionPlaceholder: "New collection",
-    clipboardCollectionAdd: "Add",
-    clipboardCollectionInclude: "Include",
-    clipboardCollectionGeneral: "General",
-    clipboardCollectionNew: "New",
-    clipboardCollectionTop: "Top",
-    clipboardCollectionLeast: "Least",
-    clipboardCollectionAvailable: "Available",
-    clipboardFilterPlaceholder: "Filter",
-    confirmClipboardCollectionRemove: "Remove collection \"{name}\"?",
-    clipboardClear: "Clear",
-    clipboardClearTitle: "Clear clipboard collections",
-    clipboardClearConfirm: "Clear selected",
-    clipboardClearRemoveEmpty: "Remove empty collections (except General/New)",
-    playlistTitle: "Playlist",
-    playlistHint:
-      "Use a tanda menu to mark a playlist slot for replacement, then choose a track/tanda from Clipboard or Search. Without a marked slot, sent tracks/tandas go to the first free slot.",
-    playlistCurrentIsLast: "Current tanda is the last tanda",
-    playlistClear: "Clear",
-    tandasEmpty: "Tandas coming soon.",
-    playlistEmptySlot: "Empty tanda",
-    playlistEmptyHint: "Drop a track here",
-    headphonePreview: "Preview in headphones",
-    searchResultsCount: "Results: {count}",
-    modeLabel: "Mode",
-    modePrep: "Preparation",
-    modeLive: "Live",
-    modeEdit: "Edit",
-    toggleTheme: "Toggle theme",
-    toggleFullscreen: "Toggle fullscreen",
-    openSettings: "Open Settings",
-    openDisplay: "Open display window",
-    settings: "Settings",
-    dataLocationLabel: "Data location",
-    dataLocationChoose: "Choose…",
-    dataLocationHelp: "Data is stored in a _tp_data folder at the selected location.",
-    legacyImportTitle: "Legacy Import",
-    legacyImportButton: "Import legacy library",
-    legacyReadinessButton: "Verify library readiness",
-    legacyReadinessRunning: "Running readiness checks...",
-    legacyReadinessPass: "Readiness check passed.",
-    legacyReadinessWarn: "Playback-ready with warnings.",
-    legacyReadinessFail: "Readiness check failed.",
-    legacyReadinessSummary:
-      "{status} Tracks {total}; missing duration {missingDuration}; missing loudness+gain {missingLoudness}; no trim signals {missingTrimSignals}; analysis errors {analysisErrors}; missing waveforms {missingWaveforms}.",
-    close: "Close",
-    idle: "Idle",
-    starting: "Starting...",
-    nowPlayingLabel: "Now playing",
-    nowPlayingIdle: "Idle",
-    nowPlayingMain: "Main output",
-    nowPlayingHeadphone: "Headphones",
-    nowPlayingUnknown: "Unknown track",
-    nowPlayingTime: "{current} / {duration}",
-    waveformLabel: "Waveform timeline",
-    outputWaveformLabel: "Output waveform",
-    waveformLoading: "Generating waveform...",
-    waveformUnavailable: "Waveform unavailable",
-    cortinaPickerTitle: "Cortina Picker",
-    cortinaSearchLabel: "Search",
-    confirmCloseWhilePlaying:
-      "Music is still playing. Close the app and stop playback?",
-    confirmDataLocationChange:
-      "Change data location to {path}? This starts a fresh database.",
-    confirmLegacyImport:
-      "Import legacy library data from {path}? This replaces existing tandas and uses legacy metadata without a full scan.",
-    actionAddClipboardShort: "C",
-    actionAddTandaShort: "T",
-    actionRemoveClipboard: "Remove from clipboard",
-    actionRemoveClipboardShort: "R",
-    actionRemovePlaylist: "Remove from playlist",
-    actionRemovePlaylistShort: "R",
-    actionAddPlaylist: "Add to playlist",
-    actionAddPlaylistShort: "P",
-    actionMarkPlaylist: "Mark playlist target",
-    actionMarkPlaylistShort: "M",
-    actionMarkPlaylistTrack: "Mark track target",
-    actionMarkPlaylistTrackShort: "M",
-    actionSwapPlaylist: "Cross swap with marked",
-    actionSwapPlaylistShort: "X",
-    cancelTarget: "Cancel target",
-    cancel: "Cancel",
-    confirmOk: "OK",
-    actionSearch: "Search similar",
-    actionSearchShort: "S",
-    actionMore: "More actions",
-    actionSendClipboard: "Send to clipboard",
-    actionSendClipboardShort: "C",
-    duplicateFull: "In playlist",
-    duplicatePartial: "Partial playlist overlap",
-    duplicateJumpHint: "Click to locate duplicate in playlist",
-    duplicateReasonWholeTanda: "Whole tanda already exists in playlist.",
-    duplicateReasonTrack: "Track in playlist: {track}",
-    duplicateReasonTracks: "Tracks in playlist: {tracks}",
-    actionEditTrack: "Edit track",
-    actionEditTrackShort: "E",
-    actionToggleTanda: "Expand tanda",
-    actionToggleTandaShort: "E",
-    actionEditTanda: "Edit tanda",
-    actionEditTandaShort: "T",
-    colTrack: "Track",
-    colTitle: "Title",
-    colArtist: "Artist",
-    colAlbum: "Album",
-    colYear: "Year",
-    colActions: "Actions",
-    colDuration: "Duration",
-    colStart: "Start",
-    colEndTrim: "End Trim",
-    trackEditorTitle: "Edit track",
-    trackEditorTitleLabel: "Title",
-    trackEditorArtistLabel: "Artist",
-    trackEditorSingerLabel: "Singer",
-    trackEditorVocalLabel: "Vocal",
-    trackEditorVocalSung: "Sung",
-    trackEditorVocalInstrumental: "Instrumental",
-    trackEditorAlbumLabel: "Album",
-    trackEditorYearLabel: "Year",
-    trackEditorGenreLabel: "Style",
-    trackEditorNotesLabel: "Notes",
-    trackEditorBpmLabel: "BPM",
-    trackEditorTapTempo: "Tap tempo",
-    trackEditorTapHint: "Tap to set BPM · Wait 3 seconds to reset",
-    trackEditorSave: "Save",
-    trackEditorReset: "Reset",
-    trackEditorCancel: "Cancel",
-    actionAddClipboard: "Add to clipboard",
-    actionAddTanda: "Add to tanda",
-    colStatus: "Status",
-    tabLibrary: "Library",
-    tabDiagnostics: "Diagnostics",
-    tabSystem: "System",
-    tabOrchestras: "Orchestras",
-    tabPlaylistSettings: "Playlist",
-    tabDisplayBoard: "Display Board",
-    libraryRoots: "Library Roots",
-    libraryRootsHelp: "Configure music and cortina folders used for scanning.",
-    addMusicFolder: "Add Music Folder",
-    addCortinaFolder: "Add Cortina Folder",
-    addBackgroundFolder: "Add Background Folder",
-    scanLibrary: "Scan Library",
-    scanMusic: "Scan Music",
-    scanCortinas: "Scan Cortinas",
-    system: "System",
-    systemGroupLanguage: "Language",
-    systemGroupOutputs: "Outputs",
-    systemGroupStyles: "Styles",
-    systemGroupSearch: "Searching / scoring",
-    systemGroupCollections: "Collections",
-    systemGroupCounts: "Counts",
-    systemGroupDynamics: "Compressor / limiter",
-    systemGroupData: "Data",
-    mainOutput: "Main Output",
-    headphoneOutput: "Headphones Output",
-    language: "Language",
-    languageHelp: "Language selection affects UI labels and formatting.",
-    styleManagerLabel: "Styles",
-    styleAdd: "Add",
-    styleRemove: "Remove",
-    styleRemoveLabel: "Remove style: {style}",
-    styleEmpty: "No styles yet.",
-    styleNone: "None",
-    defaultStyleTango: "Tango",
-    defaultStyleWaltz: "Waltz",
-    defaultStyleMilonga: "Milonga",
-    defaultTandaSize: "Default tanda size",
-    clipboardNewLimitLabel: "New collection size",
-    displayBackgroundInterval: "Display background rotation (sec)",
-    displayUseImages: "Use background images on display",
-    displayImageDimLabel: "Display image darken (%)",
-    displayBaseFontSizeLabel: "Display base font size (%)",
-    displayBaseFontSizeHelp: "Scales display text for distance readability.",
-    displayCortinaFontSizeLabel: "Display cortina font size (%)",
-    displayCortinaFontSizeHelp: "Scales cortina headline text independently.",
-    displayEdgePaddingLabel: "Display edge padding (vmin)",
-    displayEdgePaddingHelp: "Adds space between display text and screen edges.",
-    searchMinScoreLabel: "Search minimum score",
-    searchBpmRangeLabel: "BPM search range",
-    trimPaddingLabel: "Trim padding (sec)",
-    trimPaddingHelp: "Reduces auto-detected start/end trims by this amount.",
-    playlistSettingsTitle: "Playlist Settings",
-    playlistStartTimeLabel: "Playlist start time",
-    playlistEndTimeLabel: "Playlist expected end time",
-    playlistSequenceLabel: "Tanda sequence",
-    playlistSequencePlaceholder: "3t 3t 3w",
-    playlistStyleMapLabel: "Style mapping",
-    playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
-    playlistArtistRepeatGapLabel: "Artist repeat gap aspiration (min)",
-    playlistArtistRepeatGapHelp:
-      "Auto-fill tries to avoid repeating artists within this time window.",
-    playlistStatsTitle: "Playlist diversity",
-    playlistStatsOrchestra: "Orchestra seconds",
-    playlistStatsYear: "Year distribution",
-    playlistStatsTempo: "Tempo distribution",
-    playlistStatsNoData: "No data",
-    playlistFilterPlaceholder: "Filter playlist",
-    playlistFilterNoMatch: "No matching playlist items.",
-    scanIssues: "Scan Issues",
-    scanIssuesHelp: "Recent scan problems and files that need attention.",
-    scanIssuesMore: "...and {count} more",
-    viewScanIssues: "View scan issues",
-    diagnosticsPaths: "Paths",
-    diagnosticsPathsUserData: "User data",
-    diagnosticsPathsWaveforms: "Waveforms",
-    diagnosticsPathsFfmpeg: "ffmpeg",
-    diagnosticsPathsFfprobe: "ffprobe",
-    diagnosticsWaveform: "Waveform",
-    diagnosticsWaveformRun: "Generate waveform for current track",
-    diagnosticsWaveformNoTrack: "No track is currently playing.",
-    diagnosticsWaveformSuccess: "Waveform generated: {path}",
-    diagnosticsWaveformFailed: "Waveform failed: {message}",
-    diagnosticsDataReadiness: "Data readiness",
-    diagnosticsReadinessTotalTracks: "Tracks",
-    diagnosticsReadinessMissingDuration: "Missing duration",
-    diagnosticsReadinessMissingLoudness: "Missing loudness+gain",
-    diagnosticsReadinessMissingTrimSignals: "No trim signals",
-    diagnosticsReadinessAnalysisErrors: "Analysis errors",
-    diagnosticsReadinessMissingWaveforms: "Missing waveforms",
-    diagnosticsPlaybackLog: "Playback leveling log",
-    diagnosticsPlaybackLogRun: "Load recent playback leveling entries",
-    diagnosticsClearLogs: "Clear diagnostics logs",
-    diagnosticsLogsCleared: "Diagnostics logs cleared.",
-    diagnosticsLogsClearFailed: "Clearing diagnostics logs failed: {message}",
-    diagnosticsOutputProbe: "Audio output probe",
-    diagnosticsOutputProbeRun: "Run audio output probe",
-    diagnosticsOutputProbeNoDevices: "No audio output devices detected.",
-    diagnosticsOutputProbeUnsupported: "Output routing unsupported by this runtime.",
-    diagnosticsOutputProbeError: "Probe failed: {message}",
-    diagnosticsPlaybackLogEmpty: "No playback leveling log entries yet.",
-    diagnosticsPlaybackLogFailed: "Playback log failed: {message}",
-    diagnosticsPathsPlaybackLog: "Playback log",
-    clearPlayCountsLabel: "Playback counters",
-    clearPlayCountsButton: "Clear play counts",
-    confirmClearPlayCounts: "Clear all track and tanda play counts?",
-    statusPlayCountsCleared: "Playback counters cleared.",
-    orchestraRegistryTitle: "Orchestras",
-    orchestraRegistryHelp:
-      "Canonical orchestra names, aliases, and related names used by search and collections.",
-    orchestraFilterPlaceholder: "Filter orchestras or aliases",
-    orchestraCanonicalLabel: "Canonical orchestra",
-    orchestraAliasesLabel: "Aliases (comma separated)",
-    orchestraRelatedLabel: "Related orchestras (comma separated)",
-    orchestraAdd: "Add orchestra",
-    orchestraReset: "Reset to seeded list",
-    orchestraSave: "Save orchestra list",
-    orchestraDelete: "Delete",
-    confirmOrchestraRegistryReset:
-      "Reset orchestra aliases to the seeded list? This will overwrite local edits.",
-    statusOrchestraRegistrySaved: "Orchestra list saved.",
-    statusOrchestraRegistryReset: "Orchestra list reset to seeded defaults.",
-    statusOrchestraRegistryInvalid: "Orchestra list has invalid entries.",
-    eraseDatabase: "Erase Database",
-    confirmEraseDatabase:
-      "This will permanently delete your library scan, tandas, playlists, and settings stored in this app. You can re-import folders afterward, but this action cannot be undone.",
-    statusIssue: "Issue",
-    statusOk: "OK",
-    statusPreparingScan: "Preparing scan...",
-    statusScanInProgress: "Scan already running.",
-    statusScanning: "Scanning...",
-    statusScanProgress: "Scanning {current}/{total} ({root})",
-    statusScanProgressWithFile: "Scanning {current}/{total} ({root}) - {file}",
-    statusScanComplete:
-      "Scan complete. Scanned {scanned}, added {added}, updated {updated}, removed {removed}.",
-    statusScanIssues: "Scan complete. {count} issues.",
-    statusScanFailed: "Scan failed.",
-    statusScanFailedDetail: "Scan failed: {message}",
-    statusScanFailedNoResponse: "Scan failed: no response from main process.",
-    statusFullscreenUnavailable: "Fullscreen is unavailable.",
-    statusFullscreenFailed: "Fullscreen toggle failed.",
-    statusFullscreenFailedDetail: "Fullscreen toggle failed: {message}",
-    statusMainProcess: "Main process says: {message}",
-    statusNoApi: "API bridge not available.",
-    statusUnknownError: "Unknown error.",
-    statusRendererError: "A problem occurred. Details have been logged.",
-    statusLanguageSet: "Language set to {language}.",
-    statusAddedMusic: "Added music folder: {path}.",
-    statusAddedCortina: "Added cortina folder: {path}.",
-    statusAddedBackground: "Added background folder: {path}.",
-    statusDatabaseErased: "Database erased. Add folders to begin scanning.",
-    statusNoRoots:
-      "No music folders configured. Add a music folder in Settings to begin scanning.",
-    statusDataLocationChanged: "Data location set to {path}. Database reset.",
-    statusDataLocationDuringPlayback: "Stop playback before changing data location.",
-    legacyImportDetected:
-      "Legacy files detected at {path}. Import library.dat and cortinas.dat (no full scan)?",
-    statusLegacyImportDone:
-      "Imported {tandas} tandas. Updated {tracks} tracks. Missing {missing} tracks.",
-    statusMissingRoots:
-      "Some library folders are unavailable. Connect the drive or update Settings.",
-    statusTandaSaved: "Tanda saved.",
-    statusTandaDeleted: "Tanda deleted.",
-    statusTandaSentToClipboard: "Tanda sent to clipboard.",
-    statusNoTandaSelected: "Select a tanda to add tracks.",
-    statusTrackUpdated: "Track updated.",
-    statusTrackUpdateFailed: "Track update failed.",
-    statusClipboardReadonlyRemove:
-      "Item belongs to an included collection. Switch active collection to remove.",
-    statusClipboardCollectionLast: "At least one collection is required.",
-    statusClipboardCollectionProtected:
-      "This collection is system-managed and cannot be removed.",
-    statusClipboardCollectionReadOnly:
-      "This collection is read-only. Switch to another collection to add items.",
-    statusPlaylistSequenceMismatch:
-      "Slot expects {rule}. This tanda is {tanda}.",
-    confirmPlaylistSequenceOverride:
-      "This slot expects {expected} tracks ({rule}). This tanda has {count}. Use it anyway?",
-    confirmPlaylistSequenceStyleOverride:
-      "Slot expects {rule}. This tanda is {tanda}. Add anyway?",
-    allowOverride: "Allow anyway",
-    dismissWarning: "Dismiss",
-    playlistMismatchTooltip: "Slot expects {rule}. This tanda is {tanda}.",
-    statusStyleAdded: "Style added: {style}.",
-    statusStyleAddFailed: "Could not add style.",
-    statusTandaLocked: "This tanda is locked during live playback.",
-    statusWaveformLoading: "Generating waveform...",
-    statusWaveformUnavailable: "Waveform unavailable for this track.",
-    statusPlaylistLocked: "This playlist slot is locked during live playback.",
-    statusPlaylistNoEmptySlot: "Add a blank slot before adding to the playlist.",
-    statusPlaylistSwapInvalid: "Select a marked tanda and swap with another tanda.",
-    statusClipboardCleared: "Clipboard collections updated.",
-    statusPlaylistCleared: "Playlist cleared.",
-    statusPlaylistAutofillRunning: "Building playlist, please wait...",
-    statusPlaylistAutofillDone:
-      "Playlist auto-fill complete: {count} tanda(s), ends around {time}.",
-    statusPlaylistAutofillPartial:
-      "Playlist auto-fill stopped after {count} tanda(s): no suitable items found.",
-    confirmPlaylistClear: "Clear the playlist and remove all items?",
-    confirmDiscardTrackEdits: "Discard unsaved track edits?",
-    playlistClearTitle: "Playlist clear options",
-    playlistClearOnly: "Clear playlist",
-    playlistClearAutofill: "Clear and auto-fill",
-    outputSelectionFailed: "Output selection failed.",
-    outputSelectionFailedDetail: "Output selection failed: {message}",
-    statusDspBypassedOutput:
-      "Dynamics DSP is bypassed for non-default output devices. Use Default Output to hear compression.",
-    playbackFailed: "Playback failed.",
-    playbackFailedDetail: "Playback failed: {message}",
-    outputDefault: "Default Output",
-    outputSelectHeadphones: "Select headphones output",
-    outputNoSecondary: "No secondary output available",
-    gapBetweenTracks: "Gap between tracks (sec)",
-    gapBeforeTanda: "Gap before tanda (sec)",
-    gapBeforeCortina: "Gap before cortina (sec)",
-    cortinaSetLabel: "Cortina set",
-    cortinaDefaultSet: "Default",
-    cortinaAny: "Any",
-    cortinaNone: "None",
-    cortinaDurationLabel: "Cortina duration (sec)",
-    cortinaRowLabel: "Cortina",
-    cortinaRowHint: "Click to choose a cortina",
-    cortinaStopLabel: "Stop cortina",
-    cortinaPlayLabel: "Play cortina",
-    statusCortinaSelected: "Cortina selected: {title}.",
-    statusCortinaLocked: "This cortina has already played and cannot be changed.",
-    stopFade: "Stop fade (sec)",
-    cortinaLevelPercentLabel: "Cortina level (% of main output)",
-    audioDynamicsEnabledLabel: "Enable live compression control",
-    audioDynamicsModeLabel: "Processing mode",
-    audioDynamicsModeUpward: "Upward compressor",
-    audioDynamicsModeLeveler: "Track leveler",
-    audioDynamicsDepthLabel: "Processing depth (%)",
-    audioDynamicsLiveMixLabel: "Compression",
-    audioDynamicsLiftThresholdLabel: "Lift threshold (dBFS)",
-    audioDynamicsMaxLiftLabel: "Max lift (dB)",
-    audioDynamicsRatioLabel: "Upward ratio",
-    audioDynamicsAttackLabel: "Lift attack (ms)",
-    audioDynamicsReleaseLabel: "Lift release (ms)",
-    audioDynamicsGateThresholdLabel: "Noise gate threshold (dBFS)",
-    audioDynamicsLimiterCeilingLabel: "Limiter ceiling (dBFS)",
-    audioDynamicsLimiterReleaseLabel: "Limiter release (ms)",
-    audioDynamicsRampLabel: "Enable/disable ramp (ms)",
-    addTanda: "Add Tanda",
-    tandaNameLabel: "Tanda name",
-    tandaStylesLabel: "Styles",
-    tandaRatingLabel: "Rating",
-    tandaInstrumentalLabel: "Instrumental",
-    tandaInstrumentalYes: "Yes",
-    tandaInstrumentalNo: "No",
-    tandaDurationLabel: "Duration",
-    tandaTrackCountLabel: "Tracks",
-    tandaAnyStyle: "Any",
-    tandaPlaceholder: "Empty slot",
-    tandaUnknownArtist: "Unknown artist",
-    tandaUnknownYear: "Unknown year",
-    tandaNonInstrumental: "Sung",
-    tandaMixedLabel: "Mixed",
-    tandaSave: "Save tanda",
-    tandaDone: "Close",
-    tandaDelete: "Delete tanda",
-    tandaAddSlot: "Add slot",
-    tandaToClipboard: "Send to clipboard",
-    tandaRemoveTrack: "Send to clipboard",
-    tandaMoveUp: "Move up",
-    tandaMoveDown: "Move down",
-    tandaRemoveTrackShort: "A",
-    tandaMoveUpShort: "^",
-    tandaMoveDownShort: "v",
-    confirmTandaTooSmall:
-      "This tanda has {count} tracks (min {min}). Save anyway?",
-    confirmDeleteTanda: "Delete this tanda?",
-    rootAvailable: "Available",
-    rootMissing: "Missing",
-    rootMusic: "Music",
-    rootCortina: "Cortina",
-    rootBackground: "Background",
-    displayPlayingTrack: "Playing track {index} of {count}",
-    displayThisTanda: "This tanda: {style}",
-    displayNextTanda: "Next Tanda: {style}",
-    displayThisIsLastTanda: "This is the last tanda",
-    displayNoMoreTandas: "That's all folks",
-    lang_en: "English",
-    lang_es: "Spanish",
-    lang_fr: "French",
-    lang_de: "German",
-    lang_pt: "Portuguese",
-    lang_it: "Italian",
-  },
-  es: {
-    appTitle: "Tanda Player Lite",
-    closeApp: "Cerrar app",
-    playlistStart: "Iniciar",
-    playlistResume: "Reanudar",
-    playlistStop: "Detener",
-    searchTitle: "Buscar",
-    searchPlaceholder: "Buscar temas o tandas",
-    searchButton: "Buscar",
-    styleLabel: "Estilos",
-    searchTandaSizeLabel: "Tamano tanda",
-    searchTandaSizeAny: "Cualquiera",
-    styleAll: "Todos",
-    tabTracks: "Temas",
-    tabTandas: "Tandas",
-    tabPlaylist: "Lista",
-    tabTandaDesigner: "Disenador de tandas",
-    clipboardTitle: "Portapapeles",
-    clipboardCollectionsLabel: "Colecciones",
-    clipboardCollectionPlaceholder: "Nueva coleccion",
-    clipboardCollectionAdd: "Agregar",
-    clipboardCollectionInclude: "Incluir",
-    clipboardCollectionGeneral: "General",
-    clipboardCollectionNew: "Nuevos",
-    clipboardCollectionTop: "Mas",
-    clipboardCollectionLeast: "Menos",
-    clipboardCollectionAvailable: "Disponibles",
-    clipboardFilterPlaceholder: "Filtrar",
-    confirmClipboardCollectionRemove: "Quitar la coleccion \"{name}\"?",
-    clipboardClear: "Limpiar",
-    clipboardClearTitle: "Vaciar colecciones del portapapeles",
-    clipboardClearConfirm: "Vaciar seleccionadas",
-    clipboardClearRemoveEmpty: "Eliminar colecciones vacias (excepto General/Nuevos)",
-    playlistTitle: "Lista",
-    playlistHint:
-      "Usa el menu de tanda para marcar un hueco de la lista para reemplazo y luego elige una pista/tanda desde Portapapeles o Busqueda. Sin hueco marcado, los envios van al primer hueco libre.",
-    playlistCurrentIsLast: "La tanda actual es la ultima tanda",
-    playlistClear: "Limpiar",
-    tandasEmpty: "Tandas pronto.",
-    playlistEmptySlot: "Tanda vacia",
-    playlistEmptyHint: "Suelta un tema aqui",
-    headphonePreview: "Preescuchar en auriculares",
-    searchResultsCount: "Resultados: {count}",
-    modeLabel: "Modo",
-    modePrep: "Preparacion",
-    modeLive: "En vivo",
-    modeEdit: "Editar",
-    toggleTheme: "Cambiar tema",
-    toggleFullscreen: "Pantalla completa",
-    openSettings: "Abrir ajustes",
-    openDisplay: "Abrir pantalla externa",
-    settings: "Ajustes",
-    dataLocationLabel: "Ubicacion de datos",
-    dataLocationChoose: "Elegir…",
-    dataLocationHelp:
-      "Los datos se guardan en una carpeta _tp_data en la ubicacion seleccionada.",
-    legacyImportTitle: "Importacion heredada",
-    legacyImportButton: "Importar tandas heredadas",
-    legacyReadinessButton: "Verificar estado de biblioteca",
-    legacyReadinessRunning: "Ejecutando verificaciones...",
-    legacyReadinessPass: "Verificacion completada correctamente.",
-    legacyReadinessWarn: "Lista para reproduccion con avisos.",
-    legacyReadinessFail: "La verificacion fallo.",
-    legacyReadinessSummary:
-      "{status} Pistas {total}; duracion faltante {missingDuration}; sonoridad+ganancia faltante {missingLoudness}; sin senales de recorte {missingTrimSignals}; errores de analisis {analysisErrors}; formas de onda faltantes {missingWaveforms}.",
-    close: "Cerrar",
-    idle: "Inactivo",
-    starting: "Iniciando...",
-    nowPlayingLabel: "Reproduciendo",
-    nowPlayingIdle: "En espera",
-    nowPlayingMain: "Salida principal",
-    nowPlayingHeadphone: "Auriculares",
-    nowPlayingUnknown: "Pista desconocida",
-    nowPlayingTime: "{current} / {duration}",
-    waveformLabel: "Linea de onda",
-    outputWaveformLabel: "Forma de salida",
-    waveformLoading: "Generando forma de onda...",
-    waveformUnavailable: "Forma de onda no disponible",
-    cortinaPickerTitle: "Selector de cortinas",
-    cortinaSearchLabel: "Buscar",
-    confirmCloseWhilePlaying:
-      "La musica sigue sonando. Cerrar la app y detener la reproduccion?",
-    confirmDataLocationChange:
-      "Cambiar ubicacion de datos a {path}? Esto inicia una base nueva.",
-    confirmLegacyImport:
-      "Importar tandas desde {path}? Esto reemplaza tandas existentes y aplica metadatos.",
-    actionAddClipboardShort: "C",
-    actionAddTandaShort: "T",
-    actionRemoveClipboard: "Quitar del portapapeles",
-    actionRemoveClipboardShort: "R",
-    actionRemovePlaylist: "Quitar de la lista",
-    actionRemovePlaylistShort: "R",
-    actionAddPlaylist: "Agregar a la lista",
-    actionAddPlaylistShort: "P",
-    actionMarkPlaylist: "Marcar objetivo en playlist",
-    actionMarkPlaylistShort: "M",
-    actionMarkPlaylistTrack: "Marcar objetivo de pista",
-    actionMarkPlaylistTrackShort: "M",
-    cancelTarget: "Cancelar objetivo",
-    cancel: "Cancelar",
-    confirmOk: "OK",
-    actionSearch: "Buscar similares",
-    actionSearchShort: "S",
-    actionMore: "Mas acciones",
-    actionSendClipboard: "Enviar al portapapeles",
-    actionSendClipboardShort: "C",
-    duplicateFull: "En la lista",
-    duplicatePartial: "Coincidencia parcial en la lista",
-    duplicateJumpHint: "Haz clic para ubicar el duplicado en la lista",
-    duplicateReasonWholeTanda: "La tanda completa ya existe en la lista.",
-    duplicateReasonTrack: "Pista en la lista: {track}",
-    duplicateReasonTracks: "Pistas en la lista: {tracks}",
-    actionEditTrack: "Editar tema",
-    actionEditTrackShort: "E",
-    actionToggleTanda: "Expandir tanda",
-    actionToggleTandaShort: "E",
-    actionEditTanda: "Editar tanda",
-    actionEditTandaShort: "T",
-    colTrack: "Tema",
-    colTitle: "Titulo",
-    colArtist: "Artista",
-    colAlbum: "Album",
-    colYear: "Ano",
-    colActions: "Acciones",
-    colDuration: "Duracion",
-    colStart: "Inicio",
-    colEndTrim: "Fin",
-    trackEditorTitle: "Editar tema",
-    trackEditorTitleLabel: "Titulo",
-    trackEditorArtistLabel: "Artista",
-    trackEditorSingerLabel: "Cantante",
-    trackEditorVocalLabel: "Voz",
-    trackEditorVocalSung: "Cantado",
-    trackEditorVocalInstrumental: "Instrumental",
-    trackEditorAlbumLabel: "Album",
-    trackEditorYearLabel: "Ano",
-    trackEditorGenreLabel: "Estilo",
-    trackEditorNotesLabel: "Notas",
-    trackEditorBpmLabel: "BPM",
-    trackEditorTapTempo: "Marcar tempo",
-    trackEditorTapHint: "Pulsa para BPM · Espera 3 segundos para reiniciar",
-    trackEditorSave: "Guardar",
-    trackEditorReset: "Reiniciar",
-    trackEditorCancel: "Cancelar",
-    actionAddClipboard: "Agregar al portapapeles",
-    actionAddTanda: "Agregar a tanda",
-    colStatus: "Estado",
-    tabLibrary: "Biblioteca",
-    tabDiagnostics: "Diagnostico",
-    tabSystem: "Sistema",
-    tabOrchestras: "Orquestas",
-    tabPlaylistSettings: "Lista",
-    tabDisplayBoard: "Pantalla",
-    libraryRoots: "Raices de biblioteca",
-    libraryRootsHelp: "Configura carpetas de musica y cortinas.",
-    addMusicFolder: "Agregar musica",
-    addCortinaFolder: "Agregar cortinas",
-    addBackgroundFolder: "Agregar fondos",
-    scanLibrary: "Escanear biblioteca",
-    scanMusic: "Escanear musica",
-    scanCortinas: "Escanear cortinas",
-    system: "Sistema",
-    systemGroupLanguage: "Idioma",
-    systemGroupOutputs: "Salidas",
-    systemGroupStyles: "Estilos",
-    systemGroupSearch: "Busqueda / puntuacion",
-    systemGroupCollections: "Colecciones",
-    systemGroupCounts: "Conteos",
-    systemGroupDynamics: "Compresor / limitador",
-    systemGroupData: "Datos",
-    mainOutput: "Salida principal",
-    headphoneOutput: "Salida de auriculares",
-    language: "Idioma",
-    languageHelp: "El idioma afecta etiquetas y formato.",
-    styleManagerLabel: "Estilos",
-    styleAdd: "Agregar",
-    styleRemove: "Quitar",
-    styleRemoveLabel: "Quitar estilo: {style}",
-    styleEmpty: "Sin estilos.",
-    styleNone: "Ninguno",
-    defaultStyleTango: "Tango",
-    defaultStyleWaltz: "Vals",
-    defaultStyleMilonga: "Milonga",
-    defaultTandaSize: "Tamano de tanda",
-    clipboardNewLimitLabel: "Tamano de la coleccion nueva",
-    displayBackgroundInterval: "Rotacion de fondos en pantalla (s)",
-    displayUseImages: "Usar imagenes de fondo en pantalla",
-    displayImageDimLabel: "Oscurecer imagen de pantalla (%)",
-    displayBaseFontSizeLabel: "Tamano base de fuente en pantalla (%)",
-    displayBaseFontSizeHelp: "Escala el texto de pantalla para mejor lectura a distancia.",
-    displayCortinaFontSizeLabel: "Tamano de fuente cortina en pantalla (%)",
-    displayCortinaFontSizeHelp: "Escala por separado el titulo de cortina.",
-    displayEdgePaddingLabel: "Margen del borde en pantalla (vmin)",
-    displayEdgePaddingHelp: "Agrega espacio entre el texto y los bordes de la pantalla.",
-    searchMinScoreLabel: "Puntuacion minima de busqueda",
-    searchBpmRangeLabel: "Rango de BPM",
-    trimPaddingLabel: "Ajuste de recorte (s)",
-    trimPaddingHelp:
-      "Reduce los recortes de inicio/fin detectados automaticamente.",
-    playlistSettingsTitle: "Ajustes de playlist",
-    playlistStartTimeLabel: "Hora de inicio de la playlist",
-    playlistEndTimeLabel: "Hora prevista de fin de la playlist",
-    playlistSequenceLabel: "Secuencia de tandas",
-    playlistSequencePlaceholder: "3t 3t 3w",
-    playlistStyleMapLabel: "Mapa de estilos",
-    playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
-    scanIssues: "Problemas de escaneo",
-    scanIssuesHelp: "Problemas recientes y archivos pendientes.",
-    scanIssuesMore: "...y {count} mas",
-    viewScanIssues: "Ver problemas",
-    diagnosticsPaths: "Rutas",
-    diagnosticsPathsUserData: "Datos de usuario",
-    diagnosticsPathsWaveforms: "Formas de onda",
-    diagnosticsPathsFfmpeg: "ffmpeg",
-    diagnosticsPathsFfprobe: "ffprobe",
-    diagnosticsWaveform: "Forma de onda",
-    diagnosticsWaveformRun: "Generar forma de onda del tema actual",
-    diagnosticsWaveformNoTrack: "No hay un tema reproduciendose.",
-    diagnosticsWaveformSuccess: "Forma de onda generada: {path}",
-    diagnosticsWaveformFailed: "Fallo al generar forma de onda: {message}",
-    diagnosticsDataReadiness: "Estado de datos",
-    diagnosticsReadinessTotalTracks: "Pistas",
-    diagnosticsReadinessMissingDuration: "Duracion faltante",
-    diagnosticsReadinessMissingLoudness: "Sonoridad+ganancia faltante",
-    diagnosticsReadinessMissingTrimSignals: "Sin senales de recorte",
-    diagnosticsReadinessAnalysisErrors: "Errores de analisis",
-    diagnosticsReadinessMissingWaveforms: "Formas de onda faltantes",
-    eraseDatabase: "Borrar base de datos",
-    confirmEraseDatabase:
-      "Esto borrara permanentemente el escaneo de biblioteca, tandas, playlists y ajustes guardados en esta app. Puedes reimportar carpetas despues, pero esta accion no se puede deshacer.",
-    statusIssue: "Problema",
-    statusOk: "OK",
-    statusPreparingScan: "Preparando escaneo...",
-    statusScanInProgress: "El escaneo ya esta en curso.",
-    statusScanning: "Escaneando...",
-    statusScanProgress: "Escaneando {current}/{total} ({root})",
-    statusScanProgressWithFile: "Escaneando {current}/{total} ({root}) - {file}",
-    statusScanComplete:
-      "Escaneo completo. Escaneados {scanned}, agregados {added}, actualizados {updated}, eliminados {removed}.",
-    statusScanIssues: "Escaneo completo. {count} problemas.",
-    statusScanFailed: "Fallo de escaneo.",
-    statusScanFailedDetail: "Fallo de escaneo: {message}",
-    statusScanFailedNoResponse: "Fallo de escaneo: sin respuesta.",
-    statusFullscreenUnavailable: "Pantalla completa no disponible.",
-    statusFullscreenFailed: "Fallo al activar pantalla completa.",
-    statusFullscreenFailedDetail: "Fallo en pantalla completa: {message}",
-    statusMainProcess: "Proceso principal: {message}",
-    statusNoApi: "Puente API no disponible.",
-    statusUnknownError: "Error desconocido.",
-    statusRendererError: "Ocurrio un problema. Detalles guardados.",
-    statusLanguageSet: "Idioma establecido: {language}.",
-    statusAddedMusic: "Musica agregada: {path}.",
-    statusAddedCortina: "Cortina agregada: {path}.",
-    statusAddedBackground: "Fondos agregados: {path}.",
-    statusDatabaseErased: "Base borrada. Agrega carpetas para escanear.",
-    statusNoRoots:
-      "No hay carpetas de musica configuradas. Agrega una carpeta en Ajustes.",
-    statusDataLocationChanged:
-      "Ubicacion de datos establecida en {path}. Base reiniciada.",
-    statusDataLocationDuringPlayback:
-      "Deten la reproduccion antes de cambiar la ubicacion de datos.",
-    legacyImportDetected:
-      "Archivos heredados detectados en {path}. Importar tandas y metadatos?",
-    statusLegacyImportDone:
-      "Importadas {tandas} tandas. Actualizadas {tracks} pistas. Faltan {missing} pistas.",
-    statusMissingRoots:
-      "Algunas carpetas no estan disponibles. Conecta la unidad o actualiza Ajustes.",
-    statusTandaSaved: "Tanda guardada.",
-    statusTandaDeleted: "Tanda eliminada.",
-    statusTandaSentToClipboard: "Tanda enviada al portapapeles.",
-    statusNoTandaSelected: "Selecciona una tanda para agregar temas.",
-    statusTrackUpdated: "Tema actualizado.",
-    statusTrackUpdateFailed: "Fallo al actualizar tema.",
-    statusClipboardReadonlyRemove:
-      "El elemento pertenece a una coleccion incluida. Cambia la coleccion activa para quitarlo.",
-    statusClipboardCollectionLast: "Se requiere al menos una coleccion.",
-    statusClipboardCollectionProtected:
-      "Esta coleccion es del sistema y no se puede eliminar.",
-    statusClipboardCollectionReadOnly:
-      "Esta coleccion es de solo lectura. Cambia a otra para agregar.",
-    statusPlaylistSequenceMismatch:
-      "El espacio espera {rule}. Esta tanda es {tanda}.",
-    confirmPlaylistSequenceOverride:
-      "Este espacio espera {expected} temas ({rule}). Esta tanda tiene {count}. ¿Usarla de todos modos?",
-    confirmPlaylistSequenceStyleOverride:
-      "El espacio espera {rule}. Esta tanda es {tanda}. ¿Añadirla?",
-    allowOverride: "Permitir",
-    dismissWarning: "Cerrar",
-    playlistMismatchTooltip: "El espacio espera {rule}. Esta tanda es {tanda}.",
-    statusStyleAdded: "Estilo agregado: {style}.",
-    statusStyleAddFailed: "No se pudo agregar el estilo.",
-    statusTandaLocked: "Esta tanda esta bloqueada durante la reproduccion.",
-    statusWaveformLoading: "Generando forma de onda...",
-    statusWaveformUnavailable: "Forma de onda no disponible para este tema.",
-    statusPlaylistLocked: "Este slot esta bloqueado durante la reproduccion.",
-    statusPlaylistNoEmptySlot: "Agregue un espacio vacio antes de anadir a la lista.",
-    statusClipboardCleared: "Colecciones del portapapeles actualizadas.",
-    statusPlaylistCleared: "Lista vaciada.",
-    statusPlaylistAutofillRunning: "Construyendo playlist, espere por favor...",
-    statusPlaylistAutofillDone:
-      "Autocompletado finalizado: {count} tanda(s), termina cerca de {time}.",
-    statusPlaylistAutofillPartial:
-      "Autocompletado detenido tras {count} tanda(s): no se encontraron candidatos.",
-    confirmPlaylistClear: "¿Borrar la lista y eliminar todos los elementos?",
-    confirmDiscardTrackEdits: "¿Descartar cambios no guardados de la pista?",
-    playlistClearTitle: "Opciones de limpieza de playlist",
-    playlistClearOnly: "Borrar playlist",
-    playlistClearAutofill: "Borrar y autocompletar",
-    outputSelectionFailed: "Fallo al seleccionar salida.",
-    outputSelectionFailedDetail: "Fallo al seleccionar salida: {message}",
-    statusDspBypassedOutput:
-      "El DSP de dinamica se omite para salidas no predeterminadas. Use Salida predeterminada para oir compresion.",
-    playbackFailed: "Fallo de reproduccion.",
-    playbackFailedDetail: "Fallo de reproduccion: {message}",
-    outputDefault: "Salida predeterminada",
-    outputSelectHeadphones: "Seleccionar salida de auriculares",
-    outputNoSecondary: "No hay salida secundaria",
-    gapBetweenTracks: "Pausa entre temas (s)",
-    gapBeforeTanda: "Pausa antes de tanda (s)",
-    gapBeforeCortina: "Pausa antes de cortina (s)",
-    cortinaSetLabel: "Set de cortinas",
-    cortinaDefaultSet: "Predeterminado",
-    cortinaAny: "Cualquiera",
-    cortinaNone: "Ninguna",
-    cortinaDurationLabel: "Duracion de cortina (s)",
-    cortinaRowLabel: "Cortina",
-    cortinaRowHint: "Clic para elegir una cortina",
-    cortinaStopLabel: "Detener cortina",
-    cortinaPlayLabel: "Reproducir cortina",
-    statusCortinaSelected: "Cortina seleccionada: {title}.",
-    statusCortinaLocked: "Esta cortina ya se reprodujo y no se puede cambiar.",
-    stopFade: "Desvanecer al detener (s)",
-    cortinaLevelPercentLabel: "Nivel de cortina (% de salida principal)",
-    audioDspEnabledLabel: "Habilitar DSP de dinamica en tiempo real",
-    audioDynamicsPresetLabel: "Preajuste de dinamica",
-    audioDynamicsPresetOff: "Apagado",
-    audioDynamicsPresetGentle: "Suave",
-    audioDynamicsPresetBalanced: "Equilibrado",
-    audioDynamicsPresetStrong: "Fuerte",
-    audioDynamicsPresetCustom: "Personalizado",
-    audioDynamicsThresholdLabel: "Umbral del compresor (dB)",
-    audioDynamicsRatioLabel: "Relacion del compresor",
-    audioDynamicsMakeupLabel: "Ganancia de compensacion (dB)",
-    audioDynamicsLimiterLabel: "Techo del limitador (dB)",
-    audioLiveBoostLabel: "Refuerzo en vivo",
-    addTanda: "Agregar tanda",
-    tandaNameLabel: "Nombre de tanda",
-    tandaStylesLabel: "Estilos",
-    tandaRatingLabel: "Valoracion",
-    tandaInstrumentalLabel: "Instrumental",
-    tandaInstrumentalYes: "Si",
-    tandaInstrumentalNo: "No",
-    tandaDurationLabel: "Duracion",
-    tandaTrackCountLabel: "Temas",
-    tandaAnyStyle: "Cualquiera",
-    tandaPlaceholder: "Espacio vacio",
-    tandaUnknownArtist: "Artista desconocido",
-    tandaUnknownYear: "Ano desconocido",
-    tandaNonInstrumental: "Cantado",
-    tandaMixedLabel: "Mixto",
-    tandaSave: "Guardar tanda",
-    tandaDone: "Cerrar",
-    tandaDelete: "Borrar tanda",
-    tandaAddSlot: "Agregar espacio",
-    tandaToClipboard: "Enviar al portapapeles",
-    tandaRemoveTrack: "Enviar al portapapeles",
-    tandaMoveUp: "Subir",
-    tandaMoveDown: "Bajar",
-    tandaRemoveTrackShort: "C",
-    tandaMoveUpShort: "^",
-    tandaMoveDownShort: "v",
-    confirmTandaTooSmall:
-      "Esta tanda tiene {count} temas (min {min}). Guardar igual?",
-    confirmDeleteTanda: "Borrar esta tanda?",
-    rootAvailable: "Disponible",
-    rootMissing: "No disponible",
-    rootMusic: "Musica",
-    rootCortina: "Cortina",
-    rootBackground: "Fondo",
-    displayPlayingTrack: "Reproduciendo pista {index} de {count}",
-    displayThisTanda: "Esta tanda: {style}",
-    displayNextTanda: "Proxima tanda: {style}",
-    displayThisIsLastTanda: "Esta es la ultima tanda",
-    displayNoMoreTandas: "Eso es todo, amigos",
-    lang_en: "Ingles",
-    lang_es: "Espanol",
-    lang_fr: "Frances",
-    lang_de: "Aleman",
-    lang_pt: "Portugues",
-    lang_it: "Italiano",
-  },
-  fr: {
-    appTitle: "Tanda Player Lite",
-    closeApp: "Fermer l'application",
-    playlistStart: "Demarrer",
-    playlistResume: "Reprendre",
-    playlistStop: "Arreter",
-    searchTitle: "Recherche",
-    searchPlaceholder: "Rechercher pistes ou tandas",
-    searchButton: "Rechercher",
-    styleLabel: "Styles",
-    searchTandaSizeLabel: "Taille tanda",
-    searchTandaSizeAny: "Toutes",
-    styleAll: "Tous",
-    tabTracks: "Pistes",
-    tabTandas: "Tandas",
-    tabPlaylist: "Liste",
-    tabTandaDesigner: "Concepteur de tandas",
-    clipboardTitle: "Presse-papiers",
-    clipboardCollectionsLabel: "Collections",
-    clipboardCollectionPlaceholder: "Nouvelle collection",
-    clipboardCollectionAdd: "Ajouter",
-    clipboardCollectionInclude: "Inclure",
-    clipboardCollectionGeneral: "General",
-    clipboardCollectionNew: "Nouveaux",
-    clipboardCollectionTop: "Plus",
-    clipboardCollectionLeast: "Moins",
-    clipboardCollectionAvailable: "Disponibles",
-    clipboardFilterPlaceholder: "Filtrer",
-    confirmClipboardCollectionRemove: "Retirer la collection \"{name}\" ?",
-    clipboardClear: "Vider",
-    clipboardClearTitle: "Vider les collections du presse-papiers",
-    clipboardClearConfirm: "Vider la selection",
-    clipboardClearRemoveEmpty: "Supprimer les collections vides (sauf General/Nouveaux)",
-    playlistTitle: "Liste",
-    playlistHint:
-      "Utilisez le menu de tanda pour marquer un emplacement a remplacer, puis choisissez une piste/tanda depuis le presse-papiers ou la recherche. Sans emplacement marque, les envois vont dans le premier emplacement libre.",
-    playlistCurrentIsLast: "La tanda en cours est la derniere",
-    playlistClear: "Vider",
-    tandasEmpty: "Tandas bientot.",
-    playlistEmptySlot: "Tanda vide",
-    playlistEmptyHint: "Deposez une piste ici",
-    headphonePreview: "Pre-ecoute au casque",
-    searchResultsCount: "Resultats: {count}",
-    modeLabel: "Mode",
-    modePrep: "Preparation",
-    modeLive: "Live",
-    modeEdit: "Editer",
-    toggleTheme: "Basculer le theme",
-    toggleFullscreen: "Plein ecran",
-    openSettings: "Ouvrir les reglages",
-    openDisplay: "Ouvrir l'ecran externe",
-    settings: "Reglages",
-    dataLocationLabel: "Emplacement des donnees",
-    dataLocationChoose: "Choisir…",
-    dataLocationHelp:
-      "Les donnees sont stockees dans un dossier _tp_data a l'emplacement choisi.",
-    legacyImportTitle: "Import heritage",
-    legacyImportButton: "Importer les tandas heritees",
-    legacyReadinessButton: "Verifier l'etat de la bibliotheque",
-    legacyReadinessRunning: "Verification en cours...",
-    legacyReadinessPass: "Verification terminee avec succes.",
-    legacyReadinessWarn: "Pret pour lecture avec avertissements.",
-    legacyReadinessFail: "La verification a echoue.",
-    legacyReadinessSummary:
-      "{status} Pistes {total}; duree manquante {missingDuration}; loudness+gain manquants {missingLoudness}; aucun signal de trim {missingTrimSignals}; erreurs d'analyse {analysisErrors}; formes d'onde manquantes {missingWaveforms}.",
-    close: "Fermer",
-    idle: "Inactif",
-    starting: "Demarrage...",
-    nowPlayingLabel: "Lecture",
-    nowPlayingIdle: "En attente",
-    nowPlayingMain: "Sortie principale",
-    nowPlayingHeadphone: "Casque",
-    nowPlayingUnknown: "Piste inconnue",
-    nowPlayingTime: "{current} / {duration}",
-    waveformLabel: "Forme d'onde",
-    outputWaveformLabel: "Forme de sortie",
-    waveformLoading: "Generation de la forme d'onde...",
-    waveformUnavailable: "Forme d'onde indisponible",
-    cortinaPickerTitle: "Selection de cortinas",
-    cortinaSearchLabel: "Recherche",
-    confirmCloseWhilePlaying:
-      "La musique joue encore. Fermer l'application et arreter la lecture ?",
-    confirmDataLocationChange:
-      "Changer l'emplacement des donnees vers {path} ? Cela cree une nouvelle base.",
-    confirmLegacyImport:
-      "Importer des tandas depuis {path} ? Cela remplace les tandas existantes.",
-    actionAddClipboardShort: "C",
-    actionAddTandaShort: "T",
-    actionRemoveClipboard: "Retirer du presse-papiers",
-    actionRemoveClipboardShort: "R",
-    actionRemovePlaylist: "Retirer de la playlist",
-    actionRemovePlaylistShort: "R",
-    actionAddPlaylist: "Ajouter a la playlist",
-    actionAddPlaylistShort: "P",
-    actionMarkPlaylist: "Marquer la cible de playlist",
-    actionMarkPlaylistShort: "M",
-    actionMarkPlaylistTrack: "Marquer la cible de piste",
-    actionMarkPlaylistTrackShort: "M",
-    cancelTarget: "Annuler la cible",
-    cancel: "Annuler",
-    confirmOk: "OK",
-    actionSearch: "Rechercher similaire",
-    actionSearchShort: "S",
-    actionMore: "Plus d'actions",
-    actionSendClipboard: "Envoyer au presse-papiers",
-    actionSendClipboardShort: "C",
-    duplicateFull: "Dans la playlist",
-    duplicatePartial: "Chevauchement partiel avec la playlist",
-    duplicateJumpHint: "Cliquer pour trouver le doublon dans la playlist",
-    duplicateReasonWholeTanda: "La tanda complete existe deja dans la playlist.",
-    duplicateReasonTrack: "Piste dans la playlist: {track}",
-    duplicateReasonTracks: "Pistes dans la playlist: {tracks}",
-    actionEditTrack: "Editer piste",
-    actionEditTrackShort: "E",
-    actionToggleTanda: "Developper la tanda",
-    actionToggleTandaShort: "E",
-    actionEditTanda: "Editer la tanda",
-    actionEditTandaShort: "T",
-    colTrack: "Piste",
-    colTitle: "Titre",
-    colArtist: "Artiste",
-    colAlbum: "Album",
-    colYear: "Annee",
-    colActions: "Actions",
-    colDuration: "Duree",
-    colStart: "Debut",
-    colEndTrim: "Fin",
-    trackEditorTitle: "Editer piste",
-    trackEditorTitleLabel: "Titre",
-    trackEditorArtistLabel: "Artiste",
-    trackEditorSingerLabel: "Chanteur",
-    trackEditorVocalLabel: "Voix",
-    trackEditorVocalSung: "Chante",
-    trackEditorVocalInstrumental: "Instrumental",
-    trackEditorAlbumLabel: "Album",
-    trackEditorYearLabel: "Annee",
-    trackEditorGenreLabel: "Style",
-    trackEditorNotesLabel: "Notes",
-    trackEditorBpmLabel: "BPM",
-    trackEditorTapTempo: "Tap tempo",
-    trackEditorTapHint: "Tapez pour BPM · Attendez 3 secondes pour reinitialiser",
-    trackEditorSave: "Enregistrer",
-    trackEditorReset: "Reinitialiser",
-    trackEditorCancel: "Annuler",
-    actionAddClipboard: "Ajouter au presse-papiers",
-    actionAddTanda: "Ajouter a la tanda",
-    colStatus: "Statut",
-    tabLibrary: "Bibliotheque",
-    tabDiagnostics: "Diagnostic",
-    tabSystem: "Systeme",
-    tabOrchestras: "Orchestres",
-    tabPlaylistSettings: "Liste",
-    tabDisplayBoard: "Ecran",
-    libraryRoots: "Racines de bibliotheque",
-    libraryRootsHelp: "Configurer les dossiers musique et cortinas.",
-    addMusicFolder: "Ajouter musique",
-    addCortinaFolder: "Ajouter cortinas",
-    addBackgroundFolder: "Ajouter fonds",
-    scanLibrary: "Scanner la bibliotheque",
-    scanMusic: "Scanner musique",
-    scanCortinas: "Scanner cortinas",
-    system: "Systeme",
-    systemGroupLanguage: "Langue",
-    systemGroupOutputs: "Sorties",
-    systemGroupStyles: "Styles",
-    systemGroupSearch: "Recherche / score",
-    systemGroupCollections: "Collections",
-    systemGroupCounts: "Comptages",
-    systemGroupDynamics: "Compresseur / limiteur",
-    systemGroupData: "Donnees",
-    mainOutput: "Sortie principale",
-    headphoneOutput: "Sortie casque",
-    language: "Langue",
-    languageHelp: "La langue affecte les libelles et le format.",
-    styleManagerLabel: "Styles",
-    styleAdd: "Ajouter",
-    styleRemove: "Supprimer",
-    styleRemoveLabel: "Supprimer le style: {style}",
-    styleEmpty: "Aucun style.",
-    styleNone: "Aucun",
-    defaultStyleTango: "Tango",
-    defaultStyleWaltz: "Valse",
-    defaultStyleMilonga: "Milonga",
-    defaultTandaSize: "Taille de tanda",
-    clipboardNewLimitLabel: "Taille de la collection nouvelle",
-    displayBackgroundInterval: "Rotation des fonds de l'ecran (s)",
-    displayUseImages: "Utiliser les images de fond sur l'ecran",
-    displayImageDimLabel: "Assombrir l'image ecran (%)",
-    displayBaseFontSizeLabel: "Taille de police de base ecran (%)",
-    displayBaseFontSizeHelp: "Ajuste le texte de l'ecran pour la lisibilite a distance.",
-    displayCortinaFontSizeLabel: "Taille de police cortina ecran (%)",
-    displayCortinaFontSizeHelp: "Ajuste separement le titre cortina.",
-    displayEdgePaddingLabel: "Marge d'ecran (vmin)",
-    displayEdgePaddingHelp: "Ajoute de l'espace entre le texte et les bords de l'ecran.",
-    searchMinScoreLabel: "Score minimum de recherche",
-    searchBpmRangeLabel: "Plage BPM",
-    trimPaddingLabel: "Marge de coupe (s)",
-    trimPaddingHelp:
-      "Reduit les coupes debut/fin detectees automatiquement.",
-    playlistSettingsTitle: "Reglages de playlist",
-    playlistStartTimeLabel: "Heure de debut de la playlist",
-    playlistEndTimeLabel: "Heure de fin attendue de la playlist",
-    playlistSequenceLabel: "Sequence de tandas",
-    playlistSequencePlaceholder: "3t 3t 3w",
-    playlistStyleMapLabel: "Mapping de styles",
-    playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
-    scanIssues: "Problemes de scan",
-    scanIssuesHelp: "Problemes recents et fichiers a traiter.",
-    scanIssuesMore: "...et {count} de plus",
-    viewScanIssues: "Voir les problemes",
-    diagnosticsPaths: "Chemins",
-    diagnosticsPathsUserData: "Donnees utilisateur",
-    diagnosticsPathsWaveforms: "Formes d'onde",
-    diagnosticsPathsFfmpeg: "ffmpeg",
-    diagnosticsPathsFfprobe: "ffprobe",
-    diagnosticsWaveform: "Forme d'onde",
-    diagnosticsWaveformRun: "Generer la forme d'onde du titre actuel",
-    diagnosticsWaveformNoTrack: "Aucun titre en lecture.",
-    diagnosticsWaveformSuccess: "Forme d'onde generee: {path}",
-    diagnosticsWaveformFailed: "Echec de la forme d'onde: {message}",
-    diagnosticsDataReadiness: "Etat des donnees",
-    diagnosticsReadinessTotalTracks: "Pistes",
-    diagnosticsReadinessMissingDuration: "Duree manquante",
-    diagnosticsReadinessMissingLoudness: "Loudness+gain manquants",
-    diagnosticsReadinessMissingTrimSignals: "Aucun signal de trim",
-    diagnosticsReadinessAnalysisErrors: "Erreurs d'analyse",
-    diagnosticsReadinessMissingWaveforms: "Formes d'onde manquantes",
-    eraseDatabase: "Effacer la base",
-    confirmEraseDatabase:
-      "Cette action supprimera definitivement le scan de bibliotheque, les tandas, les playlists et les reglages stockes dans cette application. Vous pourrez reimporter des dossiers ensuite, mais cette action est irreversible.",
-    statusIssue: "Probleme",
-    statusOk: "OK",
-    statusPreparingScan: "Preparation du scan...",
-    statusScanInProgress: "Un scan est deja en cours.",
-    statusScanning: "Scan en cours...",
-    statusScanProgress: "Scan {current}/{total} ({root})",
-    statusScanProgressWithFile: "Scan {current}/{total} ({root}) - {file}",
-    statusScanComplete:
-      "Scan termine. Scannes {scanned}, ajoutes {added}, maj {updated}, supprimes {removed}.",
-    statusScanIssues: "Scan termine. {count} problemes.",
-    statusScanFailed: "Echec du scan.",
-    statusScanFailedDetail: "Echec du scan: {message}",
-    statusScanFailedNoResponse: "Echec du scan: aucune reponse.",
-    statusFullscreenUnavailable: "Plein ecran indisponible.",
-    statusFullscreenFailed: "Echec du plein ecran.",
-    statusFullscreenFailedDetail: "Echec du plein ecran: {message}",
-    statusMainProcess: "Processus principal: {message}",
-    statusNoApi: "Pont API indisponible.",
-    statusUnknownError: "Erreur inconnue.",
-    statusRendererError: "Un probleme est survenu. Details enregistres.",
-    statusLanguageSet: "Langue definie: {language}.",
-    statusAddedMusic: "Musique ajoutee: {path}.",
-    statusAddedCortina: "Cortina ajoutee: {path}.",
-    statusAddedBackground: "Fonds ajoutes: {path}.",
-    statusDatabaseErased: "Base effacee. Ajoutez des dossiers.",
-    statusNoRoots:
-      "Aucun dossier musique. Ajoutez un dossier dans Reglages.",
-    statusDataLocationChanged:
-      "Emplacement des donnees defini sur {path}. Base reinitialisee.",
-    statusDataLocationDuringPlayback:
-      "Arretez la lecture avant de changer l'emplacement des donnees.",
-    legacyImportDetected:
-      "Fichiers herites detectes a {path}. Importer tandas et metadonnees ?",
-    statusLegacyImportDone:
-      "{tandas} tandas importees. {tracks} pistes mises a jour. {missing} manquantes.",
-    statusMissingRoots:
-      "Certains dossiers sont indisponibles. Connectez le disque.",
-    statusTandaSaved: "Tanda enregistree.",
-    statusTandaDeleted: "Tanda supprimee.",
-    statusTandaSentToClipboard: "Tanda envoyee au presse-papiers.",
-    statusNoTandaSelected: "Selectionnez une tanda pour ajouter des pistes.",
-    statusTrackUpdated: "Piste mise a jour.",
-    statusTrackUpdateFailed: "Echec de mise a jour.",
-    statusClipboardReadonlyRemove:
-      "L'element appartient a une collection incluse. Changez la collection active pour le retirer.",
-    statusClipboardCollectionLast: "Au moins une collection est requise.",
-    statusClipboardCollectionProtected:
-      "Cette collection est geree par le systeme et ne peut pas etre supprimee.",
-    statusClipboardCollectionReadOnly:
-      "Cette collection est en lecture seule. Passez a une autre pour ajouter.",
-    statusPlaylistSequenceMismatch:
-      "Ce slot attend {rule}. Cette tanda est {tanda}.",
-    confirmPlaylistSequenceOverride:
-      "Ce slot attend {expected} pistes ({rule}). Cette tanda en a {count}. L'utiliser quand meme ?",
-    confirmPlaylistSequenceStyleOverride:
-      "Ce slot attend {rule}. Cette tanda est {tanda}. L'ajouter quand meme ?",
-    allowOverride: "Autoriser",
-    dismissWarning: "Fermer",
-    playlistMismatchTooltip: "Ce slot attend {rule}. Cette tanda est {tanda}.",
-    statusStyleAdded: "Style ajoute: {style}.",
-    statusStyleAddFailed: "Impossible d'ajouter le style.",
-    statusTandaLocked: "Cette tanda est verrouillee en lecture.",
-    statusWaveformLoading: "Generation de la forme d'onde...",
-    statusWaveformUnavailable: "Forme d'onde indisponible pour ce titre.",
-    statusPlaylistLocked: "Ce slot est verrouille en lecture.",
-    statusPlaylistNoEmptySlot: "Ajoutez un emplacement vide avant d'ajouter a la playlist.",
-    statusClipboardCleared: "Collections du presse-papiers mises a jour.",
-    statusPlaylistCleared: "Playlist videe.",
-    statusPlaylistAutofillRunning: "Construction de la playlist en cours, veuillez patienter...",
-    statusPlaylistAutofillDone:
-      "Remplissage auto termine: {count} tanda(s), fin vers {time}.",
-    statusPlaylistAutofillPartial:
-      "Remplissage auto arrete apres {count} tanda(s): aucun candidat adapte.",
-    confirmPlaylistClear: "Effacer la playlist et supprimer tous les elements ?",
-    confirmDiscardTrackEdits: "Ignorer les modifications non enregistrees de la piste ?",
-    playlistClearTitle: "Options de nettoyage de playlist",
-    playlistClearOnly: "Effacer la playlist",
-    playlistClearAutofill: "Effacer et remplir automatiquement",
-    outputSelectionFailed: "Selection de sortie impossible.",
-    outputSelectionFailedDetail: "Selection de sortie impossible: {message}",
-    statusDspBypassedOutput:
-      "Le DSP dynamique est ignore pour les sorties non par defaut. Utilisez la sortie par defaut pour entendre la compression.",
-    playbackFailed: "Lecture impossible.",
-    playbackFailedDetail: "Lecture impossible: {message}",
-    outputDefault: "Sortie par defaut",
-    outputSelectHeadphones: "Selectionner sortie casque",
-    outputNoSecondary: "Pas de sortie secondaire",
-    gapBetweenTracks: "Pause entre pistes (s)",
-    gapBeforeTanda: "Pause avant tanda (s)",
-    gapBeforeCortina: "Pause avant cortina (s)",
-    cortinaSetLabel: "Set de cortinas",
-    cortinaDefaultSet: "Par defaut",
-    cortinaAny: "Toutes",
-    cortinaNone: "Aucune",
-    cortinaDurationLabel: "Duree de cortina (s)",
-    cortinaRowLabel: "Cortina",
-    cortinaRowHint: "Cliquez pour choisir une cortina",
-    cortinaStopLabel: "Arreter la cortina",
-    cortinaPlayLabel: "Lire la cortina",
-    statusCortinaSelected: "Cortina choisie: {title}.",
-    statusCortinaLocked: "Cette cortina a deja joue et ne peut pas etre modifiee.",
-    stopFade: "Fondu a l'arret (s)",
-    cortinaLevelPercentLabel: "Niveau cortina (% de la sortie principale)",
-    audioDspEnabledLabel: "Activer le DSP dynamique en temps reel",
-    audioDynamicsPresetLabel: "Preréglage dynamique",
-    audioDynamicsPresetOff: "Desactive",
-    audioDynamicsPresetGentle: "Doux",
-    audioDynamicsPresetBalanced: "Equilibre",
-    audioDynamicsPresetStrong: "Fort",
-    audioDynamicsPresetCustom: "Personnalise",
-    audioDynamicsThresholdLabel: "Seuil du compresseur (dB)",
-    audioDynamicsRatioLabel: "Ratio du compresseur",
-    audioDynamicsMakeupLabel: "Gain de compensation (dB)",
-    audioDynamicsLimiterLabel: "Plafond du limiteur (dB)",
-    audioLiveBoostLabel: "Renfort en direct",
-    addTanda: "Ajouter tanda",
-    tandaNameLabel: "Nom de tanda",
-    tandaStylesLabel: "Styles",
-    tandaRatingLabel: "Note",
-    tandaInstrumentalLabel: "Instrumental",
-    tandaInstrumentalYes: "Oui",
-    tandaInstrumentalNo: "Non",
-    tandaDurationLabel: "Duree",
-    tandaTrackCountLabel: "Pistes",
-    tandaAnyStyle: "Tout",
-    tandaPlaceholder: "Emplacement vide",
-    tandaUnknownArtist: "Artiste inconnu",
-    tandaUnknownYear: "Annee inconnue",
-    tandaNonInstrumental: "Chante",
-    tandaMixedLabel: "Mixte",
-    tandaSave: "Enregistrer la tanda",
-    tandaDone: "Fermer",
-    tandaDelete: "Supprimer la tanda",
-    tandaAddSlot: "Ajouter un slot",
-    tandaToClipboard: "Envoyer au presse-papiers",
-    tandaRemoveTrack: "Envoyer au presse-papiers",
-    tandaMoveUp: "Monter",
-    tandaMoveDown: "Descendre",
-    tandaRemoveTrackShort: "C",
-    tandaMoveUpShort: "^",
-    tandaMoveDownShort: "v",
-    confirmTandaTooSmall:
-      "Cette tanda a {count} pistes (min {min}). Enregistrer quand meme?",
-    confirmDeleteTanda: "Supprimer cette tanda?",
-    rootAvailable: "Disponible",
-    rootMissing: "Indisponible",
-    rootMusic: "Musique",
-    rootCortina: "Cortina",
-    rootBackground: "Fond",
-    displayPlayingTrack: "Lecture piste {index} sur {count}",
-    displayThisTanda: "Cette tanda: {style}",
-    displayNextTanda: "Prochaine tanda: {style}",
-    displayThisIsLastTanda: "C'est la derniere tanda",
-    displayNoMoreTandas: "C'est tout, les amis",
-    lang_en: "Anglais",
-    lang_es: "Espagnol",
-    lang_fr: "Francais",
-    lang_de: "Allemand",
-    lang_pt: "Portugais",
-    lang_it: "Italien",
-  },
-  de: {
-    appTitle: "Tanda Player Lite",
-    closeApp: "App schliessen",
-    playlistStart: "Start",
-    playlistResume: "Fortsetzen",
-    playlistStop: "Stop",
-    searchTitle: "Suche",
-    searchPlaceholder: "Titel oder Tandas suchen",
-    searchButton: "Suchen",
-    styleLabel: "Stile",
-    searchTandaSizeLabel: "Tanda Groesse",
-    searchTandaSizeAny: "Alle",
-    styleAll: "Alle",
-    tabTracks: "Titel",
-    tabTandas: "Tandas",
-    tabPlaylist: "Liste",
-    tabTandaDesigner: "Tanda-Designer",
-    clipboardTitle: "Zwischenablage",
-    clipboardCollectionsLabel: "Sammlungen",
-    clipboardCollectionPlaceholder: "Neue Sammlung",
-    clipboardCollectionAdd: "Hinzufugen",
-    clipboardCollectionInclude: "Einblenden",
-    clipboardCollectionGeneral: "Allgemein",
-    clipboardCollectionNew: "Neu",
-    clipboardCollectionTop: "Meiste",
-    clipboardCollectionLeast: "Wenigste",
-    clipboardCollectionAvailable: "Verfugbar",
-    clipboardFilterPlaceholder: "Filtern",
-    confirmClipboardCollectionRemove: "Sammlung \"{name}\" entfernen?",
-    clipboardClear: "Leeren",
-    clipboardClearTitle: "Zwischenablagen-Sammlungen leeren",
-    clipboardClearConfirm: "Auswahl leeren",
-    clipboardClearRemoveEmpty: "Leere Sammlungen entfernen (ausser Allgemein/Neu)",
-    playlistTitle: "Liste",
-    playlistHint:
-      "Mit dem Tanda-Menue einen Playlist-Slot zum Ersetzen markieren und dann Track/Tanda aus Zwischenablage oder Suche waehlen. Ohne markierten Slot gehen gesendete Tracks/Tandas in den ersten freien Slot.",
-    playlistCurrentIsLast: "Aktuelle Tanda ist die letzte Tanda",
-    playlistClear: "Leeren",
-    tandasEmpty: "Tandas bald verfugbar.",
-    playlistEmptySlot: "Leere Tanda",
-    playlistEmptyHint: "Track hier ablegen",
-    headphonePreview: "Vorschau im Kopfhoerer",
-    searchResultsCount: "Ergebnisse: {count}",
-    modeLabel: "Modus",
-    modePrep: "Vorbereitung",
-    modeLive: "Live",
-    modeEdit: "Bearbeiten",
-    toggleTheme: "Theme umschalten",
-    toggleFullscreen: "Vollbild umschalten",
-    openSettings: "Einstellungen",
-    openDisplay: "Anzeigefenster offnen",
-    settings: "Einstellungen",
-    dataLocationLabel: "Datenspeicherort",
-    dataLocationChoose: "Auswahlen…",
-    dataLocationHelp:
-      "Daten werden im Ordner _tp_data am gewahlten Ort gespeichert.",
-    legacyImportTitle: "Legacy-Import",
-    legacyImportButton: "Legacy-Tandas importieren",
-    legacyReadinessButton: "Bibliothek-Bereitschaft pruefen",
-    legacyReadinessRunning: "Bereitschaftsprüfung laeuft...",
-    legacyReadinessPass: "Pruefung erfolgreich.",
-    legacyReadinessWarn: "Fuer Wiedergabe bereit, mit Warnungen.",
-    legacyReadinessFail: "Pruefung fehlgeschlagen.",
-    legacyReadinessSummary:
-      "{status} Tracks {total}; fehlende Dauer {missingDuration}; fehlende Lautheit+Gain {missingLoudness}; keine Trim-Signale {missingTrimSignals}; Analysefehler {analysisErrors}; fehlende Wellenformen {missingWaveforms}.",
-    close: "Schliessen",
-    idle: "Leerlauf",
-    starting: "Startet...",
-    nowPlayingLabel: "Wiedergabe",
-    nowPlayingIdle: "Bereit",
-    nowPlayingMain: "Hauptausgang",
-    nowPlayingHeadphone: "Kopfhorer",
-    nowPlayingUnknown: "Unbekannter Track",
-    nowPlayingTime: "{current} / {duration}",
-    waveformLabel: "Wellenform",
-    outputWaveformLabel: "Ausgangswellenform",
-    waveformLoading: "Wellenform wird erstellt...",
-    waveformUnavailable: "Wellenform nicht verfugbar",
-    cortinaPickerTitle: "Cortina-Auswahl",
-    cortinaSearchLabel: "Suche",
-    confirmCloseWhilePlaying:
-      "Die Musik spielt noch. App schliessen und Wiedergabe stoppen?",
-    confirmDataLocationChange:
-      "Datenspeicherort auf {path} andern? Dadurch wird eine neue Datenbank erstellt.",
-    confirmLegacyImport:
-      "Tandas von {path} importieren? Dies ersetzt vorhandene Tandas und ubernimmt Metadaten.",
-    actionAddClipboardShort: "Z",
-    actionAddTandaShort: "T",
-    actionRemoveClipboard: "Aus Zwischenablage entfernen",
-    actionRemoveClipboardShort: "R",
-    actionRemovePlaylist: "Aus Playlist entfernen",
-    actionRemovePlaylistShort: "R",
-    actionAddPlaylist: "Zur Playlist hinzufugen",
-    actionAddPlaylistShort: "P",
-    actionMarkPlaylist: "Playlistziel markieren",
-    actionMarkPlaylistShort: "M",
-    actionMarkPlaylistTrack: "Trackziel markieren",
-    actionMarkPlaylistTrackShort: "M",
-    cancelTarget: "Ziel aufheben",
-    cancel: "Abbrechen",
-    confirmOk: "OK",
-    actionSearch: "Ahnliches suchen",
-    actionSearchShort: "S",
-    actionMore: "Mehr Aktionen",
-    actionSendClipboard: "Zur Zwischenablage",
-    actionSendClipboardShort: "C",
-    duplicateFull: "In der Playlist",
-    duplicatePartial: "Teilweise in der Playlist",
-    duplicateJumpHint: "Klicken, um das Duplikat in der Playlist zu finden",
-    duplicateReasonWholeTanda: "Die ganze Tanda ist bereits in der Playlist.",
-    duplicateReasonTrack: "Track in der Playlist: {track}",
-    duplicateReasonTracks: "Tracks in der Playlist: {tracks}",
-    actionEditTrack: "Track bearbeiten",
-    actionEditTrackShort: "E",
-    actionToggleTanda: "Tanda aufklappen",
-    actionToggleTandaShort: "E",
-    actionEditTanda: "Tanda bearbeiten",
-    actionEditTandaShort: "T",
-    colTrack: "Titel",
-    colTitle: "Titel",
-    colArtist: "Artist",
-    colAlbum: "Album",
-    colYear: "Jahr",
-    colActions: "Aktionen",
-    colDuration: "Dauer",
-    colStart: "Start",
-    colEndTrim: "Ende",
-    trackEditorTitle: "Track bearbeiten",
-    trackEditorTitleLabel: "Titel",
-    trackEditorArtistLabel: "Artist",
-    trackEditorSingerLabel: "Sanger",
-    trackEditorVocalLabel: "Stimme",
-    trackEditorVocalSung: "Gesungen",
-    trackEditorVocalInstrumental: "Instrumental",
-    trackEditorAlbumLabel: "Album",
-    trackEditorYearLabel: "Jahr",
-    trackEditorGenreLabel: "Stil",
-    trackEditorNotesLabel: "Notizen",
-    trackEditorBpmLabel: "BPM",
-    trackEditorTapTempo: "Tap tempo",
-    trackEditorTapHint: "Tippen fur BPM · 3 Sekunden warten zum Zurucksetzen",
-    trackEditorSave: "Speichern",
-    trackEditorReset: "Zurucksetzen",
-    trackEditorCancel: "Abbrechen",
-    actionAddClipboard: "Zur Zwischenablage",
-    actionAddTanda: "Zur Tanda",
-    colStatus: "Status",
-    tabLibrary: "Bibliothek",
-    tabDiagnostics: "Diagnose",
-    tabSystem: "System",
-    tabOrchestras: "Orchester",
-    tabPlaylistSettings: "Liste",
-    tabDisplayBoard: "Anzeige",
-    libraryRoots: "Bibliotheksordner",
-    libraryRootsHelp: "Musik- und Cortina-Ordner konfigurieren.",
-    addMusicFolder: "Musikordner hinzufugen",
-    addCortinaFolder: "Cortina-Ordner hinzufugen",
-    addBackgroundFolder: "Hintergrundordner hinzufugen",
-    scanLibrary: "Bibliothek scannen",
-    scanMusic: "Musik scannen",
-    scanCortinas: "Cortinas scannen",
-    system: "System",
-    systemGroupLanguage: "Sprache",
-    systemGroupOutputs: "Ausgange",
-    systemGroupStyles: "Stile",
-    systemGroupSearch: "Suche / Bewertung",
-    systemGroupCollections: "Sammlungen",
-    systemGroupCounts: "Anzahlen",
-    systemGroupDynamics: "Kompressor / Limiter",
-    systemGroupData: "Daten",
-    mainOutput: "Hauptausgang",
-    headphoneOutput: "Kopfhorer",
-    language: "Sprache",
-    languageHelp: "Sprache beeinflusst Labels und Format.",
-    styleManagerLabel: "Stile",
-    styleAdd: "Hinzufugen",
-    styleRemove: "Entfernen",
-    styleRemoveLabel: "Stil entfernen: {style}",
-    styleEmpty: "Keine Stile.",
-    styleNone: "Keine",
-    defaultStyleTango: "Tango",
-    defaultStyleWaltz: "Walzer",
-    defaultStyleMilonga: "Milonga",
-    defaultTandaSize: "Tanda-Grosse",
-    clipboardNewLimitLabel: "Neue Sammlungsgröße",
-    displayBackgroundInterval: "Hintergrundwechsel Anzeige (s)",
-    displayUseImages: "Hintergrundbilder auf Anzeige verwenden",
-    displayImageDimLabel: "Anzeige-Bild abdunkeln (%)",
-    displayBaseFontSizeLabel: "Basis-Schriftgroesse Anzeige (%)",
-    displayBaseFontSizeHelp: "Skaliert den Anzeigetext fur bessere Lesbarkeit aus der Distanz.",
-    displayCortinaFontSizeLabel: "Cortina-Schriftgroesse Anzeige (%)",
-    displayCortinaFontSizeHelp: "Skaliert die Cortina-Uberschrift getrennt.",
-    displayEdgePaddingLabel: "Display-Randabstand (vmin)",
-    displayEdgePaddingHelp: "Fuegt Abstand zwischen Text und Bildschirmrand hinzu.",
-    searchMinScoreLabel: "Minimale Suchbewertung",
-    searchBpmRangeLabel: "BPM-Bereich",
-    trimPaddingLabel: "Trim-Puffer (s)",
-    trimPaddingHelp:
-      "Reduziert automatisch erkannte Start/End-Trims um diesen Wert.",
-    playlistSettingsTitle: "Playlist-Einstellungen",
-    playlistStartTimeLabel: "Playlist-Startzeit",
-    playlistEndTimeLabel: "Geplante Playlist-Endzeit",
-    playlistSequenceLabel: "Tanda-Sequenz",
-    playlistSequencePlaceholder: "3t 3t 3w",
-    playlistStyleMapLabel: "Stil-Zuordnung",
-    playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
-    scanIssues: "Scan-Probleme",
-    scanIssuesHelp: "Aktuelle Probleme und Dateien.",
-    scanIssuesMore: "...und {count} weitere",
-    viewScanIssues: "Probleme anzeigen",
-    diagnosticsPaths: "Pfade",
-    diagnosticsPathsUserData: "Benutzerdaten",
-    diagnosticsPathsWaveforms: "Wellenformen",
-    diagnosticsPathsFfmpeg: "ffmpeg",
-    diagnosticsPathsFfprobe: "ffprobe",
-    diagnosticsWaveform: "Wellenform",
-    diagnosticsWaveformRun: "Wellenform fur aktuellen Track erzeugen",
-    diagnosticsWaveformNoTrack: "Kein Track wird abgespielt.",
-    diagnosticsWaveformSuccess: "Wellenform erzeugt: {path}",
-    diagnosticsWaveformFailed: "Wellenform fehlgeschlagen: {message}",
-    diagnosticsDataReadiness: "Datenbereitschaft",
-    diagnosticsReadinessTotalTracks: "Tracks",
-    diagnosticsReadinessMissingDuration: "Fehlende Dauer",
-    diagnosticsReadinessMissingLoudness: "Fehlende Lautheit+Gain",
-    diagnosticsReadinessMissingTrimSignals: "Keine Trim-Signale",
-    diagnosticsReadinessAnalysisErrors: "Analysefehler",
-    diagnosticsReadinessMissingWaveforms: "Fehlende Wellenformen",
-    eraseDatabase: "Datenbank loschen",
-    confirmEraseDatabase:
-      "Dadurch werden Bibliotheksscan, Tandas, Playlists und Einstellungen in dieser App dauerhaft geloscht. Ordner konnen danach erneut importiert werden, diese Aktion ist jedoch nicht ruckgangig zu machen.",
-    statusIssue: "Problem",
-    statusOk: "OK",
-    statusPreparingScan: "Scan vorbereiten...",
-    statusScanInProgress: "Scan lauft bereits.",
-    statusScanning: "Scanne...",
-    statusScanProgress: "Scan {current}/{total} ({root})",
-    statusScanProgressWithFile: "Scan {current}/{total} ({root}) - {file}",
-    statusScanComplete:
-      "Scan fertig. Gescant {scanned}, hinzugefugt {added}, aktualisiert {updated}, entfernt {removed}.",
-    statusScanIssues: "Scan fertig. {count} Probleme.",
-    statusScanFailed: "Scan fehlgeschlagen.",
-    statusScanFailedDetail: "Scan fehlgeschlagen: {message}",
-    statusScanFailedNoResponse: "Scan fehlgeschlagen: keine Antwort.",
-    statusFullscreenUnavailable: "Vollbild nicht verfuegbar.",
-    statusFullscreenFailed: "Vollbild fehlgeschlagen.",
-    statusFullscreenFailedDetail: "Vollbild fehlgeschlagen: {message}",
-    statusMainProcess: "Hauptprozess: {message}",
-    statusNoApi: "API-Bruecke nicht verfuegbar.",
-    statusUnknownError: "Unbekannter Fehler.",
-    statusRendererError: "Ein Fehler ist aufgetreten. Details gespeichert.",
-    statusLanguageSet: "Sprache gesetzt: {language}.",
-    statusAddedMusic: "Musikordner hinzugefugt: {path}.",
-    statusAddedCortina: "Cortina-Ordner hinzugefugt: {path}.",
-    statusAddedBackground: "Hintergrundordner hinzugefugt: {path}.",
-    statusDatabaseErased: "Datenbank geloscht. Ordner hinzufugen.",
-    statusNoRoots:
-      "Keine Musikordner konfiguriert. Bitte in Einstellungen hinzufugen.",
-    statusDataLocationChanged:
-      "Datenspeicherort auf {path} gesetzt. Datenbank zuruckgesetzt.",
-    statusDataLocationDuringPlayback:
-      "Wiedergabe stoppen, bevor der Datenspeicherort geandert wird.",
-    legacyImportDetected:
-      "Legacy-Dateien in {path} erkannt. Tandas und Metadaten importieren?",
-    statusLegacyImportDone:
-      "{tandas} Tandas importiert. {tracks} Titel aktualisiert. {missing} fehlen.",
-    statusMissingRoots:
-      "Einige Ordner sind nicht verfugbar. Laufwerk verbinden.",
-    statusTandaSaved: "Tanda gespeichert.",
-    statusTandaDeleted: "Tanda geloscht.",
-    statusTandaSentToClipboard: "Tanda zur Zwischenablage gesendet.",
-    statusNoTandaSelected: "Bitte eine Tanda auswahlen.",
-    statusTrackUpdated: "Track aktualisiert.",
-    statusTrackUpdateFailed: "Aktualisierung fehlgeschlagen.",
-    statusClipboardReadonlyRemove:
-      "Element gehort zu einer eingeblendeten Sammlung. Bitte aktive Sammlung wechseln.",
-    statusClipboardCollectionLast: "Mindestens eine Sammlung ist erforderlich.",
-    statusClipboardCollectionProtected:
-      "Diese Sammlung ist systemverwaltet und kann nicht entfernt werden.",
-    statusClipboardCollectionReadOnly:
-      "Diese Sammlung ist schreibgeschutzt. Wechseln Sie zum Hinzufugen.",
-    statusPlaylistSequenceMismatch:
-      "Slot erwartet {rule}. Diese Tanda ist {tanda}.",
-    confirmPlaylistSequenceOverride:
-      "Dieser Slot erwartet {expected} Titel ({rule}). Diese Tanda hat {count}. Trotzdem verwenden?",
-    confirmPlaylistSequenceStyleOverride:
-      "Slot erwartet {rule}. Diese Tanda ist {tanda}. Trotzdem hinzufugen?",
-    allowOverride: "Zulassen",
-    dismissWarning: "Schliessen",
-    playlistMismatchTooltip: "Slot erwartet {rule}. Diese Tanda ist {tanda}.",
-    statusStyleAdded: "Stil hinzugefugt: {style}.",
-    statusStyleAddFailed: "Stil konnte nicht hinzugefugt werden.",
-    statusTandaLocked: "Diese Tanda ist im Live-Modus gesperrt.",
-    statusWaveformLoading: "Wellenform wird erstellt...",
-    statusWaveformUnavailable: "Wellenform fur diesen Titel nicht verfugbar.",
-    statusPlaylistLocked: "Dieser Playlist-Slot ist im Live-Modus gesperrt.",
-    statusPlaylistNoEmptySlot: "Fugen Sie einen leeren Slot hinzu, bevor Sie zur Playlist hinzufugen.",
-    statusClipboardCleared: "Zwischenablage-Sammlungen aktualisiert.",
-    statusPlaylistCleared: "Playlist geleert.",
-    statusPlaylistAutofillRunning: "Playlist wird aufgebaut, bitte warten...",
-    statusPlaylistAutofillDone:
-      "Automatisches Fuellen abgeschlossen: {count} Tanda(s), Ende ca. {time}.",
-    statusPlaylistAutofillPartial:
-      "Automatisches Fuellen nach {count} Tanda(s) gestoppt: keine passenden Kandidaten.",
-    confirmPlaylistClear: "Playlist leeren und alle Elemente entfernen?",
-    confirmDiscardTrackEdits: "Ungespeicherte Track-Anderungen verwerfen?",
-    playlistClearTitle: "Playlist-Leeren Optionen",
-    playlistClearOnly: "Playlist leeren",
-    playlistClearAutofill: "Leeren und automatisch fuellen",
-    outputSelectionFailed: "Auswahl fehlgeschlagen.",
-    outputSelectionFailedDetail: "Auswahl fehlgeschlagen: {message}",
-    statusDspBypassedOutput:
-      "Dynamik-DSP wird bei nicht standardmaessigen Ausgaengen umgangen. Fuer Kompression Standardausgabe verwenden.",
-    playbackFailed: "Wiedergabe fehlgeschlagen.",
-    playbackFailedDetail: "Wiedergabe fehlgeschlagen: {message}",
-    outputDefault: "Standardausgang",
-    outputSelectHeadphones: "Kopfhorerausgang wahlen",
-    outputNoSecondary: "Keine zweite Ausgabe",
-    gapBetweenTracks: "Pause zwischen Titeln (s)",
-    gapBeforeTanda: "Pause vor Tanda (s)",
-    gapBeforeCortina: "Pause vor Cortina (s)",
-    cortinaSetLabel: "Cortina-Set",
-    cortinaDefaultSet: "Standard",
-    cortinaAny: "Alle",
-    cortinaNone: "Keine",
-    cortinaDurationLabel: "Cortina-Dauer (s)",
-    cortinaRowLabel: "Cortina",
-    cortinaRowHint: "Zum Auswahlen klicken",
-    cortinaStopLabel: "Cortina stoppen",
-    cortinaPlayLabel: "Cortina abspielen",
-    statusCortinaSelected: "Cortina gewahlt: {title}.",
-    statusCortinaLocked: "Diese Cortina wurde bereits gespielt und kann nicht geandert werden.",
-    stopFade: "Stop-Ausblenden (s)",
-    cortinaLevelPercentLabel: "Cortina-Lautstaerke (% vom Hauptausgang)",
-    audioDspEnabledLabel: "Echtzeit-Dynamik-DSP aktivieren",
-    audioDynamicsPresetLabel: "Dynamik-Voreinstellung",
-    audioDynamicsPresetOff: "Aus",
-    audioDynamicsPresetGentle: "Sanft",
-    audioDynamicsPresetBalanced: "Ausgewogen",
-    audioDynamicsPresetStrong: "Stark",
-    audioDynamicsPresetCustom: "Benutzerdefiniert",
-    audioDynamicsThresholdLabel: "Kompressor-Schwelle (dB)",
-    audioDynamicsRatioLabel: "Kompressor-Verhaeltnis",
-    audioDynamicsMakeupLabel: "Makeup-Gain (dB)",
-    audioDynamicsLimiterLabel: "Limiter-Grenze (dB)",
-    audioLiveBoostLabel: "Live-Verstaerkung",
-    addTanda: "Tanda hinzufugen",
-    tandaNameLabel: "Tanda-Name",
-    tandaStylesLabel: "Stile",
-    tandaRatingLabel: "Bewertung",
-    tandaInstrumentalLabel: "Instrumental",
-    tandaInstrumentalYes: "Ja",
-    tandaInstrumentalNo: "Nein",
-    tandaDurationLabel: "Dauer",
-    tandaTrackCountLabel: "Titel",
-    tandaAnyStyle: "Alle",
-    tandaPlaceholder: "Leerer Slot",
-    tandaUnknownArtist: "Unbekannter Artist",
-    tandaUnknownYear: "Unbekanntes Jahr",
-    tandaNonInstrumental: "Gesungen",
-    tandaMixedLabel: "Gemischt",
-    tandaSave: "Tanda speichern",
-    tandaDone: "Schliessen",
-    tandaDelete: "Tanda loschen",
-    tandaAddSlot: "Slot hinzufugen",
-    tandaToClipboard: "Zur Zwischenablage",
-    tandaRemoveTrack: "Zur Zwischenablage",
-    tandaMoveUp: "Nach oben",
-    tandaMoveDown: "Nach unten",
-    tandaRemoveTrackShort: "C",
-    tandaMoveUpShort: "^",
-    tandaMoveDownShort: "v",
-    confirmTandaTooSmall:
-      "Diese Tanda hat {count} Titel (min {min}). Trotzdem speichern?",
-    confirmDeleteTanda: "Tanda loschen?",
-    rootAvailable: "Verfugbar",
-    rootMissing: "Fehlt",
-    rootMusic: "Musik",
-    rootCortina: "Cortina",
-    rootBackground: "Hintergrund",
-    displayPlayingTrack: "Spiele Track {index} von {count}",
-    displayThisTanda: "Diese tanda: {style}",
-    displayNextTanda: "Naechste Tanda: {style}",
-    displayThisIsLastTanda: "Das ist die letzte Tanda",
-    displayNoMoreTandas: "Das war's, Leute",
-    lang_en: "Englisch",
-    lang_es: "Spanisch",
-    lang_fr: "Franzoesisch",
-    lang_de: "Deutsch",
-    lang_pt: "Portugiesisch",
-    lang_it: "Italienisch",
-  },
-  pt: {
-    appTitle: "Tanda Player Lite",
-    closeApp: "Fechar app",
-    playlistStart: "Iniciar",
-    playlistResume: "Retomar",
-    playlistStop: "Parar",
-    searchTitle: "Busca",
-    searchPlaceholder: "Buscar faixas ou tandas",
-    searchButton: "Buscar",
-    styleLabel: "Estilos",
-    searchTandaSizeLabel: "Tamanho tanda",
-    searchTandaSizeAny: "Qualquer",
-    styleAll: "Todos",
-    tabTracks: "Faixas",
-    tabTandas: "Tandas",
-    tabPlaylist: "Lista",
-    tabTandaDesigner: "Designer de tandas",
-    clipboardTitle: "Area de transferencia",
-    clipboardCollectionsLabel: "Colecoes",
-    clipboardCollectionPlaceholder: "Nova colecao",
-    clipboardCollectionAdd: "Adicionar",
-    clipboardCollectionInclude: "Incluir",
-    clipboardCollectionGeneral: "Geral",
-    clipboardCollectionNew: "Novos",
-    clipboardCollectionTop: "Mais",
-    clipboardCollectionLeast: "Menos",
-    clipboardCollectionAvailable: "Disponiveis",
-    clipboardFilterPlaceholder: "Filtrar",
-    confirmClipboardCollectionRemove: "Remover a colecao \"{name}\"?",
-    clipboardClear: "Limpar",
-    clipboardClearTitle: "Limpar colecoes da area de transferencia",
-    clipboardClearConfirm: "Limpar selecionadas",
-    clipboardClearRemoveEmpty: "Remover colecoes vazias (exceto Geral/Novos)",
-    playlistTitle: "Lista",
-    playlistHint:
-      "Use o menu da tanda para marcar um slot da playlist para substituicao e depois escolha faixa/tanda no Bloco ou na Busca. Sem slot marcado, os envios vao para o primeiro slot livre.",
-    playlistCurrentIsLast: "A tanda atual e a ultima tanda",
-    playlistClear: "Limpar",
-    tandasEmpty: "Tandas em breve.",
-    playlistEmptySlot: "Tanda vazia",
-    playlistEmptyHint: "Solte a faixa aqui",
-    headphonePreview: "Prévia nos fones",
-    searchResultsCount: "Resultados: {count}",
-    modeLabel: "Modo",
-    modePrep: "Preparacao",
-    modeLive: "Ao vivo",
-    modeEdit: "Editar",
-    toggleTheme: "Alternar tema",
-    toggleFullscreen: "Tela cheia",
-    openSettings: "Abrir ajustes",
-    openDisplay: "Abrir tela externa",
-    settings: "Ajustes",
-    dataLocationLabel: "Local dos dados",
-    dataLocationChoose: "Escolher…",
-    dataLocationHelp:
-      "Os dados sao armazenados em uma pasta _tp_data no local selecionado.",
-    legacyImportTitle: "Importacao legada",
-    legacyImportButton: "Importar tandas legadas",
-    legacyReadinessButton: "Verificar prontidao da biblioteca",
-    legacyReadinessRunning: "Executando verificacoes...",
-    legacyReadinessPass: "Verificacao concluida com sucesso.",
-    legacyReadinessWarn: "Pronta para reproducao com avisos.",
-    legacyReadinessFail: "A verificacao falhou.",
-    legacyReadinessSummary:
-      "{status} Faixas {total}; duracao ausente {missingDuration}; loudness+ganho ausentes {missingLoudness}; sem sinais de trim {missingTrimSignals}; erros de analise {analysisErrors}; formas de onda ausentes {missingWaveforms}.",
-    close: "Fechar",
-    idle: "Inativo",
-    starting: "Iniciando...",
-    nowPlayingLabel: "Tocando",
-    nowPlayingIdle: "Em espera",
-    nowPlayingMain: "Saida principal",
-    nowPlayingHeadphone: "Fones",
-    nowPlayingUnknown: "Faixa desconhecida",
-    nowPlayingTime: "{current} / {duration}",
-    waveformLabel: "Forma de onda",
-    outputWaveformLabel: "Forma de saida",
-    waveformLoading: "Gerando forma de onda...",
-    waveformUnavailable: "Forma de onda indisponivel",
-    cortinaPickerTitle: "Seletor de cortinas",
-    cortinaSearchLabel: "Buscar",
-    confirmCloseWhilePlaying:
-      "A musica ainda esta tocando. Fechar o app e parar a reproducao?",
-    confirmDataLocationChange:
-      "Mudar local dos dados para {path}? Isso inicia um banco novo.",
-    confirmLegacyImport:
-      "Importar tandas de {path}? Isso substitui tandas existentes e aplica metadados.",
-    actionAddClipboardShort: "C",
-    actionAddTandaShort: "T",
-    actionRemoveClipboard: "Remover do bloco",
-    actionRemoveClipboardShort: "R",
-    actionRemovePlaylist: "Remover da playlist",
-    actionRemovePlaylistShort: "R",
-    actionAddPlaylist: "Adicionar a playlist",
-    actionAddPlaylistShort: "P",
-    actionMarkPlaylist: "Marcar alvo da playlist",
-    actionMarkPlaylistShort: "M",
-    actionMarkPlaylistTrack: "Marcar alvo da faixa",
-    actionMarkPlaylistTrackShort: "M",
-    cancelTarget: "Cancelar alvo",
-    cancel: "Cancelar",
-    confirmOk: "OK",
-    actionSearch: "Buscar similares",
-    actionSearchShort: "S",
-    actionMore: "Mais acoes",
-    actionSendClipboard: "Enviar ao bloco",
-    actionSendClipboardShort: "C",
-    duplicateFull: "Na playlist",
-    duplicatePartial: "Sobreposicao parcial na playlist",
-    duplicateJumpHint: "Clique para localizar o duplicado na playlist",
-    duplicateReasonWholeTanda: "A tanda completa ja existe na playlist.",
-    duplicateReasonTrack: "Faixa na playlist: {track}",
-    duplicateReasonTracks: "Faixas na playlist: {tracks}",
-    actionEditTrack: "Editar faixa",
-    actionEditTrackShort: "E",
-    actionToggleTanda: "Expandir tanda",
-    actionToggleTandaShort: "E",
-    actionEditTanda: "Editar tanda",
-    actionEditTandaShort: "T",
-    colTrack: "Faixa",
-    colTitle: "Titulo",
-    colArtist: "Artista",
-    colAlbum: "Album",
-    colYear: "Ano",
-    colActions: "Acoes",
-    colDuration: "Duracao",
-    colStart: "Inicio",
-    colEndTrim: "Fim",
-    trackEditorTitle: "Editar faixa",
-    trackEditorTitleLabel: "Titulo",
-    trackEditorArtistLabel: "Artista",
-    trackEditorSingerLabel: "Cantor",
-    trackEditorVocalLabel: "Voz",
-    trackEditorVocalSung: "Cantado",
-    trackEditorVocalInstrumental: "Instrumental",
-    trackEditorAlbumLabel: "Album",
-    trackEditorYearLabel: "Ano",
-    trackEditorGenreLabel: "Estilo",
-    trackEditorNotesLabel: "Notas",
-    trackEditorBpmLabel: "BPM",
-    trackEditorTapTempo: "Tap tempo",
-    trackEditorTapHint: "Toque para BPM · Aguarde 3 segundos para reiniciar",
-    trackEditorSave: "Salvar",
-    trackEditorReset: "Reiniciar",
-    trackEditorCancel: "Cancelar",
-    actionAddClipboard: "Adicionar ao bloco",
-    actionAddTanda: "Adicionar a tanda",
-    colStatus: "Status",
-    tabLibrary: "Biblioteca",
-    tabDiagnostics: "Diagnostico",
-    tabSystem: "Sistema",
-    tabOrchestras: "Orquestras",
-    tabPlaylistSettings: "Lista",
-    tabDisplayBoard: "Tela",
-    libraryRoots: "Pastas da biblioteca",
-    libraryRootsHelp: "Configure pastas de musica e cortinas.",
-    addMusicFolder: "Adicionar musica",
-    addCortinaFolder: "Adicionar cortinas",
-    addBackgroundFolder: "Adicionar fundos",
-    scanLibrary: "Escanear biblioteca",
-    system: "Sistema",
-    systemGroupLanguage: "Idioma",
-    systemGroupOutputs: "Saidas",
-    systemGroupStyles: "Estilos",
-    systemGroupSearch: "Pesquisa / pontuacao",
-    systemGroupCollections: "Colecoes",
-    systemGroupCounts: "Contagens",
-    systemGroupDynamics: "Compressor / limitador",
-    systemGroupData: "Dados",
-    mainOutput: "Saida principal",
-    headphoneOutput: "Saida de fone",
-    language: "Idioma",
-    languageHelp: "Idioma afeta rotulos e formato.",
-    styleManagerLabel: "Estilos",
-    styleAdd: "Adicionar",
-    styleRemove: "Remover",
-    styleRemoveLabel: "Remover estilo: {style}",
-    styleEmpty: "Sem estilos.",
-    styleNone: "Nenhum",
-    defaultStyleTango: "Tango",
-    defaultStyleWaltz: "Valsa",
-    defaultStyleMilonga: "Milonga",
-    defaultTandaSize: "Tamanho da tanda",
-    clipboardNewLimitLabel: "Tamanho da colecao nova",
-    displayBackgroundInterval: "Rotacao de fundos na tela (s)",
-    displayUseImages: "Usar imagens de fundo na tela",
-    displayImageDimLabel: "Escurecer imagem da tela (%)",
-    displayBaseFontSizeLabel: "Tamanho base da fonte na tela (%)",
-    displayBaseFontSizeHelp: "Escala o texto da tela para melhor leitura a distancia.",
-    displayCortinaFontSizeLabel: "Tamanho da fonte cortina na tela (%)",
-    displayCortinaFontSizeHelp: "Escala separadamente o titulo de cortina.",
-    displayEdgePaddingLabel: "Espacamento da borda na tela (vmin)",
-    displayEdgePaddingHelp: "Adiciona espaco entre o texto e as bordas da tela.",
-    searchMinScoreLabel: "Pontuacao minima de busca",
-    searchBpmRangeLabel: "Intervalo de BPM",
-    trimPaddingLabel: "Ajuste de corte (s)",
-    trimPaddingHelp:
-      "Reduz os cortes de inicio/fim detectados automaticamente.",
-    playlistSettingsTitle: "Ajustes da playlist",
-    playlistStartTimeLabel: "Hora de inicio da playlist",
-    playlistEndTimeLabel: "Hora prevista de fim da playlist",
-    playlistSequenceLabel: "Sequencia de tandas",
-    playlistSequencePlaceholder: "3t 3t 3w",
-    playlistStyleMapLabel: "Mapa de estilos",
-    playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
-    scanIssues: "Problemas de scan",
-    scanIssuesHelp: "Problemas recentes e arquivos pendentes.",
-    scanIssuesMore: "...e mais {count}",
-    viewScanIssues: "Ver problemas",
-    diagnosticsPaths: "Caminhos",
-    diagnosticsPathsUserData: "Dados do usuario",
-    diagnosticsPathsWaveforms: "Formas de onda",
-    diagnosticsPathsFfmpeg: "ffmpeg",
-    diagnosticsPathsFfprobe: "ffprobe",
-    diagnosticsWaveform: "Forma de onda",
-    diagnosticsWaveformRun: "Gerar forma de onda da faixa atual",
-    diagnosticsWaveformNoTrack: "Nenhuma faixa em reproducao.",
-    diagnosticsWaveformSuccess: "Forma de onda gerada: {path}",
-    diagnosticsWaveformFailed: "Falha na forma de onda: {message}",
-    diagnosticsDataReadiness: "Prontidao de dados",
-    diagnosticsReadinessTotalTracks: "Faixas",
-    diagnosticsReadinessMissingDuration: "Duracao ausente",
-    diagnosticsReadinessMissingLoudness: "Loudness+ganho ausentes",
-    diagnosticsReadinessMissingTrimSignals: "Sem sinais de trim",
-    diagnosticsReadinessAnalysisErrors: "Erros de analise",
-    diagnosticsReadinessMissingWaveforms: "Formas de onda ausentes",
-    eraseDatabase: "Apagar base",
-    confirmEraseDatabase:
-      "Isto apagará permanentemente a varredura da biblioteca, tandas, playlists e configuracoes guardadas nesta app. Pode reimportar pastas depois, mas esta acao nao pode ser desfeita.",
-    statusIssue: "Problema",
-    statusOk: "OK",
-    statusPreparingScan: "Preparando scan...",
-    statusScanInProgress: "O scan ja esta em andamento.",
-    statusScanning: "Escaneando...",
-    statusScanProgress: "Scan {current}/{total} ({root})",
-    statusScanProgressWithFile: "Scan {current}/{total} ({root}) - {file}",
-    statusScanComplete:
-      "Scan completo. Escaneados {scanned}, adicionados {added}, atualizados {updated}, removidos {removed}.",
-    statusScanIssues: "Scan completo. {count} problemas.",
-    statusScanFailed: "Falha no scan.",
-    statusScanFailedDetail: "Falha no scan: {message}",
-    statusScanFailedNoResponse: "Falha no scan: sem resposta.",
-    statusFullscreenUnavailable: "Tela cheia indisponivel.",
-    statusFullscreenFailed: "Falha ao alternar tela cheia.",
-    statusFullscreenFailedDetail: "Falha ao alternar tela cheia: {message}",
-    statusMainProcess: "Processo principal: {message}",
-    statusNoApi: "Ponte de API indisponivel.",
-    statusUnknownError: "Erro desconhecido.",
-    statusRendererError: "Ocorreu um problema. Detalhes registrados.",
-    statusLanguageSet: "Idioma definido: {language}.",
-    statusAddedMusic: "Musica adicionada: {path}.",
-    statusAddedCortina: "Cortina adicionada: {path}.",
-    statusAddedBackground: "Fundos adicionados: {path}.",
-    statusDatabaseErased: "Base apagada. Adicione pastas.",
-    statusNoRoots:
-      "Nenhuma pasta de musica configurada. Adicione uma pasta em Ajustes.",
-    statusDataLocationChanged:
-      "Local dos dados definido para {path}. Base reiniciada.",
-    statusDataLocationDuringPlayback:
-      "Pare a reproducao antes de mudar o local dos dados.",
-    legacyImportDetected:
-      "Arquivos legados detectados em {path}. Importar tandas e metadados?",
-    statusLegacyImportDone:
-      "Importadas {tandas} tandas. Atualizadas {tracks} faixas. Faltam {missing} faixas.",
-    statusMissingRoots:
-      "Algumas pastas nao estao disponiveis. Conecte a unidade.",
-    statusTandaSaved: "Tanda salva.",
-    statusTandaDeleted: "Tanda apagada.",
-    statusTandaSentToClipboard: "Tanda enviada ao bloco.",
-    statusNoTandaSelected: "Selecione uma tanda para adicionar faixas.",
-    statusTrackUpdated: "Faixa atualizada.",
-    statusTrackUpdateFailed: "Falha ao atualizar faixa.",
-    statusClipboardReadonlyRemove:
-      "O item pertence a uma colecao incluida. Troque a colecao ativa para remover.",
-    statusClipboardCollectionLast: "Pelo menos uma colecao e necessaria.",
-    statusClipboardCollectionProtected:
-      "Esta colecao e do sistema e nao pode ser removida.",
-    statusClipboardCollectionReadOnly:
-      "Esta colecao e somente leitura. Troque para adicionar itens.",
-    statusPlaylistSequenceMismatch:
-      "Este slot espera {rule}. Esta tanda e {tanda}.",
-    confirmPlaylistSequenceOverride:
-      "Este slot espera {expected} faixas ({rule}). Esta tanda tem {count}. Usar mesmo assim?",
-    confirmPlaylistSequenceStyleOverride:
-      "Este slot espera {rule}. Esta tanda e {tanda}. Adicionar mesmo assim?",
-    allowOverride: "Permitir",
-    dismissWarning: "Fechar",
-    playlistMismatchTooltip: "Este slot espera {rule}. Esta tanda e {tanda}.",
-    statusStyleAdded: "Estilo adicionado: {style}.",
-    statusStyleAddFailed: "Nao foi possivel adicionar o estilo.",
-    statusTandaLocked: "Esta tanda esta bloqueada durante a reproducao.",
-    statusWaveformLoading: "Gerando forma de onda...",
-    statusWaveformUnavailable: "Forma de onda indisponivel para esta faixa.",
-    statusPlaylistLocked: "Este slot esta bloqueado durante a reproducao.",
-    statusPlaylistNoEmptySlot: "Adicione um slot vazio antes de adicionar a playlist.",
-    statusClipboardCleared: "Colecoes da area de transferencia atualizadas.",
-    statusPlaylistCleared: "Playlist limpa.",
-    statusPlaylistAutofillRunning: "Montando playlist, aguarde por favor...",
-    statusPlaylistAutofillDone:
-      "Preenchimento automatico concluido: {count} tanda(s), termina por volta de {time}.",
-    statusPlaylistAutofillPartial:
-      "Preenchimento automatico interrompido apos {count} tanda(s): sem candidatos adequados.",
-    confirmPlaylistClear: "Limpar a playlist e remover todos os itens?",
-    confirmDiscardTrackEdits: "Descartar edicoes nao salvas da faixa?",
-    playlistClearTitle: "Opcoes de limpeza da playlist",
-    playlistClearOnly: "Limpar playlist",
-    playlistClearAutofill: "Limpar e preencher automaticamente",
-    outputSelectionFailed: "Falha ao selecionar saida.",
-    outputSelectionFailedDetail: "Falha ao selecionar saida: {message}",
-    statusDspBypassedOutput:
-      "O DSP de dinamica e ignorado para saidas nao padrao. Use Saida padrao para ouvir compressao.",
-    playbackFailed: "Falha na reproducao.",
-    playbackFailedDetail: "Falha na reproducao: {message}",
-    outputDefault: "Saida padrao",
-    outputSelectHeadphones: "Selecionar saida de fone",
-    outputNoSecondary: "Sem saida secundaria",
-    gapBetweenTracks: "Pausa entre faixas (s)",
-    gapBeforeTanda: "Pausa antes da tanda (s)",
-    gapBeforeCortina: "Pausa antes da cortina (s)",
-    cortinaSetLabel: "Set de cortinas",
-    cortinaDefaultSet: "Padrao",
-    cortinaAny: "Todas",
-    cortinaNone: "Nenhuma",
-    cortinaDurationLabel: "Duracao da cortina (s)",
-    cortinaRowLabel: "Cortina",
-    cortinaRowHint: "Clique para escolher uma cortina",
-    cortinaStopLabel: "Parar cortina",
-    cortinaPlayLabel: "Tocar cortina",
-    statusCortinaSelected: "Cortina selecionada: {title}.",
-    statusCortinaLocked: "Esta cortina ja tocou e nao pode ser alterada.",
-    stopFade: "Desvanecer ao parar (s)",
-    cortinaLevelPercentLabel: "Nivel da cortina (% da saida principal)",
-    audioDspEnabledLabel: "Ativar DSP de dinamica em tempo real",
-    audioDynamicsPresetLabel: "Predefinicao de dinamica",
-    audioDynamicsPresetOff: "Desligado",
-    audioDynamicsPresetGentle: "Suave",
-    audioDynamicsPresetBalanced: "Equilibrado",
-    audioDynamicsPresetStrong: "Forte",
-    audioDynamicsPresetCustom: "Personalizado",
-    audioDynamicsThresholdLabel: "Limiar do compressor (dB)",
-    audioDynamicsRatioLabel: "Razao do compressor",
-    audioDynamicsMakeupLabel: "Ganho de compensacao (dB)",
-    audioDynamicsLimiterLabel: "Teto do limitador (dB)",
-    audioLiveBoostLabel: "Reforco ao vivo",
-    addTanda: "Adicionar tanda",
-    tandaNameLabel: "Nome da tanda",
-    tandaStylesLabel: "Estilos",
-    tandaRatingLabel: "Nota",
-    tandaInstrumentalLabel: "Instrumental",
-    tandaInstrumentalYes: "Sim",
-    tandaInstrumentalNo: "Nao",
-    tandaDurationLabel: "Duracao",
-    tandaTrackCountLabel: "Faixas",
-    tandaAnyStyle: "Qualquer",
-    tandaPlaceholder: "Espaco vazio",
-    tandaUnknownArtist: "Artista desconhecido",
-    tandaUnknownYear: "Ano desconhecido",
-    tandaNonInstrumental: "Cantado",
-    tandaMixedLabel: "Misto",
-    tandaSave: "Salvar tanda",
-    tandaDone: "Fechar",
-    tandaDelete: "Excluir tanda",
-    tandaAddSlot: "Adicionar slot",
-    tandaToClipboard: "Enviar ao bloco",
-    tandaRemoveTrack: "Enviar ao bloco",
-    tandaMoveUp: "Subir",
-    tandaMoveDown: "Descer",
-    tandaRemoveTrackShort: "C",
-    tandaMoveUpShort: "^",
-    tandaMoveDownShort: "v",
-    confirmTandaTooSmall:
-      "Esta tanda tem {count} faixas (min {min}). Salvar mesmo assim?",
-    confirmDeleteTanda: "Excluir esta tanda?",
-    rootAvailable: "Disponivel",
-    rootMissing: "Indisponivel",
-    rootMusic: "Musica",
-    rootCortina: "Cortina",
-    rootBackground: "Fundo",
-    displayPlayingTrack: "Tocando faixa {index} de {count}",
-    displayThisTanda: "Esta tanda: {style}",
-    displayNextTanda: "Proxima tanda: {style}",
-    displayThisIsLastTanda: "Esta e a ultima tanda",
-    displayNoMoreTandas: "E isso, pessoal",
-    lang_en: "Ingles",
-    lang_es: "Espanhol",
-    lang_fr: "Frances",
-    lang_de: "Alemao",
-    lang_pt: "Portugues",
-    lang_it: "Italiano",
-  },
-  it: {
-    appTitle: "Tanda Player Lite",
-    closeApp: "Chiudi app",
-    playlistStart: "Avvia",
-    playlistResume: "Riprendi",
-    playlistStop: "Stop",
-    searchTitle: "Cerca",
-    searchPlaceholder: "Cerca brani o tandas",
-    searchButton: "Cerca",
-    styleLabel: "Stili",
-    searchTandaSizeLabel: "Dimensione tanda",
-    searchTandaSizeAny: "Qualsiasi",
-    styleAll: "Tutti",
-    tabTracks: "Brani",
-    tabTandas: "Tandas",
-    tabPlaylist: "Scaletta",
-    tabTandaDesigner: "Designer Tanda",
-    clipboardTitle: "Appunti",
-    clipboardCollectionsLabel: "Collezioni",
-    clipboardCollectionPlaceholder: "Nuova collezione",
-    clipboardCollectionAdd: "Aggiungi",
-    clipboardCollectionInclude: "Includi",
-    clipboardCollectionGeneral: "Generale",
-    clipboardCollectionNew: "Nuovo",
-    clipboardCollectionTop: "Piu",
-    clipboardCollectionLeast: "Meno",
-    clipboardCollectionAvailable: "Disponibili",
-    clipboardFilterPlaceholder: "Filtra",
-    confirmClipboardCollectionRemove: "Rimuovere la collezione \"{name}\"?",
-    clipboardClear: "Svuota",
-    clipboardClearTitle: "Svuota collezioni appunti",
-    clipboardClearConfirm: "Svuota selezionate",
-    clipboardClearRemoveEmpty: "Rimuovi collezioni vuote (tranne Generale/Nuovo)",
-    playlistTitle: "Scaletta",
-    playlistHint:
-      "Usa il menu della tanda per segnare uno slot playlist da sostituire, poi scegli brano/tanda da Appunti o Ricerca. Senza slot segnato, gli invii vanno al primo slot libero.",
-    playlistCurrentIsLast: "La tanda corrente e l'ultima tanda",
-    playlistClear: "Svuota",
-    tandasEmpty: "Tandas in arrivo.",
-    playlistEmptySlot: "Tanda vuota",
-    playlistEmptyHint: "Trascina un brano qui",
-    headphonePreview: "Anteprima in cuffia",
-    searchResultsCount: "Risultati: {count}",
-    modeLabel: "Modalita",
-    modePrep: "Preparazione",
-    modeLive: "Live",
-    modeEdit: "Modifica",
-    toggleTheme: "Cambia tema",
-    toggleFullscreen: "Attiva/disattiva schermo intero",
-    openSettings: "Apri impostazioni",
-    openDisplay: "Apri schermo esterno",
-    settings: "Impostazioni",
-    dataLocationLabel: "Posizione dati",
-    dataLocationChoose: "Scegli…",
-    dataLocationHelp:
-      "I dati sono salvati nella cartella _tp_data nella posizione selezionata.",
-    legacyImportTitle: "Import legacy",
-    legacyImportButton: "Importa tandas legacy",
-    legacyReadinessButton: "Verifica stato libreria",
-    legacyReadinessRunning: "Verifica in corso...",
-    legacyReadinessPass: "Verifica completata con successo.",
-    legacyReadinessWarn: "Pronta alla riproduzione con avvisi.",
-    legacyReadinessFail: "Verifica non riuscita.",
-    legacyReadinessSummary:
-      "{status} Brani {total}; durata mancante {missingDuration}; loudness+gain mancanti {missingLoudness}; nessun segnale di trim {missingTrimSignals}; errori di analisi {analysisErrors}; forme d'onda mancanti {missingWaveforms}.",
-    close: "Chiudi",
-    idle: "Inattivo",
-    starting: "Avvio...",
-    nowPlayingLabel: "In riproduzione",
-    nowPlayingIdle: "Inattivo",
-    nowPlayingMain: "Uscita principale",
-    nowPlayingHeadphone: "Cuffie",
-    nowPlayingUnknown: "Brano sconosciuto",
-    nowPlayingTime: "{current} / {duration}",
-    waveformLabel: "Timeline forma d'onda",
-    outputWaveformLabel: "Forma d'onda uscita",
-    waveformLoading: "Generazione forma d'onda...",
-    waveformUnavailable: "Forma d'onda non disponibile",
-    cortinaPickerTitle: "Selettore cortina",
-    cortinaSearchLabel: "Cerca",
-    confirmCloseWhilePlaying:
-      "La musica sta suonando. Chiudere l'app e fermare la riproduzione?",
-    confirmDataLocationChange:
-      "Cambiare posizione dati in {path}? Questo crea un nuovo database.",
-    confirmLegacyImport:
-      "Importare tandas da {path}? Questo sostituisce le tandas esistenti e applica i metadati.",
-    actionAddClipboardShort: "C",
-    actionAddTandaShort: "T",
-    actionRemoveClipboard: "Rimuovi dagli appunti",
-    actionRemoveClipboardShort: "R",
-    actionRemovePlaylist: "Rimuovi dalla playlist",
-    actionRemovePlaylistShort: "R",
-    actionAddPlaylist: "Aggiungi alla playlist",
-    actionAddPlaylistShort: "P",
-    actionMarkPlaylist: "Segna obiettivo playlist",
-    actionMarkPlaylistShort: "M",
-    actionMarkPlaylistTrack: "Segna obiettivo brano",
-    actionMarkPlaylistTrackShort: "M",
-    cancelTarget: "Annulla obiettivo",
-    cancel: "Annulla",
-    confirmOk: "OK",
-    actionSearch: "Cerca simili",
-    actionSearchShort: "S",
-    actionMore: "Altre azioni",
-    actionSendClipboard: "Invia agli appunti",
-    actionSendClipboardShort: "C",
-    duplicateFull: "In playlist",
-    duplicatePartial: "Parziale sovrapposizione in playlist",
-    duplicateJumpHint: "Fai clic per trovare il duplicato nella playlist",
-    duplicateReasonWholeTanda: "La tanda completa esiste gia in playlist.",
-    duplicateReasonTrack: "Brano in playlist: {track}",
-    duplicateReasonTracks: "Brani in playlist: {tracks}",
-    actionEditTrack: "Modifica brano",
-    actionEditTrackShort: "E",
-    actionToggleTanda: "Espandi tanda",
-    actionToggleTandaShort: "E",
-    actionEditTanda: "Modifica tanda",
-    actionEditTandaShort: "T",
-    colTrack: "Brano",
-    colTitle: "Titolo",
-    colArtist: "Artista",
-    colAlbum: "Album",
-    colYear: "Anno",
-    colActions: "Azioni",
-    colDuration: "Durata",
-    colStart: "Inizio",
-    colEndTrim: "Taglio fine",
-    trackEditorTitle: "Modifica brano",
-    trackEditorTitleLabel: "Titolo",
-    trackEditorArtistLabel: "Artista",
-    trackEditorSingerLabel: "Cantante",
-    trackEditorVocalLabel: "Voce",
-    trackEditorVocalSung: "Cantato",
-    trackEditorVocalInstrumental: "Strumentale",
-    trackEditorAlbumLabel: "Album",
-    trackEditorYearLabel: "Anno",
-    trackEditorGenreLabel: "Stile",
-    trackEditorNotesLabel: "Note",
-    trackEditorBpmLabel: "BPM",
-    trackEditorTapTempo: "Tap tempo",
-    trackEditorTapHint: "Tocca per impostare BPM · Attendi 3 secondi per reset",
-    trackEditorSave: "Salva",
-    trackEditorReset: "Ripristina",
-    trackEditorCancel: "Annulla",
-    actionAddClipboard: "Aggiungi agli appunti",
-    actionAddTanda: "Aggiungi alla tanda",
-    colStatus: "Stato",
-    tabLibrary: "Libreria",
-    tabDiagnostics: "Diagnostica",
-    tabSystem: "Sistema",
-    tabOrchestras: "Orchestre",
-    tabPlaylistSettings: "Scaletta",
-    tabDisplayBoard: "Display",
-    libraryRoots: "Radici libreria",
-    libraryRootsHelp: "Configura cartelle musica e cortina per la scansione.",
-    addMusicFolder: "Aggiungi cartella musica",
-    addCortinaFolder: "Aggiungi cartella cortina",
-    addBackgroundFolder: "Aggiungi cartella sfondi",
-    scanLibrary: "Scansiona libreria",
-    scanMusic: "Scansiona musica",
-    scanCortinas: "Scansiona cortine",
-    system: "Sistema",
-    systemGroupLanguage: "Lingua",
-    systemGroupOutputs: "Uscite",
-    systemGroupStyles: "Stili",
-    systemGroupSearch: "Ricerca / punteggio",
-    systemGroupCollections: "Collezioni",
-    systemGroupCounts: "Conteggi",
-    systemGroupDynamics: "Compressore / limiter",
-    systemGroupData: "Dati",
-    mainOutput: "Uscita principale",
-    headphoneOutput: "Uscita cuffie",
-    language: "Lingua",
-    languageHelp: "La lingua influisce su etichette e formattazione.",
-    styleManagerLabel: "Stili",
-    styleAdd: "Aggiungi",
-    styleRemove: "Rimuovi",
-    styleRemoveLabel: "Rimuovi stile: {style}",
-    styleEmpty: "Nessuno stile.",
-    styleNone: "Nessuno",
-    defaultStyleTango: "Tango",
-    defaultStyleWaltz: "Valzer",
-    defaultStyleMilonga: "Milonga",
-    defaultTandaSize: "Dimensione tanda predefinita",
-    clipboardNewLimitLabel: "Dimensione nuova collezione",
-    displayBackgroundInterval: "Rotazione sfondi schermo (s)",
-    displayUseImages: "Usa immagini di sfondo sul display",
-    displayImageDimLabel: "Scurisci immagine display (%)",
-    displayBaseFontSizeLabel: "Dimensione base carattere display (%)",
-    displayBaseFontSizeHelp: "Scala il testo del display per leggibilita a distanza.",
-    displayCortinaFontSizeLabel: "Dimensione carattere cortina display (%)",
-    displayCortinaFontSizeHelp: "Scala separatamente il titolo cortina.",
-    displayEdgePaddingLabel: "Spazio bordo display (vmin)",
-    displayEdgePaddingHelp: "Aggiunge spazio tra il testo e i bordi dello schermo.",
-    searchMinScoreLabel: "Punteggio minimo ricerca",
-    searchBpmRangeLabel: "Intervallo BPM",
-    trimPaddingLabel: "Margine taglio (s)",
-    trimPaddingHelp:
-      "Riduce i tagli inizio/fine rilevati automaticamente.",
-    playlistSettingsTitle: "Impostazioni playlist",
-    playlistStartTimeLabel: "Ora inizio playlist",
-    playlistEndTimeLabel: "Ora prevista di fine playlist",
-    playlistSequenceLabel: "Sequenza tanda",
-    playlistSequencePlaceholder: "3t 3t 3w",
-    playlistStyleMapLabel: "Mappa stili",
-    playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
-    scanIssues: "Problemi di scansione",
-    scanIssuesHelp: "Problemi recenti di scansione e file da controllare.",
-    scanIssuesMore: "...e altri {count}",
-    viewScanIssues: "Vedi problemi",
-    diagnosticsPaths: "Percorsi",
-    diagnosticsPathsUserData: "Dati utente",
-    diagnosticsPathsWaveforms: "Forme d'onda",
-    diagnosticsPathsFfmpeg: "ffmpeg",
-    diagnosticsPathsFfprobe: "ffprobe",
-    diagnosticsWaveform: "Forma d'onda",
-    diagnosticsWaveformRun: "Genera forma d'onda per il brano corrente",
-    diagnosticsWaveformNoTrack: "Nessun brano in riproduzione.",
-    diagnosticsWaveformSuccess: "Forma d'onda generata: {path}",
-    diagnosticsWaveformFailed: "Generazione forma d'onda fallita: {message}",
-    diagnosticsDataReadiness: "Stato dati",
-    diagnosticsReadinessTotalTracks: "Brani",
-    diagnosticsReadinessMissingDuration: "Durata mancante",
-    diagnosticsReadinessMissingLoudness: "Loudness+gain mancanti",
-    diagnosticsReadinessMissingTrimSignals: "Nessun segnale di trim",
-    diagnosticsReadinessAnalysisErrors: "Errori di analisi",
-    diagnosticsReadinessMissingWaveforms: "Forme d'onda mancanti",
-    eraseDatabase: "Cancella database",
-    confirmEraseDatabase:
-      "Questa azione eliminera definitivamente scansione libreria, tandas, playlist e impostazioni salvate in questa app. Potrai reimportare le cartelle dopo, ma l'azione non e annullabile.",
-    statusIssue: "Problema",
-    statusOk: "OK",
-    statusPreparingScan: "Preparazione scansione...",
-    statusScanInProgress: "Scansione gia in corso.",
-    statusScanning: "Scansione...",
-    statusScanProgress: "Scansione {current}/{total} ({root})",
-    statusScanProgressWithFile: "Scansione {current}/{total} ({root}) - {file}",
-    statusScanComplete:
-      "Scansione completata. Scansionati {scanned}, aggiunti {added}, aggiornati {updated}, rimossi {removed}.",
-    statusScanIssues: "Scansione completata. {count} problemi.",
-    statusScanFailed: "Scansione fallita.",
-    statusScanFailedDetail: "Scansione fallita: {message}",
-    statusScanFailedNoResponse:
-      "Scansione fallita: nessuna risposta dal processo principale.",
-    statusFullscreenUnavailable: "Schermo intero non disponibile.",
-    statusFullscreenFailed: "Schermo intero non riuscito.",
-    statusFullscreenFailedDetail: "Schermo intero non riuscito: {message}",
-    statusMainProcess: "Processo principale: {message}",
-    statusNoApi: "Ponte API non disponibile.",
-    statusUnknownError: "Errore sconosciuto.",
-    statusRendererError: "Si e verificato un problema. Dettagli registrati.",
-    statusLanguageSet: "Lingua impostata: {language}.",
-    statusAddedMusic: "Cartella musica aggiunta: {path}.",
-    statusAddedCortina: "Cartella cortina aggiunta: {path}.",
-    statusAddedBackground: "Cartella sfondi aggiunta: {path}.",
-    statusDatabaseErased:
-      "Database cancellato. Aggiungi cartelle per iniziare la scansione.",
-    statusNoRoots:
-      "Nessuna cartella musica configurata. Aggiungi una cartella in Impostazioni per iniziare la scansione.",
-    statusDataLocationChanged:
-      "Posizione dati impostata su {path}. Database reimpostato.",
-    statusDataLocationDuringPlayback:
-      "Ferma la riproduzione prima di cambiare la posizione dati.",
-    legacyImportDetected:
-      "File legacy rilevati in {path}. Importare tandas e metadati?",
-    statusLegacyImportDone:
-      "Importate {tandas} tandas. Aggiornati {tracks} brani. Mancano {missing} brani.",
-    statusMissingRoots:
-      "Alcune cartelle non disponibili. Collega il disco o aggiorna Impostazioni.",
-    statusTandaSaved: "Tanda salvata.",
-    statusTandaDeleted: "Tanda eliminata.",
-    statusTandaSentToClipboard: "Tanda inviata agli appunti.",
-    statusNoTandaSelected: "Seleziona una tanda per aggiungere brani.",
-    statusTrackUpdated: "Brano aggiornato.",
-    statusTrackUpdateFailed: "Aggiornamento brano fallito.",
-    statusClipboardReadonlyRemove:
-      "Elemento in una collezione inclusa. Cambia collezione attiva per rimuovere.",
-    statusClipboardCollectionLast: "E richiesta almeno una collezione.",
-    statusClipboardCollectionProtected:
-      "Questa collezione e gestita dal sistema e non puo essere rimossa.",
-    statusClipboardCollectionReadOnly:
-      "Questa collezione e in sola lettura. Passa a un'altra collezione per aggiungere elementi.",
-    statusPlaylistSequenceMismatch:
-      "Lo slot richiede {rule}. Questa tanda e {tanda}.",
-    confirmPlaylistSequenceOverride:
-      "Lo slot richiede {expected} brani ({rule}). Questa tanda ne ha {count}. Usarla comunque?",
-    confirmPlaylistSequenceStyleOverride:
-      "Lo slot richiede {rule}. Questa tanda e {tanda}. Aggiungere comunque?",
-    allowOverride: "Consenti comunque",
-    dismissWarning: "Ignora",
-    playlistMismatchTooltip: "Lo slot richiede {rule}. Questa tanda e {tanda}.",
-    statusStyleAdded: "Stile aggiunto: {style}.",
-    statusStyleAddFailed: "Impossibile aggiungere stile.",
-    statusTandaLocked: "Questa tanda e bloccata durante la riproduzione live.",
-    statusWaveformLoading: "Generazione forma d'onda...",
-    statusWaveformUnavailable: "Forma d'onda non disponibile per questo brano.",
-    statusPlaylistLocked:
-      "Questo slot playlist e bloccato durante la riproduzione live.",
-    statusPlaylistNoEmptySlot:
-      "Aggiungi uno slot vuoto prima di aggiungere alla playlist.",
-    statusClipboardCleared: "Collezioni appunti aggiornate.",
-    statusPlaylistCleared: "Playlist svuotata.",
-    statusPlaylistAutofillRunning: "Creazione playlist in corso, attendere...",
-    statusPlaylistAutofillDone:
-      "Riempimento automatico completato: {count} tanda, fine circa alle {time}.",
-    statusPlaylistAutofillPartial:
-      "Riempimento automatico fermato dopo {count} tanda: nessun candidato adatto.",
-    confirmPlaylistClear: "Svuotare la playlist e rimuovere tutti gli elementi?",
-    confirmDiscardTrackEdits: "Scartare le modifiche traccia non salvate?",
-    playlistClearTitle: "Opzioni svuota playlist",
-    playlistClearOnly: "Svuota playlist",
-    playlistClearAutofill: "Svuota e riempi automaticamente",
-    outputSelectionFailed: "Selezione uscita fallita.",
-    outputSelectionFailedDetail: "Selezione uscita fallita: {message}",
-    statusDspBypassedOutput:
-      "Il DSP dinamico viene ignorato per uscite non predefinite. Usa l'uscita predefinita per sentire la compressione.",
-    playbackFailed: "Riproduzione fallita.",
-    playbackFailedDetail: "Riproduzione fallita: {message}",
-    outputDefault: "Uscita predefinita",
-    outputSelectHeadphones: "Seleziona uscita cuffie",
-    outputNoSecondary: "Nessuna uscita secondaria disponibile",
-    gapBetweenTracks: "Pausa tra brani (s)",
-    gapBeforeTanda: "Pausa prima della tanda (s)",
-    gapBeforeCortina: "Pausa prima della cortina (s)",
-    cortinaSetLabel: "Set cortina",
-    cortinaDefaultSet: "Predefinito",
-    cortinaAny: "Qualsiasi",
-    cortinaNone: "Nessuna",
-    cortinaDurationLabel: "Durata cortina (s)",
-    cortinaRowLabel: "Cortina",
-    cortinaRowHint: "Clicca per scegliere una cortina",
-    cortinaStopLabel: "Ferma cortina",
-    cortinaPlayLabel: "Riproduci cortina",
-    statusCortinaSelected: "Cortina selezionata: {title}.",
-    statusCortinaLocked:
-      "Questa cortina e gia stata riprodotta e non puo essere cambiata.",
-    stopFade: "Dissolvenza stop (s)",
-    cortinaLevelPercentLabel: "Livello cortina (% uscita principale)",
-    audioDspEnabledLabel: "Abilita DSP dinamica in tempo reale",
-    audioDynamicsPresetLabel: "Preset dinamica",
-    audioDynamicsPresetOff: "Spento",
-    audioDynamicsPresetGentle: "Leggero",
-    audioDynamicsPresetBalanced: "Bilanciato",
-    audioDynamicsPresetStrong: "Forte",
-    audioDynamicsPresetCustom: "Personalizzato",
-    audioDynamicsThresholdLabel: "Soglia compressore (dB)",
-    audioDynamicsRatioLabel: "Rapporto compressore",
-    audioDynamicsMakeupLabel: "Guadagno makeup (dB)",
-    audioDynamicsLimiterLabel: "Soglia limiter (dB)",
-    audioLiveBoostLabel: "Boost live",
-    addTanda: "Aggiungi tanda",
-    tandaNameLabel: "Nome tanda",
-    tandaStylesLabel: "Stili",
-    tandaRatingLabel: "Valutazione",
-    tandaInstrumentalLabel: "Strumentale",
-    tandaInstrumentalYes: "Si",
-    tandaInstrumentalNo: "No",
-    tandaDurationLabel: "Durata",
-    tandaTrackCountLabel: "Brani",
-    tandaAnyStyle: "Qualsiasi",
-    tandaPlaceholder: "Slot vuoto",
-    tandaUnknownArtist: "Artista sconosciuto",
-    tandaUnknownYear: "Anno sconosciuto",
-    tandaNonInstrumental: "Cantato",
-    tandaMixedLabel: "Misto",
-    tandaSave: "Salva tanda",
-    tandaDone: "Chiudi",
-    tandaDelete: "Elimina tanda",
-    tandaAddSlot: "Aggiungi slot",
-    tandaToClipboard: "Invia agli appunti",
-    tandaRemoveTrack: "Invia agli appunti",
-    tandaMoveUp: "Sposta su",
-    tandaMoveDown: "Sposta giu",
-    tandaRemoveTrackShort: "C",
-    tandaMoveUpShort: "^",
-    tandaMoveDownShort: "v",
-    confirmTandaTooSmall:
-      "Questa tanda ha {count} brani (min {min}). Salvare comunque?",
-    confirmDeleteTanda: "Eliminare questa tanda?",
-    rootAvailable: "Disponibile",
-    rootMissing: "Mancante",
-    rootMusic: "Musica",
-    rootCortina: "Cortina",
-    rootBackground: "Sfondo",
-    displayPlayingTrack: "Riproduzione brano {index} di {count}",
-    displayThisTanda: "Questa tanda: {style}",
-    displayNextTanda: "Prossima tanda: {style}",
-    displayThisIsLastTanda: "Questa e l'ultima tanda",
-    displayNoMoreTandas: "E' tutto, amici",
-    lang_en: "Inglese",
-    lang_es: "Spagnolo",
-    lang_fr: "Francese",
-    lang_de: "Tedesco",
-    lang_pt: "Portoghese",
-    lang_it: "Italiano",
-  },
-};
-
 const getLanguage = () =>
   (localStorage.getItem("tanda-language") as LanguageKey) || "en";
 
 const t = (key: string, params?: Record<string, string | number>) => {
-  const lang = getLanguage();
-  const value = translations[lang]?.[key] ?? translations.en[key] ?? key;
-  if (!params) {
-    return value;
-  }
-  return Object.entries(params).reduce(
-    (acc, [paramKey, paramValue]) =>
-      acc.replace(`{${paramKey}}`, String(paramValue)),
-    value,
-  );
+  return translate(getLanguage(), key, params);
 };
 
 const renderLanguageOptions = () => {
@@ -3256,7 +926,7 @@ const renderLanguageOptions = () => {
   }
   const current = getLanguage();
   languageSelect.innerHTML = "";
-  (["en", "es", "fr", "de", "pt", "it"] as LanguageKey[]).forEach((code) => {
+  SUPPORTED_LANGUAGES.forEach((code) => {
     const option = document.createElement("option");
     option.value = code;
     option.textContent = t(`lang_${code}`);
@@ -3341,12 +1011,52 @@ type AudioDspRuntime = {
 let sharedAudioContext: AudioContext | null = null;
 const audioDspRuntimes = new WeakMap<HTMLAudioElement, AudioDspRuntime>();
 const audioSampleBuffer = new Float32Array(2048);
-const outputWaveformSampleBuffer = new Float32Array(1024);
-let outputWaveformRafId: number | null = null;
-const OUTPUT_WAVEFORM_BIN_COUNT = 420;
-let outputWaveformTrackId: string | null = null;
-let outputWaveformBins = new Float32Array(OUTPUT_WAVEFORM_BIN_COUNT);
-let outputWaveformSeenIndex = -1;
+const levelMatchSampleBuffer = new Float32Array(1024);
+let mainWetMixCurrent = 0;
+let mainWetMixTarget = 0;
+let mainWetMixRafId: number | null = null;
+
+const runMainWetMixSmoother = () => {
+  if (mainWetMixRafId !== null) {
+    return;
+  }
+  const step = () => {
+    const delta = mainWetMixTarget - mainWetMixCurrent;
+    if (Math.abs(delta) < 0.002) {
+      mainWetMixCurrent = mainWetMixTarget;
+      mainWetMixRafId = null;
+      applyDynamicLevelToChannel("main");
+      return;
+    }
+    // ~220ms full-scale slew at 60fps.
+    mainWetMixCurrent += delta * 0.075;
+    applyDynamicLevelToChannel("main");
+    mainWetMixRafId = window.requestAnimationFrame(step);
+  };
+  mainWetMixRafId = window.requestAnimationFrame(step);
+};
+
+const configureRuntimePassThrough = (runtime: AudioDspRuntime) => {
+  const now = runtime.inputGain.context.currentTime;
+  runtime.dryGain.gain.cancelScheduledValues(now);
+  runtime.wetGain.gain.cancelScheduledValues(now);
+  runtime.dryGain.gain.setValueAtTime(1, now);
+  runtime.wetGain.gain.setValueAtTime(0, now);
+};
+
+const sampleRuntimeRms = (audio: HTMLAudioElement) => {
+  const runtime = audioDspRuntimes.get(audio);
+  if (!runtime) {
+    return 0;
+  }
+  runtime.outputAnalyser.getFloatTimeDomainData(levelMatchSampleBuffer);
+  let sum = 0;
+  for (let i = 0; i < levelMatchSampleBuffer.length; i += 1) {
+    const sample = levelMatchSampleBuffer[i] ?? 0;
+    sum += sample * sample;
+  }
+  return Math.sqrt(sum / levelMatchSampleBuffer.length);
+};
 
 const getSharedAudioContext = () => {
   if (!sharedAudioContext) {
@@ -3371,54 +1081,138 @@ const ensureSharedAudioContextRunning = async () => {
 
 const getAudioDynamicsConfig = (): AudioDynamicsConfig => ({
   enabled: localStorage.getItem(AUDIO_DYNAMICS_ENABLED_KEY) === "1",
-  mode:
-    localStorage.getItem(AUDIO_DYNAMICS_MODE_KEY) === "track-leveler"
-      ? "track-leveler"
-      : "upward",
+  mode: "track-leveler",
   depth: parseSettingNumber(AUDIO_DYNAMICS_DEPTH_KEY, DEFAULT_AUDIO_DYNAMICS_DEPTH, 0, 100),
-  liftThresholdDb: parseSettingNumber(
-    AUDIO_DYNAMICS_LIFT_THRESHOLD_KEY,
-    DEFAULT_AUDIO_DYNAMICS_LIFT_THRESHOLD,
-    -80,
-    -5,
-  ),
-  maxLiftDb: parseSettingNumber(
-    AUDIO_DYNAMICS_MAX_LIFT_KEY,
-    DEFAULT_AUDIO_DYNAMICS_MAX_LIFT,
-    0,
-    60,
-  ),
-  ratio: parseSettingNumber(AUDIO_DYNAMICS_RATIO_KEY, DEFAULT_AUDIO_DYNAMICS_RATIO, 1, 24),
-  attackMs: parseSettingNumber(AUDIO_DYNAMICS_ATTACK_KEY, DEFAULT_AUDIO_DYNAMICS_ATTACK, 1, 1000),
-  releaseMs: parseSettingNumber(
-    AUDIO_DYNAMICS_RELEASE_KEY,
-    DEFAULT_AUDIO_DYNAMICS_RELEASE,
-    10,
-    3000,
-  ),
-  gateThresholdDb: parseSettingNumber(
-    AUDIO_DYNAMICS_GATE_THRESHOLD_KEY,
-    DEFAULT_AUDIO_DYNAMICS_GATE_THRESHOLD,
-    -120,
-    -10,
-  ),
-  limiterCeilingDb: parseSettingNumber(
-    AUDIO_DYNAMICS_LIMITER_CEILING_KEY,
-    DEFAULT_AUDIO_DYNAMICS_LIMITER_CEILING,
-    -6,
-    -0.1,
-  ),
-  limiterReleaseMs: parseSettingNumber(
-    AUDIO_DYNAMICS_LIMITER_RELEASE_KEY,
-    DEFAULT_AUDIO_DYNAMICS_LIMITER_RELEASE,
-    10,
-    2000,
-  ),
-  rampMs: parseSettingNumber(AUDIO_DYNAMICS_RAMP_KEY, DEFAULT_AUDIO_DYNAMICS_RAMP, 50, 3000),
+  // Compressor profile is now fixed at code level for a single predictable behavior.
+  // Only enable toggle and now-playing mix depth remain user-adjustable.
+  liftThresholdDb: DEFAULT_AUDIO_DYNAMICS_LIFT_THRESHOLD,
+  maxLiftDb: DEFAULT_AUDIO_DYNAMICS_MAX_LIFT,
+  ratio: DEFAULT_AUDIO_DYNAMICS_RATIO,
+  attackMs: DEFAULT_AUDIO_DYNAMICS_ATTACK,
+  releaseMs: DEFAULT_AUDIO_DYNAMICS_RELEASE,
+  gateThresholdDb: DEFAULT_AUDIO_DYNAMICS_GATE_THRESHOLD,
+  limiterCeilingDb: DEFAULT_AUDIO_DYNAMICS_LIMITER_CEILING,
+  limiterReleaseMs: DEFAULT_AUDIO_DYNAMICS_LIMITER_RELEASE,
+  rampMs: DEFAULT_AUDIO_DYNAMICS_RAMP,
 });
 
 const getAudioDynamicsDepthPercent = () =>
   parseSettingNumber(AUDIO_DYNAMICS_DEPTH_KEY, DEFAULT_AUDIO_DYNAMICS_DEPTH, 0, 100);
+
+const isCompressionRequestedForChannel = (
+  channel: OutputChannel,
+  options?: PlayOptions,
+) => {
+  const config = getAudioDynamicsConfig();
+  return shouldUseCompressionSource({
+    channel,
+    isCortinaPlayback: options?.isCortinaPlayback ?? false,
+    enabled: config.enabled,
+    depthPercent: config.depth,
+  });
+};
+
+const buildCompressedSourceRequestKey = (
+  track: TrackRow,
+  config: AudioDynamicsConfig,
+) =>
+  [
+    track.id,
+    track.full_path,
+    track.loudness_db ?? "null",
+    config.mode,
+    config.liftThresholdDb,
+    config.maxLiftDb,
+    config.ratio,
+    config.attackMs,
+    config.releaseMs,
+    config.gateThresholdDb,
+    config.limiterCeilingDb,
+    config.limiterReleaseMs,
+  ].join("|");
+
+const resolveCompressedPathForTrack = (track: TrackRow): string | null => {
+  if (playback.main.track?.id === track.id) {
+    const activePath = playback.main.compressedSourcePath?.trim() ?? "";
+    if (activePath) {
+      return activePath;
+    }
+  }
+  const requestKey = buildCompressedSourceRequestKey(track, getAudioDynamicsConfig());
+  const cachedPath = compressedSourceCache.get(requestKey)?.trim() ?? "";
+  return cachedPath || null;
+};
+
+const requestCompressedSource = async (
+  track: TrackRow,
+  config: AudioDynamicsConfig,
+) => {
+  if (!window.tanda) {
+    return null;
+  }
+  const renderDepthPercent = 100;
+  const requestKey = buildCompressedSourceRequestKey(track, config);
+  const cached = compressedSourceCache.get(requestKey);
+  if (cached) {
+    return cached;
+  }
+  const pending = compressedSourceRequests.get(requestKey);
+  if (pending) {
+    return pending;
+  }
+  const request = (async () => {
+    const result = await window.tanda!.renderCompressedTrack({
+      trackId: track.id,
+      filePath: track.full_path,
+      loudnessDb: track.loudness_db,
+      depthPercent: renderDepthPercent,
+      mode: config.mode,
+      liftThresholdDb: config.liftThresholdDb,
+      maxLiftDb: config.maxLiftDb,
+      ratio: config.ratio,
+      attackMs: config.attackMs,
+      releaseMs: config.releaseMs,
+      gateThresholdDb: config.gateThresholdDb,
+      limiterCeilingDb: config.limiterCeilingDb,
+      limiterReleaseMs: config.limiterReleaseMs,
+    });
+    if (!result?.ok || !result.filePath) {
+      const reason = result?.error?.trim() || "unknown render error";
+      compressedSourceErrorByTrackId.set(track.id, reason);
+      void window.tanda?.logPlaybackDiagnostic?.({
+        channel: "main",
+        mode: appMode,
+        trackId: track.id,
+        title: track.title ?? "",
+        artist: track.artist ?? "",
+        playlistStatus: playlistPlayback.status,
+        playlistIndex: playlistPlayback.currentIndex,
+        trackIndex: playlistPlayback.currentTrackIndex,
+        gainSource: "none",
+        gainDb: track.gain_db ?? null,
+        loudnessDb: track.loudness_db ?? null,
+        linearGain: 1,
+        correctionDb: 0,
+        driftDb: 0,
+        targetLoudnessDb: -16,
+        expectedOutputLoudnessDb: null,
+        outputRouteMethod: "compression-render",
+        outputRouteError: reason,
+        attemptedOutputDeviceIds: [],
+      });
+      return null;
+    }
+    compressedSourceErrorByTrackId.delete(track.id);
+    compressedSourceCache.set(requestKey, result.filePath);
+    return result.filePath;
+  })();
+  compressedSourceRequests.set(requestKey, request);
+  try {
+    return await request;
+  } finally {
+    compressedSourceRequests.delete(requestKey);
+  }
+};
 
 const resolveDynamicRuntimeConfig = (config: AudioDynamicsConfig): AudioDynamicsConfig => {
   const depthMix = depthPercentToMix(config.depth);
@@ -3443,11 +1237,28 @@ const renderNowPlayingDynamicsControl = () => {
   const enabled = localStorage.getItem(AUDIO_DYNAMICS_ENABLED_KEY) === "1";
   const depth = enabled ? getAudioDynamicsDepthPercent() : 0;
   nowPlayingDynamicsControl?.classList.toggle("hidden", !enabled);
+  const mainActive = Boolean(playback.main.active && !playback.main.active.paused);
+  const mainTrackLoaded = Boolean(playback.main.track);
+  const compressedReady = Boolean(playback.main.compressedActive);
+  const lockForPrepPlayback = isCompressionControlLockedForPrep({
+    appMode,
+    isMainPlaying: mainActive,
+    usingCompressedSource: Boolean(playback.main.usingCompressedSource),
+  });
+  const sliderState = resolveCompressionSliderUiState({
+    enabled,
+    storedDepthPercent: depth,
+    isMainActive: mainActive,
+    hasMainTrack: mainTrackLoaded,
+    compressedReady,
+    prepLock: lockForPrepPlayback,
+  });
   if (nowPlayingDynamicsMixInput) {
-    nowPlayingDynamicsMixInput.value = depth.toString();
+    nowPlayingDynamicsMixInput.value = sliderState.displayedDepthPercent.toString();
+    nowPlayingDynamicsMixInput.disabled = sliderState.disabled;
   }
   if (nowPlayingDynamicsMixValue) {
-    nowPlayingDynamicsMixValue.textContent = `${depth}%`;
+    nowPlayingDynamicsMixValue.textContent = `${sliderState.displayedDepthPercent}%`;
   }
 };
 
@@ -3559,100 +1370,6 @@ const updateRuntimeLift = (runtime: AudioDspRuntime) => {
   runtime.updateRafId = window.requestAnimationFrame(() => updateRuntimeLift(runtime));
 };
 
-const resetOutputWaveformTimeline = (trackId: string | null) => {
-  outputWaveformTrackId = trackId;
-  outputWaveformBins = new Float32Array(OUTPUT_WAVEFORM_BIN_COUNT);
-  outputWaveformSeenIndex = -1;
-};
-
-const drawOutputWaveform = () => {
-  if (!waveformOutputOverlay) {
-    return;
-  }
-  const enabled = localStorage.getItem(AUDIO_DYNAMICS_ENABLED_KEY) === "1";
-  const depthPercent = getAudioDynamicsDepthPercent();
-  const showOverlay = shouldShowDynamicsOverlay(enabled, depthPercent);
-  waveformOutputOverlay.classList.toggle("hidden", !showOverlay);
-  const ctx = waveformOutputOverlay.getContext("2d");
-  if (!ctx) {
-    return;
-  }
-  const width = Math.max(1, Math.floor(waveformOutputOverlay.clientWidth));
-  const height = Math.max(1, Math.floor(waveformOutputOverlay.clientHeight));
-  const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
-  const targetWidth = Math.floor(width * pixelRatio);
-  const targetHeight = Math.floor(height * pixelRatio);
-  if (
-    waveformOutputOverlay.width !== targetWidth ||
-    waveformOutputOverlay.height !== targetHeight
-  ) {
-    waveformOutputOverlay.width = targetWidth;
-    waveformOutputOverlay.height = targetHeight;
-  }
-  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  ctx.clearRect(0, 0, width, height);
-  if (!showOverlay) {
-    return;
-  }
-  const mainState = playback.main;
-  const active = mainState.active;
-  const runtime = active ? audioDspRuntimes.get(active) : null;
-  const analyser = runtime?.outputAnalyser;
-  const trackId = mainState.track?.id ?? null;
-  if (trackId !== outputWaveformTrackId) {
-    resetOutputWaveformTimeline(trackId);
-  }
-  const durationSeconds =
-    (mainState.track?.duration_ms ?? 0) > 0
-      ? (mainState.track?.duration_ms ?? 0) / 1000
-      : Number.isFinite(active?.duration)
-        ? Math.max(0, active?.duration ?? 0)
-        : 0;
-  if (analyser && runtime.inputGain.context.state === "running" && durationSeconds > 0) {
-    analyser.getFloatTimeDomainData(outputWaveformSampleBuffer);
-    let peak = 0;
-    for (let i = 0; i < outputWaveformSampleBuffer.length; i += 1) {
-      peak = Math.max(peak, Math.abs(outputWaveformSampleBuffer[i] ?? 0));
-    }
-    const currentTime = Math.max(0, active?.currentTime ?? 0);
-    const progressRatio = durationSeconds > 0 ? currentTime / durationSeconds : 0;
-    const updatedIndex = updateWaveformTimelinePeak(outputWaveformBins, progressRatio, peak);
-    outputWaveformSeenIndex = Math.max(outputWaveformSeenIndex, updatedIndex);
-  }
-  const barWidth = width / Math.max(1, outputWaveformBins.length);
-  const baseline = Math.floor(height / 2);
-  const maxHalfHeight = Math.max(1, Math.floor(height * 0.46));
-  const accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#ffffff";
-  const muted = getComputedStyle(document.body).getPropertyValue("--muted").trim() || accent;
-  ctx.fillStyle = `${muted}88`;
-  ctx.fillRect(0, baseline, width, 1);
-  const overlayColor = `${accent}d0`;
-  const unseenColor = `${muted}66`;
-  for (let i = 0; i < outputWaveformBins.length; i += 1) {
-    const value = outputWaveformBins[i] ?? 0;
-    if (value <= 0) {
-      continue;
-    }
-    const barHalfHeight = Math.max(1, Math.pow(value, 0.55) * maxHalfHeight);
-    const x = i * barWidth;
-    const top = Math.max(0, baseline - barHalfHeight);
-    const drawHeight = Math.min(height - top, Math.max(1, barHalfHeight * 2));
-    ctx.fillStyle = i <= outputWaveformSeenIndex ? overlayColor : unseenColor;
-    ctx.fillRect(x, top, Math.max(1, barWidth - 1), drawHeight);
-  }
-};
-
-const startOutputWaveformLoop = () => {
-  if (outputWaveformRafId !== null) {
-    return;
-  }
-  const tick = () => {
-    drawOutputWaveform();
-    outputWaveformRafId = window.requestAnimationFrame(tick);
-  };
-  outputWaveformRafId = window.requestAnimationFrame(tick);
-};
-
 const ensureAudioDspRuntime = (audio: HTMLAudioElement) => {
   const existing = audioDspRuntimes.get(audio);
   if (existing) {
@@ -3702,9 +1419,12 @@ const ensureAudioDspRuntime = (audio: HTMLAudioElement) => {
     lastUpdateMs: performance.now(),
     updateRafId: null,
   };
-  applyDynamicsToRuntime(runtime, getAudioDynamicsConfig());
+  // Main/wet playback now uses offline-rendered compression, so runtime should
+  // remain transparent and only provide gain + analyser plumbing.
+  configureRuntimePassThrough(runtime);
   audio.volume = Math.min(1, Math.max(0, audio.volume || 1));
-  runtime.updateRafId = window.requestAnimationFrame(() => updateRuntimeLift(runtime));
+  runtime.updateRafId = null;
+  runtime.isRunning = false;
   audioDspRuntimes.set(audio, runtime);
   return runtime;
 };
@@ -3740,7 +1460,7 @@ const setAudioLevel = (audio: HTMLAudioElement, level: number) => {
   if (runtime) {
     // When routed through WebAudio runtime, keep media element at unity and
     // apply program level only once via runtime input gain.
-    runtime.inputGain.gain.setValueAtTime(Math.min(1, safe), runtime.inputGain.context.currentTime);
+    runtime.inputGain.gain.setValueAtTime(safe, runtime.inputGain.context.currentTime);
     audio.volume = 1;
     return;
   }
@@ -3793,6 +1513,10 @@ const clearTrackEditorState = () => {
   if (trackEditorPathHint) {
     trackEditorPathHint.textContent = "";
     trackEditorPathHint.title = "";
+  }
+  if (trackEditorCompressedPathHint) {
+    trackEditorCompressedPathHint.textContent = "";
+    trackEditorCompressedPathHint.title = "";
   }
   resetTapTempo();
 };
@@ -3894,10 +1618,26 @@ const fillTrackEditorFields = (track: TrackRow) => {
   trackEditorNotesInput.value = track.notes ?? "";
   trackEditorBpmInput.value =
     track.bpm !== null && track.bpm !== undefined ? `${Math.round(track.bpm)}` : "";
-  if (trackEditorPathHint) {
-    const pathText = track.full_path ?? "";
-    trackEditorPathHint.textContent = pathText;
-    trackEditorPathHint.title = pathText;
+  if (trackEditorPathHint || trackEditorCompressedPathHint) {
+    const compressionEnabled = getAudioDynamicsConfig().enabled;
+    const compressedPath = compressionEnabled
+      ? resolveCompressedPathForTrack(track)
+      : null;
+    const pathLines = resolveTrackEditorPathLines({
+      originalPath: track.full_path ?? "",
+      compressionEnabled,
+      compressedPath,
+      compressedLabel: t("trackEditorCompressedPathLabel"),
+      pendingLabel: t("audioDynamicsPathPending"),
+    });
+    if (trackEditorPathHint) {
+      trackEditorPathHint.textContent = pathLines.originalLine;
+      trackEditorPathHint.title = pathLines.originalLine;
+    }
+    if (trackEditorCompressedPathHint) {
+      trackEditorCompressedPathHint.textContent = pathLines.compressedLine;
+      trackEditorCompressedPathHint.title = pathLines.compressedLine;
+    }
   }
   resetTapTempo();
 };
@@ -3923,9 +1663,9 @@ const openTrackEditor = async (trackId: string) => {
 
 const updateTrackCaches = (track: TrackRow) => {
   trackCache.set(track.id, track);
-  searchState.items = searchState.items.map((item) =>
-    item.id === track.id ? track : item,
-  );
+  patchSearchState({
+    items: searchState.items.map((item) => (item.id === track.id ? track : item)),
+  });
   clipboardTracks = clipboardTracks.map((item) =>
     item.id === track.id ? track : item,
   );
@@ -3950,15 +1690,9 @@ const handleTapTempo = () => {
     resetTapTempo();
   }
   trackEditorState.taps.push(now);
-  if (trackEditorState.taps.length >= 2) {
-    const elapsed =
-      trackEditorState.taps[trackEditorState.taps.length - 1] -
-      trackEditorState.taps[0];
-    const intervals = trackEditorState.taps.length - 1;
-    if (elapsed > 0 && intervals > 0) {
-      const bpm = 60000 / (elapsed / intervals);
-      trackEditorBpmInput.value = `${Math.round(bpm)}`;
-    }
+  const bpm = computeTapTempoBpm(trackEditorState.taps);
+  if (bpm !== null) {
+    trackEditorBpmInput.value = `${bpm}`;
   }
   if (trackEditorState.tapTimeoutId !== null) {
     window.clearTimeout(trackEditorState.tapTimeoutId);
@@ -4318,71 +2052,126 @@ const getCortinaLevelPercent = () =>
     100,
   );
 const applyAudioDynamicsToGain = (linearGain: number) => linearGain;
+const stopCompressedCompanion = async (state: PlaybackState) => {
+  const wet = state.compressedActive;
+  if (!wet) {
+    return;
+  }
+  wet.pause();
+  wet.currentTime = 0;
+  await releaseAudioDspRuntime(wet);
+  trackedCompressedCompanions.delete(wet);
+  state.compressedActive = undefined;
+  state.usingCompressedSource = false;
+  state.activeSourcePath = undefined;
+  state.compressedSourcePath = undefined;
+  state.wetCompensationGain = 1;
+  state.wetCompensationReferenceRatio = undefined;
+};
+
+const stopAllCompressedCompanions = async () => {
+  const companions = Array.from(trackedCompressedCompanions);
+  for (const wet of companions) {
+    wet.pause();
+    wet.currentTime = 0;
+    await releaseAudioDspRuntime(wet);
+    trackedCompressedCompanions.delete(wet);
+  }
+};
+
+const syncCompressedCompanion = (state: PlaybackState) => {
+  const dry = state.active;
+  const wet = state.compressedActive;
+  if (!dry || !wet) {
+    return;
+  }
+  const drift = (dry.currentTime ?? 0) - (wet.currentTime ?? 0);
+  const driftSeconds = Math.abs(drift);
+  if (driftSeconds > 0.12) {
+    wet.currentTime = dry.currentTime ?? 0;
+    wet.playbackRate = 1;
+  }
+  if (dry.paused) {
+    if (!wet.paused) {
+      wet.pause();
+    }
+    wet.playbackRate = 1;
+    return;
+  }
+  if (driftSeconds > 0.01) {
+    const correction = clampNumber(drift * 0.6, -0.04, 0.04);
+    wet.playbackRate = 1 + correction;
+  } else if (Math.abs(wet.playbackRate - 1) > 0.001) {
+    wet.playbackRate = 1;
+  }
+  if (wet.paused) {
+    void wet.play().catch(() => undefined);
+  }
+  // Track relative wet vs dry level and gently compensate so 100% wet does not
+  // drop perceived level compared with dry.
+  const dryRms = sampleRuntimeRms(dry);
+  const wetRms = sampleRuntimeRms(wet);
+  if (dryRms > 0.0001 && wetRms > 0.0001) {
+    const result = resolveWetCompensation({
+      dryRms,
+      wetRms,
+      wetMix: clampNumber(mainWetMixCurrent, 0, 1),
+      previousReferenceRatio: state.wetCompensationReferenceRatio,
+      frameMs: 16,
+    });
+    state.wetCompensationReferenceRatio = result.referenceRatio;
+    const desired = result.targetGain;
+    const current = state.wetCompensationGain ?? 1;
+    state.wetCompensationGain = smoothToward(current, desired, 220, 480, 16);
+  } else if (typeof state.wetCompensationGain !== "number") {
+    state.wetCompensationGain = 1;
+  }
+};
+
 const applyDynamicLevelToChannel = (channel: OutputChannel) => {
   const state = playback[channel];
   if (!state.active) {
     return;
-  }
-  const config = getAudioDynamicsConfig();
-  const runtime = audioDspRuntimes.get(state.active);
-  if (runtime) {
-    applyDynamicsToRuntime(runtime, config);
   }
   const linearGain = gainForTrack(state.appliedGainDb);
   let targetVolume = applyAudioDynamicsToGain(linearGain);
   if (state.isCortinaPlayback && channel === "main") {
     targetVolume *= getCortinaLevelPercent() / 100;
   }
+  const wet = state.compressedActive;
+  if (channel === "main" && wet) {
+    const mix = computeParallelMixGains({
+      enabled: localStorage.getItem(AUDIO_DYNAMICS_ENABLED_KEY) === "1",
+      depthPercent: getAudioDynamicsDepthPercent(),
+    });
+    if (Math.abs(mainWetMixTarget - mix.wet) > 0.001) {
+      mainWetMixTarget = mix.wet;
+      runMainWetMixSmoother();
+    }
+    const wetMix = clampNumber(mainWetMixCurrent, 0, 1);
+    const dryMix = clampNumber(1 - wetMix, 0, 1);
+    const wetCompGain = clampNumber(state.wetCompensationGain ?? 1, 0.7, 4);
+    setAudioLevel(state.active, targetVolume * dryMix);
+    setAudioLevel(wet, targetVolume * wetMix * wetCompGain);
+    syncCompressedCompanion(state);
+    return;
+  }
+  state.wetCompensationGain = 1;
+  state.wetCompensationReferenceRatio = undefined;
+  mainWetMixCurrent = 0;
+  mainWetMixTarget = 0;
   setAudioLevel(state.active, targetVolume);
 };
 const syncDynamicsRuntimeForChannel = async (channel: OutputChannel) => {
-  const state = playback[channel];
-  const active = state.active;
-  if (!active) {
-    return;
-  }
-  const config = getAudioDynamicsConfig();
-  const requestedOutputDeviceId = resolveOutputDeviceIdForChannel(channel);
-  const shouldUseRuntime =
-    config.enabled && isDynamicsAvailableForChannel(channel, requestedOutputDeviceId);
-  const runtime = audioDspRuntimes.get(active);
-
-  if (runtime) {
-    if (shouldUseRuntime) {
-      if (!(await ensureSharedAudioContextRunning())) {
-        await releaseAudioDspRuntime(active);
-        applyDynamicLevelToChannel(channel);
-        return;
-      }
-      applyDynamicsToRuntime(runtime, config);
-      applyDynamicLevelToChannel(channel);
-      return;
-    }
-    await releaseAudioDspRuntime(active);
-    applyDynamicLevelToChannel(channel);
-    return;
-  }
-
-  if (shouldUseRuntime) {
-    if (!(await ensureSharedAudioContextRunning())) {
-      applyDynamicLevelToChannel(channel);
-      return;
-    }
-    try {
-      const ensured = ensureAudioDspRuntime(active);
-      applyDynamicsToRuntime(ensured, config);
-      applyDynamicLevelToChannel(channel);
-      return;
-    } catch {
-      // Fall through to plain audio path.
-    }
-  }
-
   applyDynamicLevelToChannel(channel);
 };
 
 const syncDynamicsRuntimeForActivePlayback = async () => {
   await syncDynamicsRuntimeForChannel("main");
+  const main = playback.main;
+  if (main.active && main.track && !main.isCortinaPlayback && !main.compressedActive) {
+    void ensureMainCompressedCompanion(main, main.track);
+  }
 };
 const isCurrentTandaMarkedLast = () =>
   localStorage.getItem(PLAYLIST_LAST_TANDA_KEY) === "1";
@@ -4396,35 +2185,22 @@ const getPlaylistStartTimeMinutes = () => {
 const getPlaylistEndTimeMinutes = () =>
   parseClockMinutes(getPlaylistEndTimeInput().trim() || DEFAULT_PLAYLIST_END_TIME, 3 * 60);
 
-const getPlaylistTargetWindowMs = () => {
-  const startMinutes = getPlaylistStartTimeMinutes();
-  const endMinutes = getPlaylistEndTimeMinutes();
-  return computePlaylistWindowMinutes(startMinutes, endMinutes) * 60 * 1000;
-};
+const getPlaylistTargetWindowMs = () =>
+  resolvePlaylistWindowMs({
+    startInput: getPlaylistStartTimeInput().trim() || DEFAULT_PLAYLIST_START_TIME,
+    endInput: getPlaylistEndTimeInput().trim() || DEFAULT_PLAYLIST_END_TIME,
+    defaultStartMinutes: 20 * 60,
+    defaultEndMinutes: 3 * 60,
+  });
 
-const buildTrackLabel = (track?: TrackRow) => {
-  if (!track) {
-    return t("nowPlayingUnknown");
-  }
-  const artist = track.artist?.trim();
-  const title = track.title?.trim();
-  if (artist && title) {
-    return `${artist} — ${title}`;
-  }
-  return title || artist || t("nowPlayingUnknown");
-};
+const resolveNowPlayingTrackLabel = (track?: TrackRow) =>
+  buildTrackLabelView(track, t("nowPlayingUnknown"));
 
-const getNowPlayingState = () => {
-  const headphone = playback.headphone;
-  if (headphone.active && !headphone.active.paused) {
-    return { channel: "headphone" as const, state: headphone };
-  }
-  const main = playback.main;
-  if (main.active && !main.active.paused) {
-    return { channel: "main" as const, state: main };
-  }
-  return null;
-};
+const resolveNowPlayingState = () =>
+  getNowPlayingStateView({
+    headphone: playback.headphone,
+    main: playback.main,
+  });
 
 const applyPulseToRow = <T,>(row: HTMLElement, set: Set<T>, key: T) => {
   if (!set.has(key)) {
@@ -4479,135 +2255,71 @@ const getCortinaRowTrack = (index: number) => {
   return null;
 };
 
+const waveformController = createWaveformController({
+  widgets: waveformWidgets,
+  api: window.tanda,
+  translate: (key) => t(key),
+  setStatus: (message) => {
+    if (statusEl) {
+      statusEl.textContent = message;
+    }
+  },
+});
+
 const updateWaveformSource = async (trackId: string | null) => {
-  const activeWidgets = waveformWidgets.filter(
-    (widget) => widget.container && widget.image,
-  );
-  if (activeWidgets.length === 0) {
-    return;
-  }
   if (!trackId) {
-    activeWidgets.forEach((widget) => {
-      widget.image!.src = "";
-      widget.container!.classList.add("hidden");
-      widget.container!.classList.remove("missing");
-      if (widget.placeholder) {
-        widget.placeholder.textContent = t("waveformUnavailable");
-      }
-    });
     waveformTrackId = null;
-    return;
-  }
-  if (
-    waveformTrackId === trackId &&
-    activeWidgets.some((widget) => Boolean(widget.image?.src))
-  ) {
-    return;
-  }
-  waveformTrackId = trackId;
-  activeWidgets.forEach((widget) => {
-    widget.container!.classList.remove("hidden");
-    widget.container!.classList.add("missing");
-    if (widget.placeholder) {
-      widget.placeholder.textContent = t("waveformLoading");
-    }
-  });
-  const requestId = (waveformRequestId += 1);
-  const dataUrl = await window.tanda?.getWaveform(trackId);
-  if (requestId !== waveformRequestId) {
-    return;
-  }
-  if (dataUrl) {
-    activeWidgets.forEach((widget) => {
-      widget.image!.src = dataUrl;
-      widget.container!.classList.remove("hidden");
-      widget.container!.classList.remove("missing");
-    });
   } else {
-    activeWidgets.forEach((widget) => {
-      widget.image!.src = "";
-      widget.container!.classList.remove("hidden");
-      widget.container!.classList.add("missing");
-      if (widget.placeholder) {
-        widget.placeholder.textContent = t("waveformUnavailable");
+    waveformTrackId = trackId;
+  }
+  await waveformController.updateSource(trackId);
+};
+
+const getDisplayPlaylistItems = () =>
+  playlistItems.map((item) => {
+    if (!item) {
+      return null;
+    }
+    if (item.kind === "track") {
+      return { kind: "track" as const };
+    }
+    return { kind: "tanda" as const, tandaId: item.tandaId };
+  });
+
+const getCurrentProgressText = () =>
+  resolveCurrentProgressText({
+    playbackStatus: playlistPlayback.status,
+    currentIndex: playlistPlayback.currentIndex,
+    currentTrackIndex: playlistPlayback.currentTrackIndex,
+    playlistItems: getDisplayPlaylistItems(),
+    resolveTandaTrackCount: (tandaId) => {
+      const tanda = resolveTandaDraft(tandaId);
+      if (!tanda) {
+        return 0;
       }
-    });
-    setStatus(t("statusWaveformUnavailable"));
-  }
-};
+      return tanda.trackSlots.filter(Boolean).length;
+    },
+    translatePlayingTrack: (index, count) => t("displayPlayingTrack", { index, count }),
+  });
 
-const toDisplayStyleLabel = (style: string | null | undefined) => {
-  if (!style) {
-    return "";
-  }
-  const trimmed = style.trim();
-  if (!trimmed) {
-    return "";
-  }
-  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-};
+const getNextTandaStyle = () =>
+  resolveNextTandaStyle({
+    isMarkedLast: isCurrentTandaMarkedLast(),
+    playbackStatus: playlistPlayback.status,
+    resumeItemIndex: playlistPlayback.resume?.itemIndex ?? null,
+    currentIndex: playlistPlayback.currentIndex,
+    playlistItems: getDisplayPlaylistItems(),
+    resolveTandaStyle: (tandaId) => resolveTandaDraft(tandaId)?.styles?.[0] ?? null,
+    shouldShowDisplayNextTanda: (status) => shouldShowDisplayNextTanda(status),
+  });
 
-const getCurrentProgressText = () => {
-  if (playlistPlayback.status !== "playing") {
-    return "";
-  }
-  const currentItem = playlistItems[playlistPlayback.currentIndex];
-  if (!currentItem) {
-    return "";
-  }
-  if (currentItem.kind === "track") {
-    return t("displayPlayingTrack", { index: 1, count: 1 });
-  }
-  const tanda = resolveTandaDraft(currentItem.tandaId);
-  if (!tanda) {
-    return "";
-  }
-  const count = tanda.trackSlots.filter(Boolean).length;
-  if (count <= 0) {
-    return "";
-  }
-  const index = Math.min(count, Math.max(1, playlistPlayback.currentTrackIndex + 1));
-  return t("displayPlayingTrack", { index, count });
-};
-
-const getNextTandaStyle = () => {
-  if (isCurrentTandaMarkedLast()) {
-    return "";
-  }
-  if (!shouldShowDisplayNextTanda(playlistPlayback.status)) {
-    return "";
-  }
-  let startIndex = 0;
-  if (playlistPlayback.status === "playing") {
-    startIndex = playlistPlayback.currentIndex + 1;
-  } else if (playlistPlayback.status === "paused" && playlistPlayback.resume) {
-    startIndex = playlistPlayback.resume.itemIndex;
-  }
-  for (let i = Math.max(0, startIndex); i < playlistItems.length; i += 1) {
-    const item = playlistItems[i];
-    if (!item || item.kind === "track") {
-      continue;
-    }
-    const tanda = resolveTandaDraft(item.tandaId);
-    const style = toDisplayStyleLabel(tanda?.styles?.[0]);
-    if (!style) {
-      continue;
-    }
-    return style;
-  }
-  return "";
-};
-
-const getNextTandaLabel = () => {
-  if (isCurrentTandaMarkedLast()) {
-    return t("displayThisIsLastTanda");
-  }
-  const style = getNextTandaStyle();
-  if (style) {
-    return t("displayNextTanda", { style });
-  }
-  return "";
-};
+const getNextTandaLabel = () =>
+  resolveNextTandaLabel({
+    isMarkedLast: isCurrentTandaMarkedLast(),
+    nextStyle: getNextTandaStyle(),
+    translateLast: () => t("displayThisIsLastTanda"),
+    translateNext: (style) => t("displayNextTanda", { style }),
+  });
 
 const updateExternalDisplay = () => {
   if (!window.tanda?.updateDisplay) {
@@ -4644,7 +2356,7 @@ const updateExternalDisplay = () => {
     void window.tanda.updateDisplay(payload);
     return;
   }
-  const active = getNowPlayingState();
+  const active = resolveNowPlayingState();
   if (!active) {
     if (holdCortinaDisplayWhenIdle) {
       const payload: DisplayUpdatePayload = {
@@ -4717,7 +2429,7 @@ const updateNowPlayingDisplay = () => {
   if (!nowPlayingTrack || !nowPlayingTime || !nowPlayingSource) {
     return;
   }
-  const active = getNowPlayingState();
+  const active = resolveNowPlayingState();
   if (!active) {
     nowPlayingTrack.textContent = t("nowPlayingIdle");
     nowPlayingSource.textContent = t("nowPlayingMain");
@@ -4736,6 +2448,7 @@ const updateNowPlayingDisplay = () => {
     });
     updatePlayingIndicators();
     updateHeadphoneButtonIndicators();
+    renderNowPlayingDynamicsControl();
     updateExternalDisplay();
     return;
   }
@@ -4744,39 +2457,33 @@ const updateNowPlayingDisplay = () => {
   const track = state.track;
   const { startOffsetMs, endTrimMs } = getAdjustedTrimValues(track ?? null);
   const baseDurationMs = track?.duration_ms ?? 0;
-  const audioDurationSeconds = Number.isFinite(state.active?.duration)
+  const audioDurationSeconds = Number.isFinite(state.active?.duration ?? NaN)
     ? state.active?.duration ?? 0
     : 0;
-  const baseDurationSeconds =
-    audioDurationSeconds > 0
-      ? audioDurationSeconds
-      : baseDurationMs > 0
-        ? baseDurationMs / 1000
-        : 0;
-  const effectiveDurationSeconds =
-    baseDurationSeconds > 0
-      ? Math.max(
-          0,
-          baseDurationSeconds - startOffsetMs / 1000 - endTrimMs / 1000,
-        )
-      : 0;
-  const cortinaDisplayDurationSeconds =
-    cortinaPlaying &&
-    channel === "main" &&
-    Boolean(track) &&
-    !cortinaAllowFull
-      ? Math.min(effectiveDurationSeconds, getCortinaDuration())
-      : effectiveDurationSeconds;
-  const currentSeconds = Math.max(
-    0,
-    (state.active?.currentTime ?? 0) - startOffsetMs / 1000,
-  );
-  const clampedCurrent = Math.min(
-    currentSeconds,
-    cortinaDisplayDurationSeconds || currentSeconds,
-  );
+  const baseDurationSeconds = resolveBaseDurationSeconds({
+    audioDurationSeconds,
+    baseDurationMs,
+  });
+  const effectiveDurationSeconds = resolveEffectiveDurationSeconds({
+    baseDurationSeconds,
+    startOffsetMs,
+    endTrimMs,
+  });
+  const cortinaDisplayDurationSeconds = resolveDisplayDurationSeconds({
+    effectiveDurationSeconds,
+    cortinaPlaying,
+    cortinaAllowFull,
+    hasTrack: Boolean(track),
+    channel,
+    cortinaDurationSeconds: getCortinaDuration(),
+  });
+  const clampedCurrent = resolveClampedCurrentSeconds({
+    currentTimeSeconds: state.active?.currentTime ?? 0,
+    startOffsetMs,
+    displayDurationSeconds: cortinaDisplayDurationSeconds,
+  });
 
-  nowPlayingTrack.textContent = buildTrackLabel(track);
+  nowPlayingTrack.textContent = resolveNowPlayingTrackLabel(track);
   nowPlayingSource.textContent =
     channel === "headphone"
       ? t("nowPlayingHeadphone")
@@ -4785,10 +2492,10 @@ const updateNowPlayingDisplay = () => {
     current: formatTime(clampedCurrent),
     duration: formatTime(cortinaDisplayDurationSeconds),
   });
-  const progressSeconds = Math.max(0, state.active?.currentTime ?? 0);
-  const progressDurationSeconds = baseDurationSeconds;
-  const progress =
-    progressDurationSeconds > 0 ? progressSeconds / progressDurationSeconds : 0;
+  const progress = resolveProgressRatio({
+    currentTimeSeconds: Math.max(0, state.active?.currentTime ?? 0),
+    durationSeconds: baseDurationSeconds,
+  });
   waveformWidgets.forEach((widget) => {
     if (widget.progress) {
       widget.progress.style.width = `${Math.min(100, Math.max(0, progress * 100))}%`;
@@ -4800,6 +2507,7 @@ const updateNowPlayingDisplay = () => {
   void updateWaveformSource(track?.id ?? null);
   updatePlayingIndicators();
   updateHeadphoneButtonIndicators();
+  renderNowPlayingDynamicsControl();
   updateExternalDisplay();
 };
 
@@ -4807,7 +2515,7 @@ const seekToWaveformPosition = (
   event: MouseEvent,
   container: HTMLDivElement | null = waveformContainer,
 ) => {
-  const active = getNowPlayingState();
+  const active = resolveNowPlayingState();
   if (!active || !active.state.active) {
     return;
   }
@@ -4824,22 +2532,20 @@ const seekToWaveformPosition = (
   const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
   const track = active.state.track;
   const baseDurationMs = track?.duration_ms ?? 0;
-  const startOffsetMs = track?.start_offset_ms ?? 0;
-  const endTrimMs = track?.end_trim_ms ?? 0;
-  const baseDurationSeconds =
-    baseDurationMs > 0
-      ? baseDurationMs / 1000
-      : Number.isFinite(active.state.active.duration)
-        ? active.state.active.duration ?? 0
-        : 0;
-  if (!Number.isFinite(baseDurationSeconds) || baseDurationSeconds <= 0) {
+  const targetSeconds = resolveWaveformSeekTargetSeconds({
+    ratio,
+    baseDurationMs,
+    activeAudioDurationSeconds: Number.isFinite(active.state.active.duration ?? NaN)
+      ? active.state.active.duration ?? 0
+      : 0,
+  });
+  if (targetSeconds === null) {
     return;
   }
-  const targetSeconds = ratio * baseDurationSeconds;
-  active.state.active.currentTime = Math.min(
-    targetSeconds,
-    baseDurationSeconds > 0 ? baseDurationSeconds : targetSeconds,
-  );
+  active.state.active.currentTime = targetSeconds;
+  if (active.state.compressedActive) {
+    active.state.compressedActive.currentTime = active.state.active.currentTime;
+  }
   updateNowPlayingDisplay();
 };
 
@@ -5069,7 +2775,7 @@ const loadTandaDrafts = async () => {
 };
 
 const updatePlayingIndicators = () => {
-  const active = getNowPlayingState();
+  const active = resolveNowPlayingState();
   const activeId = active?.state.currentTrackId ?? null;
   const activeChannel = active?.channel ?? null;
   const cssEscape =
@@ -5324,7 +3030,107 @@ type PlayOptions = {
   maxDurationSeconds?: number;
   isCortinaPlayback?: boolean;
   autoStopFadeMs?: number;
+  fromPlaylist?: boolean;
 };
+
+const resolveNextLiveTrackForCompression = () => {
+  if (playlistPlayback.status !== "playing") {
+    return null;
+  }
+  for (let playlistIndex = playlistPlayback.currentIndex; playlistIndex < playlistItems.length; playlistIndex += 1) {
+    const item = playlistItems[playlistIndex];
+    if (!item) {
+      continue;
+    }
+    if (item.kind === "track") {
+      if (playlistIndex === playlistPlayback.currentIndex) {
+        continue;
+      }
+      return item.track;
+    }
+    const tanda = resolveTandaDraft(item.tandaId);
+    if (!tanda) {
+      continue;
+    }
+    const startSlot =
+      playlistIndex === playlistPlayback.currentIndex &&
+      playlistPlayback.activeTandaId === item.tandaId
+        ? playlistPlayback.currentTrackIndex + 1
+        : 0;
+    for (let slot = startSlot; slot < tanda.trackSlots.length; slot += 1) {
+      const trackId = tanda.trackSlots[slot];
+      if (!trackId) {
+        continue;
+      }
+      const track = trackCache.get(trackId);
+      if (track) {
+        return track;
+      }
+    }
+  }
+  return null;
+};
+
+const prefetchNextPlaylistCompression = async () => {
+  const config = getAudioDynamicsConfig();
+  if (!config.enabled || config.depth <= 0) {
+    return;
+  }
+  const nextTrack = resolveNextLiveTrackForCompression();
+  if (!nextTrack) {
+    return;
+  }
+  void requestCompressedSource(nextTrack, config);
+};
+
+const playbackCompressionController = createPlaybackCompressionController({
+  getAudioDynamicsConfig,
+  requestCompressedSource,
+  setStatus: (message) => {
+    if (statusEl) {
+      statusEl.textContent = message;
+    }
+  },
+  translate: t,
+  isCompressionRequestedForChannel: (channel, options) =>
+    isCompressionRequestedForChannel(channel, options as PlayOptions | undefined),
+  stopCompressedCompanion,
+  ensureAudioDspRuntime,
+  releaseAudioDspRuntime,
+  applyOutputDevice,
+  applyDynamicLevelToMain: () => applyDynamicLevelToChannel("main"),
+  updateNowPlayingDisplay,
+  resolveOutputDeviceIdForMain: () => resolveOutputDeviceIdForChannel("main"),
+  appMode: () => appMode,
+  playlistState: () => ({
+    status: playlistPlayback.status,
+    index: playlistPlayback.currentIndex,
+    trackIndex: playlistPlayback.currentTrackIndex,
+  }),
+  logPlaybackDiagnostic: (payload) => {
+    void window.tanda?.logPlaybackDiagnostic?.(payload as Parameters<
+      NonNullable<typeof window.tanda>["logPlaybackDiagnostic"]
+    >[0]);
+  },
+});
+
+const resolvePlaybackSource = async (
+  channel: OutputChannel,
+  track: TrackRow | null,
+  originalPath: string,
+  options?: PlayOptions,
+) =>
+  playbackCompressionController.resolvePlaybackSource(
+    channel,
+    track,
+    originalPath,
+    options,
+  );
+
+const ensureMainCompressedCompanion = async (
+  state: PlaybackState,
+  track: TrackRow | null,
+) => playbackCompressionController.ensureMainCompressedCompanion(state, track);
 
 const playOnChannel = async (
   channel: OutputChannel,
@@ -5340,10 +3146,16 @@ const playOnChannel = async (
     if (!allowToggle) {
       if (Number.isFinite(options?.startAtSeconds)) {
         state.active.currentTime = Math.max(0, options?.startAtSeconds ?? 0);
+        if (state.compressedActive) {
+          state.compressedActive.currentTime = state.active.currentTime;
+        }
       }
       if (state.active.paused) {
         try {
           await state.active.play();
+          if (state.compressedActive) {
+            await state.compressedActive.play().catch(() => undefined);
+          }
         } catch (error) {
           setStatus(
             error instanceof Error
@@ -5359,18 +3171,38 @@ const playOnChannel = async (
     state.active.pause();
     state.active.currentTime = 0;
     await releaseAudioDspRuntime(state.active);
+    await stopCompressedCompanion(state);
     state.currentTrackId = undefined;
     state.active = undefined;
     state.track = undefined;
     state.appliedGainDb = null;
     state.isCortinaPlayback = false;
+    state.usingCompressedSource = false;
+    state.activeSourcePath = undefined;
+    state.originalSourcePath = undefined;
+    state.compressedSourcePath = undefined;
     lastAppliedGainDbByChannel[channel] = null;
     updateNowPlayingDisplay();
     return false;
   }
 
+  if (
+    channel === "main" &&
+    options?.fromPlaylist !== true &&
+    track &&
+    isCompressionRequestedForChannel(channel, options)
+  ) {
+    await requestCompressedSource(track, getAudioDynamicsConfig());
+  }
+  const source =
+    channel === "main"
+      ? { filePath, compressed: false }
+      : await resolvePlaybackSource(channel, track, filePath, options);
   const next = new Audio();
   next.loop = false;
+  if (channel === "main") {
+    ensureAudioDspRuntime(next);
+  }
   const normalization = resolvePlaybackNormalization(gainDb, track?.loudness_db);
   let appliedGainDb = normalization.gainDb;
   let stepCorrectionDb = 0;
@@ -5399,7 +3231,7 @@ const playOnChannel = async (
     targetVolume *= getCortinaLevelPercent() / 100;
   }
   const preAttachRouting = await applyOutputDevice(next, requestedOutputDeviceId);
-  next.src = filePath;
+  next.src = source.filePath;
   const postAttachRouting = await applyOutputDevice(next, requestedOutputDeviceId);
   const outputRouting =
     postAttachRouting.appliedDeviceId || !preAttachRouting.appliedDeviceId
@@ -5407,6 +3239,7 @@ const playOnChannel = async (
       : preAttachRouting;
   if (requestedOutputDeviceId && !outputRouting.appliedDeviceId) {
     await releaseAudioDspRuntime(next);
+    await stopCompressedCompanion(state);
     void window.tanda?.logPlaybackDiagnostic?.({
       channel,
       mode: appMode,
@@ -5447,25 +3280,6 @@ const playOnChannel = async (
     );
     return false;
   }
-  const dynamicsConfig = getAudioDynamicsConfig();
-  const dynamicsRequested = dynamicsConfig.enabled && channel === "main";
-  let useDynamicsRuntime =
-    dynamicsRequested && isDynamicsAvailableForChannel(channel, requestedOutputDeviceId);
-  if (dynamicsRequested && !useDynamicsRuntime) {
-    setStatus(t("statusDspBypassedOutput"));
-  }
-  if (useDynamicsRuntime) {
-    if (!(await ensureSharedAudioContextRunning())) {
-      useDynamicsRuntime = false;
-    } else {
-      try {
-        const runtime = ensureAudioDspRuntime(next);
-        applyDynamicsToRuntime(runtime, dynamicsConfig);
-      } catch {
-        useDynamicsRuntime = false;
-      }
-    }
-  }
   void window.tanda?.logPlaybackDiagnostic?.({
     channel,
     mode: appMode,
@@ -5495,16 +3309,19 @@ const playOnChannel = async (
       ...postAttachRouting.attemptedDeviceIds,
     ],
   });
-  if (useDynamicsRuntime) {
-    await resumeAudioContextForElement(next);
-  }
 
   const previous = state.active;
+  const previousCompressed = state.compressedActive;
   state.active = next;
+  state.compressedActive = undefined;
   state.currentTrackId = trackId;
   state.track = track ?? undefined;
   state.appliedGainDb = appliedGainDb;
   state.isCortinaPlayback = options?.isCortinaPlayback ?? false;
+  state.usingCompressedSource = source.compressed;
+  state.activeSourcePath = source.filePath;
+  state.originalSourcePath = track?.full_path ?? filePath;
+  state.compressedSourcePath = source.compressed ? source.filePath : undefined;
   void updateWaveformSource(trackId);
   const { startOffsetMs, endTrimMs } = getAdjustedTrimValues(track);
   const startOffsetSeconds = startOffsetMs > 0 ? startOffsetMs / 1000 : 0;
@@ -5539,11 +3356,16 @@ const playOnChannel = async (
   next.addEventListener("ended", () => {
     if (state.active === next) {
       void releaseAudioDspRuntime(next);
+      void stopCompressedCompanion(state);
       state.active = undefined;
       state.currentTrackId = undefined;
       state.track = undefined;
       state.appliedGainDb = null;
       state.isCortinaPlayback = false;
+      state.usingCompressedSource = false;
+      state.activeSourcePath = undefined;
+      state.originalSourcePath = undefined;
+      state.compressedSourcePath = undefined;
       updateNowPlayingDisplay();
     }
   });
@@ -5565,9 +3387,13 @@ const playOnChannel = async (
     updateNowPlayingDisplay();
   });
   next.addEventListener("pause", () => {
+    if (state.compressedActive && !state.compressedActive.paused) {
+      state.compressedActive.pause();
+    }
     updateNowPlayingDisplay();
   });
   next.addEventListener("timeupdate", () => {
+    syncCompressedCompanion(state);
     const durationCutoffSeconds =
       options?.isCortinaPlayback && cortinaAllowFull
         ? null
@@ -5618,7 +3444,20 @@ const playOnChannel = async (
   try {
     await next.play();
     fadeBetween(previous, next, targetVolume);
+    if (previousCompressed) {
+      void fadeOutAudio(previousCompressed, 600).then(() => {
+        previousCompressed.pause();
+        previousCompressed.currentTime = 0;
+        void releaseAudioDspRuntime(previousCompressed);
+      });
+    }
     lastAppliedGainDbByChannel[channel] = appliedGainDb;
+    if (channel === "main") {
+      if (options?.fromPlaylist) {
+        void prefetchNextPlaylistCompression();
+      }
+      void ensureMainCompressedCompanion(state, track);
+    }
     updateNowPlayingDisplay();
     return true;
   } catch (error) {
@@ -5676,19 +3515,28 @@ const stopChannelPlayback = async (channel: OutputChannel, fadeMs: number) => {
   const state = playback[channel];
   const active = state.active;
   if (!active) {
+    await stopCompressedCompanion(state);
     return;
   }
   if (fadeMs > 0) {
     await fadeOutAudio(active, fadeMs);
+    if (state.compressedActive) {
+      await fadeOutAudio(state.compressedActive, fadeMs);
+    }
   }
   active.pause();
   active.currentTime = 0;
   await releaseAudioDspRuntime(active);
+  await stopCompressedCompanion(state);
   state.active = undefined;
   state.currentTrackId = undefined;
   state.track = undefined;
   state.appliedGainDb = null;
   state.isCortinaPlayback = false;
+  state.usingCompressedSource = false;
+  state.activeSourcePath = undefined;
+  state.originalSourcePath = undefined;
+  state.compressedSourcePath = undefined;
   lastAppliedGainDbByChannel[channel] = null;
   updateNowPlayingDisplay();
 };
@@ -6630,7 +4478,7 @@ const getDuplicateReasonForTrack = (
   if (!duplicateStatus) {
     return "";
   }
-  return t("duplicateReasonTrack", { track: buildTrackLabel(track) });
+  return t("duplicateReasonTrack", { track: resolveNowPlayingTrackLabel(track) });
 };
 
 const getDuplicateReasonForTanda = (
@@ -6655,7 +4503,7 @@ const getDuplicateReasonForTanda = (
     return "";
   }
   const labels = Array.from(
-    new Set(duplicateTracks.map((track) => buildTrackLabel(track))),
+    new Set(duplicateTracks.map((track) => resolveNowPlayingTrackLabel(track))),
   ).slice(0, 4);
   const hasMore = duplicateTracks.length > labels.length;
   const list = hasMore ? `${labels.join("; ")}; ...` : labels.join("; ");
@@ -6954,7 +4802,7 @@ const renderTrackRow = (
     context === "clipboard" &&
     Boolean(activeCollection && !isReadOnlyCollectionId(activeCollection.id));
   const row = document.createElement("div");
-  const active = getNowPlayingState();
+  const active = resolveNowPlayingState();
   const isPlaying = active?.state.currentTrackId === track.id;
   const playingClass = isPlaying ? "playing" : "";
   const headphoneClass =
@@ -7334,7 +5182,7 @@ const buildTandaDetailLines = (tanda: TandaDraft): TandaDetailLine[] => {
     const yearLabel = year ? ` (${year})` : "";
     return [
       {
-        text: `${buildTrackLabel(track)}${yearLabel} · ${duration}`,
+        text: `${resolveNowPlayingTrackLabel(track)}${yearLabel} · ${duration}`,
         trackId: track.id,
         slotIndex,
       },
@@ -7344,30 +5192,78 @@ const buildTandaDetailLines = (tanda: TandaDraft): TandaDetailLine[] => {
 
 const getSearchPanel = () => searchTracksEl?.closest(".panel") ?? null;
 
+const getSearchController = () => {
+  if (searchController) {
+    return searchController;
+  }
+  searchController = createSearchController<TrackRow>({
+    searchPageSize: SEARCH_PAGE_SIZE,
+    getWindowApi: () =>
+      window.tanda
+        ? {
+            searchTracks: window.tanda.searchTracks,
+            searchTrackCount: window.tanda.searchTrackCount,
+            searchJumpIndex: window.tanda.searchJumpIndex,
+            searchJumpToPrefix: window.tanda.searchJumpToPrefix,
+          }
+        : null,
+    getState: () => searchState,
+    setState: setSearchState,
+    patchState: patchSearchState,
+    getSearchParams,
+    applySearchUiState,
+    getRefreshVersion: () => searchRefreshVersion,
+    incrementRefreshVersion: () => ++searchRefreshVersion,
+    setTrackInCache: (track) => trackCache.set(track.id, track),
+    renderSearchResults,
+    updateSearchSortDefaults,
+    updateTabCount: (count) =>
+      updateTabCount(searchTracksEl?.closest(".panel") ?? null, "search-tracks", count),
+    updateJumpIndex: (params) => updateJumpIndex(params as ReturnType<typeof getSearchParams>),
+    loadTandaSearchResults,
+    getActiveSearchTab: () => activeSearchTab,
+    getSearchListBody: () => searchListBody,
+    getSearchListMetrics: () =>
+      searchListBody
+        ? {
+            scrollTop: searchListBody.scrollTop,
+            clientHeight: searchListBody.clientHeight,
+            scrollHeight: searchListBody.scrollHeight,
+          }
+        : null,
+    setSearchListScrollTop: (top) => {
+      if (searchListBody) {
+        searchListBody.scrollTop = top;
+      }
+    },
+  });
+  return searchController;
+};
+
 const runSearchQuery = (query: string, allowEmpty = false) => {
-  const value = query.trim();
-  if (!searchInput || (!value && !allowEmpty)) {
+  if (!searchInput) {
     return;
   }
-  searchInput.value = value;
-  setSearchUiState("loading", searchRefreshVersion + 1, searchState.total);
-  if (pendingSearchFrame !== null) {
-    window.cancelAnimationFrame(pendingSearchFrame);
-  }
-  pendingSearchFrame = window.requestAnimationFrame(() => {
-    pendingSearchFrame = null;
-    activeSearchTab = "search-tracks";
-    updateSearchTabVisibility();
-    activatePanelTab(getSearchPanel(), "search-tracks");
+  const controller = getSearchController();
+  controller.runSearchQuery(query, allowEmpty, {
+    setInputValue: (value) => {
+      searchInput.value = value;
+    },
+    schedule: (fn) => {
+      if (pendingSearchRefreshTimer !== null) {
+        window.clearTimeout(pendingSearchRefreshTimer);
+      }
+      pendingSearchRefreshTimer = window.setTimeout(() => {
+        pendingSearchRefreshTimer = null;
+        fn();
+      }, 0);
+    },
+    setActiveSearchTracksTab: () => {
+      setActiveSearchTabState("search-tracks");
+      updateSearchTabVisibility();
+      activatePanelTab(getSearchPanel(), "search-tracks");
+    },
   });
-  if (pendingSearchRefreshTimer !== null) {
-    window.clearTimeout(pendingSearchRefreshTimer);
-  }
-  // Yield a tick so the query value paints before list fetch/render work starts.
-  pendingSearchRefreshTimer = window.setTimeout(() => {
-    pendingSearchRefreshTimer = null;
-    void refreshSearch();
-  }, 0);
 };
 
 const buildSearchQueryForTrack = (track: TrackRow) => {
@@ -7441,33 +5337,22 @@ const getTrackEditorFieldQueryValue = (field: string) => {
   }
 };
 
-const normalizeClipboardFilter = (value: string) => value.trim().toLowerCase();
-
 const getClipboardTrackFilterText = (track: TrackRow) =>
   buildTrackSearchQuery(track).toLowerCase();
 
 const getClipboardTandaFilterText = (tanda: TandaDraft) => {
-  const parts: string[] = [];
-  if (tanda.name) {
-    parts.push(tanda.name);
-  }
-  if (tanda.styles.length > 0) {
-    parts.push(tanda.styles.join(" "));
-  }
-  tanda.trackSlots.forEach((trackId) => {
-    if (!trackId) {
-      return;
-    }
-    const track = trackCache.get(trackId);
-    if (!track) {
-      return;
-    }
-    const trackText = buildTrackSearchQuery(track);
-    if (trackText) {
-      parts.push(trackText);
-    }
+  return buildClipboardTandaFilterText({
+    tandaName: tanda.name ?? "",
+    styles: tanda.styles,
+    trackIds: tanda.trackSlots,
+    resolveTrackText: (trackId) => {
+      const track = trackCache.get(trackId);
+      if (!track) {
+        return null;
+      }
+      return buildTrackSearchQuery(track) || null;
+    },
   });
-  return parts.join(" ").toLowerCase();
 };
 
 const clearPlaylistFilterTimer = () => {
@@ -7482,7 +5367,7 @@ const clearPlaylistFilter = () => {
   if (playlistFilterText && getPlaylistTargetIndex() !== null) {
     centerPlaylistTargetOnNextRender = true;
   }
-  playlistFilterText = "";
+  setPlaylistFilterTextState("");
   if (playlistFilterInput) {
     playlistFilterInput.value = "";
   }
@@ -7970,7 +5855,7 @@ const buildTopOrLeastCollectionIds = async (least: boolean) => {
       if (byCount !== 0) {
         return byCount;
       }
-      return buildTrackLabel(left).localeCompare(buildTrackLabel(right));
+      return resolveNowPlayingTrackLabel(left).localeCompare(resolveNowPlayingTrackLabel(right));
     })
     .slice(0, SMART_COLLECTION_LIMIT)
     .map((track) => track.id);
@@ -8019,7 +5904,7 @@ const buildAvailableCollectionIds = async () => {
       if (groupOrder !== 0) {
         return groupOrder;
       }
-      return buildTrackLabel(left).localeCompare(buildTrackLabel(right));
+      return resolveNowPlayingTrackLabel(left).localeCompare(resolveNowPlayingTrackLabel(right));
     })
     .slice(0, SMART_COLLECTION_LIMIT)
     .map((track) => track.id);
@@ -8471,7 +6356,7 @@ const renderPlaylist = () => {
         const metaEl = document.createElement("span");
         metaEl.className = "cortina-meta";
         metaEl.textContent = cortinaTrack
-          ? buildTrackLabel(cortinaTrack)
+          ? resolveNowPlayingTrackLabel(cortinaTrack)
           : t("cortinaRowHint");
         cortinaRow.append(timeEl, metaEl);
         if (cortinaTrack) {
@@ -8593,7 +6478,7 @@ const renderPlaylist = () => {
     const metaEl = document.createElement("span");
     metaEl.className = "cortina-meta";
     metaEl.textContent = endCortinaTrack
-      ? buildTrackLabel(endCortinaTrack)
+      ? resolveNowPlayingTrackLabel(endCortinaTrack)
       : t("cortinaRowHint");
     endRow.append(timeEl, metaEl);
     if (endCortinaTrack) {
@@ -8828,6 +6713,7 @@ const playCortina = async (runId: number, targetIndex: number) => {
       isCortinaPlayback: true,
       maxDurationSeconds: effectiveDurationMs / 1000,
       autoStopFadeMs,
+      fromPlaylist: true,
     },
   );
   if (!started) {
@@ -9127,7 +7013,7 @@ const runPlaylistPlayback = async (
         track.id,
         track,
         track.gain_db,
-        { allowToggle: false, startAtSeconds: resumeSeconds },
+        { allowToggle: false, startAtSeconds: resumeSeconds, fromPlaylist: true },
       );
       if (!started) {
         playlistPlayback.status = "idle";
@@ -9204,52 +7090,39 @@ const runPlaylistPlayback = async (
   }
 };
 
-const startPlaylistPlayback = () => {
-  if (playlistPlayback.status === "playing") {
-    return;
-  }
-  playlistPlayback.resume = null;
-  void runPlaylistPlayback(false);
-};
+const playlistRuntimeController = createPlaylistRuntimeController({
+  getPlaylistPlayback: () => ({
+    status: playlistPlayback.status,
+    currentIndex: playlistPlayback.currentIndex,
+    currentTrackIndex: playlistPlayback.currentTrackIndex,
+    activeTrackId: playlistPlayback.activeTrackId,
+    activeTandaId: playlistPlayback.activeTandaId,
+    resume: playlistPlayback.resume,
+    liveBaseStartMs: playlistPlayback.liveBaseStartMs,
+  }),
+  setPlaylistPlayback: (next) => {
+    Object.assign(playlistPlayback, next);
+  },
+  runPlaylistPlayback,
+  getMainPlayback: () => playback.main,
+  setMainPlayback: (next) => {
+    Object.assign(playback.main, next);
+  },
+  getStopFadeSeconds,
+  fadeOutAudio,
+  releaseAudioDspRuntime,
+  stopCompressedCompanion: () => stopCompressedCompanion(playback.main),
+  setCortinaDisplayPhase: (phase) => {
+    cortinaDisplayPhase = phase;
+  },
+  renderPlaylist,
+});
 
-const resumePlaylistPlayback = () => {
-  if (playlistPlayback.status !== "paused" || !playlistPlayback.resume) {
-    return;
-  }
-  void runPlaylistPlayback(true);
-};
+const startPlaylistPlayback = () => playlistRuntimeController.startPlaylistPlayback();
 
-const stopPlaylistPlayback = async () => {
-  if (playlistPlayback.status !== "playing") {
-    return;
-  }
-  playlistPlayback.status = "paused";
-  playlistPlayback.liveBaseStartMs = null;
-  const active = playback.main.active;
-  if (active && playback.main.currentTrackId) {
-    playlistPlayback.resume = {
-      itemIndex: playlistPlayback.currentIndex,
-      trackIndex: playlistPlayback.currentTrackIndex,
-      trackId: playback.main.currentTrackId,
-      resumeTime: active.currentTime ?? 0,
-    };
-    const durationMs = getStopFadeSeconds() * 1000;
-    if (durationMs > 0) {
-      await fadeOutAudio(active, durationMs);
-    }
-    active.pause();
-    await releaseAudioDspRuntime(active);
-  }
-  playback.main.active = undefined;
-  playback.main.currentTrackId = undefined;
-  playback.main.track = undefined;
-  playback.main.appliedGainDb = null;
-  playback.main.isCortinaPlayback = false;
-  cortinaDisplayPhase = "none";
-  playlistPlayback.activeTrackId = null;
-  playlistPlayback.activeTandaId = null;
-  renderPlaylist();
-};
+const resumePlaylistPlayback = () => playlistRuntimeController.resumePlaylistPlayback();
+
+const stopPlaylistPlayback = async () => playlistRuntimeController.stopPlaylistPlayback();
 
 const normalizeTrackTitleForAutofill = (track: TrackRow) =>
   track.title.trim().toLowerCase();
@@ -10088,7 +7961,7 @@ const renderTandaDesigner = () => {
       const label = document.createElement("span");
       if (trackId) {
         const track = trackCache.get(trackId);
-        label.textContent = track ? buildTrackLabel(track) : t("tandaPlaceholder");
+        label.textContent = track ? resolveNowPlayingTrackLabel(track) : t("tandaPlaceholder");
       } else {
         label.textContent = t("tandaPlaceholder");
       }
@@ -11096,7 +8969,7 @@ const renderCortinaResults = async () => {
       } else {
         cortinaOverrideTrack = track;
       }
-      setStatus(t("statusCortinaSelected", { title: buildTrackLabel(track) }));
+      setStatus(t("statusCortinaSelected", { title: resolveNowPlayingTrackLabel(track) }));
       setCortinaModalVisible(false);
       renderPlaylist();
     });
@@ -12212,40 +10085,46 @@ const renderDiagnosticsPaths = async () => {
   });
 };
 
+const getSettingsDiagnosticsController = () => {
+  if (settingsDiagnosticsController) {
+    return settingsDiagnosticsController;
+  }
+  if (
+    !window.tanda?.getDiagnosticsLogs ||
+    !window.tanda?.clearDiagnosticsLogs ||
+    !window.tanda?.getDiagnosticsDataReadiness
+  ) {
+    return null;
+  }
+  settingsDiagnosticsController = createSettingsDiagnosticsController({
+    translate: t,
+    getDiagnosticsLogs: window.tanda.getDiagnosticsLogs,
+    clearDiagnosticsLogs: window.tanda.clearDiagnosticsLogs,
+    getDiagnosticsDataReadiness: window.tanda.getDiagnosticsDataReadiness,
+  });
+  return settingsDiagnosticsController;
+};
+
 const renderPlaybackDiagnosticsLog = async () => {
-  if (!diagnosticsPlaybackLogResult || !window.tanda?.getDiagnosticsLogs) {
+  if (!diagnosticsPlaybackLogResult) {
     return;
   }
-  diagnosticsPlaybackLogResult.textContent = t("statusWaveformLoading");
-  try {
-    const payload = await window.tanda.getDiagnosticsLogs({
-      kind: "playback",
-      limit: 160,
-    });
-    diagnosticsPlaybackLogResult.textContent =
-      payload.lines.length > 0
-        ? payload.lines.join("\n")
-        : t("diagnosticsPlaybackLogEmpty");
-  } catch (error) {
-    diagnosticsPlaybackLogResult.textContent = t("diagnosticsPlaybackLogFailed", {
-      message: error instanceof Error ? error.message : t("statusUnknownError"),
-    });
+  const controller = getSettingsDiagnosticsController();
+  if (!controller) {
+    return;
   }
+  await controller.renderPlaybackDiagnosticsLog(diagnosticsPlaybackLogResult);
 };
 
 const clearDiagnosticsLogs = async () => {
-  if (!diagnosticsPlaybackLogResult || !window.tanda?.clearDiagnosticsLogs) {
+  if (!diagnosticsPlaybackLogResult) {
     return;
   }
-  diagnosticsPlaybackLogResult.textContent = t("statusWaveformLoading");
-  try {
-    await window.tanda.clearDiagnosticsLogs();
-    diagnosticsPlaybackLogResult.textContent = t("diagnosticsLogsCleared");
-  } catch (error) {
-    diagnosticsPlaybackLogResult.textContent = t("diagnosticsLogsClearFailed", {
-      message: error instanceof Error ? error.message : t("statusUnknownError"),
-    });
+  const controller = getSettingsDiagnosticsController();
+  if (!controller) {
+    return;
   }
+  await controller.clearPlaybackDiagnosticsLog(diagnosticsPlaybackLogResult);
 };
 
 const runAudioOutputProbe = async () => {
@@ -12348,34 +10227,16 @@ const renderDiagnosticsDataReadiness = async () => {
 };
 
 const verifyLegacyReadiness = async () => {
-  if (!legacyReadinessResult || !window.tanda?.getDiagnosticsDataReadiness) {
+  if (!legacyReadinessResult) {
     return;
   }
-  legacyReadinessResult.textContent = t("legacyReadinessRunning");
-  try {
-    const summary = await window.tanda.getDiagnosticsDataReadiness();
-    const decision = evaluateDataReadiness(summary);
-    const statusText =
-      decision.status === "pass"
-        ? t("legacyReadinessPass")
-        : decision.status === "warn"
-          ? t("legacyReadinessWarn")
-          : t("legacyReadinessFail");
-    const summaryText = t("legacyReadinessSummary", {
-      status: statusText,
-      total: summary.totalTracks,
-      missingDuration: summary.missingDuration,
-      missingLoudness: summary.missingLoudness,
-      missingTrimSignals: summary.missingTrimSignals,
-      analysisErrors: summary.analysisErrors,
-      missingWaveforms: summary.missingWaveforms,
-    });
-    legacyReadinessResult.textContent = summaryText;
+  const controller = getSettingsDiagnosticsController();
+  if (!controller) {
+    return;
+  }
+  const statusText = await controller.verifyLegacyReadiness(legacyReadinessResult);
+  if (statusText) {
     setStatus(statusText);
-  } catch (error) {
-    legacyReadinessResult.textContent = t("diagnosticsPlaybackLogFailed", {
-      message: error instanceof Error ? error.message : t("statusUnknownError"),
-    });
   }
 };
 
@@ -12554,10 +10415,10 @@ const getSearchParams = () => {
 
 const updateSearchSortDefaults = () => {
   const query = searchInput?.value?.trim() ?? "";
-  searchState = {
+  setSearchState({
     ...searchState,
     ...applySearchSortDefaults(query, searchState),
-  };
+  });
   updateSortButtons();
 };
 
@@ -12568,7 +10429,7 @@ const updateSearchCount = async (
     return;
   }
   const params = paramsOverride ?? getSearchParams();
-  searchState.total = await window.tanda.searchTrackCount(params);
+  patchSearchState({ total: await window.tanda.searchTrackCount(params) });
 };
 
 const renderJumpIndex = (available: string[]) => {
@@ -12628,134 +10489,19 @@ const loadSearchPage = async (
   mode: "replace" | "append" | "prepend",
   paramsOverride?: ReturnType<typeof getSearchParams>,
 ) => {
-  if (!window.tanda || searchState.isLoading) {
-    return;
-  }
-  if (offset < 0) {
-    return;
-  }
-  if (searchState.total && offset >= searchState.total) {
-    return;
-  }
-  searchState.isLoading = true;
-  setSearchUiState("loading", searchRefreshVersion, searchState.total);
-  try {
-    const params = paramsOverride ?? getSearchParams();
-    const rows = await window.tanda.searchTracks({
-      ...params,
-      limit: SEARCH_PAGE_SIZE,
-      offset,
-      sortBy: searchState.sortBy,
-      sortDir: searchState.sortDir,
-    });
-    rows.forEach((track) => trackCache.set(track.id, track));
-    if (mode === "replace") {
-      searchState.items = rows;
-      searchState.offsetStart = offset;
-    } else if (mode === "append") {
-      searchState.items = [...searchState.items, ...rows];
-    } else {
-      searchState.items = [...rows, ...searchState.items];
-      searchState.offsetStart = offset;
-    }
-    renderSearchResults();
-  } finally {
-    searchState.isLoading = false;
-    setSearchUiState("idle", searchRefreshVersion, searchState.total);
-  }
+  await getSearchController().loadSearchPage(offset, mode, paramsOverride);
 };
 
 const refreshSearch = async () => {
-  const refreshVersion = ++searchRefreshVersion;
-  setSearchUiState("loading", refreshVersion, 0);
-  const params = getSearchParams();
-  updateSearchSortDefaults();
-  // Avoid stale tab labels from previous searches while the new request is loading.
-  searchState.total = 0;
-  await loadSearchPage(0, "replace", params);
-  if (refreshVersion !== searchRefreshVersion) {
-    return;
-  }
-  if (searchListBody) {
-    searchListBody.scrollTop = 0;
-  }
-  await updateSearchCount(params);
-  if (refreshVersion !== searchRefreshVersion) {
-    return;
-  }
-  updateTabCount(searchTracksEl?.closest(".panel") ?? null, "search-tracks", searchState.total);
-  await updateJumpIndex(params);
-  if (refreshVersion !== searchRefreshVersion) {
-    return;
-  }
-  if (searchState.total > 0 && searchState.items.length === 0) {
-    await loadSearchPage(0, "replace", params);
-    if (refreshVersion !== searchRefreshVersion) {
-      return;
-    }
-  }
-  if (activeSearchTab === "search-tandas") {
-    void loadTandaSearchResults();
-    setSearchUiState("idle", refreshVersion, searchState.total);
-    return;
-  }
-  window.setTimeout(() => {
-    if (refreshVersion !== searchRefreshVersion) {
-      return;
-    }
-    void loadTandaSearchResults();
-  }, 250);
-  setSearchUiState("idle", refreshVersion, searchState.total);
+  await getSearchController().refreshSearch();
 };
 
 const jumpToPrefix = async (prefix: string) => {
-  if (!window.tanda) {
-    return;
-  }
-  const result = await window.tanda.searchJumpToPrefix({
-    ...getSearchParams(),
-    prefix,
-    sortBy: searchState.sortBy,
-    sortDir: searchState.sortDir,
-  });
-  await loadSearchPage(result.offset, "replace");
-  if (searchListBody) {
-    searchListBody.scrollTop = 0;
-  }
+  await getSearchController().jumpToPrefix(prefix);
 };
 
 const handleSearchScroll = async () => {
-  if (
-    !searchListBody ||
-    searchState.isLoading ||
-    activeSearchTab !== "search-tracks"
-  ) {
-    return;
-  }
-  if (searchState.total === 0) {
-    return;
-  }
-  const threshold = 140;
-  const nearBottom =
-    searchListBody.scrollTop + searchListBody.clientHeight >=
-    searchListBody.scrollHeight - threshold;
-  const nearTop = searchListBody.scrollTop <= threshold;
-
-  if (nearBottom) {
-    const nextOffset = searchState.offsetStart + searchState.items.length;
-    if (searchState.total === 0 || nextOffset < searchState.total) {
-      await loadSearchPage(nextOffset, "append");
-    }
-    return;
-  }
-
-  if (nearTop && searchState.offsetStart > 0) {
-    const prevOffset = Math.max(0, searchState.offsetStart - SEARCH_PAGE_SIZE);
-    const previousHeight = searchListBody.scrollHeight;
-    await loadSearchPage(prevOffset, "prepend");
-    const newHeight = searchListBody.scrollHeight;
-    searchListBody.scrollTop += newHeight - previousHeight;
-  }
+  await getSearchController().handleSearchScroll();
 };
 
 const parseDragData = (event: DragEvent) => {
@@ -13211,7 +10957,7 @@ const init = async () => {
   if (clipboardFilterInput) {
     clipboardFilterInput.value = clipboardFilterText;
     clipboardFilterInput.addEventListener("input", () => {
-      clipboardFilterText = clipboardFilterInput.value;
+      setClipboardFilterTextState(clipboardFilterInput.value);
       void renderClipboard();
     });
   }
@@ -13220,7 +10966,7 @@ const init = async () => {
     playlistFilterInput.value = playlistFilterText;
     playlistFilterInput.addEventListener("input", () => {
       markUserInteraction();
-      playlistFilterText = playlistFilterInput.value;
+      setPlaylistFilterTextState(playlistFilterInput.value);
       schedulePlaylistFilterAutoClear();
       if (getPlaylistTargetIndex() !== null) {
         centerPlaylistTargetOnNextRender = true;
@@ -13233,7 +10979,7 @@ const init = async () => {
     });
     playlistFilterInput.addEventListener("search", () => {
       markUserInteraction();
-      playlistFilterText = playlistFilterInput.value;
+      setPlaylistFilterTextState(playlistFilterInput.value);
       if (!playlistFilterText) {
         clearPlaylistFilterTimer();
       } else {
@@ -13518,14 +11264,6 @@ const init = async () => {
       );
       localStorage.setItem(AUDIO_DYNAMICS_DEPTH_KEY, "0");
       renderNowPlayingDynamicsControl();
-      void syncDynamicsRuntimeForActivePlayback();
-    });
-  }
-  if (audioDynamicsModeInput) {
-    audioDynamicsModeInput.value = getAudioDynamicsConfig().mode;
-    audioDynamicsModeInput.addEventListener("change", () => {
-      const next = audioDynamicsModeInput.value === "track-leveler" ? "track-leveler" : "upward";
-      localStorage.setItem(AUDIO_DYNAMICS_MODE_KEY, next);
       void syncDynamicsRuntimeForActivePlayback();
     });
   }
@@ -14010,16 +11748,12 @@ const init = async () => {
   if (modeSelect) {
     const savedMode = (localStorage.getItem("tanda-mode") ??
       "prep") as OutputMode;
-    appMode = savedMode === "live" || savedMode === "edit" ? savedMode : "prep";
+    setAppModeState(resolveOutputModeValue(savedMode));
     modeSelect.value = appMode;
     document.body.classList.toggle("mode-live", appMode === "live");
     modeSelect.addEventListener("change", () => {
-      appMode =
-        modeSelect.value === "live"
-          ? "live"
-          : modeSelect.value === "edit"
-            ? "edit"
-            : "prep";
+      const nextMode = resolveOutputModeValue(modeSelect.value);
+      setAppModeState(nextMode);
       localStorage.setItem("tanda-mode", appMode);
       document.body.classList.toggle("mode-live", appMode === "live");
       if (appMode === "edit") {
@@ -14232,7 +11966,7 @@ const init = async () => {
       return;
     }
     const fadeMs = getStopFadeSeconds() * 1000;
-    const active = getNowPlayingState();
+    const active = resolveNowPlayingState();
     if (active?.channel === "headphone") {
       await stopChannelPlayback("headphone", fadeMs);
       return;
@@ -14260,7 +11994,7 @@ const init = async () => {
     if (!diagnosticsWaveformResult) {
       return;
     }
-    const active = getNowPlayingState();
+    const active = resolveNowPlayingState();
     const trackId = active?.state.track?.id ?? null;
     if (!trackId) {
       diagnosticsWaveformResult.textContent = t("diagnosticsWaveformNoTrack");
@@ -14561,12 +12295,13 @@ const init = async () => {
         return;
       }
       if (searchState.sortBy === sort) {
-        searchState.sortDir = searchState.sortDir === "asc" ? "desc" : "asc";
+        patchSearchState({
+          sortDir: searchState.sortDir === "asc" ? "desc" : "asc",
+        });
       } else {
-        searchState.sortBy = sort;
-        searchState.sortDir = "asc";
+        patchSearchState({ sortBy: sort, sortDir: "asc" });
       }
-      searchState.sortMode = "manual";
+      patchSearchState({ sortMode: "manual" });
       updateSortButtons();
       refreshSearch();
     });
@@ -14830,11 +12565,11 @@ const init = async () => {
         }
       }
       if (tabId === "search-tracks" || tabId === "search-tandas") {
-        activeSearchTab = tabId as SearchTab;
+        setActiveSearchTabState(tabId as SearchTab);
         updateSearchTabVisibility();
       }
       if (tabId === "tanda-designer-tab" || tabId === "playlist-tab") {
-        activeRightTab = tabId as RightPanelTab;
+        setActiveRightTabState(tabId as RightPanelTab);
         renderTandaDesigner();
       }
     });
@@ -15445,7 +13180,7 @@ const init = async () => {
         updateSearchTabVisibility();
         refreshSearch();
         activatePanelTab(getSearchPanel(), "search-tracks");
-        activeSearchTab = "search-tracks";
+        setActiveSearchTabState("search-tracks");
       }
       const tanda = createPlaylistTandaForSlot(index);
       ensureTandaDraft(tanda);
@@ -15766,7 +13501,6 @@ const init = async () => {
   });
 
   applyTranslations();
-  startOutputWaveformLoop();
   if (orchestraFilterInput) {
     orchestraFilterInput.value = orchestraFilterText;
   }

@@ -220,6 +220,21 @@ export type AppApi = {
   }) => Promise<TrackRow | null>;
   getWaveform: (trackId: string) => Promise<string | null>;
   generateWaveform: (trackId: string) => Promise<{ ok: boolean; path?: string; error?: string }>;
+  renderCompressedTrack: (params: {
+    trackId: string;
+    filePath: string;
+    loudnessDb?: number | null;
+    depthPercent: number;
+    mode: "upward" | "track-leveler";
+    liftThresholdDb: number;
+    maxLiftDb: number;
+    ratio: number;
+    attackMs: number;
+    releaseMs: number;
+    gateThresholdDb: number;
+    limiterCeilingDb: number;
+    limiterReleaseMs: number;
+  }) => Promise<{ ok: boolean; filePath?: string; cached?: boolean; error?: string }>;
   getDiagnosticsPaths: () => Promise<{
     userData: string;
     waveformsDir: string;

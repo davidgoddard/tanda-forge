@@ -46,6 +46,19 @@ export type TrackLevelerFrameConfig = {
   releaseMs: number;
 };
 
+export type WetCompensationInput = {
+  dryRms: number;
+  wetRms: number;
+  wetMix: number;
+  previousReferenceRatio?: number;
+  frameMs?: number;
+};
+
+export type WetCompensationResult = {
+  targetGain: number;
+  referenceRatio?: number;
+};
+
 export const clampNumber = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
@@ -70,6 +83,44 @@ export const computeParallelMixGains = (
   return {
     wet: clampNumber(wet, 0, 1),
     dry: clampNumber(dry, 0, 1),
+  };
+};
+
+export const resolveWetCompensation = (
+  input: WetCompensationInput,
+): WetCompensationResult => {
+  const wetMix = clampNumber(input.wetMix, 0, 1);
+  const dryMix = clampNumber(1 - wetMix, 0, 1);
+  const dryRms = Math.max(0, input.dryRms);
+  const wetRms = Math.max(0, input.wetRms);
+  const previousRef = input.previousReferenceRatio;
+  const frameMs = clampNumber(input.frameMs ?? 16, 1, 250);
+  if (dryRms < 1e-4 || wetRms < 1e-4) {
+    const hold = Number.isFinite(previousRef) ? (previousRef as number) : 1;
+    return { targetGain: clampNumber(hold, 0.7, 4), referenceRatio: hold };
+  }
+  const dryProgramRms = dryRms / Math.max(dryMix, 0.15);
+  const wetProgramRms = wetRms / Math.max(wetMix, 0.15);
+  const instantRatio = dryProgramRms / Math.max(wetProgramRms, 1e-5);
+  const ratioClamped = clampNumber(instantRatio, 0.7, 4);
+  const canRefreshReference = dryMix >= 0.28 && wetMix >= 0.28;
+  if (!canRefreshReference) {
+    const hold = Number.isFinite(previousRef) ? (previousRef as number) : ratioClamped;
+    return { targetGain: clampNumber(hold, 0.7, 4), referenceRatio: hold };
+  }
+  if (!Number.isFinite(previousRef)) {
+    return { targetGain: ratioClamped, referenceRatio: ratioClamped };
+  }
+  const referenceRatio = smoothToward(
+    previousRef as number,
+    ratioClamped,
+    180,
+    520,
+    frameMs,
+  );
+  return {
+    targetGain: clampNumber(referenceRatio, 0.7, 4),
+    referenceRatio: clampNumber(referenceRatio, 0.7, 4),
   };
 };
 

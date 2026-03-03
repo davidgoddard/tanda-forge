@@ -3705,3 +3705,458 @@
   - Included practical 3-step operating flow for live use.
 - Verification:
   - Documentation-only change; no runtime code changed in this update.
+### Latest update
+- Replaced active playback compression path with offline rendered compressed-track sources.
+- Main-process additions:
+  - `app/src/main/library/analysis.ts`:
+    - added `renderCompressedAudio(...)` using ffmpeg filter chain (`dynaudnorm -> acompressor -> alimiter`) and PCM WAV output.
+  - `app/src/main/main.ts`:
+    - added cache-dir support (`compressed-audio-cache`) and SHA1 cache keying by file stat + compression params.
+    - added IPC handler: `audio:renderCompressedTrack`.
+- API surface additions:
+  - `app/src/shared/types.ts`: added `renderCompressedTrack(...)` to `AppApi`.
+  - `app/src/preload/preload.ts`: exposed `renderCompressedTrack` IPC bridge.
+- Renderer playback changes:
+  - `app/src/renderer/renderer.ts`:
+    - playback source now resolves to pre-rendered compressed file for `main` channel when compression is enabled and depth > 0 (excluding cortinas).
+    - prep mode: if depth is 0, original file plays immediately (no render delay).
+    - live mode: prefetches compressed version of next playlist track in background.
+    - now-playing compression slider is disabled in prep mode while original uncompressed playback is active; re-enabled when idle or compressed playback is active.
+- New shared helper and unit tests:
+  - `app/src/shared/audio-compression.ts`.
+  - `tests/audio-compression.test.ts`.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (43 files, 212 tests).
+  - E2E intentionally not run (per user instruction).
+### Latest update
+- Removed stale compression mode selector and added explicit now-playing compression proof status.
+- UI/config changes:
+  - Removed `Processing mode` dropdown from System Config (`app/src/renderer/index.html`).
+  - Renderer now always uses `track-leveler` mode internally for offline render requests.
+  - Added a now-playing status line under compression slider (`#now-playing-dynamics-state`) showing:
+    - disabled,
+    - original source (mix 0%),
+    - bypass for headphones,
+    - bypass for cortina,
+    - fallback to original when render unavailable,
+    - rendered compressed source with filename.
+- Code changes:
+  - `app/src/shared/audio-compression.ts`:
+    - added `CompressionProofState` and `resolveCompressionProofState(...)`.
+  - `app/src/renderer/renderer.ts`:
+    - imported/used proof-state helper.
+    - tracked `activeSourcePath` in playback state.
+    - set/clear source-path and rendered-source flags in playback lifecycle.
+    - removed mode-dropdown handling and hardwired config mode to `track-leveler`.
+    - added i18n entries for compression proof strings.
+  - `app/src/renderer/index.html`:
+    - removed mode selector field.
+    - added now-playing compression proof element.
+  - `app/src/renderer/styles.css`:
+    - added styles for proof status line.
+  - `tests/audio-compression.test.ts`:
+    - added coverage for proof-state resolution.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (43 files, 213 tests).
+  - `npm run test:e2e` failed to launch Electron in this environment (`Process failed to launch`, Electron exits with `SIGABRT`) before running scenario assertions.
+### Latest update
+- Implemented true current-track live wet/dry behavior for compression slider (main output).
+- Behavior changes:
+  - Main playback starts immediately on original source (`dry`) with no render wait.
+  - When compression is requested (`enabled` + depth > 0 + non-cortina main track), renderer builds/loads a compressed companion source (`wet`) for the same track.
+  - Slider now controls real-time dry/wet gain mix for the currently playing track.
+  - Companion source is time-synced to dry source (seek/pause/resume drift handling).
+- Code changes:
+  - `app/src/renderer/renderer.ts`:
+    - `PlaybackState` now includes `compressedActive?: HTMLAudioElement`.
+    - Added helpers:
+      - `stopCompressedCompanion(...)`
+      - `syncCompressedCompanion(...)`
+      - `ensureMainCompressedCompanion(...)`
+    - `playOnChannel(...)`:
+      - main channel no longer blocks on compressed render before start,
+      - starts dry immediately and asynchronously attaches wet companion,
+      - maintains sync and clears companion on stop/end/track switch.
+    - `applyDynamicLevelToChannel(...)` now applies slider-driven dry/wet volume split when companion exists.
+    - `seekToWaveformPosition(...)` now seeks companion to match dry.
+    - `stopChannelPlayback(...)` and `stopPlaylistPlayback(...)` now also stop companion audio.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (43 files, 213 tests).
+  - `npm run test:e2e` still fails in this environment at Electron launch (`Process failed to launch` for all scenarios).
+### Latest update
+- Added explicit compression-render failure reason visibility in UI and diagnostics.
+- Changes:
+  - `app/src/renderer/renderer.ts`:
+    - track-level cache `compressedSourceErrorByTrackId`.
+    - `requestCompressedSource(...)` now captures failed render reasons (`result.error`) and writes a playback diagnostic event with:
+      - `outputRouteMethod: "compression-render"`
+      - `outputRouteError: <ffmpeg/error message>`.
+    - now-playing proof text now shows detailed fallback reason via i18n key when available.
+  - i18n:
+    - Added `audioDynamicsProofFallbackOriginalDetail` in English map.
+- Effect:
+  - When UI says "render unavailable", it now includes the actual reason when known.
+  - Diagnostics log gains explicit compression-render failure entries for root-cause debugging.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (43 files, 213 tests).
+  - `npm run test:e2e` still fails in this environment at Electron launch (`Process failed to launch` for all scenarios).
+### Latest update
+- Fixed compression render failure caused by invalid ffmpeg `acompressor` parameter.
+- Root cause:
+  - Render diagnostics showed ffmpeg rejecting `makeup=0`:
+    - `Value 0.000000 for parameter 'makeup' out of range [1 - 64]`
+  - This forced all compression attempts to fallback to original source.
+- Fix:
+  - `app/src/main/library/analysis.ts`:
+    - in `buildCompressionFilter(...)`, changed
+      - `acompressor ... makeup=0`
+      - to `acompressor ... makeup=1` (unity makeup gain; valid ffmpeg range).
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (43 files, 213 tests).
+  - E2E not run per current operating instruction for this environment.
+### Latest update
+- Hardened live dry/wet playback behavior and corrected wet-path loudness at high compression mix.
+- Changes in `app/src/renderer/renderer.ts`:
+  - Added companion tracking and cleanup:
+    - `trackedCompressedCompanions` set.
+    - `stopCompressedCompanion(...)` now deregisters companion.
+    - `stopAllCompressedCompanions(...)` utility for defensive mass cleanup.
+  - Improved sync logic (`syncCompressedCompanion(...)`):
+    - hard realign for large drift,
+    - playback-rate micro-correction for small drift to reduce echo/comb artifacts.
+  - Added mix slew/throttle:
+    - `mainWetMixCurrent`, `mainWetMixTarget`, RAF smoother.
+    - `applyDynamicLevelToChannel(...)` now uses smoothed wet-mix transitions.
+  - Fixed perceived quietness at 100% wet:
+    - instantiate WebAudio runtime for main dry and wet companion elements.
+    - removed runtime gain clamp-to-1 in `setAudioLevel(...)` so normalization gains >1 are honored in runtime path.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (43 files, 213 tests).
+  - E2E not run per current operating instruction for this environment.
+### Latest update
+- Reworked offline compression render chain to avoid explicit downward peak flattening.
+- Rationale:
+  - User goal is clarity boost by lifting quieter content, not flattening loud transients.
+  - Prior chain included `acompressor` (downward component) which could make output sound flat.
+- Change:
+  - `app/src/main/library/analysis.ts` `buildCompressionFilter(...)`:
+    - removed `acompressor`.
+    - added upward-focused `compand` curve with threshold/gate/max-lift shaping.
+    - kept `alimiter` final stage for peak safety.
+- Expected effect:
+  - quiet sections are lifted more aggressively,
+  - louder content remains closer to original,
+  - less “flattened” character than previous chain.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (43 files, 213 tests).
+  - E2E not run per current operating instruction for this environment.
+### Latest update
+- Eliminated slider-induced compression render churn.
+- Problem:
+  - Slider updates were part of render cache/request key, causing repeated background render jobs when dragging the slider.
+- Fix:
+  - `app/src/renderer/renderer.ts`:
+    - `requestCompressedSource(...)` now always requests wet render with fixed `depthPercent: 100` (single aggressive wet profile).
+    - slider depth removed from compressed request key (`buildCompressedSourceRequestKey`), so slider changes no longer trigger re-render.
+    - companion attach guard added in `syncDynamicsRuntimeForActivePlayback()` to skip render/attach when a companion already exists.
+- Result:
+  - Slider acts as pure wet/dry crossmix control.
+  - Render happens once per track+settings profile, not per slider movement.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (43 files, 213 tests).
+  - E2E not run per current operating instruction for this environment.
+### Latest update
+- Addressed "100% wet quieter than 0%" by stabilizing wet compensation against near-muted dry references.
+- Changes:
+  - `app/src/shared/audio-dynamics.ts`
+    - Added `resolveWetCompensation(...)` plus types:
+      - `WetCompensationInput`
+      - `WetCompensationResult`
+    - Logic now:
+      - de-mixes dry/wet RMS to estimate program-relative levels,
+      - refreshes compensation reference only when both sides are sufficiently audible,
+      - holds prior reference near extreme mixes (especially near 100% wet).
+  - `app/src/renderer/renderer.ts`
+    - Added `wetCompensationReferenceRatio` to `PlaybackState`.
+    - `syncCompressedCompanion(...)` now uses `resolveWetCompensation(...)`.
+    - Reset compensation reference on companion attach/stop and dry-only fallback.
+    - Increased wet compensation clamp ceiling from `2.4` to `4.0`.
+  - `tests/audio-dynamics.test.ts`
+    - Added tests for:
+      - compensation reference hold near full-wet,
+      - ratio increase when wet is quieter at balanced mix.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (43 files, 215 tests).
+  - E2E not run per current operating instruction for this environment.
+### Latest update
+- Added temporary now-playing file path diagnostics for compression verification.
+- User goal:
+  - Compare original vs compressed files directly in Audacity.
+- Changes:
+  - `app/src/renderer/renderer.ts`
+    - `PlaybackState` now includes:
+      - `originalSourcePath?: string`
+      - `compressedSourcePath?: string`
+    - Path lifecycle wiring:
+      - set `originalSourcePath` on play start,
+      - set `compressedSourcePath` once companion compressed render attaches,
+      - clear both on stop/end/reset paths.
+    - `renderNowPlayingDynamicsControl()` now renders:
+      - compression source proof line,
+      - `Original: <full path>`,
+      - `Compressed: <full path>` or pending marker.
+    - Added i18n keys:
+      - `audioDynamicsPathOriginal`
+      - `audioDynamicsPathCompressed`
+      - `audioDynamicsPathPending`
+  - `app/src/renderer/styles.css`
+    - `.now-playing-dynamics-state` changed to multiline wrapping (`pre-wrap`, `overflow-wrap:anywhere`) so full paths are visible.
+- Verification:
+  - `npm run build` passed.
+  - Tests intentionally not run per explicit user request for this temporary diagnostic change.
+### Latest update
+- Addressed user report that rendered "compressed" files appeared identical in Audacity.
+- Root cause hypothesis:
+  - The offline compand threshold was absolute and deep (`-60 dBFS` default), so much program material sat above the lift region and bypassed processing.
+- Changes made:
+  - `app/src/main/library/analysis.ts`
+    - Extended `OfflineCompressionRequest` with optional `loudnessDb`.
+    - `buildCompressionFilter(...)` now derives an effective threshold from track loudness when available:
+      - `relativeThresholdDb = clamp(loudnessDb - 14, -48, -16)`
+      - `thresholdDb = max(configuredThresholdDb, relativeThresholdDb)`
+    - Gate now follows threshold (`gateDb` constrained with `thresholdDb - 8`) so lift band remains active.
+  - `app/src/renderer/renderer.ts`
+    - `requestCompressedSource(...)` passes `track.loudness_db` to compression render IPC.
+    - compressed cache key now includes `track.loudness_db` to force regeneration away from old cached renders.
+  - `app/src/main/main.ts` and `app/src/shared/types.ts`
+    - Updated `audio:renderCompressedTrack` parameter typings/signature to include optional `loudnessDb`.
+- Verification:
+  - `npm run build` passed.
+  - Tests intentionally not run for this temporary debug iteration per user instruction.
+### Latest update
+- Implemented two-pass loudness normalization on compressed render path.
+- User intent:
+  - avoid guessed makeup gain,
+  - normalize compressed output using measured post-processing loudness.
+- Changes:
+  - `app/src/main/library/analysis.ts`
+    - Added `parseLoudnormPassOneJson(...)` to parse pass-1 loudnorm stats from ffmpeg JSON.
+    - Updated `renderCompressedAudio(...)` to:
+      - run pass-1: `compand + alimiter + loudnorm(print_format=json)` to null output,
+      - run pass-2: `compand + alimiter + loudnorm(...measured_*, offset, linear=true)` render to WAV.
+      - fallback to single-pass loudnorm if pass-1 parsing unavailable.
+  - `app/src/main/main.ts`
+    - Added `COMPRESSED_RENDER_PIPELINE_VERSION = 4` to compressed cache key fingerprint, forcing regeneration from previous cached artifacts.
+- Expected effect:
+  - compressed render level should now be brought to target loudness (rather than staying unexpectedly quiet), with deterministic normalization based on measured pass-1 stats.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (43 files, 215 tests).
+  - E2E not run in this cycle.
+### Latest update
+- Renderer refactor phase: extracted i18n subsystem out of `renderer.ts` to reduce monolith size and improve modularity.
+- Structural changes:
+  - Added `app/src/renderer/i18n.ts`:
+    - exports `LanguageKey`
+    - exports `translations`
+    - exports `SUPPORTED_LANGUAGES`
+    - exports `translate(language, key, params?)`
+  - Updated `app/src/renderer/renderer.ts`:
+    - now imports i18n items from `./i18n.js`
+    - `t(...)` delegates to shared `translate(...)`
+    - language list rendering now uses `SUPPORTED_LANGUAGES`
+    - retained collection-name migration logic using imported `translations` map.
+- Size impact:
+  - `renderer.ts` reduced from ~16,345 lines to ~13,931 lines.
+- Test updates:
+  - Added `tests/i18n.test.ts` with fallback/interpolation/language list checks.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (44 files, 219 tests).
+  - `npm run test:e2e` executed; failed at Electron launch for all tests with `Process failed to launch!` before test actions.
+### Latest update
+- Compression workflow simplified and aligned with current runtime requirements.
+- Implemented behavior:
+  - Single compressor profile path retained (no runtime mode switching logic in use).
+  - Cortinas are now eligible for compression on main output.
+  - Playlist-driven playback prefetches next compression candidate irrespective of app mode (prep/live/edit).
+  - Non-playlist main playback now blocks briefly to ensure compressed companion render is prepared before start when compression depth > 0.
+  - Compression render work remains fully bypassed when compression is disabled or depth is 0.
+- Code changes:
+  - `app/src/shared/audio-compression.ts`
+    - removed cortina exclusion and obsolete `cortina_bypass` proof state.
+  - `app/src/renderer/renderer.ts`
+    - added `fromPlaylist?: boolean` in `PlayOptions`.
+    - replaced `prefetchNextLiveCompression()` with `prefetchNextPlaylistCompression()` without live-mode restriction.
+    - playlist `playOnChannel(...)` invocations now pass `fromPlaylist: true`.
+    - non-playlist main-channel playback pre-renders compression before playback start when requested.
+    - renderer dynamics config now uses fixed compressor profile constants (enable + depth remain user-controlled).
+  - `tests/audio-compression.test.ts`
+    - assertions updated for cortina inclusion and proof-state changes.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (44 files, 219 tests).
+  - `npm run test:e2e` failed for all tests with immediate `Process failed to launch!` at Electron startup; no scenario assertions executed.
+### Latest update
+- Addressed user report that "compressed" files still looked/sounded near-original.
+- Root cause validation:
+  - Measured user sample (`tmp/04 Cell Block Tango (short).mp3`) and prior cached compressed output.
+  - Prior pipeline only reduced LRA from ~13.9 to ~11.1 (mild effect).
+- Changes made:
+  - `app/src/main/library/analysis.ts`
+    - Replaced compression filter with a stronger fixed profile:
+      - `dynaudnorm=f=120:g=25:m=100:s=8:p=1:n=0`
+      - `acompressor=threshold=-32dB:ratio=4:attack=5:release=250:makeup=8`
+      - `alimiter=limit=0.8913:level=disabled:attack=1:release=150`
+    - This remains followed by existing two-pass loudnorm stage in render path.
+  - `app/src/renderer/index.html`
+    - Simplified Compressor/Limiter settings UI to a single enable toggle plus fixed-profile hint.
+    - Removed per-parameter controls from rendered settings panel.
+  - `app/src/renderer/i18n.ts`
+    - Added `audioDynamicsSingleProfileHint` string.
+  - `app/src/main/main.ts`
+    - Bumped `COMPRESSED_RENDER_PIPELINE_VERSION` from `4` to `5` to invalidate stale compressed cache files.
+- Observed effect on user sample (local ffmpeg measurement):
+  - prior cached compressed file: input LRA ~11.1
+  - new fixed-profile compressed file: input LRA ~3.0
+  - confirms materially stronger compression/leveling.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (44 files, 219 tests).
+  - E2E intentionally not run per user instruction.
+### Latest update
+- Continued renderer decomposition and implemented requested compression UI cleanup.
+- Changes completed:
+  - Removed now-playing compressed output-overlay waveform path.
+    - `app/src/renderer/index.html`: removed overlay canvas from waveform container.
+    - `app/src/renderer/styles.css`: removed overlay-specific styles.
+    - `app/src/renderer/renderer.ts`: removed overlay data loop/render functions and startup call.
+  - Simplified now-playing compression status.
+    - `app/src/renderer/renderer.ts`: no longer displays original/compressed filenames/paths in now-playing status; shows concise proof state text.
+    - Added i18n key `audioDynamicsProofRenderedSimple`.
+  - Track editor now shows compressed path line when compression is enabled.
+    - `app/src/renderer/index.html`: added `#track-editor-compressed-path` hint line.
+    - `app/src/renderer/renderer.ts`:
+      - added `resolveCompressedPathForTrack(...)` (active source or cache lookup),
+      - `fillTrackEditorFields(...)` now renders source path + conditional compressed path line,
+      - `clearTrackEditorState()` clears both hints.
+  - Modularization step:
+    - Added `app/src/renderer/track-editor-path.ts` with pure helper `resolveTrackEditorPathLines(...)`.
+    - Renderer now imports helper instead of inline path-line formatting logic.
+  - Tests:
+    - Added `tests/track-editor-path.test.ts` (3 tests) covering disabled/enabled/pending compressed path formatting.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (45 files, 222 tests).
+  - E2E intentionally not run by current user instruction.
+### Latest update
+- Implemented requested now-playing compression control UX changes.
+- UI changes:
+  - Removed compression source text block from now-playing card.
+    - `app/src/renderer/index.html`: removed `#now-playing-dynamics-state`.
+    - `app/src/renderer/styles.css`: removed `.now-playing-dynamics-state` styles.
+- Slider behavior update (main request):
+  - When playback starts without compressed companion ready, slider is disabled and displayed as `0%`.
+  - When compressed companion becomes ready, slider re-enables and displays the stored user depth value.
+  - Stored depth is not overwritten during waiting state.
+- Code structure and tests:
+  - Added pure helper `app/src/shared/compression-ui.ts` with `resolveCompressionSliderUiState(...)`.
+  - Updated `app/src/renderer/renderer.ts` to use helper in `renderNowPlayingDynamicsControl()`.
+  - Added `tests/compression-ui.test.ts` to lock behavior.
+- Documentation updates:
+  - `README.md`: added compression slider behavior details in the compression use-case section.
+  - `docs/user-guide.md`: added dedicated "Compression Slider Behavior" section.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (46 files, 225 tests).
+  - E2E intentionally not run by user instruction.
+### Latest update
+- Completed a first-stage renderer architecture hardening pass focused on reducing coupling and improving testability while keeping behavior stable.
+- Feature module split introduced under `app/src/renderer/modules/`:
+  - `playback-view.ts`, `playlist-view.ts`, `search-view.ts`, `clipboard-view.ts`, `track-editor-view.ts`, `settings-view.ts`, `waveform-view.ts`.
+- Centralized UI transitions via reducer-backed store:
+  - Added `app/src/shared/state/renderer-ui-store.ts`.
+  - `app/src/renderer/renderer.ts` now uses store dispatch helpers for:
+    - app mode transitions,
+    - search/right panel tab transitions,
+    - playlist/clipboard filter text transitions,
+    - search state transitions (set/patch).
+- Pure logic moved out of `renderer.ts`:
+  - now-playing label/state helpers, search ui-state data attributes, waveform source update flow, clipboard filter composition, tap-BPM computation, playlist window computation, mode parsing.
+- Async playback/compression integration logic extraction:
+  - Added `app/src/shared/audio-compression-transition.ts` with event-driven transition reducer and mix-state resolver.
+  - Added `tests/audio-compression-transition.test.ts` to validate track-start/render-ready/depth-change/stop transitions.
+- New/updated tests:
+  - `tests/renderer-ui-store.test.ts`
+  - `tests/playback-view.test.ts`
+  - `tests/search-view.test.ts`
+  - `tests/track-editor-view.test.ts`
+  - `tests/clipboard-view.test.ts`
+  - `tests/playlist-view.test.ts`
+  - `tests/settings-view.test.ts`
+  - `tests/audio-compression-transition.test.ts`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (`54` files, `244` tests).
+  - `npm run test:e2e` did not execute workflows in this environment: all specs fail immediately with `Process failed to launch!` (harness launch failure, not assertion failure).
+- Notes:
+  - `renderer.ts` remains very large; this pass introduced module seams and centralized several critical state transitions, but additional extraction is still needed to materially shrink file size further.
+### Latest update
+- Continued renderer modularization with additional extraction of now-playing and external-display logic.
+- New modules added:
+  - `app/src/shared/now-playing.ts`
+  - `app/src/renderer/modules/display-view.ts`
+- Renderer updates:
+  - `app/src/renderer/renderer.ts` now uses shared helpers for:
+    - base/effective/display duration calculations,
+    - clamped current-time and progress ratio calculations,
+    - waveform seek target-time resolution,
+    - display style normalization.
+  - `renderer.ts` now uses display module helpers for:
+    - current progress text,
+    - next tanda style resolution,
+    - next tanda label text.
+- Added tests:
+  - `tests/now-playing.test.ts`
+  - `tests/display-view.test.ts`
+- Current validation:
+  - `npm run build` passed.
+  - `npm test` passed (`56` files, `251` tests).
+  - `npm run test:e2e` still fails at harness startup with `Process failed to launch!` for all tests (environmental launch failure, not functional assertion regressions).
+### Latest update
+- Cleaned unused assets/images and macOS metadata files from active tree.
+- Removed:
+  - `.DS_Store` files under `app/`, `app/src/`, `app/src/main/`, `docs/`, `images/`, `images/user-guide/`, `design/`.
+  - Unused icon options in docs: `docs/assets/icon-options/option3.png`, `option4.png`, `option5.png`, `option6.png`.
+  - Unused icon source variants in app resources:
+    - `app/resources/icons/icon-16.png`, `icon-32.png`, `icon-48.png`, `icon-64.png`, `icon-128.png`, `icon-256.png`, `icon-512.png`, `icon-1024.png`.
+    - all files previously under `app/resources/icons/icon.iconset/`.
+- Kept active runtime/packaging icons referenced by build and app startup:
+  - `app/resources/icons/icon.png`, `app/resources/icons/icon.icns`, `app/resources/icons/icon.ico`.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (`56` files, `251` tests).
+  - `npm run test:e2e` still fails pre-run with `Process failed to launch!` on all specs in this environment.
+
+### Latest update
+- Addressed controller-split compile regressions and completed validation pass.
+- Code fixes:
+  - `app/src/renderer/renderer.ts`
+    - Fixed `createPlaybackCompressionController` invocation after introducing second generic type parameter in controller factory (now inferred directly).
+  - `app/src/renderer/controllers/search-controller.ts`
+    - Relaxed window API boundary function param typings (`unknown` -> `any`) to satisfy TypeScript function variance with strongly typed preload API signatures.
+- Process change:
+  - Confirmed edits now use `apply_patch` tool directly (no `exec_command` patch wrappers).
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (`60` files, `255` tests).
+  - `npm run test:e2e` still fails at harness startup with `Process failed to launch!` across all specs in this environment.
