@@ -41,4 +41,14 @@ describe("display view helpers", () => {
     });
     expect(label).toBe("Next Tango");
   });
+
+  it("keeps next-style label before final cortina even when marked-last is enabled", () => {
+    const label = resolveNextTandaLabel({
+      isMarkedLast: true,
+      nextStyle: "Tango",
+      translateLast: () => "LAST",
+      translateNext: (s) => `Next ${s}`,
+    });
+    expect(label).toBe("Next Tango");
+  });
 });

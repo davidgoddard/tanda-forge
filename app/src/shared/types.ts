@@ -235,6 +235,17 @@ export type AppApi = {
     limiterCeilingDb: number;
     limiterReleaseMs: number;
   }) => Promise<{ ok: boolean; filePath?: string; cached?: boolean; error?: string }>;
+  precomputeCompressedTracks: (params: {
+    mode: "upward" | "track-leveler";
+    liftThresholdDb: number;
+    maxLiftDb: number;
+    ratio: number;
+    attackMs: number;
+    releaseMs: number;
+    gateThresholdDb: number;
+    limiterCeilingDb: number;
+    limiterReleaseMs: number;
+  }) => Promise<{ ok: boolean; rendered: number; cached: number; failed: number; error?: string }>;
   getDiagnosticsPaths: () => Promise<{
     userData: string;
     waveformsDir: string;

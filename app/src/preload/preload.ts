@@ -49,6 +49,8 @@ const api: AppApi = {
     ipcRenderer.invoke("tracks:generateWaveform", trackId),
   renderCompressedTrack: async (params) =>
     ipcRenderer.invoke("audio:renderCompressedTrack", params),
+  precomputeCompressedTracks: async (params) =>
+    ipcRenderer.invoke("audio:precomputeCompressedTracks", params),
   getDiagnosticsPaths: async () =>
     ipcRenderer.invoke("diagnostics:getPaths"),
   getDiagnosticsLogs: async (params) =>

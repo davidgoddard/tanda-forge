@@ -1400,6 +1400,93 @@ const registerIpc = () => {
     },
   );
 
+  ipcMain.handle(
+    "audio:precomputeCompressedTracks",
+    async (
+      _event,
+      params: {
+        mode: "upward" | "track-leveler";
+        liftThresholdDb: number;
+        maxLiftDb: number;
+        ratio: number;
+        attackMs: number;
+        releaseMs: number;
+        gateThresholdDb: number;
+        limiterCeilingDb: number;
+        limiterReleaseMs: number;
+      },
+    ) => {
+      try {
+        const db = getDb();
+        const rows = db
+          .prepare(
+            `select t.id, t.full_path, t.loudness_db
+             from tracks t
+             join library_roots r on r.id = t.root_id
+             where r.kind in ('music', 'cortina')`,
+          )
+          .all() as { id: string; full_path: string; loudness_db: number | null }[];
+        const cacheDir = getCompressedCacheDir();
+        fs.mkdirSync(cacheDir, { recursive: true });
+        let rendered = 0;
+        let cached = 0;
+        let failed = 0;
+        for (const row of rows) {
+          try {
+            if (!row.full_path || !fs.existsSync(row.full_path)) {
+              failed += 1;
+              continue;
+            }
+            const stat = fs.statSync(row.full_path);
+            const cacheKey = buildCompressedCacheKey(row.full_path, stat, {
+              loudnessDb: row.loudness_db,
+              depthPercent: 100,
+              mode: params.mode,
+              liftThresholdDb: params.liftThresholdDb,
+              maxLiftDb: params.maxLiftDb,
+              ratio: params.ratio,
+              attackMs: params.attackMs,
+              releaseMs: params.releaseMs,
+              gateThresholdDb: params.gateThresholdDb,
+              limiterCeilingDb: params.limiterCeilingDb,
+              limiterReleaseMs: params.limiterReleaseMs,
+            });
+            const outputPath = path.join(cacheDir, `${cacheKey}.wav`);
+            if (fs.existsSync(outputPath)) {
+              cached += 1;
+              continue;
+            }
+            await renderCompressedAudio(row.full_path, outputPath, {
+              loudnessDb: row.loudness_db,
+              depthPercent: 100,
+              mode: params.mode,
+              liftThresholdDb: params.liftThresholdDb,
+              maxLiftDb: params.maxLiftDb,
+              ratio: params.ratio,
+              attackMs: params.attackMs,
+              releaseMs: params.releaseMs,
+              gateThresholdDb: params.gateThresholdDb,
+              limiterCeilingDb: params.limiterCeilingDb,
+              limiterReleaseMs: params.limiterReleaseMs,
+            });
+            rendered += 1;
+          } catch {
+            failed += 1;
+          }
+        }
+        return { ok: true, rendered, cached, failed };
+      } catch (error) {
+        return {
+          ok: false,
+          rendered: 0,
+          cached: 0,
+          failed: 0,
+          error: error instanceof Error ? error.message : "Precompute failed",
+        };
+      }
+    },
+  );
+
   ipcMain.handle("diagnostics:getPaths", () => {
     const userData = getDataRoot();
     return {

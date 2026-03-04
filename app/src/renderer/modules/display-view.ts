@@ -37,9 +37,6 @@ export const resolveNextTandaStyle = (params: {
   resolveTandaStyle: (tandaId: string) => string | null;
   shouldShowDisplayNextTanda: (status: PlaylistPlaybackStatus) => boolean;
 }) => {
-  if (params.isMarkedLast) {
-    return "";
-  }
   if (!params.shouldShowDisplayNextTanda(params.playbackStatus)) {
     return "";
   }
@@ -69,7 +66,7 @@ export const resolveNextTandaLabel = (params: {
   translateLast: () => string;
   translateNext: (style: string) => string;
 }) => {
-  if (params.isMarkedLast) {
+  if (params.isMarkedLast && !params.nextStyle) {
     return params.translateLast();
   }
   if (params.nextStyle) {

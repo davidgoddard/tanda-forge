@@ -63,6 +63,7 @@ import {
   resolveDisplayDurationSeconds,
   resolveEffectiveDurationSeconds,
   resolveProgressRatio,
+  toDisplayStyleLabel,
   resolveWaveformSeekTargetSeconds,
 } from "../shared/now-playing.js";
 import {
@@ -178,6 +179,8 @@ const scanMusicBtn =
   document.querySelector<HTMLButtonElement>("#scan-music");
 const scanCortinasBtn =
   document.querySelector<HTMLButtonElement>("#scan-cortinas");
+const precomputeCompressedBtn =
+  document.querySelector<HTMLButtonElement>("#precompute-compressed");
 const errorList = document.querySelector<HTMLUListElement>("#error-list");
 const diagnosticsPathsEl =
   document.querySelector<HTMLDivElement>("#diagnostics-paths");
@@ -307,6 +310,22 @@ const clipboardCollectionAddBtn =
   document.querySelector<HTMLButtonElement>("#clipboard-collection-add");
 const clearPlayCountsBtn =
   document.querySelector<HTMLButtonElement>("#clear-play-counts");
+const searchDiversityBtn =
+  document.querySelector<HTMLButtonElement>("#search-diversity");
+const searchDiversityModal =
+  document.querySelector<HTMLElement>("#search-diversity-modal");
+const searchDiversityCloseBtn =
+  document.querySelector<HTMLButtonElement>("#search-diversity-close");
+const searchDiversityOrchestraEl =
+  document.querySelector<HTMLDivElement>("#search-diversity-orchestra");
+const searchDiversityYearEl =
+  document.querySelector<HTMLDivElement>("#search-diversity-year");
+const searchDiversityTempoEl =
+  document.querySelector<HTMLDivElement>("#search-diversity-tempo");
+const searchDiversityStyleEl =
+  document.querySelector<HTMLDivElement>("#search-diversity-style");
+const searchDiversityMissingYearsEl =
+  document.querySelector<HTMLDivElement>("#search-diversity-missing-years");
 const playlistStatsBtn =
   document.querySelector<HTMLButtonElement>("#playlist-stats");
 const playlistStatsModal =
@@ -596,7 +615,7 @@ const AUDIO_DYNAMICS_LIMITER_CEILING_KEY = "tanda-audio-dynamics-limiter-ceiling
 const AUDIO_DYNAMICS_LIMITER_RELEASE_KEY = "tanda-audio-dynamics-limiter-release";
 const AUDIO_DYNAMICS_RAMP_KEY = "tanda-audio-dynamics-ramp";
 const DEFAULT_AUDIO_DYNAMICS_ENABLED = true;
-const DEFAULT_AUDIO_DYNAMICS_DEPTH = 100;
+const DEFAULT_AUDIO_DYNAMICS_DEPTH = 0;
 const DEFAULT_AUDIO_DYNAMICS_LIFT_THRESHOLD = -60;
 const DEFAULT_AUDIO_DYNAMICS_MAX_LIFT = 15;
 const DEFAULT_AUDIO_DYNAMICS_RATIO = 5;
@@ -843,6 +862,9 @@ const compressedSourceCache = new Map<string, string>();
 const compressedSourceRequests = new Map<string, Promise<string | null>>();
 const compressedSourceErrorByTrackId = new Map<string, string>();
 const trackedCompressedCompanions = new Set<HTMLAudioElement>();
+let compressionPrefetchTimer: number | null = null;
+let compressionPrefetchInFlight = false;
+const prefetchedCortinaTrackIds = new Set<string>();
 const MAX_GAIN_ONLY_STEP_DB = 4;
 const MAX_GAIN_ONLY_STEP_DB_NON_LIVE = 24;
 
@@ -2313,13 +2335,20 @@ const getNextTandaStyle = () =>
     shouldShowDisplayNextTanda: (status) => shouldShowDisplayNextTanda(status),
   });
 
+const isFinalCortinaForMarkedLast = (isMarkedLast: boolean, nextStyle: string) =>
+  isMarkedLast && cortinaDisplayPhase !== "none" && !nextStyle;
+
 const getNextTandaLabel = () =>
-  resolveNextTandaLabel({
-    isMarkedLast: isCurrentTandaMarkedLast(),
-    nextStyle: getNextTandaStyle(),
-    translateLast: () => t("displayThisIsLastTanda"),
-    translateNext: (style) => t("displayNextTanda", { style }),
-  });
+  (() => {
+    const nextStyle = getNextTandaStyle();
+    const isMarkedLast = isCurrentTandaMarkedLast();
+    return resolveNextTandaLabel({
+      isMarkedLast: isFinalCortinaForMarkedLast(isMarkedLast, nextStyle),
+      nextStyle,
+      translateLast: () => t("displayThisIsLastTanda"),
+      translateNext: (style) => t("displayNextTanda", { style }),
+    });
+  })();
 
 const updateExternalDisplay = () => {
   if (!window.tanda?.updateDisplay) {
@@ -2327,8 +2356,11 @@ const updateExternalDisplay = () => {
   }
   const nextStyle = getNextTandaStyle();
   const isMarkedLast = isCurrentTandaMarkedLast();
-  const cortinaHeadline = isMarkedLast ? t("displayNoMoreTandas") : t("cortinaRowLabel");
-  const cortinaSubline = isMarkedLast
+  const showFinalCortinaMessage = isFinalCortinaForMarkedLast(isMarkedLast, nextStyle);
+  const cortinaHeadline = showFinalCortinaMessage
+    ? t("displayNoMoreTandas")
+    : t("cortinaRowLabel");
+  const cortinaSubline = showFinalCortinaMessage
     ? ""
     : nextStyle
       ? t("displayThisTanda", { style: nextStyle })
@@ -3071,16 +3103,86 @@ const resolveNextLiveTrackForCompression = () => {
   return null;
 };
 
+const resolveFirstPlaylistTrackForCompression = () => {
+  for (const item of playlistItems) {
+    if (!item) {
+      continue;
+    }
+    if (item.kind === "track") {
+      return item.track;
+    }
+    const tanda = resolveTandaDraft(item.tandaId);
+    if (!tanda) {
+      continue;
+    }
+    for (const trackId of tanda.trackSlots) {
+      if (!trackId) {
+        continue;
+      }
+      const track = trackCache.get(trackId);
+      if (track) {
+        return track;
+      }
+    }
+  }
+  return null;
+};
+
+const resolvePlaylistCompressionCandidates = () => {
+  const candidates: TrackRow[] = [];
+  const seen = new Set<string>();
+  const pushUnique = (track: TrackRow | null) => {
+    if (!track || seen.has(track.id)) {
+      return;
+    }
+    seen.add(track.id);
+    candidates.push(track);
+  };
+  pushUnique(resolveFirstPlaylistTrackForCompression());
+  pushUnique(resolveNextLiveTrackForCompression());
+  return candidates;
+};
+
 const prefetchNextPlaylistCompression = async () => {
   const config = getAudioDynamicsConfig();
-  if (!config.enabled || config.depth <= 0) {
+  if (!config.enabled) {
     return;
   }
-  const nextTrack = resolveNextLiveTrackForCompression();
-  if (!nextTrack) {
+  if (compressionPrefetchInFlight) {
     return;
   }
-  void requestCompressedSource(nextTrack, config);
+  compressionPrefetchInFlight = true;
+  try {
+    const tracks = resolvePlaylistCompressionCandidates();
+    await Promise.all(tracks.map((track) => requestCompressedSource(track, config)));
+    if (window.tanda) {
+      if (cortinaSets.length === 0) {
+        await loadCortinaSets();
+      }
+      for (const setName of cortinaSets) {
+        const setTracks = await loadCortinaTracks(setName);
+        for (const track of setTracks) {
+          if (prefetchedCortinaTrackIds.has(track.id)) {
+            continue;
+          }
+          prefetchedCortinaTrackIds.add(track.id);
+          void requestCompressedSource(track, config);
+        }
+      }
+    }
+  } finally {
+    compressionPrefetchInFlight = false;
+  }
+};
+
+const scheduleCompressionPrefetch = () => {
+  if (compressionPrefetchTimer !== null) {
+    window.clearTimeout(compressionPrefetchTimer);
+  }
+  compressionPrefetchTimer = window.setTimeout(() => {
+    compressionPrefetchTimer = null;
+    void prefetchNextPlaylistCompression();
+  }, 120);
 };
 
 const playbackCompressionController = createPlaybackCompressionController({
@@ -4104,6 +4206,159 @@ const renderOrchestraChart = (
     item.append(upper, label);
     root.appendChild(item);
   });
+};
+
+const renderSearchDiversityOrchestraTable = (
+  root: HTMLDivElement | null,
+  rows: Array<{ artist: string; total: number; styles: Record<string, number> }>,
+) => {
+  if (!root) {
+    return;
+  }
+  root.innerHTML = "";
+  if (rows.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "mini-chart-empty";
+    empty.textContent = t("playlistStatsNoData");
+    root.appendChild(empty);
+    return;
+  }
+  const table = document.createElement("table");
+  table.className = "diversity-table";
+  const head = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const artistTh = document.createElement("th");
+  artistTh.textContent = t("searchDiversityColOrchestra");
+  const totalTh = document.createElement("th");
+  totalTh.textContent = t("searchDiversityColTotal");
+  const stylesTh = document.createElement("th");
+  stylesTh.textContent = t("searchDiversityColStyles");
+  headRow.append(artistTh, totalTh, stylesTh);
+  head.appendChild(headRow);
+  const body = document.createElement("tbody");
+  rows.slice(0, 120).forEach((row) => {
+    const tr = document.createElement("tr");
+    const artistTd = document.createElement("td");
+    artistTd.textContent = row.artist;
+    const totalTd = document.createElement("td");
+    totalTd.textContent = `${row.total}`;
+    const stylesTd = document.createElement("td");
+    stylesTd.textContent = Object.entries(row.styles)
+      .sort((left, right) => right[1] - left[1])
+      .map(([style, count]) => `${style}: ${count}`)
+      .join(", ");
+    tr.append(artistTd, totalTd, stylesTd);
+    body.appendChild(tr);
+  });
+  table.append(head, body);
+  root.appendChild(table);
+};
+
+const setSearchDiversityModalVisible = (visible: boolean) => {
+  if (!searchDiversityModal) {
+    return;
+  }
+  searchDiversityModal.classList.toggle("open", visible);
+  searchDiversityModal.setAttribute("aria-hidden", visible ? "false" : "true");
+};
+
+const renderSearchDiversityStats = async () => {
+  await ensureSmartCollectionCaches();
+  const tandas = allTandasForSmartCollections ?? [];
+  const orchestraStyleCounts = new Map<string, Map<string, number>>();
+  const styleCounts = new Map<string, number>();
+  const yearBuckets = new Map<number, number>();
+  const tempoBuckets = new Map<number, number>();
+  const markArtistStyle = (artist: string, style: string) => {
+    const styleMap = orchestraStyleCounts.get(artist) ?? new Map<string, number>();
+    styleMap.set(style, (styleMap.get(style) ?? 0) + 1);
+    orchestraStyleCounts.set(artist, styleMap);
+  };
+  tandas.forEach((tanda) => {
+    const tracks = getTandaTracks(tanda);
+    if (tracks.length === 0) {
+      return;
+    }
+    const style =
+      tanda.styles
+        .map((item) => normalizeStyleName(item))
+        .find(Boolean) ??
+      tracks
+        .map((track) => normalizeStyleName(track.genre ?? ""))
+        .find(Boolean) ??
+      "unknown";
+    styleCounts.set(style, (styleCounts.get(style) ?? 0) + 1);
+    const artists = new Set<string>();
+    tracks.forEach((track) => {
+      const artist =
+        resolveCanonicalArtistName(track.artist_summary || track.artist || "") ||
+        t("nowPlayingUnknown");
+      artists.add(artist);
+      const year = yearValue(track);
+      if (year !== null) {
+        yearBuckets.set(year, (yearBuckets.get(year) ?? 0) + 1);
+      }
+      if (track.bpm !== null && track.bpm !== undefined && Number.isFinite(track.bpm)) {
+        const bpm = Math.round(track.bpm);
+        tempoBuckets.set(bpm, (tempoBuckets.get(bpm) ?? 0) + 1);
+      }
+    });
+    artists.forEach((artist) => markArtistStyle(artist, style));
+  });
+  orchestraRegistry.forEach((entry) => {
+    const canonical = entry.canonical.trim();
+    if (canonical && !orchestraStyleCounts.has(canonical)) {
+      orchestraStyleCounts.set(canonical, new Map<string, number>());
+    }
+  });
+  const orchestraRows = Array.from(orchestraStyleCounts.entries())
+    .map(([artist, styles]) => {
+      const styleObject = Object.fromEntries(styles.entries());
+      const total = Object.values(styleObject).reduce((sum, value) => sum + value, 0);
+      return { artist, total, styles: styleObject };
+    })
+    .sort((left, right) => {
+      if (right.total !== left.total) {
+        return right.total - left.total;
+      }
+      return left.artist.localeCompare(right.artist);
+    });
+  renderSearchDiversityOrchestraTable(searchDiversityOrchestraEl, orchestraRows);
+  const yearRows = buildAdaptiveNumericDistribution(yearBuckets, 40, 30);
+  const tempoRows = buildAdaptiveNumericDistribution(tempoBuckets, 40, 30);
+  const styleRows = Array.from(styleCounts.entries())
+    .map(([label, value]) => ({ label: toDisplayStyleLabel(label), value }))
+    .sort((left, right) => right.value - left.value);
+  renderMiniChart(searchDiversityYearEl, yearRows, {
+    includeZero: true,
+    className: "compact",
+  });
+  renderMiniChart(searchDiversityTempoEl, tempoRows, {
+    includeZero: true,
+    className: "compact",
+  });
+  renderMiniChart(searchDiversityStyleEl, styleRows, {
+    includeZero: true,
+  });
+  if (searchDiversityMissingYearsEl) {
+    if (yearBuckets.size <= 1) {
+      searchDiversityMissingYearsEl.textContent = t("searchDiversityNoMissingYears");
+    } else {
+      const years = Array.from(yearBuckets.keys()).sort((a, b) => a - b);
+      const minYear = years[0] ?? 0;
+      const maxYear = years[years.length - 1] ?? 0;
+      const missing: number[] = [];
+      for (let year = minYear; year <= maxYear; year += 1) {
+        if (!yearBuckets.has(year)) {
+          missing.push(year);
+        }
+      }
+      searchDiversityMissingYearsEl.textContent =
+        missing.length > 0
+          ? t("searchDiversityMissingYears", { years: missing.join(", ") })
+          : t("searchDiversityNoMissingYears");
+    }
+  }
 };
 
 const setPlaylistStatsModalVisible = (visible: boolean) => {
@@ -5844,10 +6099,33 @@ const buildTopOrLeastCollectionIds = async (least: boolean) => {
   await ensureSmartCollectionCaches();
   const tracks = allTracksForSmartCollections ?? [];
   const tandas = allTandasForSmartCollections ?? [];
+  if (!least) {
+    const sortedTandas = tandas
+      .slice()
+      .sort((left, right) => {
+        const ratingDiff = (right.rating ?? 0) - (left.rating ?? 0);
+        if (ratingDiff !== 0) {
+          return ratingDiff;
+        }
+        return getTandaSortKey(left).localeCompare(getTandaSortKey(right));
+      })
+      .slice(0, SMART_COLLECTION_LIMIT);
+    const tandaIds = sortedTandas.map((tanda) => tanda.id);
+    const trackIds: string[] = [];
+    sortedTandas.forEach((tanda) => {
+      tanda.trackSlots.forEach((trackId) => {
+        if (!trackId || trackIds.includes(trackId)) {
+          return;
+        }
+        trackIds.push(trackId);
+      });
+    });
+    return { trackIds: trackIds.slice(0, SMART_COLLECTION_LIMIT), tandaIds };
+  }
   const countForTrack = (id: string) => playCounts.tracks[id] ?? 0;
   const countForTanda = (id: string) => playCounts.tandas[id] ?? 0;
   const trackIds = tracks
-    .filter((track) => (least ? true : countForTrack(track.id) > 0))
+    .filter((track) => countForTrack(track.id) > 0)
     .slice()
     .sort((left, right) => {
       const diff = countForTrack(left.id) - countForTrack(right.id);
@@ -5860,7 +6138,7 @@ const buildTopOrLeastCollectionIds = async (least: boolean) => {
     .slice(0, SMART_COLLECTION_LIMIT)
     .map((track) => track.id);
   const tandaIds = tandas
-    .filter((tanda) => (least ? true : countForTanda(tanda.id) > 0))
+    .filter((tanda) => countForTanda(tanda.id) > 0)
     .slice()
     .sort((left, right) => {
       const diff = countForTanda(left.id) - countForTanda(right.id);
@@ -6522,6 +6800,7 @@ const renderPlaylist = () => {
   renderSearchResults();
   renderTandaSearchResults();
   renderClipboard();
+  scheduleCompressionPrefetch();
   updateExternalDisplay();
 };
 
@@ -6737,6 +7016,7 @@ const playCortina = async (runId: number, targetIndex: number) => {
     return false;
   }
   await waitForCortina(activeAudio, runId, effectiveDurationMs, autoStopFadeMs);
+  const activeCompanion = playback.main.compressedActive;
   if (!cortinaAllowFull || cortinaStopRequested) {
     if (activeAudio.paused || activeAudio.ended) {
       cortinaDisplayPhase = "after";
@@ -6748,7 +7028,12 @@ const playCortina = async (runId: number, targetIndex: number) => {
     }
     if (cortinaStopRequested) {
       if (autoStopFadeMs > 0) {
-        await fadeOutAudio(activeAudio, autoStopFadeMs);
+        await Promise.all([
+          fadeOutAudio(activeAudio, autoStopFadeMs),
+          activeCompanion && !activeCompanion.paused
+            ? fadeOutAudio(activeCompanion, autoStopFadeMs)
+            : Promise.resolve(),
+        ]);
       }
       activeAudio.pause();
     } else {
@@ -6757,7 +7042,13 @@ const playCortina = async (runId: number, targetIndex: number) => {
         return false;
       }
       if (!activeAudio.paused && !activeAudio.ended) {
-        await fadeOutAudio(activeAudio, Math.max(400, getStopFadeSeconds() * 1000));
+        const fadeMs = Math.max(400, getStopFadeSeconds() * 1000);
+        await Promise.all([
+          fadeOutAudio(activeAudio, fadeMs),
+          activeCompanion && !activeCompanion.paused
+            ? fadeOutAudio(activeCompanion, fadeMs)
+            : Promise.resolve(),
+        ]);
         activeAudio.pause();
       }
     }
@@ -11020,6 +11311,19 @@ const init = async () => {
       setPlaylistStatsModalVisible(false);
     }
   });
+  searchDiversityBtn?.addEventListener("click", () => {
+    void renderSearchDiversityStats().then(() => {
+      setSearchDiversityModalVisible(true);
+    });
+  });
+  searchDiversityCloseBtn?.addEventListener("click", () => {
+    setSearchDiversityModalVisible(false);
+  });
+  searchDiversityModal?.addEventListener("click", (event) => {
+    if (event.target === searchDiversityModal) {
+      setSearchDiversityModalVisible(false);
+    }
+  });
 
   window.tanda?.onAppCloseRequest(() => {
     const isHeadphonePlaying =
@@ -11264,6 +11568,9 @@ const init = async () => {
       );
       localStorage.setItem(AUDIO_DYNAMICS_DEPTH_KEY, "0");
       renderNowPlayingDynamicsControl();
+      if (audioDynamicsEnabledInput.checked) {
+        scheduleCompressionPrefetch();
+      }
       void syncDynamicsRuntimeForActivePlayback();
     });
   }
@@ -11276,6 +11583,9 @@ const init = async () => {
       localStorage.setItem(AUDIO_DYNAMICS_DEPTH_KEY, clamped.toString());
       if (nowPlayingDynamicsMixValue) {
         nowPlayingDynamicsMixValue.textContent = `${clamped}%`;
+      }
+      if (clamped > 0) {
+        scheduleCompressionPrefetch();
       }
       void syncDynamicsRuntimeForActivePlayback();
     });
@@ -11430,11 +11740,13 @@ const init = async () => {
       cortinaQueue = [];
       lastCortinaId = null;
       cortinaTracksBySet.clear();
+      prefetchedCortinaTrackIds.clear();
       cortinaOverrideByIndex.clear();
       resetCortinaPlans();
       await resetCortinaQueue();
       await ensureCortinaPlans(getCortinaRowIndices(playlistItems));
       renderPlaylist();
+      scheduleCompressionPrefetch();
       if (cortinaModalSet) {
         cortinaModalSet.value = next;
       }
@@ -12261,6 +12573,53 @@ const init = async () => {
 
   scanMusicBtn?.addEventListener("click", () => runScan("music"));
   scanCortinasBtn?.addEventListener("click", () => runScan("cortina"));
+
+  precomputeCompressedBtn?.addEventListener("click", async () => {
+    if (!window.tanda) {
+      setStatus(t("statusNoApi"));
+      return;
+    }
+    const config = getAudioDynamicsConfig();
+    setStatus(t("statusPrecomputeCompressionRunning"));
+    precomputeCompressedBtn.disabled = true;
+    try {
+      const result = await window.tanda.precomputeCompressedTracks({
+        mode: config.mode,
+        liftThresholdDb: config.liftThresholdDb,
+        maxLiftDb: config.maxLiftDb,
+        ratio: config.ratio,
+        attackMs: config.attackMs,
+        releaseMs: config.releaseMs,
+        gateThresholdDb: config.gateThresholdDb,
+        limiterCeilingDb: config.limiterCeilingDb,
+        limiterReleaseMs: config.limiterReleaseMs,
+      });
+      if (!result?.ok) {
+        setStatus(
+          t("statusPrecomputeCompressionFailed", {
+            message: result?.error ?? t("statusUnknownError"),
+          }),
+        );
+        return;
+      }
+      setStatus(
+        t("statusPrecomputeCompressionDone", {
+          rendered: result.rendered,
+          cached: result.cached,
+          failed: result.failed,
+        }),
+      );
+      scheduleCompressionPrefetch();
+    } catch (error) {
+      setStatus(
+        t("statusPrecomputeCompressionFailed", {
+          message: error instanceof Error ? error.message : t("statusUnknownError"),
+        }),
+      );
+    } finally {
+      precomputeCompressedBtn.disabled = false;
+    }
+  });
 
   resetDbBtn?.addEventListener("click", async () => {
     const confirmed = await showConfirmModal(

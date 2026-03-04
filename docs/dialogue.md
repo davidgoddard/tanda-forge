@@ -2762,3 +2762,21 @@ Code diffs are omitted; only intent and outcomes are captured.
   - `npm run build` passed.
   - `npm test` passed (`60` files, `255` tests).
   - `npm run test:e2e` failed before scenario execution: all 25 specs reported `Process failed to launch!` (harness launch failure in this environment).
+- User: Requested a combined feature pass:
+  - last-tanda display should only affect tanda/final cortina display (not preceding cortina),
+  - fix TOP counts/sort behavior in live mode,
+  - ensure cortina fade-out is applied after compression,
+  - add search diversity popout (including missing orchestras/styles/years/BPM),
+  - compressor default `0%`,
+  - always pre-process first/next playlist tracks and cortinas for compression,
+  - add library setting to pre-compute missing compressed files,
+  - ensure playlist playback n-of-m display and continuity behavior remains correct.
+- Assistant: Continued and stabilized implementation from prior in-progress state.
+  - Fixed build blocker in main precompute handler by aligning `renderCompressedAudio(...)` request payload with `OfflineCompressionRequest` (removed invalid `filePath` property).
+    - `app/src/main/main.ts`
+  - Fixed renderer compile issue by importing missing helper:
+    - added `toDisplayStyleLabel` import in `app/src/renderer/renderer.ts`.
+  - Verification for this turn:
+    - `npm run build` passed.
+    - `npm test` passed (`60` files, `256` tests).
+    - E2E not run in this pass (per project/user direction on unreliable harness runs).

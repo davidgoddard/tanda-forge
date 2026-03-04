@@ -4160,3 +4160,15 @@
   - `npm run build` passed.
   - `npm test` passed (`60` files, `255` tests).
   - `npm run test:e2e` still fails at harness startup with `Process failed to launch!` across all specs in this environment.
+
+### Latest update
+- Continued feature pass stabilization and cleared remaining compile blocker from the new compression precompute path.
+- Code updates:
+  - `app/src/main/main.ts`
+    - Fixed precompute call into `renderCompressedAudio(...)` to pass only `OfflineCompressionRequest` fields (removed invalid `filePath` property).
+  - `app/src/renderer/renderer.ts`
+    - Fixed missing import regression by importing `toDisplayStyleLabel` used by search diversity style chart rendering.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (`60` files, `256` tests).
+  - E2E intentionally not run in this pass due ongoing harness unreliability in this environment.

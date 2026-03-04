@@ -177,7 +177,23 @@
       <section class="workspace">
         <div class="column">
           <div class="panel playlist-panel">
-            <h2 data-i18n="searchTitle">Search</h2>
+            <div class="panel-header">
+              <h2 data-i18n="searchTitle">Search</h2>
+              <button
+                id="search-diversity"
+                class="playlist-stats-btn icon-button"
+                data-i18n-attr="title,aria-label"
+                data-i18n="searchDiversityTitle"
+                title="Collection diversity"
+                aria-label="Collection diversity"
+              >
+                <svg class="playlist-stats-icon" viewBox="0 0 16 16" aria-hidden="true">
+                  <rect x="2" y="8" width="2.5" height="6" rx="1" />
+                  <rect x="6.75" y="3" width="2.5" height="11" rx="1" />
+                  <rect x="11.5" y="6" width="2.5" height="8" rx="1" />
+                </svg>
+              </button>
+            </div>
             <div class="search-row">
               <input
                 id="search-input"
@@ -685,7 +701,13 @@
               <button id="scan-cortinas" data-i18n="scanCortinas">
                 Scan Cortinas
               </button>
+              <button id="precompute-compressed" data-i18n="precomputeCompression">
+                Precompute compressed cache
+              </button>
             </div>
+            <p class="settings-note" data-i18n="precomputeCompressionHelp">
+              Optional: pre-renders compressed versions for tracks and cortinas. Only needed if compression will be used.
+            </p>
             <div class="settings-progress">
               <div class="progress-row">
                 <div id="progress-label-settings" class="progress-label" data-i18n="idle">
@@ -1159,6 +1181,40 @@
                 id="diagnostics-output-probe-result"
                 class="diagnostics-result diagnostics-log"
               ></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="modal"
+        id="search-diversity-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden="true"
+      >
+        <div class="modal-card playlist-stats-card">
+          <header class="modal-header">
+            <h3 data-i18n="searchDiversityTitle">Collection diversity</h3>
+            <button id="search-diversity-close" data-i18n="close">Close</button>
+          </header>
+          <div class="playlist-stats-grid">
+            <div class="playlist-stats-block wide">
+              <h4 data-i18n="searchDiversityOrchestraStyle">Orchestra x style tandas</h4>
+              <div id="search-diversity-orchestra" class="mini-chart"></div>
+            </div>
+            <div class="playlist-stats-block wide compact">
+              <h4 data-i18n="searchDiversityYear">Year distribution</h4>
+              <div id="search-diversity-year" class="mini-chart"></div>
+              <div id="search-diversity-missing-years" class="mini-chart-empty"></div>
+            </div>
+            <div class="playlist-stats-block wide compact">
+              <h4 data-i18n="searchDiversityTempo">Tempo distribution</h4>
+              <div id="search-diversity-tempo" class="mini-chart"></div>
+            </div>
+            <div class="playlist-stats-block wide compact">
+              <h4 data-i18n="searchDiversityStyleBreakdown">Style breakdown</h4>
+              <div id="search-diversity-style" class="mini-chart"></div>
             </div>
           </div>
         </div>
