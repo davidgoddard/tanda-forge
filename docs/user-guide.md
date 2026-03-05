@@ -2,6 +2,8 @@
 
 This guide introduces the layout, explains initial setup, and walks through searching, collecting, and building tandas and playlists.
 
+Note that the application's font size and hence how much information fits on the screen can be controlled in the same way as for a web browser.  Command + "-" keys on a Mac for example. 
+
 ## Key Areas and Roles
 
 The app is organized into three main columns plus a settings area:
