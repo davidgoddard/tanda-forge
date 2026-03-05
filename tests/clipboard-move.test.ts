@@ -17,6 +17,16 @@ describe("moveTrackToCollection", () => {
     expect(other?.trackIds).toEqual(["b"]);
   });
 
+  it("does not duplicate a track when target already contains it", () => {
+    const collections = [
+      { id: "general", name: "General", trackIds: ["a"], tandaIds: [] },
+      { id: "other", name: "Other", trackIds: ["a", "b"], tandaIds: [] },
+    ];
+    const updated = moveTrackToCollection(collections, "a", "other", []);
+    const other = updated.find((item) => item.id === "other");
+    expect(other?.trackIds).toEqual(["b", "a"]);
+  });
+
   it("does nothing if the target is protected", () => {
     const collections = [
       { id: "general", name: "General", trackIds: ["a"], tandaIds: [] },

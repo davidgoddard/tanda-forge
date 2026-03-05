@@ -5224,3 +5224,131 @@
   - isolates E2E behavior check from runtime audio playback constraints and routing variability while verifying prep-mode click path semantics.
 - Validation:
   - pending user-side rerun.
+
+### Latest update
+- Fixed long-press style variant selection behavior and aligned E2E coverage to user interaction.
+- Implementation:
+  - `app/src/renderer/renderer.ts`
+    - `openStyleVariantMenu(...)` now applies variant selection on `pointerdown` and `click` for menu items.
+    - menu item handlers prevent bubbling/default to avoid interaction loss.
+    - selection update flow now explicitly runs `loadStyles()` before `refreshSearch()` and clipboard re-render.
+  - `tests/e2e/workflows.e2e.ts`
+    - test 28 now opens variant menu via long-press simulation (mousedown + 1100ms hold + mouseup), then selects `Nuevo`.
+- Rationale:
+  - right-click path can pass while click-hold path fails; test now matches expected production interaction.
+- Validation:
+  - pending user-side rerun.
+
+### Latest update
+- Variant picker selection now handles release-on-item interactions.
+- Implementation:
+  - `app/src/renderer/renderer.ts`
+    - in `openStyleVariantMenu(...)`, menu items now trigger selection on:
+      - `pointerdown`,
+      - `pointerup`,
+      - `mouseup`,
+      - `click`.
+    - added per-item one-shot guard to avoid duplicate apply from multiple events.
+- Rationale:
+  - long-press + drag + release workflows can skip `click`/`pointerdown` on item; this patch makes selection robust for real usage.
+- Validation:
+  - pending user-side in-app check.
+
+### Latest update
+- Fixed empty `Top`/`Least` smart collections with zero play history.
+- Implementation:
+  - `app/src/renderer/renderer.ts`
+    - in `buildTopOrLeastCollectionIds(...)`, removed filtering that excluded items with play count `0`.
+    - collections now always populate from cached tracks/tandas and order by count/tie-breakers.
+  - `tests/e2e/workflows.e2e.ts`
+    - updated test 26 to assert `Top` has rows instead of expecting `Tango Trio` absent before counts are injected.
+- Rationale:
+  - users should see candidate items in smart collections immediately, not only after live playback has incremented counters.
+- Validation:
+  - pending user-side rerun.
+
+### Latest update
+- Added clipboard collection move action (`M`) for **clipboard tracks** to match existing clipboard tanda behavior.
+- Behavior:
+  - move targets are `General` + user-defined collections only,
+  - if one target exists, move happens directly,
+  - if multiple targets exist, a popup target picker is shown.
+- Reused same target model for tanda move flow.
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `tests/clipboard-move.test.ts`
+- Validation completed:
+  - `npm run build` passed
+  - `npm test` passed (64 files, 278 tests)
+
+### Latest update
+- Clipboard move action (`M`) now appears for clipboard rows in read-only smart collections as well as writable collections.
+- Move semantics:
+  - from writable collection: move between writable collections,
+  - from read-only smart collection (`new/top/least/available`): copy into target writable collection (smart source remains computed).
+- Added E2E test case:
+  - `tests/e2e/workflows.e2e.ts`
+  - `29 - clipboard move action moves tracks and tandas via direct and picker targets`
+- Validation:
+  - `npm run build` passed
+  - `npm test` passed (64 files, 278 tests)
+  - targeted Playwright run for test 29 failed in this environment: `Process failed to launch!`
+
+### Latest update
+- Clipboard move target list now excludes the currently active clipboard collection.
+- Behavior impact:
+  - in `General`, `M` no longer offers `General` as a target;
+  - if only one non-active writable target exists, move/copy applies directly.
+- File changed:
+  - `app/src/renderer/renderer.ts`
+- Validation:
+  - `npm run build` passed
+  - `npm test` passed (64 files, 278 tests)
+
+### Latest update
+- Stabilized E2E test 29 by removing hard-coded custom-collection id assumptions.
+- Test now:
+  - creates a unique collection name,
+  - resolves the created tab by visible label,
+  - captures the real `data-collection-id`,
+  - uses that id for move assertions.
+- File changed:
+  - `tests/e2e/workflows.e2e.ts`
+- Validation:
+  - `npm run build` passed
+  - `npm test` passed (64 files, 278 tests)
+  - targeted Playwright run for test 29 in this environment failed at app launch (`Process failed to launch!`)
+
+### Latest update
+- E2E stability pass for move/designer/remove flows:
+  - test 14 uses poll-based active-tab assertion for tanda designer activation.
+  - test 17 now explicitly selects `General` before clipboard remove action.
+  - test 29 allows either direct move (no popup) or picker flow based on current target count.
+- File changed:
+  - `tests/e2e/workflows.e2e.ts`
+- Validation:
+  - `npm run build` passed
+  - `npm test` passed (64 files, 278 tests)
+
+### Latest update
+- Further stabilized E2E test 29 by normalizing clipboard UI state before assertions.
+- Test now explicitly:
+  - selects `general` at start,
+  - clears clipboard filter input before row visibility and move checks.
+- File changed:
+  - `tests/e2e/workflows.e2e.ts`
+- Validation:
+  - `npm run build` passed
+  - `npm test` passed (64 files, 278 tests)
+
+### Latest update
+- Stabilized E2E test 18 (`clipboard-tanda menu edit action opens tanda designer`) against persisted clipboard UI state.
+- Test now explicitly sets clipboard state before assertions:
+  - select `general`,
+  - switch to `clip-tandas`,
+  - clear clipboard filter.
+- File changed:
+  - `tests/e2e/workflows.e2e.ts`
+- Validation:
+  - `npm run build` passed
+  - `npm test` passed (64 files, 278 tests)

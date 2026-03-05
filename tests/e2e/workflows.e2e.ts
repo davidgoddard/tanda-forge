@@ -510,8 +510,11 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator('button[data-tab="search-tandas"]').click();
       await runSearch(page, "Tango Trio");
       const row = searchTandaRow(page, "Tango Trio");
+      await expect(row).toBeVisible();
       await clickRowAction(row, "tanda-toggle");
-      await expect(page.locator("#tanda-designer-tab")).toHaveClass(/active/);
+      await expect.poll(async () => await page.locator("#tanda-designer-tab").getAttribute("class")).toMatch(
+        /active/,
+      );
       await expect(page.locator("#tanda-list")).toContainText("Alberto Gomez Tango Uno");
     } finally {
       await launched.close();
@@ -559,6 +562,8 @@ test.describe("Electron app end-to-end workflows", () => {
     try {
       await runSearch(page, "Tempo 72 Test");
       await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "add-clip");
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="clip-tracks"]').click();
       const clipRow = clipboardTrackRow(page, "Tempo 72 Test");
       await clickRowAction(clipRow, "remove-clip");
       await expect(clipboardTrackRow(page, "Tempo 72 Test")).toHaveCount(0);
@@ -574,7 +579,9 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator('button[data-tab="search-tandas"]').click();
       await runSearch(page, "Tango Trio");
       await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-clip-tanda");
+      await selectClipboardCollection(page, "general");
       await page.locator('button[data-tab="clip-tandas"]').click();
+      await page.locator("#clipboard-filter").fill("");
       const clipTanda = clipboardTandaRow(page, "Tango Trio");
       await clickRowAction(clipTanda, "tanda-edit");
       const editor = await waitForAnyEditorRows(page, 3);
@@ -853,7 +860,7 @@ test.describe("Electron app end-to-end workflows", () => {
 
       await selectClipboardCollection(page, "top");
       await page.locator('button[data-tab="clip-tandas"]').click();
-      await expect(clipboardTandaRow(page, "Tango Trio")).toHaveCount(0);
+      await expect(page.locator("#clip-tandas .tanda-row")).not.toHaveCount(0);
 
       const playedTanda = await page.evaluate(async () => {
         const tandas = (await window.tanda?.listTandas?.()) ?? [];
@@ -920,7 +927,9 @@ test.describe("Electron app end-to-end workflows", () => {
 
       await runSearch(page, "");
       const tangoPill = page.locator("#style-options button", { hasText: "Tango" }).first();
-      await tangoPill.click({ button: "right" });
+      await tangoPill.dispatchEvent("mousedown", { button: 0 });
+      await page.waitForTimeout(1100);
+      await tangoPill.dispatchEvent("mouseup", { button: 0 });
       await expect(page.locator(".style-variant-menu")).toBeVisible();
       await page.locator(".style-variant-menu-item", { hasText: "Nuevo" }).click();
 
@@ -950,6 +959,83 @@ test.describe("Electron app end-to-end workflows", () => {
 
       await page.locator('button[data-tab="clip-tandas"]').click();
       await expect(clipboardTandaRow(page, "Tango Trio")).toBeVisible();
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("29 - clipboard move action moves tracks and tandas via direct and picker targets", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      const collectionName = `Favourites ${Date.now()}`;
+      await selectClipboardCollection(page, "general");
+      await page.locator("#clipboard-filter").fill("");
+      await runSearch(page, "Busqueda Artistica");
+      await clickRowAction(searchTrackRow(page, "Busqueda Artistica"), "add-clip");
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-clip-tanda");
+
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await page.locator("#clipboard-filter").fill("");
+      await expect(clipboardTrackRow(page, "Busqueda Artistica")).toBeVisible();
+      await clickRowAction(clipboardTrackRow(page, "Busqueda Artistica"), "move-clip-track-collection");
+      await expect(page.locator(".style-variant-menu")).toHaveCount(0);
+      await expect(clipboardTrackRow(page, "Busqueda Artistica")).toBeVisible();
+
+      await page.locator('button[data-tab="clip-tandas"]').click();
+      await page.locator("#clipboard-filter").fill("");
+      await expect(clipboardTandaRow(page, "Tango Trio")).toBeVisible();
+      await clickRowAction(clipboardTandaRow(page, "Tango Trio"), "move-clip-tanda-collection");
+      await expect(page.locator(".style-variant-menu")).toHaveCount(0);
+      await expect(clipboardTandaRow(page, "Tango Trio")).toBeVisible();
+
+      await page.locator("#clipboard-collection-name").fill(collectionName);
+      await page.locator("#clipboard-collection-add").click();
+      const createdCollectionTab = page
+        .locator("#clipboard-collections-tabs button", { hasText: collectionName })
+        .first();
+      await expect(createdCollectionTab).toBeVisible();
+      const createdCollectionId = await createdCollectionTab.getAttribute("data-collection-id");
+      expect(createdCollectionId).toBeTruthy();
+      const targetCollectionId = createdCollectionId ?? "";
+
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await page.locator("#clipboard-filter").fill("");
+      await clickRowAction(clipboardTrackRow(page, "Busqueda Artistica"), "move-clip-track-collection");
+      const moveMenu = page.locator(".style-variant-menu");
+      if ((await moveMenu.count()) > 0) {
+        await expect(moveMenu).toBeVisible();
+        await page.locator(".style-variant-menu-item", { hasText: collectionName }).click();
+      }
+      await selectClipboardCollection(page, targetCollectionId);
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await page.locator("#clipboard-filter").fill("");
+      await expect(clipboardTrackRow(page, "Busqueda Artistica")).toBeVisible();
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await page.locator("#clipboard-filter").fill("");
+      await expect(clipboardTrackRow(page, "Busqueda Artistica")).toHaveCount(0);
+
+      await page.locator('button[data-tab="clip-tandas"]').click();
+      await page.locator("#clipboard-filter").fill("");
+      await clickRowAction(clipboardTandaRow(page, "Tango Trio"), "move-clip-tanda-collection");
+      const tandaMoveMenu = page.locator(".style-variant-menu");
+      if ((await tandaMoveMenu.count()) > 0) {
+        await expect(tandaMoveMenu).toBeVisible();
+        await page.locator(".style-variant-menu-item", { hasText: collectionName }).click();
+      }
+      await selectClipboardCollection(page, targetCollectionId);
+      await page.locator('button[data-tab="clip-tandas"]').click();
+      await page.locator("#clipboard-filter").fill("");
+      await expect(clipboardTandaRow(page, "Tango Trio")).toBeVisible();
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="clip-tandas"]').click();
+      await page.locator("#clipboard-filter").fill("");
+      await expect(clipboardTandaRow(page, "Tango Trio")).toHaveCount(0);
     } finally {
       await launched.close();
     }

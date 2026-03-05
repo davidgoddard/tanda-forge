@@ -5391,6 +5391,24 @@ const openStyleVariantMenu = (
   family: StyleFamily,
 ) => {
   closeStyleVariantMenu();
+  const applyVariantSelection = (variant: string) => {
+    const styleValue = composeStyleLabel(baseStyle, variant);
+    if (!styleValue) {
+      return;
+    }
+    selectedStyles = [
+      ...selectedStyles.filter((value) => {
+        const parts = splitStyleLabel(value);
+        return parts.base !== baseStyle && value !== baseStyle;
+      }),
+      styleValue,
+    ];
+    closeStyleVariantMenu();
+    void loadStyles().then(() => {
+      void refreshSearch();
+      renderClipboard();
+    });
+  };
   const menu = document.createElement("div");
   menu.className = "style-variant-menu";
   menu.setAttribute("role", "menu");
@@ -5400,22 +5418,33 @@ const openStyleVariantMenu = (
     item.className = "style-variant-menu-item";
     item.setAttribute("role", "menuitem");
     item.textContent = variant;
-    item.addEventListener("click", () => {
-      const styleValue = composeStyleLabel(baseStyle, variant);
-      if (!styleValue) {
+    let applied = false;
+    const applyOnce = () => {
+      if (applied) {
         return;
       }
-      selectedStyles = [
-        ...selectedStyles.filter((value) => {
-          const parts = splitStyleLabel(value);
-          return parts.base !== baseStyle && value !== baseStyle;
-        }),
-        styleValue,
-      ];
-      loadStyles();
-      refreshSearch();
-      renderClipboard();
-      closeStyleVariantMenu();
+      applied = true;
+      applyVariantSelection(variant);
+    };
+    item.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      applyOnce();
+    });
+    item.addEventListener("pointerup", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      applyOnce();
+    });
+    item.addEventListener("mouseup", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      applyOnce();
+    });
+    item.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      applyOnce();
     });
     menu.appendChild(item);
   });
@@ -5429,18 +5458,73 @@ const openStyleVariantMenu = (
   styleVariantMenuEl = menu;
 };
 
-const getTandaMoveTargets = () => {
+const getClipboardMoveTargets = (excludeCollectionId: string | null = null) => {
   const general = clipboardCollections.find((collection) => collection.id === "general");
   const custom = clipboardCollections.filter(
     (collection) => !isPinnedCollectionId(collection.id),
   );
-  return [general, ...custom].filter(Boolean) as ClipboardCollection[];
+  return [general, ...custom].filter((collection) =>
+    Boolean(collection && collection.id !== excludeCollectionId),
+  ) as ClipboardCollection[];
+};
+
+const moveTrackBetweenClipboardCollections = (
+  trackId: string,
+  targetCollectionId: string,
+) => {
+  const activeCollection = getActiveCollection();
+  if (activeCollection && isReadOnlyCollectionId(activeCollection.id)) {
+    const track = resolveTrackById(trackId);
+    if (!track) {
+      return;
+    }
+    addTrackToCollection(targetCollectionId, track);
+    activeClipboardCollectionId = targetCollectionId;
+    includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
+      (id) => id !== targetCollectionId,
+    );
+    selectedClipboardTrackId = trackId;
+    selectedClipboardTandaId = null;
+    saveClipboardCollections();
+    renderClipboardCollections();
+    renderClipboard();
+    return;
+  }
+  clipboardCollections = moveTrackToCollection(
+    clipboardCollections,
+    trackId,
+    targetCollectionId,
+    [CLIPBOARD_NEW_ID, CLIPBOARD_TOP_ID, CLIPBOARD_LEAST_ID, CLIPBOARD_AVAILABLE_ID],
+  );
+  activeClipboardCollectionId = targetCollectionId;
+  includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
+    (id) => id !== targetCollectionId,
+  );
+  selectedClipboardTrackId = trackId;
+  selectedClipboardTandaId = null;
+  saveClipboardCollections();
+  renderClipboardCollections();
+  renderClipboard();
 };
 
 const moveTandaBetweenClipboardCollections = (
   tandaId: string,
   targetCollectionId: string,
 ) => {
+  const activeCollection = getActiveCollection();
+  if (activeCollection && isReadOnlyCollectionId(activeCollection.id)) {
+    addTandaToCollection(targetCollectionId, tandaId);
+    activeClipboardCollectionId = targetCollectionId;
+    includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
+      (id) => id !== targetCollectionId,
+    );
+    selectedClipboardTandaId = tandaId;
+    selectedClipboardTrackId = null;
+    saveClipboardCollections();
+    renderClipboardCollections();
+    renderClipboard();
+    return;
+  }
   clipboardCollections = moveTandaToCollection(
     clipboardCollections,
     tandaId,
@@ -5456,6 +5540,38 @@ const moveTandaBetweenClipboardCollections = (
   saveClipboardCollections();
   renderClipboardCollections();
   renderClipboard();
+};
+
+const openTrackMoveTargetMenu = (
+  x: number,
+  y: number,
+  trackId: string,
+  targets: ClipboardCollection[],
+) => {
+  closeCollectionTargetMenu();
+  const menu = document.createElement("div");
+  menu.className = "style-variant-menu";
+  menu.setAttribute("role", "menu");
+  targets.forEach((collection) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "style-variant-menu-item";
+    item.setAttribute("role", "menuitem");
+    item.textContent = collection.name;
+    item.addEventListener("click", () => {
+      moveTrackBetweenClipboardCollections(trackId, collection.id);
+      closeCollectionTargetMenu();
+    });
+    menu.appendChild(item);
+  });
+  document.body.appendChild(menu);
+  const { innerWidth, innerHeight } = window;
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(x, Math.max(8, innerWidth - rect.width - 8));
+  const top = Math.min(y, Math.max(8, innerHeight - rect.height - 8));
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  collectionTargetMenuEl = menu;
 };
 
 const openTandaMoveTargetMenu = (
@@ -5716,6 +5832,7 @@ const renderTrackRow = (
   const canRemoveFromClipboard =
     context === "clipboard" &&
     Boolean(activeCollection && !isReadOnlyCollectionId(activeCollection.id));
+  const canMoveAcrossCollections = context === "clipboard" && Boolean(activeCollection);
   const row = document.createElement("div");
   const active = resolveNowPlayingState();
   const isPlaying = active?.state.currentTrackId === track.id;
@@ -5793,6 +5910,15 @@ const renderTrackRow = (
         "add-tanda",
       ),
     );
+    if (canMoveAcrossCollections) {
+      menu.appendChild(
+        buildActionButton(
+          "actionMoveCollection",
+          "actionMoveCollectionShort",
+          "move-clip-track-collection",
+        ),
+      );
+    }
     if (canRemoveFromClipboard) {
       menu.appendChild(
         buildActionButton(
@@ -6384,6 +6510,7 @@ const renderTandaRow = (
   const canRemoveFromClipboard =
     context === "clipboard" &&
     Boolean(activeCollection && !isReadOnlyCollectionId(activeCollection.id));
+  const canMoveAcrossCollections = context === "clipboard" && Boolean(activeCollection);
   const row = document.createElement("div");
   row.className = "list-row tanda-row";
   row.dataset.tandaId = tanda.id;
@@ -6448,7 +6575,7 @@ const renderTandaRow = (
         "add-playlist-tanda",
       ),
     );
-    if (canRemoveFromClipboard) {
+    if (canMoveAcrossCollections) {
       menu.appendChild(
         buildActionButton(
           "actionMoveCollection",
@@ -6775,7 +6902,6 @@ const buildTopOrLeastCollectionIds = async (least: boolean) => {
   const countForTrack = (id: string) => playCounts.tracks[id] ?? 0;
   const countForTanda = (id: string) => playCounts.tandas[id] ?? 0;
   const trackIds = tracks
-    .filter((track) => countForTrack(track.id) > 0)
     .slice()
     .sort((left, right) => {
       const diff = countForTrack(left.id) - countForTrack(right.id);
@@ -6788,7 +6914,6 @@ const buildTopOrLeastCollectionIds = async (least: boolean) => {
     .slice(0, SMART_COLLECTION_LIMIT)
     .map((track) => track.id);
   const tandaIds = tandas
-    .filter((tanda) => countForTanda(tanda.id) > 0)
     .slice()
     .sort((left, right) => {
       const diff = countForTanda(left.id) - countForTanda(right.id);
@@ -13958,7 +14083,7 @@ const init = async () => {
       return;
     }
     if (action === "move-clip-tanda-collection") {
-      const targets = getTandaMoveTargets();
+      const targets = getClipboardMoveTargets(getActiveCollection()?.id ?? null);
       if (targets.length === 0) {
         closeRowMenus();
         return;
@@ -14367,6 +14492,29 @@ const init = async () => {
     }
     if (action === "add-playlist-track") {
       appendTrackToPlaylist(clipTrack);
+      closeRowMenus();
+      return;
+    }
+    if (action === "move-clip-track-collection") {
+      const targets = getClipboardMoveTargets(getActiveCollection()?.id ?? null);
+      if (targets.length === 0) {
+        closeRowMenus();
+        return;
+      }
+      if (targets.length === 1) {
+        moveTrackBetweenClipboardCollections(clipTrack.id, targets[0].id);
+        closeRowMenus();
+        return;
+      }
+      const actionButton = target.closest<HTMLButtonElement>(
+        'button[data-action="move-clip-track-collection"]',
+      );
+      if (actionButton) {
+        const rect = actionButton.getBoundingClientRect();
+        openTrackMoveTargetMenu(rect.left, rect.bottom + 4, clipTrack.id, targets);
+      } else {
+        openTrackMoveTargetMenu(event.clientX, event.clientY, clipTrack.id, targets);
+      }
       closeRowMenus();
       return;
     }
