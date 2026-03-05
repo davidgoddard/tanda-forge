@@ -198,7 +198,7 @@ Tap Tempo:
 Controls:
 - UI-010a.R12: Save persists the edits to the database.
 - UI-010a.R13: Reset restores the original values for the current edit session.
-- UI-010a.R14: Cancel closes without changes.
+- UI-010a.R14: Close dismisses the editor without applying additional edits.
 - UI-010a.R15: The editor surface is opaque to keep the form readable over long lists.
 - UI-010a.R16: In Edit mode, the editor is non-modal and updates in place as
   different tracks are clicked.
@@ -614,30 +614,37 @@ Behavior:
 - UI-082.R3: Included collections do not change the active collection target.
 - UI-082.R4: Collections persist across app restarts.
 - UI-082.R5: Collections are named and removable, but at least one must always exist.
-- UI-082.R6 (Planned): Items already in a collection can be added to additional collections without removing them from the active collection.
 - UI-082.R7: Sending a playlist item to the clipboard switches focus to the General collection only.
 - UI-082.R8: Clicking a clipboard tanda selects it but does not open the Tanda Designer;
   editing requires the T menu action or drag/drop into the designer.
 - UI-082.R9: Tracks can be moved between clipboard collections by dragging a
   clipboard track onto a collection lozenge (context tab).
-- UI-082.R8: Named collections (except General) are draggable to reorder the
+- UI-082.R10: Named collections (except General) are draggable to reorder the
   collection tabs; General is fixed in place and not draggable.
-- UI-082.R9: A Clear button next to the Clipboard header clears only the General
+- UI-082.R11: A Clear button next to the Clipboard header clears only the General
   collection (tracks and tandas); named collections are unaffected.
-- UI-082.R10: The system provides a "New" collection populated with the most
+- UI-082.R12: The system provides a "New" collection populated with the most
   recently added music tracks (no cortinas).
-- UI-082.R11: The New collection is read-only and cannot be removed or reordered.
-- UI-082.R12: The size of the New collection is configurable in System settings.
-- UI-082.R13: The system provides an `Available` smart collection keyed by
+- UI-082.R13: The New collection is read-only and cannot be removed or reordered.
+- UI-082.R14: The size of the New collection is configurable in System settings.
+- UI-082.R15: The system provides an `Available` smart collection keyed by
   canonical `artist + style` groups:
-  - UI-082.R13.a: Once a playlist uses a canonical artist in a specific style,
+  - UI-082.R15.a: Once a playlist uses a canonical artist in a specific style,
     only that same artist+style group is excluded from `Available`.
-  - UI-082.R13.b: Other styles for the same canonical artist remain eligible.
-  - UI-082.R13.c: Canonical artist matching must use orchestra alias/variant
+  - UI-082.R15.b: Other styles for the same canonical artist remain eligible.
+  - UI-082.R15.c: Canonical artist matching must use orchestra alias/variant
     resolution (e.g., D'Arienzo variants resolve to the same canonical artist).
-  - UI-082.R13.d: Tanda availability must be evaluated from tanda-level style
+  - UI-082.R15.d: Tanda availability must be evaluated from tanda-level style
     metadata when track-level style tags are missing or inconsistent, provided
     tanda size and artist+style usage constraints are satisfied.
+- UI-082.R16: Clipboard track and tanda row menus include `M` (move collection).
+- UI-082.R17: `M` target selection excludes the currently active collection.
+- UI-082.R18: If exactly one target remains, `M` applies directly without showing
+  a picker.
+- UI-082.R19: If multiple targets remain, `M` opens a target picker pop-up.
+- UI-082.R20: In read-only smart collections (`New`, `Top`, `Least`,
+  `Available`), `M` performs copy-to-target semantics (source remains smart).
+- UI-082.R21: In writable collections, `M` performs true move semantics.
 
 ---
 
@@ -659,6 +666,11 @@ Behavior:
 - UI-083.R3: Search style pills show base styles; selecting a base applies all styles in that family.
 - UI-083.R4: Track editor style picker presents grouped base/sub-style options and stores the selected concrete style string.
 - UI-083.R5: Legacy style table supports per-row mapping to an existing style or creating a new family/style.
+- UI-083.R6: Base style pills support variant selection via right-click or long-press.
+- UI-083.R7: Selecting a variant relabels the pill (e.g. `T - Nuevo`) and applies
+  exact filtering for that variant.
+- UI-083.R8: Clicking an active variant pill toggles it off and restores base-style
+  filtering behavior.
 
 ---
 

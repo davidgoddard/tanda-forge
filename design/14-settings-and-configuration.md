@@ -60,7 +60,6 @@ Board, Diagnostics, System).
 - CFG-SYS-009: The default size also acts as the minimum size threshold for save warnings.
 - CFG-SYS-010: Users can configure the size of the system "New" clipboard
   collection (most recent music tracks).
-- CFG-SYS-010.b: The system provides a managed list of musical styles for official tagging.
 - CFG-SYS-011: New installs include default styles (Tango, Milonga, Waltz/Vals).
 - CFG-SYS-012: If the user changes language and has only default styles, those defaults
   are rewritten in the new language without altering custom styles.
@@ -119,6 +118,10 @@ Board, Diagnostics, System).
 ## Library Utilities
 
 - CFG-LIB-006: The Erase Database action is located in the Library tab alongside scanning.
+- CFG-LIB-012: Library tab includes a one-click precompute action for compressed
+  companion cache generation (tracks + cortinas).
+- CFG-LIB-013: Precompute reports progress and summary counts (processed,
+  rendered, skipped, failed) and must not block other UI navigation.
 
 ## Diagnostics
 

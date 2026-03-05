@@ -6,8 +6,9 @@ identified as `AUD-<section>.R<n>` in order under each section. Sub-bullets use
 
 ## AUD-001 — Overview
 
-The main process owns audio analysis and playback control. Audio files are never
-modified on disk.
+The main process owns audio analysis and cache rendering orchestration. Runtime
+playlist playback control is renderer-driven. Original source audio files are
+never modified on disk.
 
 ## AUD-002 — Analysis Pipeline
 
@@ -15,6 +16,7 @@ modified on disk.
 - AUD-002.R2: Use `ffmpeg` to compute:
   - AUD-002.R2.a: Loudness (EBU R128 integrated).
   - AUD-002.R2.b: Leading/trailing silence offsets.
+- AUD-002.R2.c: Waveform PNG previews.
 - AUD-002.R3: Store results in SQLite for reuse at playback time.
 
 AUD-002.R4: Loudness analysis uses `loudnorm` with a target integrated loudness of -16 LUFS
@@ -29,6 +31,8 @@ and stores both the measured loudness and gain offset.
   surfacing to users.
 - AUD-002.R8: Legacy-imported metadata rows are provisional and must be forced
   through real analysis on the next scan pass before they are treated as reusable.
+- AUD-002.R9: Per-track scan execution may run analysis and waveform generation
+  concurrently; failures are isolated and logged independently.
 
 ## AUD-003 — Playback Pipeline
 
@@ -50,6 +54,10 @@ and stores both the measured loudness and gain offset.
 - AUD-003.R5: Per-element output routing uses media-element sink assignment
   (`setSinkId`) without routing playback through a shared WebAudio destination,
   so main and headphone channels can target different devices reliably.
+- AUD-003.R6: Dynamic-range compression uses offline-rendered companion audio
+  files plus runtime wet/dry mix on the main output channel.
+- AUD-003.R7: Companion files may be precomputed in bulk from Library settings,
+  or generated/prefetched on demand during playback workflows.
 
 ## AUD-004 — Output Routing
 
@@ -83,3 +91,5 @@ and stores both the measured loudness and gain offset.
 - AUD-007.R2: Analysis failure: mark track as unanalyzed and retry later.
 - AUD-007.R3: Playback normalization decisions are logged (gain source, applied gain,
   loudness, and correction) for diagnostics and tuning.
+- AUD-007.R4: Companion-render failures fall back to original playback and
+  expose failure details in diagnostics/status.

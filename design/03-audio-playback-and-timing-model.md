@@ -99,8 +99,27 @@ FR-056.R1: If audio is playing, app-close requests must warn the user and allow 
 
 Playlist playback currently runs in the renderer as a sequential loop on the
 main output channel. Start/resume/stop are supported; stop fades out over a
-configurable duration, and resume uses in-memory position only. Gaps are applied
-between tracks within a tanda and before each tanda. Cortina gaps are stored
-but not scheduled yet. Played tandas are locked and muted in Live mode while
-playback state is active. Track start offsets and end trims are applied to
-playback and reflected in display durations and waveform seeking.
+configurable duration, and resume uses in-memory position only.
+
+Gaps are scheduled and applied for:
+- between tracks within tandas,
+- before tandas,
+- before cortinas, and
+- after cortinas (before the next tanda).
+
+When cortinas are enabled, the playlist flow includes:
+- a lead-in cortina before the first tanda,
+- cortinas between tandas,
+- a final cortina after the last tanda.
+
+Preparation-mode playlist track click starts playback immediately from the
+selected track (no lead-in cortina). Live mode retains guarded start behavior.
+
+Compression uses pre-rendered companion audio for main-channel playback, with a
+runtime wet/dry mix slider in the now-playing strip. Companion files are
+prefetched for upcoming playlist items and can be bulk precomputed from
+Settings -> Library.
+
+Played tandas are locked and muted in Live mode while playback state is active.
+Track start offsets and end trims are applied to playback and reflected in
+display durations and waveform seeking.

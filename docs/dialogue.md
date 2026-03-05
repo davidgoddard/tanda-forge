@@ -3809,3 +3809,29 @@ Code diffs are omitted; only intent and outcomes are captured.
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (64 files, 278 tests).
+
+### Latest update
+- User prompt: Requested a full documentation reconciliation pass so requirements/design docs precisely reflect current app behavior after recent iterations.
+- Assistant response:
+  - Performed a cross-check against current code, tests, and latest dialogue/handoff context.
+  - Updated requirement/design docs to match implemented behavior, including:
+    - parallel per-track analysis/waveform requirement,
+    - compression companion + main-channel mix behavior and default 0% mix,
+    - current playback timing/cortina sequencing implementation notes,
+    - clipboard collection `M` semantics (direct vs picker, exclude current, move vs copy for smart collections),
+    - style-variant pill behavior (right-click/long-press, relabel, exact filtering),
+    - testing tooling status (Vitest no longer marked planned).
+  - Updated tracking matrix statuses/notes for FR-050, UI-082, UI-083.
+  - Updated user guide menu/style notes to reflect long-press style variants and context-sensitive `M` behavior.
+- Files changed:
+  - `design/02-functional-requirements.md`
+  - `design/03-audio-playback-and-timing-model.md`
+  - `design/05-ui-principles-and-components.md`
+  - `design/10-audio-pipeline.md`
+  - `design/12-testing-and-quality.md`
+  - `design/14-settings-and-configuration.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/user-guide.md`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 278 tests).

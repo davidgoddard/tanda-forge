@@ -5352,3 +5352,26 @@
 - Validation:
   - `npm run build` passed
   - `npm test` passed (64 files, 278 tests)
+
+### Latest update
+- Documentation/requirements reconciliation pass completed to align specs with current implementation.
+- Updated requirements/design docs for:
+  - scan analysis+waveform parallelism and resilient failure handling,
+  - compression companion workflow and main-channel wet/dry control,
+  - current renderer playback timing and cortina sequencing behavior,
+  - clipboard collection move/copy (`M`) semantics and target-selection rules,
+  - style-variant pill interactions (right-click + long-press, relabel + exact filtering),
+  - testing tooling status and matrix coverage updates.
+- Updated user guide to reflect current menu semantics and long-press style variant behavior.
+- Files updated:
+  - `design/02-functional-requirements.md`
+  - `design/03-audio-playback-and-timing-model.md`
+  - `design/05-ui-principles-and-components.md`
+  - `design/10-audio-pipeline.md`
+  - `design/12-testing-and-quality.md`
+  - `design/14-settings-and-configuration.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/user-guide.md`
+- Validation:
+  - `npm run build` passed
+  - `npm test` passed (64 files, 278 tests)

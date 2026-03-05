@@ -47,7 +47,8 @@ main style name as valid for a playlist position marked with the single letter s
 
 The style names are shown as search filter buttons and all matching tracks and tandas are then shown in the search results and the clipboard.
 
-Right Clicking a style pill button will show the sub-styles if available allowing specific searches for "alternative" tracks and tandas.
+Right Clicking (or press and hold) a style pill button will show the sub-styles if available allowing specific searches for "alternative" tracks and tandas.
+Long-pressing a style pill (about 1 second) opens the same sub-style menu.
 
 
 ### Modes
@@ -96,7 +97,9 @@ tanda has the playlist's preferred track count in which case it will start anoth
 - **E**: Edit - used for tracks this pops up a window showing all track data.  Next to each value is a "S" button for searching and each button sends the current fields text to the search
 field in the search column.  Clicking more "S" buttons adds more text allowing the tempo and year and artist to be used for searching for example.
 - **R**: Remove - removes the track or tanda from the named collection or playlist.  Removal of a tanda from a playlist causes an empty placeholder to be added to maintain the playlist sequence.
-- **M**: Mark as target - any tanda in the playlist can be marked as the target of a "Send to Playlist" request or to receive a "X" swap-over.
+- **M**: Context action:
+  - In playlist tandas/tracks: mark as target for replace/swap flows.
+  - In clipboard tandas/tracks: move (or copy, from smart collections) to another collection.
 - **X**: Swap - send the current tanda to the current target and bring that target's tanda to the current position.  Style and size warnings may be given but nothing is blocked.
 
 In addition, the menu buttons - circles with the elipsis in it ("...") - can be coloured white which indicates either a full or partial overlap with the current playlist.  Clicking the button 

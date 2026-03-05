@@ -34,7 +34,9 @@ Analysis:
   otherwise the stored style remains blank.
 - FR-001.2.R9: Analysis must tolerate malformed FFmpeg/ffprobe output; parsing
   failures must be sanitized and never abort a scan.
-  otherwise the official style is left blank.
+- FR-001.2.R10: Per-track scan work may run independent analysis and waveform
+  generation in parallel; a failure in one step must not cancel the other step,
+  and all failures must be logged for diagnostics.
 
 ### FR-001.3 Progress and Resume
 - FR-001.3.R1: Scanning must report progress continuously (current, total, current file).
@@ -59,6 +61,11 @@ Analysis:
 - FR-002.2.R4: Cortinas have their own configurable playback level.
 - FR-002.2.R5: DJs may adjust overall playback levels without recomputing analysis.
 - FR-002.2.R6: Gain is applied during preview playback and main output playback.
+- FR-002.2.R7: Compression support uses an offline-rendered companion file and
+  a runtime wet/dry mix control on the main channel.
+- FR-002.2.R8: Compression processing applies to the main output path only;
+  headphone preview remains uncompressed.
+- FR-002.2.R9: The compression mix control defaults to 0% on startup.
 
 ---
 

@@ -16,11 +16,13 @@
 
 ## Tooling
 
-- TQ-TOOL-001: Test runner: Vitest (planned).
+- TQ-TOOL-001: Test runner: Vitest.
 - TQ-TOOL-002: Assertion library: built-in (Vitest).
 - TQ-TOOL-003: IPC mocks: lightweight in-memory main process harness.
 - TQ-TOOL-004: Playwright Electron runner (`@playwright/test`) for UI-driven
   regression scenarios.
+- TQ-TOOL-005: Seeded Electron fixture harness (`tests/e2e/support/electron-app.ts`)
+  is used to isolate workflow tests from user library state.
 
 ## Quality Gates
 
