@@ -232,35 +232,25 @@ You need at least one music folder, and optionally a cortina folder.
 5. Click **Scan Music** (and **Scan Cortinas** if needed).
 
 
-![System settings - library roots](images/user-guide/02-settings-library-roots.png)
-
 ### 2) Select Audio Outputs
 
 1. In **System**, choose **Main Output** and **Headphones Output**.
 2. Headphone output enables previewing tracks without sending them to the main speakers.
-
-![System settings - audio outputs](images/user-guide/03-settings-audio-outputs.png)
 
 ### 3) Set Language
 
 1. In **System**, choose **Language**.
 2. UI labels, menu shortcuts, and tooltips update based on the selected language.
 
-![System settings - language](images/user-guide/04-settings-language.png)
-
 ### 4) Adjust Trim Padding (Optional)
 
 1. In **System**, set **Trim padding (sec)** to extend auto-detected track trims.
 2. Use this if song tails feel too short i.e. gets cut-off at the start or end.
 
-![System settings - trim padding](images/user-guide/04b-settings-trim-padding.png)
-
 ### 5) Configure Playlist Defaults (Optional)
 
 1. In **Playlist**, set your default tanda size and start time.
 2. Choose a **Cortina Set** and **Duration** if you use cortinas.
-
-![Playlist settings](images/user-guide/05-settings-playlist.png)
 
 ### 6) Manage Styles (Optional)
 
@@ -271,8 +261,6 @@ Use **Styles** in **Settings -> Library** to add or remove style labels used for
 - The first value (`Waltz`) is the canonical style pill.
 - Other values are aliases used to map imported/scanned genres back to the canonical style.
 - Click an existing style row to load it into the input for editing.
-
-![Style manager](images/user-guide/06-settings-styles.png)
 
 ## Importing legacy data
 
@@ -318,4 +306,3 @@ Check **Settings → Diagnostics** for:
 - Audio tool locations (ffmpeg/ffprobe)
 - Waveform paths and test button
 
-![Diagnostics panel](images/user-guide/17-diagnostics.png)
