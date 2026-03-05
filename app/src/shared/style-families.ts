@@ -194,3 +194,38 @@ export const formatStylePillLabel = (style: string, families: StyleFamily[]) => 
   }
   return `${code} - ${variant}`;
 };
+
+const getBaseStylePriority = (style: string) => {
+  const normalized = normalizeStyleName(style).toLowerCase();
+  if (!normalized) {
+    return 99;
+  }
+  if (normalized.startsWith("tango")) {
+    return 0;
+  }
+  if (
+    normalized.startsWith("waltz") ||
+    normalized.startsWith("vals") ||
+    normalized.startsWith("valse")
+  ) {
+    return 1;
+  }
+  if (normalized.startsWith("milonga")) {
+    return 2;
+  }
+  return 3;
+};
+
+export const sortBaseStyles = (styles: string[]) =>
+  Array.from(
+    new Set(
+      styles.map((style) => normalizeStyleName(style)).filter(Boolean),
+    ),
+  ).sort((left, right) => {
+    const leftPriority = getBaseStylePriority(left);
+    const rightPriority = getBaseStylePriority(right);
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority;
+    }
+    return left.localeCompare(right);
+  });

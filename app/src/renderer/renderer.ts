@@ -18,8 +18,11 @@ import {
   resolveTandaSearchStyles,
 } from "../shared/tanda-search.js";
 import {
+  formatSequenceRule,
   getSequenceRule,
   parseSequence,
+  validateSequenceCodes,
+  validateSequenceSyntax,
   validateTandaForRule,
   type SequenceEntry,
   type StyleMap,
@@ -30,6 +33,7 @@ import {
   deriveFamiliesFromStyles,
   expandStyleFilters,
   formatStylePillLabel,
+  sortBaseStyles,
   parseStyleFamilies,
   serializeStyleFamilies,
   splitStyleLabel,
@@ -1855,7 +1859,7 @@ const getRuleForSlot = (slotIndex: number) =>
   getSequenceRule(getPlaylistSequence(), slotIndex);
 
 const getSequenceLabel = (rule: SequenceEntry) =>
-  `${rule.count}${rule.code.toLowerCase()}`;
+  formatSequenceRule(rule);
 
 const getTandaSequenceLabel = (tanda: TandaDraft) => {
   const count = tanda.trackSlots.filter(Boolean).length;
@@ -6345,7 +6349,7 @@ const resolveSearchStylesForPlaylistIndex = (index: number) => {
     }
   }
   const rule = getRuleForSlot(index);
-  if (!rule?.code || rule.code === "*" || rule.code === "ANY") {
+  if (!rule?.code) {
     return [] as string[];
   }
   return [...(getPlaylistStyleMap()[rule.code] ?? [])]
@@ -7490,9 +7494,7 @@ const renderPlaylist = () => {
       row.dataset.index = index.toString();
       const styleBadge = document.createElement("span");
       const rule = getRuleForSlot(index);
-      const styleCode = rule?.code && rule.code !== "*" && rule.code !== "ANY"
-        ? rule.code.toUpperCase()
-        : "";
+      const styleCode = rule?.code ? rule.code.toUpperCase() : "";
       styleBadge.className = "tanda-style-badge";
       styleBadge.textContent = styleCode || "?";
       const content = document.createElement("div");
@@ -9308,7 +9310,7 @@ const applyPlaylistTargetStyles = (index: number) => {
     }
   } else {
     const rule = getRuleForSlot(index);
-    if (rule?.code && rule.code !== "*" && rule.code !== "ANY") {
+    if (rule?.code) {
       selectedStyles = toBaseStyleFilters(getPlaylistStyleMap()[rule.code] ?? []);
     } else {
       selectedStyles = [];
@@ -9652,18 +9654,22 @@ const getStyleMismatchForTrack = (slotIndex: number, track: TrackRow) => {
   if (!rule) {
     return false;
   }
-  if (rule.code === "*" || rule.code === "ANY") {
-    return false;
-  }
-  const mapped = getPlaylistStyleMap()[rule.code] ?? [];
-  if (mapped.length === 0) {
-    return false;
-  }
-  const mappedCanonical = mapped.map((style) =>
-    canonicalizeStyleForMatching(style),
-  );
+  const styleMap = getPlaylistStyleMap();
   const trackStyle = canonicalizeStyleForMatching(track.genre ?? "");
-  return !trackStyle || !mappedCanonical.includes(trackStyle);
+  if (!trackStyle) {
+    return true;
+  }
+  const alternatives = rule.alternatives.length > 0 ? rule.alternatives : [{ count: rule.count, code: rule.code }];
+  return !alternatives.some((alternative) => {
+    const mapped = styleMap[alternative.code] ?? [];
+    if (mapped.length === 0) {
+      return true;
+    }
+    const mappedCanonical = mapped.map((style) =>
+      canonicalizeStyleForMatching(style),
+    );
+    return mappedCanonical.includes(trackStyle);
+  });
 };
 
 const createPlaylistTandaForSlot = (
@@ -11010,11 +11016,13 @@ const renderClipboardCollections = () => {
 };
 
 const getBaseStyles = () => {
-  const bases = styleFamilies.map((family) => family.base).filter(Boolean);
+  const bases = sortBaseStyles(styleFamilies.map((family) => family.base).filter(Boolean));
   if (bases.length > 0) {
     return bases;
   }
-  return Array.from(new Set(availableStyles.map((style) => splitStyleLabel(style).base).filter(Boolean)));
+  return sortBaseStyles(
+    availableStyles.map((style) => splitStyleLabel(style).base).filter(Boolean),
+  );
 };
 
 const getSelectableStyles = () => {
@@ -13256,11 +13264,45 @@ const init = async () => {
 
   if (playlistSequenceInput) {
     playlistSequenceInput.value = getPlaylistSequenceInput();
+    const applySequenceValidationState = () => {
+      const validation = validateSequenceSyntax(playlistSequenceInput.value);
+      if (!validation.ok) {
+        const message = validation.message ?? t("playlistSequenceInvalidSyntax");
+        playlistSequenceInput.dataset.invalid = "1";
+        playlistSequenceInput.title = message;
+        setStatus(t("statusPlaylistSequenceInvalid", { message }));
+        return false;
+      }
+      const parsed = parseSequence(playlistSequenceInput.value);
+      const codeValidation = validateSequenceCodes(
+        parsed,
+        Object.keys(getPlaylistStyleMap()),
+      );
+      if (!codeValidation.ok) {
+        const message = t("playlistSequenceUnknownCodes", {
+          codes: codeValidation.unknownCodes.join(", "),
+        });
+        playlistSequenceInput.dataset.invalid = "1";
+        playlistSequenceInput.title = message;
+        setStatus(t("statusPlaylistSequenceInvalid", { message }));
+        return false;
+      }
+      delete playlistSequenceInput.dataset.invalid;
+      playlistSequenceInput.title = "";
+      return true;
+    };
+    playlistSequenceInput.addEventListener("input", () => {
+      void applySequenceValidationState();
+    });
     playlistSequenceInput.addEventListener("change", () => {
+      if (!applySequenceValidationState()) {
+        return;
+      }
       localStorage.setItem("tanda-playlist-sequence", playlistSequenceInput.value);
       recomputePlaylistMismatches();
       renderPlaylist();
     });
+    void applySequenceValidationState();
   }
 
   cortinaStopBtn?.addEventListener("click", () => {
@@ -14400,7 +14442,7 @@ const init = async () => {
         ?.dataset.action ?? null;
     if (action === "tanda-toggle") {
       const source = tandaCache.get(tandaId) ?? null;
-      openTandaInDesigner(tandaId, source, "playlist-tab");
+      openTandaInDesigner(tandaId, source);
       closeRowMenus();
       return;
     }
@@ -14865,7 +14907,7 @@ const init = async () => {
         return;
       }
       const rule = getRuleForSlot(index);
-      if (rule?.code && rule.code !== "*" && rule.code !== "ANY") {
+      if (rule?.code) {
         const mappedStyles = getPlaylistStyleMap()[rule.code] ?? [];
         selectedStyles = toBaseStyleFilters(mappedStyles);
         loadStyles();

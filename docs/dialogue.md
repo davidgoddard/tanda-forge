@@ -3835,3 +3835,172 @@ Code diffs are omitted; only intent and outcomes are captured.
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (64 files, 278 tests).
+
+### Latest update
+- User prompt: Asked to confirm legacy import uses style/sub-style, and requested legacy style viewer to only use `classifiers->style` and `classifiers->sub-style`, showing `?` for unknown; explicitly not interested in ID3/tag-derived genre.
+- Assistant response:
+  - Updated legacy style extraction so import/viewer style source is classifier-only.
+  - `loadLegacyLibrary(...)` now derives style from legacy classifiers only:
+    - `classifiers.style`
+    - `classifiers.sub-style` (and `classifiers.subStyle` compatibility)
+  - Removed fallback to `track.genre` in legacy import style derivation.
+  - `listLegacyStyles(...)` now enumerates classifier-derived styles only and emits `?` when classifier style/sub-style is missing.
+  - Updated unit test coverage for legacy style listing to assert `?` unknown behavior and `style + sub-style` composition (`Tango - Nuevo`).
+  - Updated user/design docs to reflect classifier-only extraction and `?` unknown behavior.
+- Files changed:
+  - `app/src/main/legacy-import.ts`
+  - `tests/legacy-import-gain.test.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/user-guide.md`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 278 tests).
+
+### Latest update
+- User prompt: Reported that manually mapped legacy styles are lost after using **Add as new** or adding styles manually; requested mappings stay once defined.
+- Assistant response:
+  - Identified root cause in `styles:add`: aliases for a canonical style were being deleted on every add call.
+  - This caused mapping loss when adding a base style without aliases (including internal style-family sync paths).
+  - Implemented alias-preserving merge behavior:
+    - existing aliases are loaded,
+    - merged with incoming aliases,
+    - deduplicated and normalized,
+    - then rewritten atomically.
+  - Added unit tests for alias merge behavior.
+- Files changed:
+  - `app/src/main/main.ts`
+  - `app/src/shared/style-definitions.ts`
+  - `tests/style-definitions.test.ts`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 280 tests).
+
+### Latest update
+- User prompt: Requested Library settings tab reorder to: roots/path setup first, styles + legacy style mapper second, legacy import third, scan/progress at bottom.
+- Assistant response:
+  - Reordered Library tab sections in renderer markup to the requested workflow:
+    1) Library Roots (add music/cortina/background + root list)
+    2) Style Families + legacy style mapper
+    3) Legacy Import
+    4) Scan controls/progress (scan music, scan cortinas, precompute compressed cache, progress bar/issues link)
+  - Kept existing element IDs to preserve controller wiring and behavior.
+  - Added design requirement note for this section ordering.
+- Files changed:
+  - `app/src/renderer/index.html`
+  - `design/14-settings-and-configuration.md`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 280 tests).
+
+### Latest update
+- User prompt: Requested style pills be sorted with priority order Tango, Waltz/Vals, Milonga, then all others alphabetically.
+- Assistant response:
+  - Added prioritized base-style sort logic and applied it to style pill rendering.
+  - Ordering now is:
+    1) Tango family bases,
+    2) Waltz/vals/valse family bases,
+    3) Milonga family bases,
+    4) all remaining bases alphabetically.
+  - Added unit test coverage for this ordering behavior.
+- Files changed:
+  - `app/src/shared/style-families.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/style-families.test.ts`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 281 tests).
+
+### Latest update
+- User prompt: Requested playlist sequence syntax to support grouped alternatives with different sizes/styles (example `3T 3T 3W 3T 3T (2C 3M)`), and requested UI hints + validation for malformed input (e.g., missing closing bracket).
+- Assistant response:
+  - Implemented grouped-alternative sequence parsing and matching.
+  - Sequence parser now supports groups like `(2C 3M)` as a single slot with alternative rules.
+  - Slot validation now accepts a tanda if it matches **any** alternative in the group (count + style).
+  - Added sequence syntax validator for UI input (invalid terms, unmatched parentheses, nested groups, empty groups).
+  - Playlist sequence field now:
+    - shows help hint text,
+    - marks invalid syntax visually,
+    - reports localized status error,
+    - does not persist invalid input to local storage.
+  - Updated rule label formatting so grouped rules render as `(2c 3m)` in warnings/tooltips.
+  - Updated base-style default resolution to union styles from all alternatives in a grouped rule.
+- Files changed:
+  - `app/src/shared/playlist-sequence.ts`
+  - `app/src/shared/playlist-defaults.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `app/src/renderer/i18n.ts`
+  - `tests/playlist-sequence.test.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/user-guide.md`
+  - `README.md`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 285 tests).
+
+### Latest update
+- User prompt: Asked whether sequence validation checks that single-letter codes map to known style letters; requested adding this check while preserving `*`/`ANY`, and asked for syntax documentation updates.
+- Assistant response:
+  - Added semantic sequence-code validation against configured style-family letters.
+  - `*` and `ANY` remain valid wildcard codes.
+  - Sequence field now blocks persistence when unknown codes are present and shows a localized error with the unknown codes.
+  - Added unit tests for:
+    - unknown-code detection,
+    - wildcard acceptance.
+  - Updated docs (README/user guide/design) to explain grouped alternatives, wildcard syntax, and code validation behavior.
+- Files changed:
+  - `app/src/shared/playlist-sequence.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/i18n.ts`
+  - `tests/playlist-sequence.test.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/user-guide.md`
+  - `README.md`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 287 tests).
+
+### Latest update
+- User prompt: Requested removal of wildcard sequence positions (`*`) because auto-fill must only use defined styles for correct behavior.
+- Assistant response:
+  - Removed wildcard support from playlist sequence parsing/validation/matching.
+  - Sequence terms now accept letters only; `*` is invalid syntax.
+  - `ANY` is no longer special-cased and is treated as an unknown code unless explicitly configured as a style-family letter.
+  - Updated renderer checks to rely only on defined style codes for slot default/filter behavior.
+  - Updated tests and documentation to remove wildcard guidance.
+- Files changed:
+  - `app/src/shared/playlist-sequence.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/playlist-sequence.test.ts`
+  - `README.md`
+  - `docs/user-guide.md`
+  - `design/14-settings-and-configuration.md`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 287 tests).
+
+### Latest update
+- User prompt: Reported playlist tanda suitability warning for a Tango sub-style (`T - Nuevo`) in a `3T` slot; expected no warning when sub-style maps under parent style letter.
+- Assistant response:
+  - Fixed style matching in playlist rule validation to canonicalize both sides of comparison.
+  - Root cause: tanda styles were canonicalized, but rule-map styles were compared in raw form, so labels like `Tango - Nuevo` could mismatch.
+  - Updated `validateTandaForRule(...)` to canonicalize mapped family styles before matching and added regression coverage.
+- Files changed:
+  - `app/src/shared/playlist-sequence.ts`
+  - `tests/playlist-sequence.test.ts`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 288 tests).
+
+### Latest update
+- User prompt: Reported E2E test 14 failure (`search-tanda menu action opens tanda in designer`) where `#tanda-designer-tab` did not become active.
+- Assistant response:
+  - Root cause found in search-tanda click handler: action `tanda-toggle` opened editor hosted in `playlist-tab` instead of default designer tab.
+  - Updated handler to call `openTandaInDesigner(tandaId, source)` (default host), restoring expected tab activation semantics.
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 288 tests).
+  - Targeted Playwright run could not complete in this environment: Electron process failed to launch.

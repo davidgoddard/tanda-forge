@@ -17,8 +17,15 @@ export const getDefaultStylesForRule = (
   if (!rule) {
     return [] as string[];
   }
-  if (rule.code === "*" || rule.code === "ANY") {
-    return [] as string[];
-  }
-  return [...(styleMap[rule.code] ?? [])];
+  const alternatives =
+    rule.alternatives && rule.alternatives.length > 0
+      ? rule.alternatives
+      : [{ count: rule.count, code: rule.code }];
+  const styles = alternatives.flatMap((alternative) => {
+    if (alternative.code === "*" || alternative.code === "ANY") {
+      return [] as string[];
+    }
+    return styleMap[alternative.code] ?? [];
+  });
+  return Array.from(new Set(styles));
 };

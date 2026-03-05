@@ -2948,6 +2948,11 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   color: var(--text);
 }
 
+#playlist-sequence[data-invalid="1"] {
+  border-color: #ff7a7a;
+  box-shadow: 0 0 0 1px rgba(255, 122, 122, 0.35);
+}
+
 .settings-field input[type="checkbox"] {
   width: 1.05rem;
   height: 1.05rem;

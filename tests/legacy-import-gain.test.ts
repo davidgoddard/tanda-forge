@@ -61,13 +61,17 @@ describe("loadLegacyLibrary gain parsing", () => {
         track: { title: "D", artist: "Artist" },
         classifiers: { style: "Milonga" },
       },
+      "/music/e.mp3": {
+        track: { title: "E", artist: "Artist" },
+        classifiers: { style: "Tango", "sub-style": "Nuevo" },
+      },
     });
 
     const styles = listLegacyStyles(legacyPath);
     expect(styles).toEqual([
-      { value: "Vals", normalized: "Vals", count: 2 },
+      { value: "?", normalized: "?", count: 3 },
       { value: "Milonga", normalized: "Milonga", count: 1 },
-      { value: "Waltz", normalized: "Waltz", count: 1 },
+      { value: "Tango - Nuevo", normalized: "Tango - Nuevo", count: 1 },
     ]);
   });
 });

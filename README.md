@@ -120,6 +120,8 @@ Settings -> **Playlist**
 
 - Start/end timing
 - Sequence rules
+  - Supports grouped alternatives, e.g. `(2C 3M)`
+  - Sequence validation checks syntax and that style letters exist in configured style families
 - Cortina timing and behavior
 - Gap controls
 

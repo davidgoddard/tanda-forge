@@ -38,6 +38,9 @@ Board, Diagnostics, System).
 - CFG-LIB-011: Style families are configured in the Library tab before import/scan workflows.
 - CFG-LIB-011.a: Each family row defines a playlist code letter, a base style, and optional sub-styles.
 - CFG-LIB-011.b: Legacy style mapping table supports mapping each legacy style to an existing style or creating a new family/style from that row.
+- CFG-LIB-011.c: Legacy style preview/import style extraction uses legacy `library.dat` classifier fields only (`classifiers.style`, `classifiers.sub-style`/`classifiers.subStyle`) and does not infer styles from ID3/tag genre values.
+- CFG-LIB-011.d: Legacy style rows with no classifier style/sub-style are shown as `?` in the legacy style preview.
+- CFG-LIB-012: Library tab section order is: library roots first, style families + legacy style mapper second, legacy import third, and scan/progress controls at the bottom.
 
 ## System Configuration
 
@@ -92,6 +95,12 @@ Board, Diagnostics, System).
   - CFG-PL-001c: Gap before cortina (stored for future cortina playback).
 - CFG-PL-002: Users can configure the stop fade duration for live playlist playback.
 - CFG-PL-003: A tanda sequence string (e.g. `3t 3t 3w`) defines slot expectations.
+- CFG-PL-003.a: Sequence syntax supports grouped alternatives with per-option size/style,
+  e.g. `(2c 3m)` meaning a slot accepts either 2-C or 3-M.
+- CFG-PL-003.b: Sequence input is syntax-validated in the UI (e.g. unmatched parentheses,
+  invalid terms) and invalid input is not persisted.
+- CFG-PL-003.c: Sequence letter codes must resolve to configured style-family letters;
+  unknown codes are flagged and not persisted.
 - CFG-PL-004: Sequence letters are resolved via Library style families (code->base/sub-styles), not a Playlist-tab text map.
 - CFG-PL-005: Style mismatches prompt an explicit override warning; count mismatches prompt a
   confirmation before allowing the tanda into the slot.

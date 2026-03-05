@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseStyleDefinition } from "../app/src/shared/style-definitions";
+import { mergeStyleAliases, parseStyleDefinition } from "../app/src/shared/style-definitions";
 
 describe("parseStyleDefinition", () => {
   it("parses canonical style and aliases from separators", () => {
@@ -24,3 +24,18 @@ describe("parseStyleDefinition", () => {
   });
 });
 
+describe("mergeStyleAliases", () => {
+  it("keeps existing aliases and appends new unique aliases", () => {
+    expect(mergeStyleAliases(["Modern"], ["Nuevo", "modern"])).toEqual([
+      "Modern",
+      "Nuevo",
+    ]);
+  });
+
+  it("normalizes and drops blanks", () => {
+    expect(mergeStyleAliases(["  "], [" Vals ", "", "valse"])).toEqual([
+      "Vals",
+      "Valse",
+    ]);
+  });
+});

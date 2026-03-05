@@ -683,6 +683,24 @@
         <div class="settings-content">
           <div class="settings-tab active" data-tab="library">
             <div class="settings-section">
+              <h3 data-i18n="libraryRoots">Library Roots</h3>
+              <p data-i18n="libraryRootsHelp">
+                Configure music and cortina folders used for scanning.
+              </p>
+              <div class="settings-actions">
+                <button id="add-music" data-i18n="addMusicFolder">
+                  Add Music Folder
+                </button>
+                <button id="add-cortina" data-i18n="addCortinaFolder">
+                  Add Cortina Folder
+                </button>
+                <button id="add-backgrounds" data-i18n="addBackgroundFolder">
+                  Add Background Folder
+                </button>
+              </div>
+              <div id="root-list" class="root-list"></div>
+            </div>
+            <div class="settings-section">
               <h3 data-i18n="styleFamiliesTitle">Style Families</h3>
               <p data-i18n="styleFamiliesHelp">
                 Define playlist style letters and optional sub-styles before importing legacy data.
@@ -736,47 +754,7 @@
               </div>
             </div>
             <div class="settings-section">
-              <h3 data-i18n="libraryRoots">Library Roots</h3>
-              <p data-i18n="libraryRootsHelp">
-                Configure music and cortina folders used for scanning.
-              </p>
-            <div class="settings-actions">
-              <button id="add-music" data-i18n="addMusicFolder">
-                Add Music Folder
-              </button>
-              <button id="add-cortina" data-i18n="addCortinaFolder">
-                Add Cortina Folder
-              </button>
-              <button id="add-backgrounds" data-i18n="addBackgroundFolder">
-                Add Background Folder
-              </button>
-              <button id="scan-music" data-i18n="scanMusic">
-                Scan Music
-              </button>
-              <button id="scan-cortinas" data-i18n="scanCortinas">
-                Scan Cortinas
-              </button>
-              <button id="precompute-compressed" data-i18n="precomputeCompression">
-                Precompute compressed cache
-              </button>
-            </div>
-            <p class="settings-note" data-i18n="precomputeCompressionHelp">
-              Optional: pre-renders compressed versions for tracks and cortinas. Only needed if compression will be used.
-            </p>
-            <div class="settings-progress">
-              <div class="progress-row">
-                <div id="progress-label-settings" class="progress-label" data-i18n="idle">
-                  Idle
-                </div>
-                <button id="open-diagnostics-settings" data-i18n="viewScanIssues">
-                  View scan issues
-                </button>
-              </div>
-              <progress id="scan-progress-settings" value="0" max="1"></progress>
-            </div>
-            <div id="root-list" class="root-list"></div>
-            </div>
-            <div id="legacy-import" class="settings-section hidden">
+              <div id="legacy-import" class="hidden">
               <h3 data-i18n="legacyImportTitle">Legacy Import</h3>
               <p id="legacy-import-description"></p>
               <button id="legacy-import-button" data-i18n="legacyImportButton">
@@ -789,6 +767,35 @@
                 Verify library readiness
               </button>
               <div id="legacy-readiness-result" class="diagnostics-result"></div>
+              </div>
+            </div>
+            <div class="settings-section">
+              <h3 data-i18n="scanMusic">Scan Music</h3>
+              <div class="settings-actions">
+                <button id="scan-music" data-i18n="scanMusic">
+                  Scan Music
+                </button>
+                <button id="scan-cortinas" data-i18n="scanCortinas">
+                  Scan Cortinas
+                </button>
+                <button id="precompute-compressed" data-i18n="precomputeCompression">
+                  Precompute compressed cache
+                </button>
+              </div>
+              <p class="settings-note" data-i18n="precomputeCompressionHelp">
+                Optional: pre-renders compressed versions for tracks and cortinas. Only needed if compression will be used.
+              </p>
+              <div class="settings-progress">
+                <div class="progress-row">
+                  <div id="progress-label-settings" class="progress-label" data-i18n="idle">
+                    Idle
+                  </div>
+                  <button id="open-diagnostics-settings" data-i18n="viewScanIssues">
+                    View scan issues
+                  </button>
+                </div>
+                <progress id="scan-progress-settings" value="0" max="1"></progress>
+              </div>
             </div>
             <button id="reset-db" class="danger" data-i18n="eraseDatabase">
               Erase Database
@@ -901,6 +908,9 @@
                   data-i18n-attr="placeholder"
                   data-i18n="playlistSequencePlaceholder"
                 />
+                <p data-i18n="playlistSequenceHelp">
+                  Example: 3t 3t 3w 3t 3t (2c 3m). Group alternatives in brackets.
+                </p>
               </div>
             </div>
           </div>

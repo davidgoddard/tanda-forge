@@ -66,6 +66,8 @@ type LegacyLibraryEntry = {
     bpm?: number;
     notes?: string;
     style?: string;
+    subStyle?: string;
+    "sub-style"?: string;
   };
 };
 
@@ -131,6 +133,38 @@ const parseLegacyNumber = (value: unknown) => {
   return null;
 };
 
+const readClassifierText = (
+  classifiers: LegacyLibraryEntry["classifiers"],
+  keys: Array<keyof NonNullable<LegacyLibraryEntry["classifiers"]>>,
+) => {
+  if (!classifiers) {
+    return "";
+  }
+  for (const key of keys) {
+    const value = classifiers[key];
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+  return "";
+};
+
+const buildLegacyClassifierStyle = (
+  classifiers: LegacyLibraryEntry["classifiers"],
+) => {
+  const style = normalizeStyleName(readClassifierText(classifiers, ["style"]));
+  const subStyle = normalizeStyleName(
+    readClassifierText(classifiers, ["subStyle", "sub-style"]),
+  );
+  if (style && subStyle) {
+    return `${style} - ${subStyle}`;
+  }
+  return style || subStyle || "";
+};
+
 const parseYearFromNotes = (notes: string) => {
   const currentYear = new Date().getFullYear();
   const rangeMatch = notes.match(
@@ -170,7 +204,7 @@ export const loadLegacyLibrary = (libraryPath: string) => {
     const title = track.title?.trim() ?? "";
     const artist = track.artist?.trim() ?? "";
     const album = track.album?.trim() ?? "";
-    const genre = (track.genre || classifiers.style || "").toString().trim();
+    const genre = buildLegacyClassifierStyle(classifiers);
     const bpm = typeof classifiers.bpm === "number" ? classifiers.bpm : null;
     const notes = (classifiers.notes ?? "").toString().trim();
     let year =
@@ -240,15 +274,12 @@ const normalizeLegacyGenre = (rawGenre: string, styleMap: Map<string, string>) =
 };
 
 export const listLegacyStyles = (libraryPath: string) => {
-  const entries = loadLegacyLibrary(libraryPath);
+  const raw = readLegacyJson<Record<string, LegacyLibraryEntry>>(libraryPath, {});
   const counts = new Map<string, { normalized: string; count: number }>();
-  entries.forEach((entry) => {
-    const raw = entry.genre?.trim() ?? "";
-    if (!raw) {
-      return;
-    }
-    const normalized = normalizeStyleName(raw);
-    const key = raw;
+  Object.values(raw).forEach((entry) => {
+    const fromClassifiers = buildLegacyClassifierStyle(entry.classifiers);
+    const key = fromClassifiers || "?";
+    const normalized = key === "?" ? "?" : normalizeStyleName(key);
     const current = counts.get(key);
     counts.set(key, {
       normalized,

@@ -5,6 +5,27 @@ export type ParsedStyleDefinition = {
   aliases: string[];
 };
 
+export const mergeStyleAliases = (
+  existingAliases: string[],
+  incomingAliases: string[],
+) => {
+  const merged: string[] = [];
+  const seen = new Set<string>();
+  [...existingAliases, ...incomingAliases].forEach((alias) => {
+    const normalized = normalizeStyleName(alias);
+    if (!normalized) {
+      return;
+    }
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    merged.push(normalized);
+  });
+  return merged;
+};
+
 export const parseStyleDefinition = (input: string): ParsedStyleDefinition => {
   const tokens = input
     .split(/[;/]+/)
@@ -23,4 +44,3 @@ export const parseStyleDefinition = (input: string): ParsedStyleDefinition => {
   );
   return { canonical, aliases };
 };
-

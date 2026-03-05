@@ -237,6 +237,10 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     playlistEndTimeLabel: "Playlist expected end time",
     playlistSequenceLabel: "Tanda sequence",
     playlistSequencePlaceholder: "3t 3t 3w",
+    playlistSequenceHelp:
+      "Use terms like 3t or grouped alternatives like (2c 3m).",
+    playlistSequenceInvalidSyntax: "Invalid sequence syntax.",
+    playlistSequenceUnknownCodes: "Unknown sequence code(s): {codes}.",
     playlistStyleMapLabel: "Style mapping",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     playlistArtistRepeatGapLabel: "Artist repeat gap aspiration (min)",
@@ -392,6 +396,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
       "This collection is read-only. Switch to another collection to add items.",
     statusPlaylistSequenceMismatch:
       "Slot expects {rule}. This tanda is {tanda}.",
+    statusPlaylistSequenceInvalid: "Sequence is invalid: {message}",
     confirmPlaylistSequenceOverride:
       "This slot expects {expected} tracks ({rule}). This tanda has {count}. Use it anyway?",
     confirmPlaylistSequenceStyleOverride:
@@ -735,6 +740,10 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     playlistEndTimeLabel: "Hora prevista de fin de la playlist",
     playlistSequenceLabel: "Secuencia de tandas",
     playlistSequencePlaceholder: "3t 3t 3w",
+    playlistSequenceHelp:
+      "Usa terminos como 3t o alternativas agrupadas como (2c 3m).",
+    playlistSequenceInvalidSyntax: "Sintaxis de secuencia invalida.",
+    playlistSequenceUnknownCodes: "Codigo(s) de secuencia desconocido(s): {codes}.",
     playlistStyleMapLabel: "Mapa de estilos",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     scanIssues: "Problemas de escaneo",
@@ -813,6 +822,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
       "Esta coleccion es de solo lectura. Cambia a otra para agregar.",
     statusPlaylistSequenceMismatch:
       "El espacio espera {rule}. Esta tanda es {tanda}.",
+    statusPlaylistSequenceInvalid: "La secuencia no es valida: {message}",
     confirmPlaylistSequenceOverride:
       "Este espacio espera {expected} temas ({rule}). Esta tanda tiene {count}. ¿Usarla de todos modos?",
     confirmPlaylistSequenceStyleOverride:
@@ -1139,6 +1149,10 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     playlistEndTimeLabel: "Heure de fin attendue de la playlist",
     playlistSequenceLabel: "Sequence de tandas",
     playlistSequencePlaceholder: "3t 3t 3w",
+    playlistSequenceHelp:
+      "Utilisez des termes comme 3t ou des alternatives groupees comme (2c 3m).",
+    playlistSequenceInvalidSyntax: "Syntaxe de sequence invalide.",
+    playlistSequenceUnknownCodes: "Code(s) de sequence inconnu(s): {codes}.",
     playlistStyleMapLabel: "Mapping de styles",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     scanIssues: "Problemes de scan",
@@ -1217,6 +1231,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
       "Cette collection est en lecture seule. Passez a une autre pour ajouter.",
     statusPlaylistSequenceMismatch:
       "Ce slot attend {rule}. Cette tanda est {tanda}.",
+    statusPlaylistSequenceInvalid: "Sequence invalide: {message}",
     confirmPlaylistSequenceOverride:
       "Ce slot attend {expected} pistes ({rule}). Cette tanda en a {count}. L'utiliser quand meme ?",
     confirmPlaylistSequenceStyleOverride:
@@ -1544,6 +1559,10 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     playlistEndTimeLabel: "Geplante Playlist-Endzeit",
     playlistSequenceLabel: "Tanda-Sequenz",
     playlistSequencePlaceholder: "3t 3t 3w",
+    playlistSequenceHelp:
+      "Nutze Angaben wie 3t oder gruppierte Alternativen wie (2c 3m).",
+    playlistSequenceInvalidSyntax: "Ungueltige Sequenzsyntax.",
+    playlistSequenceUnknownCodes: "Unbekannte Sequenzcodes: {codes}.",
     playlistStyleMapLabel: "Stil-Zuordnung",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     scanIssues: "Scan-Probleme",
@@ -1622,6 +1641,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
       "Diese Sammlung ist schreibgeschutzt. Wechseln Sie zum Hinzufugen.",
     statusPlaylistSequenceMismatch:
       "Slot erwartet {rule}. Diese Tanda ist {tanda}.",
+    statusPlaylistSequenceInvalid: "Sequenz ist ungueltig: {message}",
     confirmPlaylistSequenceOverride:
       "Dieser Slot erwartet {expected} Titel ({rule}). Diese Tanda hat {count}. Trotzdem verwenden?",
     confirmPlaylistSequenceStyleOverride:
@@ -1947,6 +1967,10 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     playlistEndTimeLabel: "Hora prevista de fim da playlist",
     playlistSequenceLabel: "Sequencia de tandas",
     playlistSequencePlaceholder: "3t 3t 3w",
+    playlistSequenceHelp:
+      "Use termos como 3t ou alternativas agrupadas como (2c 3m).",
+    playlistSequenceInvalidSyntax: "Sintaxe de sequencia invalida.",
+    playlistSequenceUnknownCodes: "Codigo(s) de sequencia desconhecido(s): {codes}.",
     playlistStyleMapLabel: "Mapa de estilos",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     scanIssues: "Problemas de scan",
@@ -2025,6 +2049,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
       "Esta colecao e somente leitura. Troque para adicionar itens.",
     statusPlaylistSequenceMismatch:
       "Este slot espera {rule}. Esta tanda e {tanda}.",
+    statusPlaylistSequenceInvalid: "Sequencia invalida: {message}",
     confirmPlaylistSequenceOverride:
       "Este slot espera {expected} faixas ({rule}). Esta tanda tem {count}. Usar mesmo assim?",
     confirmPlaylistSequenceStyleOverride:
@@ -2352,6 +2377,10 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     playlistEndTimeLabel: "Ora prevista di fine playlist",
     playlistSequenceLabel: "Sequenza tanda",
     playlistSequencePlaceholder: "3t 3t 3w",
+    playlistSequenceHelp:
+      "Usa termini come 3t o alternative raggruppate come (2c 3m).",
+    playlistSequenceInvalidSyntax: "Sintassi sequenza non valida.",
+    playlistSequenceUnknownCodes: "Codice/i sequenza sconosciuto/i: {codes}.",
     playlistStyleMapLabel: "Mappa stili",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     scanIssues: "Problemi di scansione",
@@ -2432,6 +2461,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
       "Questa collezione e in sola lettura. Passa a un'altra collezione per aggiungere elementi.",
     statusPlaylistSequenceMismatch:
       "Lo slot richiede {rule}. Questa tanda e {tanda}.",
+    statusPlaylistSequenceInvalid: "Sequenza non valida: {message}",
     confirmPlaylistSequenceOverride:
       "Lo slot richiede {expected} brani ({rule}). Questa tanda ne ha {count}. Usarla comunque?",
     confirmPlaylistSequenceStyleOverride:

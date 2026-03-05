@@ -46,7 +46,7 @@ import {
   getCortinaSetName,
 } from "../shared/cortina-utils";
 import { normalizeStyleName, summarizeArtistName } from "../shared/tanda-utils";
-import { parseStyleDefinition } from "../shared/style-definitions";
+import { mergeStyleAliases, parseStyleDefinition } from "../shared/style-definitions";
 import {
   deleteTanda,
   getTandasByIds,
@@ -1190,8 +1190,15 @@ const registerIpc = () => {
         parsed.canonical,
         parsed.canonical.toLowerCase(),
       );
+      const existingAliases = db
+        .prepare("select alias from style_aliases where style_name = ?")
+        .all(parsed.canonical) as { alias: string }[];
+      const aliases = mergeStyleAliases(
+        existingAliases.map((row) => row.alias),
+        parsed.aliases,
+      );
       db.prepare("delete from style_aliases where style_name = ?").run(parsed.canonical);
-      parsed.aliases.forEach((alias) => {
+      aliases.forEach((alias) => {
         db.prepare(
           `insert into style_aliases (style_name, alias, alias_normalized)
            values (?, ?, ?)

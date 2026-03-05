@@ -6,6 +6,7 @@ import {
   expandStyleFilters,
   formatStylePillLabel,
   parseStyleFamilies,
+  sortBaseStyles,
   serializeStyleFamilies,
   splitStyleLabel,
   styleFamilyMapFromFamilies,
@@ -81,5 +82,11 @@ describe("style families", () => {
     expect(formatStylePillLabel("Tango - Nuevo", families)).toBe("T - Nuevo");
     expect(formatStylePillLabel("Waltz", families)).toBe("Waltz");
     expect(formatStylePillLabel("Other - Alt", families)).toBe("Other - Alt");
+  });
+
+  test("sorts base styles with tango/waltz-milonga priority then alpha", () => {
+    expect(
+      sortBaseStyles(["Other", "Milonga", "Vals", "Tango", "Candombe", "Waltz"]),
+    ).toEqual(["Tango", "Vals", "Waltz", "Milonga", "Candombe", "Other"]);
   });
 });

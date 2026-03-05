@@ -24,6 +24,11 @@ some tangos, then a break such as a Waltz followed by more tangos and a milonga 
 and letters; 3t or 4T etc.  So a simple playlist might be "4T 4T 3W 4T 4T 3M".  When adding tandas to the playlist the application will check the target position's size
 and style and warn if the user is about to drop a mis-matching tanda into it.
 
+The sequence also supports grouped alternatives with independent sizes, for example:
+`3T 3T 3W 3T 3T (2C 3M)`.
+This means that slot can accept either a 2-track Candombe tanda or a 3-track Milonga tanda.
+The sequence field validates both syntax and style letters, so any unknown letter code is flagged until it matches a configured style-family code.
+
 The playlist can be pre-built prior to the event or built one tanda at a time as the evening progresses.  Currently the system only supports one playlist
 and re-opening the application will re-open the playlist ready to go.
 
@@ -49,6 +54,8 @@ The style names are shown as search filter buttons and all matching tracks and t
 
 Right Clicking (or press and hold) a style pill button will show the sub-styles if available allowing specific searches for "alternative" tracks and tandas.
 Long-pressing a style pill (about 1 second) opens the same sub-style menu.
+
+Note, that the sub-styles can be used not only for "Nuevo" or "Traditional" or "Contemporary" but could be "Stompy" and "Lyrical" and "Slow" or "Fast" or whatever might be useful.  The DJ just decides whether to use named collections to track say Lyrical tandas or whether to use styles and then use the search filters.  Whichever works for them.
 
 
 ### Modes
@@ -129,6 +136,8 @@ All collections can be filtered by both the "search" style and any text such as 
 
 All non built-in collections including **General** can be cleard with a single click of the **Clear** button.
 
+Tandas and tracks can be moved from one collection to another and to General by default using the **M** menu option and if there are multiple possible targets, it will offer a picklist otherwise if there is only one writable (i.e. not build-in rule based collection) then it will not prompt and will just move.
+
 ### Now Playing
 
 The bar across the top of the app shows the song now playing.  As well as the artist and title etc. it also shows the "waveform" of the song's loudness over time.  In modes other than 
@@ -153,6 +162,8 @@ A playlist can be built up as required and then cleared using the **Clear** butt
 - If no suitable tanda is available for a slot, the app builds an ad-hoc tanda
   from similar tracks (same style first, then progressively relaxed matching).
 - Auto-fill never reuses a track title already present in the generated playlist.
+
+If the tanda sequence configured uses a grouped option such as "3t 3t 3w 3t 3t (3m 3c 3f)" (where 'c' might be Candombe and 'f' might be Foxtrot) then a tanda matching any of those styles will be picked or built if required.
 
 ## Initial Setup
 
@@ -215,7 +226,7 @@ If key files from an old Tanda Player are available in the location the user ide
 
 Before importing the user should set up the mapping of the legacy style names to the style names the new app should use for all filtering and playlist construction.  This is done in the settings page under system.  Once done, go back to the library tab and import the legacy data.
 
-In **Library -> Style Families**, click **Show legacy styles** to view distinct style values found in `library.dat`, how often they appear, and whether they currently map to an existing canonical style.  This helps configure aliases before import.
+In **Library -> Style Families**, click **Show legacy styles** to view distinct classifier-derived styles from `library.dat` (`classifiers.style` plus optional `classifiers.sub-style`), how often they appear, and whether they currently map to an existing canonical style. Values with no classifier style are shown as `?`.
 For each legacy style row:
 
 - choose an existing canonical style in the dropdown to map this legacy value as an alias, or
