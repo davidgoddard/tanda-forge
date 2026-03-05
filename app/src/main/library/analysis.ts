@@ -582,20 +582,22 @@ const readLoudness = async (filePath: string) => {
 };
 
 export const analyzeTrack = async (filePath: string): Promise<TrackAnalysis> => {
-  const durationMs = await readDurationMs(filePath).catch(() => 0);
-  const silence = await readSilenceBounds(filePath).catch((error) => ({
-    silenceStarts: [],
-    silenceEnds: [],
-    error: error instanceof Error ? error.message : "Silence analysis failed",
-  }));
-  const loudness = await readLoudness(filePath).catch((error) => {
-    const normalized = normalizeJsonParseError(error);
-    return {
-      loudnessDb: undefined,
-      gainDb: undefined,
-      error: normalized ?? (error instanceof Error ? error.message : "Loudness failed"),
-    };
-  });
+  const [durationMs, silence, loudness] = await Promise.all([
+    readDurationMs(filePath).catch(() => 0),
+    readSilenceBounds(filePath).catch((error) => ({
+      silenceStarts: [],
+      silenceEnds: [],
+      error: error instanceof Error ? error.message : "Silence analysis failed",
+    })),
+    readLoudness(filePath).catch((error) => {
+      const normalized = normalizeJsonParseError(error);
+      return {
+        loudnessDb: undefined,
+        gainDb: undefined,
+        error: normalized ?? (error instanceof Error ? error.message : "Loudness failed"),
+      };
+    }),
+  ]);
   const loudnessError =
     loudness.error && loudness.error === "No loudness JSON"
       ? undefined

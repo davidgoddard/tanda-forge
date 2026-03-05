@@ -67,6 +67,7 @@ and implementation status to prevent drift.
 | UI-060 | Display board UI | Yes | Partial | Done: separate display window, top-right launcher, fullscreen support, now-playing metadata, randomized background-image rotation with abstract animated fallback, cortina-focused headline mode, user-configurable base font scaling, larger artist typography, and suppression of next-tanda text when playlist playback is not active. Missing: dedicated display-window controls panel (monitor targeting/preview). |
 | UI-070 | Playlist integrity enforcement | Yes | Partial | Done: style mismatch warnings, count confirmation, mismatch badges, swap warnings when style/count changes. Missing: search-and-replace enforcement hooks. |
 | UI-080 | Scratch pad | Yes | Partial | Done: clipboard tabs and add/remove. Missing: explicit cross-playlist drag/drop from playlist into scratch pad. |
+| UI-083 | Style families | Yes | Partial | Done: Library-tab style family editor (code/base/sub-styles), sequence code resolution from families, base-style pills with family-aware filtering, grouped track-editor style picker, and legacy per-row style mapping actions. Missing: dedicated non-prompt variant submenu UI for pill right-click selection. |
 
 ---
 

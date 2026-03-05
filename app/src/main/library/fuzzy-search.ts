@@ -228,7 +228,12 @@ const ORCHESTRA_BY_ID = new Map(
 const ARTIST_FIELD_VARIANT_CACHE = new Map<string, string>();
 
 type SearchMode = "lookup" | "similarity";
+type SearchScope = "all" | "artist";
 type StyleToken = "" | "tango" | "milonga" | "waltz";
+type ScopedSearchQuery = {
+  scope: SearchScope;
+  query: string;
+};
 
 type ParsedQuery = {
   mode: SearchMode;
@@ -271,6 +276,20 @@ const extractQuotedPhrases = (query: string) => {
     return " ";
   });
   return { phrases, stripped };
+};
+
+export const parseScopedSearchQuery = (query: string): ScopedSearchQuery => {
+  const trimmed = query.trim();
+  const match = trimmed.match(/^([a-z][a-z0-9_-]*)\s*:\s*(.*)$/i);
+  if (!match) {
+    return { scope: "all", query: trimmed };
+  }
+  const label = normalizeSearchText(match[1] ?? "");
+  const scopedValue = (match[2] ?? "").trim();
+  if (label === "artist") {
+    return { scope: "artist", query: scopedValue };
+  }
+  return { scope: "all", query: trimmed };
 };
 
 const parseQuery = (query: string): ParsedQuery => {
@@ -321,6 +340,52 @@ const parseQuery = (query: string): ParsedQuery => {
     hasQuotedPhrase: phrases.length > 0,
     yearTokens,
     tempoTokens,
+  };
+};
+
+const scoreArtistScopedQuery = (query: string, track: TrackRow): ScoreBreakdown => {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return {
+      score: 1,
+      mode: "lookup",
+      artistScore: 0,
+      titleScore: 0,
+      yearScore: null,
+      tempoScore: null,
+      notesScore: null,
+    };
+  }
+  const artistField = [track.artist_summary || "", track.artist || ""]
+    .filter(Boolean)
+    .join(" ");
+  const expandedArtistField = buildArtistFieldWithAliases(artistField);
+  const queryEntry = resolveOrchestraEntryForArtistField(trimmed);
+  let artistScore = 0;
+  if (queryEntry) {
+    const normalizedExpanded = normalizeOrchestraText(expandedArtistField);
+    const keys = [queryEntry.canonical, ...queryEntry.aliases]
+      .map((value) => normalizeOrchestraText(value))
+      .filter(Boolean);
+    artistScore = keys.some((key) => containsWholePhrase(normalizedExpanded, key)) ? 1 : 0;
+  } else {
+    const { phrases, stripped } = extractQuotedPhrases(trimmed);
+    const textTokens = normalizeSearchText(stripped)
+      .split(" ")
+      .filter((token) => token.length > 0 && !STOPWORDS.has(token));
+    const terms = [...phrases, ...textTokens];
+    const termScore = scoreTermsAgainstField(terms, expandedArtistField) ?? 0;
+    const fieldScore = scoreFieldText(trimmed, expandedArtistField);
+    artistScore = Math.max(termScore, fieldScore);
+  }
+  return {
+    score: artistScore,
+    mode: "lookup",
+    artistScore,
+    titleScore: 0,
+    yearScore: null,
+    tempoScore: null,
+    notesScore: null,
   };
 };
 
@@ -481,7 +546,8 @@ const scoreTrackWithBreakdown = (
   track: TrackRow,
   bpmRange: number,
 ): ScoreBreakdown => {
-  const trimmed = query.trim();
+  const scoped = parseScopedSearchQuery(query);
+  const trimmed = scoped.query.trim();
   if (!trimmed) {
     return {
       score: 1,
@@ -492,6 +558,9 @@ const scoreTrackWithBreakdown = (
       tempoScore: null,
       notesScore: null,
     };
+  }
+  if (scoped.scope === "artist") {
+    return scoreArtistScopedQuery(trimmed, track);
   }
   if (isNumericQuery(trimmed)) {
     const numeric = Number.parseInt(trimmed, 10);
@@ -690,4 +759,7 @@ export const filterAndScoreTracks = (
   return scored.map((entry) => ({ track: entry.track, score: entry.breakdown.score }));
 };
 
-export const normalizeSearchQuery = (query: string) => normalizeSearchText(query);
+export const normalizeSearchQuery = (query: string) => {
+  const scoped = parseScopedSearchQuery(query);
+  return normalizeSearchText(scoped.query);
+};

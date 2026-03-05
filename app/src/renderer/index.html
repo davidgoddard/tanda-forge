@@ -63,6 +63,21 @@
             <span class="sr-only" data-i18n="openDisplay">Open display</span>
           </button>
           <button
+            id="search-diversity"
+            class="icon-button playlist-stats-btn"
+            data-i18n-attr="title,aria-label"
+            data-i18n="searchDiversityTitle"
+            title="Collection diversity"
+            aria-label="Collection diversity"
+          >
+            <svg class="playlist-stats-icon" viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="2" y="8" width="2.5" height="6" rx="1" />
+              <rect x="6.75" y="3" width="2.5" height="11" rx="1" />
+              <rect x="11.5" y="6" width="2.5" height="8" rx="1" />
+            </svg>
+            <span class="sr-only" data-i18n="searchDiversityTitle">Collection diversity</span>
+          </button>
+          <button
             id="theme-toggle"
             class="icon-button"
             data-i18n-attr="aria-label"
@@ -177,23 +192,9 @@
       <section class="workspace">
         <div class="column">
           <div class="panel playlist-panel">
-            <div class="panel-header">
-              <h2 data-i18n="searchTitle">Search</h2>
-              <button
-                id="search-diversity"
-                class="playlist-stats-btn icon-button"
-                data-i18n-attr="title,aria-label"
-                data-i18n="searchDiversityTitle"
-                title="Collection diversity"
-                aria-label="Collection diversity"
-              >
-                <svg class="playlist-stats-icon" viewBox="0 0 16 16" aria-hidden="true">
-                  <rect x="2" y="8" width="2.5" height="6" rx="1" />
-                  <rect x="6.75" y="3" width="2.5" height="11" rx="1" />
-                  <rect x="11.5" y="6" width="2.5" height="8" rx="1" />
-                </svg>
-              </button>
-            </div>
+          <div class="panel-header">
+            <h2 data-i18n="searchTitle">Search</h2>
+          </div>
             <div class="search-row">
               <input
                 id="search-input"
@@ -681,10 +682,64 @@
         </nav>
         <div class="settings-content">
           <div class="settings-tab active" data-tab="library">
-            <h3 data-i18n="libraryRoots">Library Roots</h3>
-            <p data-i18n="libraryRootsHelp">
-              Configure music and cortina folders used for scanning.
-            </p>
+            <div class="settings-section">
+              <h3 data-i18n="styleFamiliesTitle">Style Families</h3>
+              <p data-i18n="styleFamiliesHelp">
+                Define playlist style letters and optional sub-styles before importing legacy data.
+              </p>
+              <div class="settings-field wide">
+                <div class="settings-inline style-family-inline">
+                  <input
+                    id="style-family-code-input"
+                    type="text"
+                    maxlength="3"
+                    data-i18n-attr="placeholder"
+                    data-i18n="styleFamilyCodePlaceholder"
+                    placeholder="T"
+                  />
+                  <input
+                    id="style-family-base-input"
+                    type="text"
+                    data-i18n-attr="placeholder"
+                    data-i18n="styleFamilyBasePlaceholder"
+                    placeholder="Tango"
+                  />
+                  <input
+                    id="style-family-variants-input"
+                    type="text"
+                    data-i18n-attr="placeholder"
+                    data-i18n="styleFamilyVariantsPlaceholder"
+                    placeholder="Alternative, Nuevo"
+                  />
+                  <button id="style-family-add" data-i18n="styleFamilyAdd">Add</button>
+                </div>
+                <div id="style-family-list" class="style-family-list"></div>
+              </div>
+              <div id="legacy-style-tools" class="settings-field wide hidden">
+                <button id="legacy-styles-button" data-i18n="legacyStylesButton">
+                  Show legacy styles
+                </button>
+                <div id="legacy-styles-result" class="diagnostics-result"></div>
+                <div id="legacy-style-mapping" class="legacy-style-mapping hidden">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th data-i18n="legacyStylesColValue">Legacy style</th>
+                        <th data-i18n="legacyStylesColCount">Count</th>
+                        <th data-i18n="legacyStylesColMapped">Mapped to</th>
+                        <th data-i18n="legacyStylesColActions">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="legacy-style-mapping-body"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="settings-section">
+              <h3 data-i18n="libraryRoots">Library Roots</h3>
+              <p data-i18n="libraryRootsHelp">
+                Configure music and cortina folders used for scanning.
+              </p>
             <div class="settings-actions">
               <button id="add-music" data-i18n="addMusicFolder">
                 Add Music Folder
@@ -720,6 +775,7 @@
               <progress id="scan-progress-settings" value="0" max="1"></progress>
             </div>
             <div id="root-list" class="root-list"></div>
+            </div>
             <div id="legacy-import" class="settings-section hidden">
               <h3 data-i18n="legacyImportTitle">Legacy Import</h3>
               <p id="legacy-import-description"></p>
@@ -846,17 +902,6 @@
                   data-i18n="playlistSequencePlaceholder"
                 />
               </div>
-              <div class="settings-field wide">
-                <label for="playlist-style-map" data-i18n="playlistStyleMapLabel">
-                  Style mapping
-                </label>
-                <textarea
-                  id="playlist-style-map"
-                  rows="5"
-                  data-i18n-attr="placeholder"
-                  data-i18n="playlistStyleMapPlaceholder"
-                ></textarea>
-              </div>
             </div>
           </div>
           <div class="settings-tab" data-tab="system">
@@ -906,22 +951,6 @@
                       max="100"
                       step="1"
                     />
-                  </div>
-                </div>
-              </section>
-
-              <section class="settings-group">
-                <h4 data-i18n="systemGroupStyles">Styles</h4>
-                <div class="settings-group-grid">
-                  <div class="settings-field">
-                    <label for="style-name-input" data-i18n="styleManagerLabel">
-                      Styles
-                    </label>
-                    <div class="settings-inline">
-                      <input id="style-name-input" type="text" />
-                      <button id="style-add" data-i18n="styleAdd">Add</button>
-                    </div>
-                    <div id="style-list" class="style-list"></div>
                   </div>
                 </div>
               </section>
@@ -1005,11 +1034,6 @@
                       Enable quiet boost + limiter
                     </label>
                     <input id="audio-dynamics-enabled" type="checkbox" />
-                  </div>
-                  <div class="settings-field wide">
-                    <p data-i18n="audioDynamicsSingleProfileHint">
-                      One fixed compression profile is used. Adjust live amount from the now-playing Compression slider.
-                    </p>
                   </div>
                 </div>
               </section>
@@ -1199,16 +1223,27 @@
             <button id="search-diversity-close" data-i18n="close">Close</button>
           </header>
           <div class="playlist-stats-grid">
+            <div class="playlist-stats-block wide compact">
+              <h4 data-i18n="searchDiversityOpportunitySummary">Opportunity summary</h4>
+              <div id="search-diversity-summary" class="mini-chart-empty"></div>
+            </div>
             <div class="playlist-stats-block wide">
               <h4 data-i18n="searchDiversityOrchestraStyle">Orchestra x style tandas</h4>
               <div id="search-diversity-orchestra" class="mini-chart"></div>
             </div>
-            <div class="playlist-stats-block wide compact">
-              <h4 data-i18n="searchDiversityYear">Year distribution</h4>
-              <div id="search-diversity-year" class="mini-chart"></div>
-              <div id="search-diversity-missing-years" class="mini-chart-empty"></div>
+            <div class="playlist-stats-block wide">
+              <h4 data-i18n="searchDiversityOpportunities">Best opportunities</h4>
+              <div id="search-diversity-opportunities" class="mini-chart"></div>
             </div>
             <div class="playlist-stats-block wide compact">
+              <h4 data-i18n="searchDiversityStyleGaps">Style gaps with available tracks</h4>
+              <div id="search-diversity-style-gaps" class="mini-chart"></div>
+            </div>
+            <div class="playlist-stats-block wide compact tall-chart">
+              <h4 data-i18n="searchDiversityYear">Year distribution</h4>
+              <div id="search-diversity-year" class="mini-chart"></div>
+            </div>
+            <div class="playlist-stats-block wide compact tall-chart">
               <h4 data-i18n="searchDiversityTempo">Tempo distribution</h4>
               <div id="search-diversity-tempo" class="mini-chart"></div>
             </div>

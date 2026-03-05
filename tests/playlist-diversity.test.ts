@@ -4,6 +4,7 @@ import {
   aggregateOrchestraDurations,
   areArtistsGapSatisfied,
   buildAdaptiveNumericDistribution,
+  buildAdaptiveStyleNumericDistribution,
   collectEligibleArtistGroups,
   collectEligibleArtistStyleGroups,
   isTandaArtistStyleAvailable,
@@ -195,6 +196,41 @@ describe("buildAdaptiveNumericDistribution", () => {
 
   it("returns empty rows for empty input", () => {
     expect(buildAdaptiveNumericDistribution(new Map())).toEqual([]);
+  });
+});
+
+describe("buildAdaptiveStyleNumericDistribution", () => {
+  it("fills missing dense buckets and preserves per-style values", () => {
+    const rows = buildAdaptiveStyleNumericDistribution(
+      new Map([
+        [60, { tango: 2 }],
+        [62, { tango: 1, milonga: 3 }],
+      ]),
+      30,
+      30,
+    );
+    expect(rows).toEqual([
+      { label: "60", value: 2, styleValues: { tango: 2 } },
+      { label: "61", value: 0, styleValues: {} },
+      { label: "62", value: 4, styleValues: { tango: 1, milonga: 3 } },
+    ]);
+  });
+
+  it("switches to histogram mode and merges style totals", () => {
+    const rows = buildAdaptiveStyleNumericDistribution(
+      new Map([
+        [100, { tango: 2 }],
+        [130, { milonga: 3 }],
+        [160, { tango: 1, vals: 4 }],
+      ]),
+      30,
+      3,
+    );
+    expect(rows).toEqual([
+      { label: "100-119", value: 2, styleValues: { tango: 2 } },
+      { label: "120-139", value: 3, styleValues: { milonga: 3 } },
+      { label: "140-160", value: 5, styleValues: { tango: 1, vals: 4 } },
+    ]);
   });
 });
 

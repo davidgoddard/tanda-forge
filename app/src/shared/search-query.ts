@@ -77,8 +77,8 @@ export const buildTrackSearchQuery = (track: TrackSearchSource) => {
 
 export const buildTrackSimilarityQuery = (track: TrackSearchSource) => {
   const parts: string[] = [];
-  // Similarity action intentionally excludes style/title/album from query text.
-  // Style is applied via style pills; query text focuses on non-style metadata.
+  // Similarity action intentionally excludes style/title/album/notes from query text.
+  // Style is applied via style pills; query text focuses on stable identity metadata.
   pushIf(parts, track.artist_summary);
   pushIf(parts, track.artist);
   if (track.singer && track.singer.trim().length > 0) {
@@ -90,6 +90,5 @@ export const buildTrackSimilarityQuery = (track: TrackSearchSource) => {
     parts.push(`${Math.round(track.bpm)}`);
   }
   pushIf(parts, track.year);
-  pushIf(parts, track.notes);
   return parts.join(" ").trim();
 };

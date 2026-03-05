@@ -46,6 +46,7 @@ import {
   getCortinaSetName,
 } from "../shared/cortina-utils";
 import { normalizeStyleName, summarizeArtistName } from "../shared/tanda-utils";
+import { parseStyleDefinition } from "../shared/style-definitions";
 import {
   deleteTanda,
   getTandasByIds,
@@ -58,12 +59,14 @@ import {
   detectLegacyFromRoots,
   detectLegacyRoot,
   importLegacyData,
+  listLegacyStyles,
   type LegacyTrackOverride,
 } from "./legacy-import";
 import {
   deserializeLegacyOverrides,
   serializeLegacyOverrides,
 } from "../shared/legacy-overrides";
+import { computeSearchDiversityStats } from "./search-diversity";
 
 const forcedUserDataRoot = process.env.TANDA_USER_DATA_ROOT?.trim();
 if (forcedUserDataRoot) {
@@ -96,6 +99,37 @@ const PLAYBACK_DIAGNOSTIC_LOG = "playback-diagnostics.log";
 const MAX_LOG_BYTES = 5 * 1024 * 1024;
 const KEEP_LOG_BYTES = 4 * 1024 * 1024;
 const compressedRenderInFlight = new Map<string, Promise<string>>();
+const MAX_CONCURRENT_COMPRESSED_RENDERS = 1;
+let activeCompressedRenderCount = 0;
+const compressedRenderWaiters: Array<() => void> = [];
+
+const acquireCompressedRenderSlot = async () => {
+  if (activeCompressedRenderCount < MAX_CONCURRENT_COMPRESSED_RENDERS) {
+    activeCompressedRenderCount += 1;
+    return;
+  }
+  await new Promise<void>((resolve) => {
+    compressedRenderWaiters.push(resolve);
+  });
+  activeCompressedRenderCount += 1;
+};
+
+const releaseCompressedRenderSlot = () => {
+  activeCompressedRenderCount = Math.max(0, activeCompressedRenderCount - 1);
+  const next = compressedRenderWaiters.shift();
+  if (next) {
+    next();
+  }
+};
+
+const runWithCompressedRenderSlot = async <T>(task: () => Promise<T>) => {
+  await acquireCompressedRenderSlot();
+  try {
+    return await task();
+  } finally {
+    releaseCompressedRenderSlot();
+  }
+};
 
 const toDataUrl = (filePath: string) => {
   const ext = path.extname(filePath).toLowerCase();
@@ -580,6 +614,40 @@ const registerIpc = () => {
       missingFiles: result.missingFiles,
       rootPath: result.rootPath,
     };
+  });
+
+  ipcMain.handle("legacy:listStyles", async (_event, rootPath: string) => {
+    const detected = detectLegacyRoot(rootPath);
+    if (!detected) {
+      return {
+        ok: false,
+        styles: [] as Array<{
+          value: string;
+          normalized: string;
+          count: number;
+          mappedTo: string;
+        }>,
+      };
+    }
+    const db = getDb();
+    const styleRows = db
+      .prepare("select name, normalized from styles")
+      .all() as { name: string; normalized: string }[];
+    const styleMap = new Map(
+      styleRows.map((row) => [row.normalized.toLowerCase(), row.name]),
+    );
+    const aliasRows = db
+      .prepare("select style_name, alias_normalized from style_aliases")
+      .all() as { style_name: string; alias_normalized: string }[];
+    const aliasMap = new Map(
+      aliasRows.map((row) => [row.alias_normalized.toLowerCase(), row.style_name]),
+    );
+    const styles = listLegacyStyles(detected.libraryPath).map((entry) => {
+      const key = entry.normalized.toLowerCase();
+      const mappedTo = styleMap.get(key) ?? aliasMap.get(key) ?? "";
+      return { ...entry, mappedTo };
+    });
+    return { ok: true, styles };
   });
 
   const runScan = async (roots: LibraryRoot[]) => {
@@ -1090,16 +1158,50 @@ const registerIpc = () => {
       .map((row) => (row as { name: string }).name);
   });
 
+  ipcMain.handle("styles:listDefinitions", async () => {
+    const db = getDb();
+    const styles = db
+      .prepare("select name from styles order by name")
+      .all()
+      .map((row) => (row as { name: string }).name);
+    const aliasRows = db
+      .prepare("select style_name, alias from style_aliases order by style_name, alias")
+      .all() as { style_name: string; alias: string }[];
+    const aliasMap = new Map<string, string[]>();
+    aliasRows.forEach((row) => {
+      const list = aliasMap.get(row.style_name) ?? [];
+      list.push(row.alias);
+      aliasMap.set(row.style_name, list);
+    });
+    return styles.map((name) => ({
+      name,
+      aliases: aliasMap.get(name) ?? [],
+    }));
+  });
+
   ipcMain.handle("styles:add", async (_event, name: string) => {
     const db = getDb();
-    const normalized = normalizeStyleName(name);
-    if (!normalized) {
+    const parsed = parseStyleDefinition(name);
+    if (!parsed.canonical) {
       return { ok: false };
     }
-    db.prepare("insert or ignore into styles (name, normalized) values (?, ?)").run(
-      normalized,
-      normalized.toLowerCase(),
-    );
+    const transaction = db.transaction(() => {
+      db.prepare("insert or ignore into styles (name, normalized) values (?, ?)").run(
+        parsed.canonical,
+        parsed.canonical.toLowerCase(),
+      );
+      db.prepare("delete from style_aliases where style_name = ?").run(parsed.canonical);
+      parsed.aliases.forEach((alias) => {
+        db.prepare(
+          `insert into style_aliases (style_name, alias, alias_normalized)
+           values (?, ?, ?)
+           on conflict(alias_normalized) do update set
+             style_name = excluded.style_name,
+             alias = excluded.alias`,
+        ).run(parsed.canonical, alias, alias.toLowerCase());
+      });
+    });
+    transaction();
     return { ok: true };
   });
 
@@ -1112,6 +1214,7 @@ const registerIpc = () => {
     db.prepare("delete from styles where normalized = ?").run(
       normalized.toLowerCase(),
     );
+    db.prepare("delete from style_aliases where style_name = ?").run(normalized);
     db.prepare("update tracks set genre = null where genre = ?").run(normalized);
     db.prepare("delete from tanda_styles where style_name = ?").run(normalized);
     return { ok: true };
@@ -1153,6 +1256,7 @@ const registerIpc = () => {
           ).run(newStyle, oldStyle);
         });
         db.prepare("delete from styles").run();
+        db.prepare("delete from style_aliases").run();
         normalizedNew.forEach((style) => {
           db.prepare(
             "insert or ignore into styles (name, normalized) values (?, ?)",
@@ -1245,8 +1349,20 @@ const registerIpc = () => {
       const genreNormalized = genreRaw ? normalizeStyleName(genreRaw) : "";
       const styleRow = genreNormalized
         ? (db
-            .prepare("select name from styles where normalized = ?")
-            .get(genreNormalized.toLowerCase()) as { name: string } | undefined)
+            .prepare(
+              `select s.name as name
+               from styles s
+               where s.normalized = ?
+               union all
+               select sa.style_name as name
+               from style_aliases sa
+               where sa.alias_normalized = ?
+               limit 1`,
+            )
+            .get(
+              genreNormalized.toLowerCase(),
+              genreNormalized.toLowerCase(),
+            ) as { name: string } | undefined)
         : undefined;
       const genre = styleRow?.name ?? "";
       const bpm =
@@ -1375,7 +1491,9 @@ const registerIpc = () => {
           return { ok: true, filePath, cached: true };
         }
         const renderPromise = (async () => {
-          await renderCompressedAudio(params.filePath, outputPath, params);
+          await runWithCompressedRenderSlot(async () => {
+            await renderCompressedAudio(params.filePath, outputPath, params);
+          });
           return outputPath;
         })();
         compressedRenderInFlight.set(cacheKey, renderPromise);
@@ -1403,7 +1521,7 @@ const registerIpc = () => {
   ipcMain.handle(
     "audio:precomputeCompressedTracks",
     async (
-      _event,
+      event,
       params: {
         mode: "upward" | "track-leveler";
         liftThresholdDb: number;
@@ -1431,10 +1549,23 @@ const registerIpc = () => {
         let rendered = 0;
         let cached = 0;
         let failed = 0;
+        const total = rows.length;
+        const pushProgress = (done: boolean) => {
+          event.sender.send("audio:precomputeProgress", {
+            current: rendered + cached + failed,
+            total,
+            rendered,
+            cached,
+            failed,
+            done,
+          });
+        };
+        pushProgress(false);
         for (const row of rows) {
           try {
             if (!row.full_path || !fs.existsSync(row.full_path)) {
               failed += 1;
+              pushProgress(false);
               continue;
             }
             const stat = fs.statSync(row.full_path);
@@ -1454,28 +1585,42 @@ const registerIpc = () => {
             const outputPath = path.join(cacheDir, `${cacheKey}.wav`);
             if (fs.existsSync(outputPath)) {
               cached += 1;
+              pushProgress(false);
               continue;
             }
-            await renderCompressedAudio(row.full_path, outputPath, {
-              loudnessDb: row.loudness_db,
-              depthPercent: 100,
-              mode: params.mode,
-              liftThresholdDb: params.liftThresholdDb,
-              maxLiftDb: params.maxLiftDb,
-              ratio: params.ratio,
-              attackMs: params.attackMs,
-              releaseMs: params.releaseMs,
-              gateThresholdDb: params.gateThresholdDb,
-              limiterCeilingDb: params.limiterCeilingDb,
-              limiterReleaseMs: params.limiterReleaseMs,
+            await runWithCompressedRenderSlot(async () => {
+              await renderCompressedAudio(row.full_path, outputPath, {
+                loudnessDb: row.loudness_db,
+                depthPercent: 100,
+                mode: params.mode,
+                liftThresholdDb: params.liftThresholdDb,
+                maxLiftDb: params.maxLiftDb,
+                ratio: params.ratio,
+                attackMs: params.attackMs,
+                releaseMs: params.releaseMs,
+                gateThresholdDb: params.gateThresholdDb,
+                limiterCeilingDb: params.limiterCeilingDb,
+                limiterReleaseMs: params.limiterReleaseMs,
+              });
             });
             rendered += 1;
+            pushProgress(false);
           } catch {
             failed += 1;
+            pushProgress(false);
           }
         }
+        pushProgress(true);
         return { ok: true, rendered, cached, failed };
       } catch (error) {
+        event.sender.send("audio:precomputeProgress", {
+          current: 0,
+          total: 0,
+          rendered: 0,
+          cached: 0,
+          failed: 0,
+          done: true,
+        });
         return {
           ok: false,
           rendered: 0,
@@ -1756,6 +1901,11 @@ const registerIpc = () => {
       });
     },
   );
+
+  ipcMain.handle("stats:getSearchDiversity", async () => {
+    const db = getDb();
+    return computeSearchDiversityStats(db);
+  });
 
   ipcMain.handle("app:resetDatabase", async () => {
     resetDb();

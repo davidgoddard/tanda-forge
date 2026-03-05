@@ -648,6 +648,20 @@ three-column layout.
 
 ---
 
+## UI-083 — Style Families
+
+Style setup must support playlist letters, search filtering, legacy mapping, and
+track tagging from one workflow.
+
+Behavior:
+- UI-083.R1: Library settings present style-family setup before root scan/import actions.
+- UI-083.R2: Family rows include code letter, base style, and optional sub-styles.
+- UI-083.R3: Search style pills show base styles; selecting a base applies all styles in that family.
+- UI-083.R4: Track editor style picker presents grouped base/sub-style options and stores the selected concrete style string.
+- UI-083.R5: Legacy style table supports per-row mapping to an existing style or creating a new family/style.
+
+---
+
 ## UI Design Summary
 
 The UI must:

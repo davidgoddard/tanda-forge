@@ -34,3 +34,33 @@ export const moveTrackToCollection = (
     return { ...collection, trackIds: filtered };
   });
 };
+
+export const moveTandaToCollection = (
+  collections: ClipboardCollection[],
+  tandaId: string,
+  targetId: string,
+  protectedIds: string[] = [],
+) => {
+  if (!tandaId || !targetId) {
+    return collections;
+  }
+  if (protectedIds.includes(targetId)) {
+    return collections;
+  }
+  const targetExists = collections.some((item) => item.id === targetId);
+  if (!targetExists) {
+    return collections;
+  }
+  return collections.map((collection) => {
+    if (protectedIds.includes(collection.id)) {
+      return collection;
+    }
+    const filtered = collection.tandaIds.filter((id) => id !== tandaId);
+    if (collection.id === targetId) {
+      if (!filtered.includes(tandaId)) {
+        filtered.push(tandaId);
+      }
+    }
+    return { ...collection, tandaIds: filtered };
+  });
+};

@@ -35,6 +35,9 @@ Board, Diagnostics, System).
   legacy track metadata in preference to tag/analysis data when fields are non-empty.
 - CFG-LIB-009: Legacy import does not perform a full rescan; it validates file existence,
   derives trims from legacy analysis fields, and reuses legacy waveform PNGs when present.
+- CFG-LIB-011: Style families are configured in the Library tab before import/scan workflows.
+- CFG-LIB-011.a: Each family row defines a playlist code letter, a base style, and optional sub-styles.
+- CFG-LIB-011.b: Legacy style mapping table supports mapping each legacy style to an existing style or creating a new family/style from that row.
 
 ## System Configuration
 
@@ -57,7 +60,7 @@ Board, Diagnostics, System).
 - CFG-SYS-009: The default size also acts as the minimum size threshold for save warnings.
 - CFG-SYS-010: Users can configure the size of the system "New" clipboard
   collection (most recent music tracks).
-- CFG-SYS-010: The system provides a managed list of musical styles for official tagging.
+- CFG-SYS-010.b: The system provides a managed list of musical styles for official tagging.
 - CFG-SYS-011: New installs include default styles (Tango, Milonga, Waltz/Vals).
 - CFG-SYS-012: If the user changes language and has only default styles, those defaults
   are rewritten in the new language without altering custom styles.
@@ -90,7 +93,7 @@ Board, Diagnostics, System).
   - CFG-PL-001c: Gap before cortina (stored for future cortina playback).
 - CFG-PL-002: Users can configure the stop fade duration for live playlist playback.
 - CFG-PL-003: A tanda sequence string (e.g. `3t 3t 3w`) defines slot expectations.
-- CFG-PL-004: A style mapping table connects sequence letters (e.g. `T`) to allowed styles.
+- CFG-PL-004: Sequence letters are resolved via Library style families (code->base/sub-styles), not a Playlist-tab text map.
 - CFG-PL-005: Style mismatches prompt an explicit override warning; count mismatches prompt a
   confirmation before allowing the tanda into the slot.
 - CFG-PL-006: A playlist start time (default 20:00) is configurable and used when

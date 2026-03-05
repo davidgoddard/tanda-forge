@@ -11,7 +11,7 @@ The app is organized into three main columns plus a settings area:
 - **Playlist (right column)**: Your running order. Add tandas/tracks, see predicted start times, and control playback.
 - **Settings (top-right gear)**: Configure audio outputs, library folders, language, styles, playlists, and diagnostics.
 
-![Main screen layout](images/user-guide/01-main-layout.png)
+![Main screen layout](../images/user-guide/01-main-layout.png)
 
 ## Overview
 
@@ -37,6 +37,18 @@ or using a tanda designer tab in the right hand column.
 In the top right the DJ can click the display board button and a pop-out window will appear which shows the current playing track information and tanda information.  This can
 be dragged to another window to show on a connected TV or Projector.  Background images for this can be configured using the background images folder set in the library tab.
 If no images are set up then a simple set of coloured dots will come and go on the screen in the background instead.  Images work better.
+
+In the top right there is a graph button which opens a view that shows the diversity in the collection as a whole. It shows the tanda counts for each artist and style and how many tracks are available and whether more tandas could be made from this to increase the diversity.  There are also years covered by the collection and the tempo/bpm coverage by style.  Less useful but might help understand that a wider set of years should be turned into tandas for example.  From the tables it is possible to click a search button for an artist and it will immediately open the search results with that orchestra/artist ready to start making more tandas.
+
+### Music Styles
+
+The system is given a number of single letter styles such as **T** or **W** or **M**.  Each one has a name such as "Tango". Then zero or more sub-styles can be added such as "Alternative", "Contemporary", "Traditional".  The system allows tandas that match any of the sub-styles or the
+main style name as valid for a playlist position marked with the single letter such as "T".
+
+The style names are shown as search filter buttons and all matching tracks and tandas are then shown in the search results and the clipboard.
+
+Right Clicking a style pill button will show the sub-styles if available allowing specific searches for "alternative" tracks and tandas.
+
 
 ### Modes
 
@@ -148,7 +160,7 @@ You need at least one music folder, and optionally a cortina folder.
 1. Open **Settings** (gear icon).
 2. In **System**, click **Add Music Folder** and choose a folder.
 3. (Optional) Click **Add Cortina Folder** and choose a folder.
-4. Import legacy Tanda Player tandas and track data (titles, artists, tempo etc.)
+4. Import legacy Tanda Player tandas and track data (titles, artists, tempo etc.) - See below
 5. Click **Scan Music** (and **Scan Cortinas** if needed).
 
 
@@ -184,10 +196,31 @@ You need at least one music folder, and optionally a cortina folder.
 
 ### 6) Manage Styles (Optional)
 
-Use **Styles** in Settings to add or remove style labels used for filtering and sequence rules.
+Use **Styles** in **Settings -> Library** to add or remove style labels used for filtering and sequence rules.
+
+- You can define aliases in the style input using `;` or `/`.
+- Example: `Waltz;Vals;Valse`.
+- The first value (`Waltz`) is the canonical style pill.
+- Other values are aliases used to map imported/scanned genres back to the canonical style.
+- Click an existing style row to load it into the input for editing.
 
 ![Style manager](images/user-guide/06-settings-styles.png)
 
+## Importing legacy data
+
+If key files from an old Tanda Player are available in the location the user identifies as the music and cortina source, the system will provide a button to allow importing the legacy data so that the DJ does not have to re-create all their tandas and fix up track data.
+
+Before importing the user should set up the mapping of the legacy style names to the style names the new app should use for all filtering and playlist construction.  This is done in the settings page under system.  Once done, go back to the library tab and import the legacy data.
+
+In **Library -> Style Families**, click **Show legacy styles** to view distinct style values found in `library.dat`, how often they appear, and whether they currently map to an existing canonical style.  This helps configure aliases before import.
+For each legacy style row:
+
+- choose an existing canonical style in the dropdown to map this legacy value as an alias, or
+- fill **Code / Base style / Alias** and click **Add as new style** to create and map that legacy value immediately.
+
+Although the old legacy data does include some information to help normalise the sound levels and trim tracks, the compression and trimming is slightly different and so it is recommended to use the **scan** buttons and leave the system to read the files. 
+
+Further to this, if **compression** (dynamic range reduction) is to be enabled, the system will generate compressed files on the fly when you play a track but this can mean a sudden CPU load on the PC and perhaps a few seconds delay.  It is recommended to click **Precompute compressed cache** button once all else is done and it will ensure all files are immediately available as compressed versions.  This takes a very long time to complete.
 
 ## Tips and Good Practices
 
@@ -218,4 +251,3 @@ Check **Settings → Diagnostics** for:
 - Waveform paths and test button
 
 ![Diagnostics panel](images/user-guide/17-diagnostics.png)
-

@@ -9,6 +9,10 @@ This project is a collaboration between David Goddard (design and requirements) 
 ![Main screen layout](images/user-guide/01-main-layout.png)
 ![Display screen layout](images/user-guide/02-display-board.png)
 
+## User Guide
+
+See [User Guide](docs/user-guide.md)
+
 ## Why should DJs use it
 
 - Build, save and edit tandas quickly from tracks or existing tandas.
@@ -87,11 +91,16 @@ If `ffmpeg` and `ffprobe` are available in `PATH`, the app uses those automatica
 
 Settings -> **Library**
 
-1. Add Music folders.
-2. Add Cortina folders (optional).
-3. Add Background folders (optional).
-4. Import legacy data (optional, if detected).
-5. Scan music/cortinas.
+1. Define musical style labels 
+2. Map sub-styles as necessary
+3. If importing legacy data, pick legacy styles and map as necessary
+4. Add Music folders.
+5. Add Cortina folders (optional).
+6. Add Background folders (optional).
+7. Add images folders (optional).
+8. Import legacy data (optional, if detected - System is ready to use with some limitations).
+9. Scan music/cortinas. (takes ages!)
+10. Pre compute compressed versions of tracks (takes ages!)
 
 ### 2) System
 
@@ -128,6 +137,13 @@ Settings -> **Playlist**
 - **Live**: safer operation during performance.
 - **Edit**: metadata editing optimized for repeated updates.
 
+## Music Styles
+
+The system is given a number of single letter styles such as **T** or **W** or **M**.  Each one has a name such as "Tango". Then zero or more sub-styles can be added such as "Alternative", "Contemporary", "Traditional".  The system allows tandas that match any of the sub-styles or the
+main style name as valid for a playlist position marked with the single letter such as "T".
+
+The style names are shown as search filter buttons and all matching tracks and tandas are then shown in the search results and the clipboard.
+
 ## Compression use case (for noisy rooms)
 
 At the start of a tanda, floors can be chatty while the first phrases of a song are often quieter.
@@ -153,6 +169,27 @@ If legacy files are present (for example `config.js`, `tandas.dat`, `library.dat
 - recreate tandas,
 - apply curated metadata,
 - preserve prior organization while upgrading to desktop workflow.
+
+### Style families before legacy import
+
+Set up style families first so playlist letters, track styles, and legacy values all align.
+
+- In **Settings -> Library -> Style Families**, define rows by:
+  - **Code** (playlist letter, e.g. `T`, `W`, `M`)
+  - **Base style** (e.g. `Tango`)
+  - **Sub-styles** (optional comma list, e.g. `Nuevo, Traditional`)
+- This drives:
+  - playlist sequence matching (letters resolve from this family map),
+  - search style pills (base style),
+  - track editor style picker (base + sub-style values like `Tango - Nuevo`).
+
+To inspect legacy style values in advance:
+
+- In **Settings -> Library -> Style Families**, click **Show legacy styles**.
+- You will see a mapping table with distinct style values from `library.dat`, counts, and current mapping status.
+- For each row:
+  - select an existing style from the dropdown to map that legacy value as an alias, or
+  - fill **Code / Base style / Alias** and click **Add as new style** to create and map in one step.
 
 ### Legacy import vs scan (what wins)
 
@@ -232,4 +269,3 @@ Note: Playwright Electron tests require a valid GUI session and can fail in head
 - App blocked on macOS: use **Open Anyway** path above.
 - No analysis/waveform: verify `ffmpeg`/`ffprobe` availability.
 - Audio routing confusion: confirm output devices in Settings -> System and check diagnostics logs.
-

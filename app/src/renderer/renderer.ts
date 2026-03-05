@@ -20,11 +20,22 @@ import {
 import {
   getSequenceRule,
   parseSequence,
-  parseStyleMap,
   validateTandaForRule,
   type SequenceEntry,
   type StyleMap,
 } from "../shared/playlist-sequence.js";
+import {
+  buildFamilyStyleIndex,
+  composeStyleLabel,
+  deriveFamiliesFromStyles,
+  expandStyleFilters,
+  formatStylePillLabel,
+  parseStyleFamilies,
+  serializeStyleFamilies,
+  splitStyleLabel,
+  styleFamilyMapFromFamilies,
+  type StyleFamily,
+} from "../shared/style-families.js";
 import {
   buildPlaylistDuplicateIndex,
   getDuplicateStatusForTanda,
@@ -53,7 +64,10 @@ import {
   parseClockMinutes,
 } from "../shared/playlist-window.js";
 import { reorderClipboardCollections } from "../shared/clipboard-order.js";
-import { moveTrackToCollection } from "../shared/clipboard-move.js";
+import {
+  moveTandaToCollection,
+  moveTrackToCollection,
+} from "../shared/clipboard-move.js";
 import { applyClipboardClear } from "../shared/clipboard-clear.js";
 import { resolveCollectionForClipboardWrite } from "../shared/clipboard-target.js";
 import { computeTrimmedEnd } from "../shared/audio-trim.js";
@@ -117,6 +131,7 @@ import {
   aggregateOrchestraDurations,
   areArtistsGapSatisfied,
   buildAdaptiveNumericDistribution,
+  buildAdaptiveStyleNumericDistribution,
   collectEligibleArtistStyleGroups,
   isTandaArtistStyleAvailable,
   normalizeArtistGroupKey,
@@ -250,6 +265,16 @@ const legacyReadinessButton =
   document.querySelector<HTMLButtonElement>("#legacy-readiness-button");
 const legacyReadinessResult =
   document.querySelector<HTMLDivElement>("#legacy-readiness-result");
+const legacyStylesButton =
+  document.querySelector<HTMLButtonElement>("#legacy-styles-button");
+const legacyStylesResult =
+  document.querySelector<HTMLDivElement>("#legacy-styles-result");
+const legacyStyleTools =
+  document.querySelector<HTMLDivElement>("#legacy-style-tools");
+const legacyStyleMappingEl =
+  document.querySelector<HTMLDivElement>("#legacy-style-mapping");
+const legacyStyleMappingBody =
+  document.querySelector<HTMLTableSectionElement>("#legacy-style-mapping-body");
 const clipboardClearBtn =
   document.querySelector<HTMLButtonElement>("#clipboard-clear");
 const clipboardFilterInput =
@@ -324,8 +349,12 @@ const searchDiversityTempoEl =
   document.querySelector<HTMLDivElement>("#search-diversity-tempo");
 const searchDiversityStyleEl =
   document.querySelector<HTMLDivElement>("#search-diversity-style");
-const searchDiversityMissingYearsEl =
-  document.querySelector<HTMLDivElement>("#search-diversity-missing-years");
+const searchDiversitySummaryEl =
+  document.querySelector<HTMLDivElement>("#search-diversity-summary");
+const searchDiversityOpportunitiesEl =
+  document.querySelector<HTMLDivElement>("#search-diversity-opportunities");
+const searchDiversityStyleGapsEl =
+  document.querySelector<HTMLDivElement>("#search-diversity-style-gaps");
 const playlistStatsBtn =
   document.querySelector<HTMLButtonElement>("#playlist-stats");
 const playlistStatsModal =
@@ -351,10 +380,14 @@ const openDisplayBtn =
   document.querySelector<HTMLButtonElement>("#open-display");
 const languageSelect =
   document.querySelector<HTMLSelectElement>("#language-select");
-const styleNameInput =
-  document.querySelector<HTMLInputElement>("#style-name-input");
-const styleAddBtn = document.querySelector<HTMLButtonElement>("#style-add");
-const styleList = document.querySelector<HTMLDivElement>("#style-list");
+const styleFamilyCodeInput =
+  document.querySelector<HTMLInputElement>("#style-family-code-input");
+const styleFamilyBaseInput =
+  document.querySelector<HTMLInputElement>("#style-family-base-input");
+const styleFamilyVariantsInput =
+  document.querySelector<HTMLInputElement>("#style-family-variants-input");
+const styleFamilyAddBtn = document.querySelector<HTMLButtonElement>("#style-family-add");
+const styleFamilyList = document.querySelector<HTMLDivElement>("#style-family-list");
 const modeSelect = document.querySelector<HTMLSelectElement>("#mode-select");
 const mainOutputSelect =
   document.querySelector<HTMLSelectElement>("#main-output-select");
@@ -410,8 +443,6 @@ const playlistSequenceInput =
   document.querySelector<HTMLInputElement>("#playlist-sequence");
 const playlistArtistRepeatGapInput =
   document.querySelector<HTMLInputElement>("#playlist-artist-repeat-gap");
-const playlistStyleMapInput =
-  document.querySelector<HTMLTextAreaElement>("#playlist-style-map");
 const playlistCortinaSetSelect =
   document.querySelector<HTMLSelectElement>("#playlist-cortina-set");
 const playlistCortinaDurationInput =
@@ -714,6 +745,17 @@ let selectedClipboardTrackId: string | null = null;
 let selectedClipboardTandaId: string | null = null;
 let selectedStyles: string[] = [];
 let availableStyles: string[] = [];
+let styleDefinitions: Array<{ name: string; aliases: string[] }> = [];
+let styleFamilies: StyleFamily[] = [];
+let familyStyleIndex = new Map<string, string[]>();
+let legacyStyleRows: Array<{
+  value: string;
+  normalized: string;
+  count: number;
+  mappedTo: string;
+}> = [];
+let styleVariantMenuEl: HTMLDivElement | null = null;
+let collectionTargetMenuEl: HTMLDivElement | null = null;
 
 type ClipboardCollection = {
   id: string;
@@ -735,6 +777,8 @@ const SMART_COLLECTION_LIMIT = 100;
 const PLAY_COUNTS_KEY = "tanda-play-counts";
 const PLAYLIST_ARTIST_REPEAT_GAP_MIN_KEY = "tanda-playlist-artist-repeat-gap-min";
 const DEFAULT_PLAYLIST_ARTIST_REPEAT_GAP_MIN = 30;
+const STYLE_FAMILIES_KEY = "tanda-style-families";
+const STYLE_VARIANT_LONG_PRESS_MS = 1000;
 const ORCHESTRA_REGISTRY_KEY = "tanda-orchestra-registry-v1";
 const CORTINA_ANY_ID = "__any__";
 const TANDA_SEARCH_SIZE_KEY = "tanda-search-size";
@@ -854,6 +898,10 @@ const playback: Record<OutputChannel, PlaybackState> = {
   main: {},
   headphone: {},
 };
+const playRequestVersion: Record<OutputChannel, number> = {
+  main: 0,
+  headphone: 0,
+};
 const lastAppliedGainDbByChannel: Record<OutputChannel, number | null> = {
   main: null,
   headphone: null,
@@ -873,6 +921,8 @@ let openRowMenuId: string | null = null;
 let playlistOpenTandaIndex: number | null = null;
 let tandaEditorHostTab: RightPanelTab = "tanda-designer-tab";
 let scanRequestInFlight = false;
+let searchDiversityRenderInFlight = false;
+let precomputeCompressionInProgress = false;
 
 type TrackEditorState = {
   track: TrackRow | null;
@@ -933,7 +983,7 @@ const trackCache = new Map<string, TrackRow>();
 let lastPlayingIndicatorTrackId: string | null = null;
 
 const DEFAULT_PLAYLIST_SEQUENCE = "3t 3t 3w";
-const DEFAULT_STYLE_MAP = "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga";
+const DEFAULT_STYLE_FAMILIES = "T=Tango:Nuevo, Traditional\nW=Waltz\nM=Milonga";
 const DEFAULT_PLAYLIST_START_TIME = "20:00";
 const getLanguage = () =>
   (localStorage.getItem("tanda-language") as LanguageKey) || "en";
@@ -1614,12 +1664,42 @@ const fillTrackEditorFields = (track: TrackRow) => {
   ) {
     return;
   }
-  const options = [""].concat(availableStyles);
   trackEditorGenreInput.innerHTML = "";
-  options.forEach((style) => {
+  const emptyOption = document.createElement("option");
+  emptyOption.value = "";
+  emptyOption.textContent = t("styleNone");
+  trackEditorGenreInput.appendChild(emptyOption);
+  styleFamilies.forEach((family) => {
+    const group = document.createElement("optgroup");
+    group.label = family.base;
+    const rootOption = document.createElement("option");
+    rootOption.value = family.base;
+    rootOption.textContent = family.base;
+    group.appendChild(rootOption);
+    family.variants.forEach((variant) => {
+      const style = composeStyleLabel(family.base, variant);
+      if (!style) {
+        return;
+      }
+      const option = document.createElement("option");
+      option.value = style;
+      option.textContent = style;
+      group.appendChild(option);
+    });
+    trackEditorGenreInput.appendChild(group);
+  });
+  const knownStyles = new Set(
+    Array.from(trackEditorGenreInput.querySelectorAll("option"))
+      .map((option) => option.value)
+      .filter(Boolean),
+  );
+  availableStyles.forEach((style) => {
+    if (!style || knownStyles.has(style)) {
+      return;
+    }
     const option = document.createElement("option");
     option.value = style;
-    option.textContent = style || t("styleNone");
+    option.textContent = style;
     trackEditorGenreInput.appendChild(option);
   });
   trackEditorTitleInput.value = track.title ?? "";
@@ -1748,8 +1828,19 @@ const parseSettingNumber = (
 const getPlaylistSequenceInput = () =>
   localStorage.getItem("tanda-playlist-sequence") ?? DEFAULT_PLAYLIST_SEQUENCE;
 
-const getPlaylistStyleMapInput = () =>
-  localStorage.getItem("tanda-playlist-style-map") ?? DEFAULT_STYLE_MAP;
+const getStyleFamiliesInput = () =>
+  localStorage.getItem(STYLE_FAMILIES_KEY) ?? DEFAULT_STYLE_FAMILIES;
+
+const getStyleFamilies = () => parseStyleFamilies(getStyleFamiliesInput());
+
+const getPlaylistStyleMapFromFamilies = (): StyleMap => {
+  const parsed = getStyleFamilies();
+  if (parsed.length === 0) {
+    return styleFamilyMapFromFamilies(parseStyleFamilies(DEFAULT_STYLE_FAMILIES));
+  }
+  return styleFamilyMapFromFamilies(parsed);
+};
+
 const getPlaylistStartTimeInput = () =>
   localStorage.getItem("tanda-playlist-start-time") ?? DEFAULT_PLAYLIST_START_TIME;
 const getPlaylistEndTimeInput = () =>
@@ -1758,8 +1849,7 @@ const getPlaylistEndTimeInput = () =>
 const getPlaylistSequence = (): SequenceEntry[] =>
   parseSequence(getPlaylistSequenceInput());
 
-const getPlaylistStyleMap = (): StyleMap =>
-  parseStyleMap(getPlaylistStyleMapInput());
+const getPlaylistStyleMap = (): StyleMap => getPlaylistStyleMapFromFamilies();
 
 const getRuleForSlot = (slotIndex: number) =>
   getSequenceRule(getPlaylistSequence(), slotIndex);
@@ -2790,7 +2880,7 @@ const handleTandaAction = async (event: Event) => {
       .filter(Boolean) as string[];
     tanda.styles = Array.from(new Set([...normalizedExisting, ...derivedStyles]));
     if (selectedTandaId === tanda.id) {
-      selectedStyles = [...tanda.styles];
+      selectedStyles = toBaseStyleFilters(tanda.styles);
       loadStyles();
       updateSearchTabVisibility();
       refreshSearch();
@@ -3154,7 +3244,9 @@ const prefetchNextPlaylistCompression = async () => {
   compressionPrefetchInFlight = true;
   try {
     const tracks = resolvePlaylistCompressionCandidates();
-    await Promise.all(tracks.map((track) => requestCompressedSource(track, config)));
+    for (const track of tracks) {
+      await requestCompressedSource(track, config);
+    }
     if (window.tanda) {
       if (cortinaSets.length === 0) {
         await loadCortinaSets();
@@ -3166,7 +3258,7 @@ const prefetchNextPlaylistCompression = async () => {
             continue;
           }
           prefetchedCortinaTrackIds.add(track.id);
-          void requestCompressedSource(track, config);
+          await requestCompressedSource(track, config);
         }
       }
     }
@@ -3242,7 +3334,24 @@ const playOnChannel = async (
   gainDb: number | null | undefined,
   options?: PlayOptions,
 ): Promise<boolean> => {
+  const requestVersion = ++playRequestVersion[channel];
+  const isStaleRequest = () => playRequestVersion[channel] !== requestVersion;
+  const discardAudio = async (audio: HTMLAudioElement | undefined) => {
+    if (!audio) {
+      return;
+    }
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch {
+      // Ignore cleanup errors for stale requests.
+    }
+    await releaseAudioDspRuntime(audio);
+  };
   const state = playback[channel];
+  if (isStaleRequest()) {
+    return false;
+  }
   const allowToggle = options?.allowToggle !== false;
   if (state.currentTrackId === trackId && state.active) {
     if (!allowToggle) {
@@ -3295,11 +3404,17 @@ const playOnChannel = async (
     isCompressionRequestedForChannel(channel, options)
   ) {
     await requestCompressedSource(track, getAudioDynamicsConfig());
+    if (isStaleRequest()) {
+      return false;
+    }
   }
   const source =
     channel === "main"
       ? { filePath, compressed: false }
       : await resolvePlaybackSource(channel, track, filePath, options);
+  if (isStaleRequest()) {
+    return false;
+  }
   const next = new Audio();
   next.loop = false;
   if (channel === "main") {
@@ -3333,14 +3448,22 @@ const playOnChannel = async (
     targetVolume *= getCortinaLevelPercent() / 100;
   }
   const preAttachRouting = await applyOutputDevice(next, requestedOutputDeviceId);
+  if (isStaleRequest()) {
+    await discardAudio(next);
+    return false;
+  }
   next.src = source.filePath;
   const postAttachRouting = await applyOutputDevice(next, requestedOutputDeviceId);
+  if (isStaleRequest()) {
+    await discardAudio(next);
+    return false;
+  }
   const outputRouting =
     postAttachRouting.appliedDeviceId || !preAttachRouting.appliedDeviceId
       ? postAttachRouting
       : preAttachRouting;
   if (requestedOutputDeviceId && !outputRouting.appliedDeviceId) {
-    await releaseAudioDspRuntime(next);
+    await discardAudio(next);
     await stopCompressedCompanion(state);
     void window.tanda?.logPlaybackDiagnostic?.({
       channel,
@@ -3414,6 +3537,20 @@ const playOnChannel = async (
 
   const previous = state.active;
   const previousCompressed = state.compressedActive;
+  const previousStateSnapshot = {
+    active: state.active,
+    compressedActive: state.compressedActive,
+    currentTrackId: state.currentTrackId,
+    track: state.track,
+    appliedGainDb: state.appliedGainDb,
+    isCortinaPlayback: state.isCortinaPlayback,
+    usingCompressedSource: state.usingCompressedSource,
+    activeSourcePath: state.activeSourcePath,
+    originalSourcePath: state.originalSourcePath,
+    compressedSourcePath: state.compressedSourcePath,
+    wetCompensationGain: state.wetCompensationGain,
+    wetCompensationReferenceRatio: state.wetCompensationReferenceRatio,
+  };
   state.active = next;
   state.compressedActive = undefined;
   state.currentTrackId = trackId;
@@ -3425,6 +3562,26 @@ const playOnChannel = async (
   state.originalSourcePath = track?.full_path ?? filePath;
   state.compressedSourcePath = source.compressed ? source.filePath : undefined;
   void updateWaveformSource(trackId);
+  if (isStaleRequest()) {
+    await discardAudio(next);
+    if (state.active === next) {
+      state.active = previousStateSnapshot.active;
+      state.compressedActive = previousStateSnapshot.compressedActive;
+      state.currentTrackId = previousStateSnapshot.currentTrackId;
+      state.track = previousStateSnapshot.track;
+      state.appliedGainDb = previousStateSnapshot.appliedGainDb;
+      state.isCortinaPlayback = previousStateSnapshot.isCortinaPlayback;
+      state.usingCompressedSource = previousStateSnapshot.usingCompressedSource;
+      state.activeSourcePath = previousStateSnapshot.activeSourcePath;
+      state.originalSourcePath = previousStateSnapshot.originalSourcePath;
+      state.compressedSourcePath = previousStateSnapshot.compressedSourcePath;
+      state.wetCompensationGain = previousStateSnapshot.wetCompensationGain;
+      state.wetCompensationReferenceRatio =
+        previousStateSnapshot.wetCompensationReferenceRatio;
+      updateNowPlayingDisplay();
+    }
+    return false;
+  }
   const { startOffsetMs, endTrimMs } = getAdjustedTrimValues(track);
   const startOffsetSeconds = startOffsetMs > 0 ? startOffsetMs / 1000 : 0;
   const endTrimSeconds = endTrimMs > 0 ? endTrimMs / 1000 : 0;
@@ -3545,6 +3702,26 @@ const playOnChannel = async (
 
   try {
     await next.play();
+    if (isStaleRequest()) {
+      await discardAudio(next);
+      if (state.active === next) {
+        state.active = previousStateSnapshot.active;
+        state.compressedActive = previousStateSnapshot.compressedActive;
+        state.currentTrackId = previousStateSnapshot.currentTrackId;
+        state.track = previousStateSnapshot.track;
+        state.appliedGainDb = previousStateSnapshot.appliedGainDb;
+        state.isCortinaPlayback = previousStateSnapshot.isCortinaPlayback;
+        state.usingCompressedSource = previousStateSnapshot.usingCompressedSource;
+        state.activeSourcePath = previousStateSnapshot.activeSourcePath;
+        state.originalSourcePath = previousStateSnapshot.originalSourcePath;
+        state.compressedSourcePath = previousStateSnapshot.compressedSourcePath;
+        state.wetCompensationGain = previousStateSnapshot.wetCompensationGain;
+        state.wetCompensationReferenceRatio =
+          previousStateSnapshot.wetCompensationReferenceRatio;
+        updateNowPlayingDisplay();
+      }
+      return false;
+    }
     fadeBetween(previous, next, targetVolume);
     if (previousCompressed) {
       void fadeOutAudio(previousCompressed, 600).then(() => {
@@ -3563,7 +3740,25 @@ const playOnChannel = async (
     updateNowPlayingDisplay();
     return true;
   } catch (error) {
+    // If new playback cannot start, restore prior channel state so we do not
+    // orphan already-playing audio and lose control of stop/pause operations.
     await releaseAudioDspRuntime(next);
+    if (state.active === next) {
+      state.active = previousStateSnapshot.active;
+      state.compressedActive = previousStateSnapshot.compressedActive;
+      state.currentTrackId = previousStateSnapshot.currentTrackId;
+      state.track = previousStateSnapshot.track;
+      state.appliedGainDb = previousStateSnapshot.appliedGainDb;
+      state.isCortinaPlayback = previousStateSnapshot.isCortinaPlayback;
+      state.usingCompressedSource = previousStateSnapshot.usingCompressedSource;
+      state.activeSourcePath = previousStateSnapshot.activeSourcePath;
+      state.originalSourcePath = previousStateSnapshot.originalSourcePath;
+      state.compressedSourcePath = previousStateSnapshot.compressedSourcePath;
+      state.wetCompensationGain = previousStateSnapshot.wetCompensationGain;
+      state.wetCompensationReferenceRatio =
+        previousStateSnapshot.wetCompensationReferenceRatio;
+      updateNowPlayingDisplay();
+    }
     setStatus(
       error instanceof Error
         ? t("playbackFailedDetail", { message: error.message })
@@ -4208,9 +4403,101 @@ const renderOrchestraChart = (
   });
 };
 
+const renderStyleDistributionChart = (
+  root: HTMLDivElement | null,
+  rows: Array<{ label: string; value: number; styleValues: Record<string, number> }>,
+  options?: {
+    maxBars?: number;
+    includeZero?: boolean;
+    className?: string;
+  },
+) => {
+  if (!root) {
+    return;
+  }
+  root.innerHTML = "";
+  root.style.removeProperty("--mini-chart-columns");
+  root.classList.remove("orchestra", "compact");
+  if (options?.className) {
+    root.classList.add(options.className);
+  }
+  const includeZero = options?.includeZero ?? false;
+  const maxBars = options?.maxBars ?? Number.POSITIVE_INFINITY;
+  const data = rows
+    .filter((row) =>
+      includeZero
+        ? Number.isFinite(row.value) && row.value >= 0
+        : Number.isFinite(row.value) && row.value > 0,
+    )
+    .slice(0, maxBars);
+  if (data.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "mini-chart-empty";
+    empty.textContent = t("playlistStatsNoData");
+    root.appendChild(empty);
+    return;
+  }
+  const maxValue = Math.max(...data.map((row) => row.value), 1);
+  if (options?.className === "compact") {
+    root.style.setProperty("--mini-chart-columns", `${Math.max(1, data.length)}`);
+  }
+  data.forEach((row) => {
+    const item = document.createElement("div");
+    item.className = "mini-chart-item";
+    const upper = document.createElement("div");
+    upper.className = "mini-chart-upper";
+    upper.classList.add("single-bar");
+    const barWrap = document.createElement("div");
+    barWrap.className = "mini-chart-stack-wrap";
+    const stack = document.createElement("div");
+    stack.className = "mini-chart-stack";
+    if (row.value <= 0) {
+      barWrap.style.height = "0";
+      stack.classList.add("is-zero");
+    } else {
+      barWrap.style.height = `${computeScaledPercent(row.value, maxValue, {
+        minPercent: 4,
+      })}%`;
+      const styleRows = Object.entries(row.styleValues)
+        .filter(([, value]) => value > 0)
+        .sort((left, right) => right[1] - left[1]);
+      styleRows.forEach(([style, value]) => {
+        const segment = document.createElement("div");
+        segment.className = "mini-chart-segment";
+        segment.style.flex = `${value} 1 0`;
+        segment.style.backgroundColor = colorForStyleKey(style);
+        segment.style.backgroundImage = patternForStyleKey(style);
+        stack.appendChild(segment);
+      });
+    }
+    barWrap.appendChild(stack);
+    upper.appendChild(barWrap);
+    const label = document.createElement("div");
+    label.className = "mini-chart-label";
+    label.textContent = row.label;
+    const details = Object.entries(row.styleValues)
+      .filter(([, value]) => value > 0)
+      .sort((left, right) => right[1] - left[1])
+      .map(([style, value]) => `${toDisplayStyleLabel(style)}: ${Math.round(value)}`)
+      .join(", ");
+    item.title = details ? `${row.label}: ${Math.round(row.value)} (${details})` : `${row.label}: ${Math.round(row.value)}`;
+    item.append(upper, label);
+    root.appendChild(item);
+  });
+};
+
 const renderSearchDiversityOrchestraTable = (
   root: HTMLDivElement | null,
-  rows: Array<{ artist: string; total: number; styles: Record<string, number> }>,
+  rows: Array<{
+    artist: string;
+    tandaTotal: number;
+    tandaStyles: Record<string, number>;
+    availableTracks: number;
+    availableStyles: Record<string, number>;
+    availableYearCount: number;
+    availableTempoCount: number;
+  }>,
+  onSearchArtist: (artist: string) => void,
 ) => {
   if (!root) {
     return;
@@ -4229,11 +4516,17 @@ const renderSearchDiversityOrchestraTable = (
   const headRow = document.createElement("tr");
   const artistTh = document.createElement("th");
   artistTh.textContent = t("searchDiversityColOrchestra");
-  const totalTh = document.createElement("th");
-  totalTh.textContent = t("searchDiversityColTotal");
+  const tandaTh = document.createElement("th");
+  tandaTh.textContent = t("searchDiversityColTandas");
+  const availableTh = document.createElement("th");
+  availableTh.textContent = t("searchDiversityColAvailableTracks");
   const stylesTh = document.createElement("th");
   stylesTh.textContent = t("searchDiversityColStyles");
-  headRow.append(artistTh, totalTh, stylesTh);
+  const opportunityTh = document.createElement("th");
+  opportunityTh.textContent = t("searchDiversityColOpportunity");
+  const actionTh = document.createElement("th");
+  actionTh.textContent = t("colActions");
+  headRow.append(artistTh, tandaTh, availableTh, stylesTh, opportunityTh, actionTh);
   head.appendChild(headRow);
   const body = document.createElement("tbody");
   rows.slice(0, 120).forEach((row) => {
@@ -4241,17 +4534,173 @@ const renderSearchDiversityOrchestraTable = (
     const artistTd = document.createElement("td");
     artistTd.textContent = row.artist;
     const totalTd = document.createElement("td");
-    totalTd.textContent = `${row.total}`;
+    totalTd.textContent = `${row.tandaTotal}`;
+    const availableTd = document.createElement("td");
+    availableTd.textContent = `${row.availableTracks}`;
     const stylesTd = document.createElement("td");
-    stylesTd.textContent = Object.entries(row.styles)
+    stylesTd.textContent = Object.entries(row.tandaStyles)
       .sort((left, right) => right[1] - left[1])
       .map(([style, count]) => `${style}: ${count}`)
       .join(", ");
-    tr.append(artistTd, totalTd, stylesTd);
+    const opportunityTd = document.createElement("td");
+    const missingStyles = Object.entries(row.availableStyles)
+      .filter(([style]) => (row.tandaStyles[style] ?? 0) === 0)
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 2)
+      .map(([style]) => toDisplayStyleLabel(style));
+    if (row.tandaTotal === 0 && row.availableTracks > 0) {
+      opportunityTd.textContent = t("searchDiversityOpportunityNoTandas");
+    } else if (missingStyles.length > 0) {
+      opportunityTd.textContent = t("searchDiversityOpportunityStyles", {
+        styles: missingStyles.join(", "),
+      });
+    } else if (row.availableYearCount > 4 || row.availableTempoCount > 6) {
+      opportunityTd.textContent = t("searchDiversityOpportunityVariety");
+    } else {
+      opportunityTd.textContent = t("searchDiversityOpportunityLow");
+    }
+    const actionTd = document.createElement("td");
+    const searchBtn = document.createElement("button");
+    searchBtn.type = "button";
+    searchBtn.className = "action-button";
+    searchBtn.textContent = t("actionSearchShort");
+    searchBtn.title = t("searchDiversityActionSearchArtist");
+    searchBtn.setAttribute("aria-label", t("searchDiversityActionSearchArtist"));
+    searchBtn.addEventListener("click", () => {
+      onSearchArtist(row.artist);
+    });
+    actionTd.appendChild(searchBtn);
+    tr.append(artistTd, totalTd, availableTd, stylesTd, opportunityTd, actionTd);
     body.appendChild(tr);
   });
   table.append(head, body);
-  root.appendChild(table);
+  const wrap = document.createElement("div");
+  wrap.className = "diversity-table-wrap";
+  wrap.appendChild(table);
+  root.appendChild(wrap);
+};
+
+const renderSearchDiversityOpportunityTable = (
+  root: HTMLDivElement | null,
+  rows: Array<{
+    artist: string;
+    tandaTotal: number;
+    availableTracks: number;
+    missingStyles: string[];
+  }>,
+  onSearchArtist: (artist: string) => void,
+) => {
+  if (!root) {
+    return;
+  }
+  root.innerHTML = "";
+  if (rows.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "mini-chart-empty";
+    empty.textContent = t("searchDiversityNoOpportunities");
+    root.appendChild(empty);
+    return;
+  }
+  const table = document.createElement("table");
+  table.className = "diversity-table";
+  const head = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const orchestraTh = document.createElement("th");
+  orchestraTh.textContent = t("searchDiversityColOrchestra");
+  const tracksTh = document.createElement("th");
+  tracksTh.textContent = t("searchDiversityColAvailableTracks");
+  const tandasTh = document.createElement("th");
+  tandasTh.textContent = t("searchDiversityColTandas");
+  const suggestionTh = document.createElement("th");
+  suggestionTh.textContent = t("searchDiversityColSuggestion");
+  const actionTh = document.createElement("th");
+  actionTh.textContent = t("colActions");
+  headRow.append(orchestraTh, tracksTh, tandasTh, suggestionTh, actionTh);
+  head.appendChild(headRow);
+  const body = document.createElement("tbody");
+  rows.slice(0, 40).forEach((row) => {
+    const tr = document.createElement("tr");
+    const orchestraTd = document.createElement("td");
+    orchestraTd.textContent = row.artist;
+    const tracksTd = document.createElement("td");
+    tracksTd.textContent = `${row.availableTracks}`;
+    const tandasTd = document.createElement("td");
+    tandasTd.textContent = `${row.tandaTotal}`;
+    const suggestionTd = document.createElement("td");
+    if (row.tandaTotal === 0) {
+      suggestionTd.textContent = t("searchDiversitySuggestionCreateFirst");
+    } else if (row.missingStyles.length > 0) {
+      suggestionTd.textContent = t("searchDiversitySuggestionStyle", {
+        styles: row.missingStyles.slice(0, 2).join(", "),
+      });
+    } else {
+      suggestionTd.textContent = t("searchDiversitySuggestionExpand");
+    }
+    const actionTd = document.createElement("td");
+    const searchBtn = document.createElement("button");
+    searchBtn.type = "button";
+    searchBtn.className = "action-button";
+    searchBtn.textContent = t("actionSearchShort");
+    searchBtn.title = t("searchDiversityActionSearchArtist");
+    searchBtn.setAttribute("aria-label", t("searchDiversityActionSearchArtist"));
+    searchBtn.addEventListener("click", () => {
+      onSearchArtist(row.artist);
+    });
+    actionTd.appendChild(searchBtn);
+    tr.append(orchestraTd, tracksTd, tandasTd, suggestionTd, actionTd);
+    body.appendChild(tr);
+  });
+  table.append(head, body);
+  const wrap = document.createElement("div");
+  wrap.className = "diversity-table-wrap";
+  wrap.appendChild(table);
+  root.appendChild(wrap);
+};
+
+const renderSearchDiversityStyleGapList = (
+  root: HTMLDivElement | null,
+  rows: Array<{ style: string; tandaCount: number; availableCount: number }>,
+) => {
+  if (!root) {
+    return;
+  }
+  root.innerHTML = "";
+  if (rows.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "mini-chart-empty";
+    empty.textContent = t("searchDiversityNoStyleGaps");
+    root.appendChild(empty);
+    return;
+  }
+  const table = document.createElement("table");
+  table.className = "diversity-table";
+  const head = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const styleTh = document.createElement("th");
+  styleTh.textContent = t("styleLabel");
+  const availableTh = document.createElement("th");
+  availableTh.textContent = t("searchDiversityColAvailableTracks");
+  const tandasTh = document.createElement("th");
+  tandasTh.textContent = t("searchDiversityColTandas");
+  headRow.append(styleTh, availableTh, tandasTh);
+  head.appendChild(headRow);
+  const body = document.createElement("tbody");
+  rows.slice(0, 20).forEach((row) => {
+    const tr = document.createElement("tr");
+    const styleTd = document.createElement("td");
+    styleTd.textContent = toDisplayStyleLabel(row.style);
+    const availableTd = document.createElement("td");
+    availableTd.textContent = `${row.availableCount}`;
+    const tandasTd = document.createElement("td");
+    tandasTd.textContent = `${row.tandaCount}`;
+    tr.append(styleTd, availableTd, tandasTd);
+    body.appendChild(tr);
+  });
+  table.append(head, body);
+  const wrap = document.createElement("div");
+  wrap.className = "diversity-table-wrap";
+  wrap.appendChild(table);
+  root.appendChild(wrap);
 };
 
 const setSearchDiversityModalVisible = (visible: boolean) => {
@@ -4263,101 +4712,190 @@ const setSearchDiversityModalVisible = (visible: boolean) => {
 };
 
 const renderSearchDiversityStats = async () => {
-  await ensureSmartCollectionCaches();
-  const tandas = allTandasForSmartCollections ?? [];
-  const orchestraStyleCounts = new Map<string, Map<string, number>>();
-  const styleCounts = new Map<string, number>();
-  const yearBuckets = new Map<number, number>();
-  const tempoBuckets = new Map<number, number>();
-  const markArtistStyle = (artist: string, style: string) => {
-    const styleMap = orchestraStyleCounts.get(artist) ?? new Map<string, number>();
-    styleMap.set(style, (styleMap.get(style) ?? 0) + 1);
-    orchestraStyleCounts.set(artist, styleMap);
-  };
-  tandas.forEach((tanda) => {
-    const tracks = getTandaTracks(tanda);
-    if (tracks.length === 0) {
-      return;
-    }
-    const style =
-      tanda.styles
-        .map((item) => normalizeStyleName(item))
-        .find(Boolean) ??
-      tracks
-        .map((track) => normalizeStyleName(track.genre ?? ""))
-        .find(Boolean) ??
-      "unknown";
-    styleCounts.set(style, (styleCounts.get(style) ?? 0) + 1);
-    const artists = new Set<string>();
-    tracks.forEach((track) => {
-      const artist =
-        resolveCanonicalArtistName(track.artist_summary || track.artist || "") ||
-        t("nowPlayingUnknown");
-      artists.add(artist);
-      const year = yearValue(track);
-      if (year !== null) {
-        yearBuckets.set(year, (yearBuckets.get(year) ?? 0) + 1);
-      }
-      if (track.bpm !== null && track.bpm !== undefined && Number.isFinite(track.bpm)) {
-        const bpm = Math.round(track.bpm);
-        tempoBuckets.set(bpm, (tempoBuckets.get(bpm) ?? 0) + 1);
-      }
+  const stats = await window.tanda?.getSearchDiversityStats?.();
+  if (!stats) {
+    return;
+  }
+  const tandaByOrchestra = new Map<
+    string,
+    { tandaTotal: number; tandaStyles: Record<string, number> }
+  >();
+  stats.orchestraRows.forEach((row) => {
+    const canonical =
+      resolveCanonicalArtistName(row.artist || "") || row.artist || t("nowPlayingUnknown");
+    const existing = tandaByOrchestra.get(canonical) ?? { tandaTotal: 0, tandaStyles: {} };
+    Object.entries(row.styles).forEach(([style, count]) => {
+      existing.tandaStyles[style] = (existing.tandaStyles[style] ?? 0) + count;
+      existing.tandaTotal += count;
     });
-    artists.forEach((artist) => markArtistStyle(artist, style));
+    tandaByOrchestra.set(canonical, existing);
+  });
+  const availableByOrchestra = new Map<
+    string,
+    { trackCount: number; styles: Record<string, number>; yearCount: number; tempoCount: number }
+  >();
+  stats.availableOrchestraRows.forEach((row) => {
+    const canonical =
+      resolveCanonicalArtistName(row.artist || "") || row.artist || t("nowPlayingUnknown");
+    availableByOrchestra.set(canonical, {
+      trackCount: row.trackCount,
+      styles: row.styles,
+      yearCount: row.yearCount,
+      tempoCount: row.tempoCount,
+    });
   });
   orchestraRegistry.forEach((entry) => {
     const canonical = entry.canonical.trim();
-    if (canonical && !orchestraStyleCounts.has(canonical)) {
-      orchestraStyleCounts.set(canonical, new Map<string, number>());
+    if (!canonical) {
+      return;
+    }
+    if (!tandaByOrchestra.has(canonical)) {
+      tandaByOrchestra.set(canonical, { tandaTotal: 0, tandaStyles: {} });
+    }
+    if (!availableByOrchestra.has(canonical)) {
+      availableByOrchestra.set(canonical, {
+        trackCount: 0,
+        styles: {},
+        yearCount: 0,
+        tempoCount: 0,
+      });
     }
   });
-  const orchestraRows = Array.from(orchestraStyleCounts.entries())
-    .map(([artist, styles]) => {
-      const styleObject = Object.fromEntries(styles.entries());
-      const total = Object.values(styleObject).reduce((sum, value) => sum + value, 0);
-      return { artist, total, styles: styleObject };
+  const orchestraRows = Array.from(
+    new Set([...tandaByOrchestra.keys(), ...availableByOrchestra.keys()]),
+  )
+    .map((artist) => {
+      const tanda = tandaByOrchestra.get(artist) ?? { tandaTotal: 0, tandaStyles: {} };
+      const available = availableByOrchestra.get(artist) ?? {
+        trackCount: 0,
+        styles: {},
+        yearCount: 0,
+        tempoCount: 0,
+      };
+      return {
+        artist,
+        tandaTotal: tanda.tandaTotal,
+        tandaStyles: tanda.tandaStyles,
+        availableTracks: available.trackCount,
+        availableStyles: available.styles,
+        availableYearCount: available.yearCount,
+        availableTempoCount: available.tempoCount,
+      };
     })
     .sort((left, right) => {
-      if (right.total !== left.total) {
-        return right.total - left.total;
+      if (right.tandaTotal !== left.tandaTotal) {
+        return right.tandaTotal - left.tandaTotal;
       }
       return left.artist.localeCompare(right.artist);
     });
-  renderSearchDiversityOrchestraTable(searchDiversityOrchestraEl, orchestraRows);
+  const populatedOrchestraRows = orchestraRows.filter(
+    (row) => row.tandaTotal > 0 || row.availableTracks > 0,
+  );
+  renderSearchDiversityOrchestraTable(
+    searchDiversityOrchestraEl,
+    populatedOrchestraRows,
+    (artist) => {
+      const escapedArtist = artist.replace(/"/g, '\\"');
+      runSearchQuery(`artist: "${escapedArtist}"`, true);
+      setSearchDiversityModalVisible(false);
+      void setSettingsOpen(false);
+    },
+  );
+
+  const opportunityRows = orchestraRows
+    .filter((row) => row.availableTracks > 0)
+    .map((row) => ({
+      artist: row.artist,
+      tandaTotal: row.tandaTotal,
+      availableTracks: row.availableTracks,
+      missingStyles: Object.entries(row.availableStyles)
+        .filter(([style]) => (row.tandaStyles[style] ?? 0) === 0)
+        .sort((left, right) => right[1] - left[1])
+        .map(([style]) => toDisplayStyleLabel(style)),
+      score:
+        (row.tandaTotal === 0 ? 1_000 : 0) +
+        row.availableTracks * 10 +
+        Object.keys(row.availableStyles).length * 5 -
+        row.tandaTotal * 4,
+    }))
+    .sort((left, right) => right.score - left.score);
+  renderSearchDiversityOpportunityTable(searchDiversityOpportunitiesEl, opportunityRows, (artist) => {
+    const escapedArtist = artist.replace(/"/g, '\\"');
+    runSearchQuery(`artist: "${escapedArtist}"`, true);
+    setSearchDiversityModalVisible(false);
+    void setSettingsOpen(false);
+  });
+
+  const yearBuckets = new Map<number, number>(stats.yearBuckets);
+  const yearStyleBuckets = new Map<number, Record<string, number>>(
+    (stats.yearStyleBuckets ?? []).map(([year, stylePairs]) => [
+      year,
+      Object.fromEntries(stylePairs),
+    ]),
+  );
+  const tempoBuckets = new Map<number, number>(stats.tempoBuckets);
+  const tempoStyleBuckets = new Map<number, Record<string, number>>(
+    (stats.tempoStyleBuckets ?? []).map(([tempo, stylePairs]) => [
+      tempo,
+      Object.fromEntries(stylePairs),
+    ]),
+  );
+  const styleCounts = new Map<string, number>(stats.styleBuckets);
+  const availableStyleCounts = new Map<string, number>(stats.availableStyleBuckets);
+  const availableYearBuckets = new Map<number, number>(stats.availableYearBuckets);
+  const availableTempoBuckets = new Map<number, number>(stats.availableTempoBuckets);
   const yearRows = buildAdaptiveNumericDistribution(yearBuckets, 40, 30);
+  const yearStyleRows = buildAdaptiveStyleNumericDistribution(yearStyleBuckets, 40, 30);
   const tempoRows = buildAdaptiveNumericDistribution(tempoBuckets, 40, 30);
+  const tempoStyleRows = buildAdaptiveStyleNumericDistribution(tempoStyleBuckets, 40, 30);
   const styleRows = Array.from(styleCounts.entries())
     .map(([label, value]) => ({ label: toDisplayStyleLabel(label), value }))
     .sort((left, right) => right.value - left.value);
-  renderMiniChart(searchDiversityYearEl, yearRows, {
-    includeZero: true,
-    className: "compact",
-  });
-  renderMiniChart(searchDiversityTempoEl, tempoRows, {
-    includeZero: true,
-    className: "compact",
-  });
+  renderStyleDistributionChart(
+    searchDiversityYearEl,
+    yearStyleRows.length > 0
+      ? yearStyleRows
+      : yearRows.map((row) => ({ label: row.label, value: row.value, styleValues: {} })),
+    {
+      includeZero: true,
+      className: "compact",
+    },
+  );
+  renderStyleDistributionChart(
+    searchDiversityTempoEl,
+    tempoStyleRows.length > 0
+      ? tempoStyleRows
+      : tempoRows.map((row) => ({ label: row.label, value: row.value, styleValues: {} })),
+    {
+      includeZero: true,
+      className: "compact",
+    },
+  );
   renderMiniChart(searchDiversityStyleEl, styleRows, {
     includeZero: true,
   });
-  if (searchDiversityMissingYearsEl) {
-    if (yearBuckets.size <= 1) {
-      searchDiversityMissingYearsEl.textContent = t("searchDiversityNoMissingYears");
-    } else {
-      const years = Array.from(yearBuckets.keys()).sort((a, b) => a - b);
-      const minYear = years[0] ?? 0;
-      const maxYear = years[years.length - 1] ?? 0;
-      const missing: number[] = [];
-      for (let year = minYear; year <= maxYear; year += 1) {
-        if (!yearBuckets.has(year)) {
-          missing.push(year);
-        }
-      }
-      searchDiversityMissingYearsEl.textContent =
-        missing.length > 0
-          ? t("searchDiversityMissingYears", { years: missing.join(", ") })
-          : t("searchDiversityNoMissingYears");
-    }
+  const styleGapRows = Array.from(availableStyleCounts.entries())
+    .map(([style, availableCount]) => ({
+      style,
+      availableCount,
+      tandaCount: styleCounts.get(style) ?? 0,
+      gap: availableCount - (styleCounts.get(style) ?? 0),
+    }))
+    .filter((row) => row.availableCount > 0 && (row.tandaCount === 0 || row.gap >= 5))
+    .sort((left, right) => right.gap - left.gap);
+  renderSearchDiversityStyleGapList(searchDiversityStyleGapsEl, styleGapRows);
+
+  if (searchDiversitySummaryEl) {
+    const missingOrchestras = orchestraRows.filter(
+      (row) => row.tandaTotal === 0 && row.availableTracks > 0,
+    ).length;
+    const missingStyles = styleGapRows.filter((row) => row.tandaCount === 0).length;
+    searchDiversitySummaryEl.textContent = t("searchDiversitySummaryText", {
+      missingOrchestras,
+      missingStyles,
+      yearRange: `${availableYearBuckets.size}/${yearBuckets.size}`,
+      tempoRange: `${availableTempoBuckets.size}/${tempoBuckets.size}`,
+    });
   }
 };
 
@@ -4830,6 +5368,128 @@ const closeDetailMenus = () => {
   }
 };
 
+const closeStyleVariantMenu = () => {
+  if (!styleVariantMenuEl) {
+    return;
+  }
+  styleVariantMenuEl.remove();
+  styleVariantMenuEl = null;
+};
+
+const closeCollectionTargetMenu = () => {
+  if (!collectionTargetMenuEl) {
+    return;
+  }
+  collectionTargetMenuEl.remove();
+  collectionTargetMenuEl = null;
+};
+
+const openStyleVariantMenu = (
+  x: number,
+  y: number,
+  baseStyle: string,
+  family: StyleFamily,
+) => {
+  closeStyleVariantMenu();
+  const menu = document.createElement("div");
+  menu.className = "style-variant-menu";
+  menu.setAttribute("role", "menu");
+  family.variants.forEach((variant) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "style-variant-menu-item";
+    item.setAttribute("role", "menuitem");
+    item.textContent = variant;
+    item.addEventListener("click", () => {
+      const styleValue = composeStyleLabel(baseStyle, variant);
+      if (!styleValue) {
+        return;
+      }
+      selectedStyles = [
+        ...selectedStyles.filter((value) => {
+          const parts = splitStyleLabel(value);
+          return parts.base !== baseStyle && value !== baseStyle;
+        }),
+        styleValue,
+      ];
+      loadStyles();
+      refreshSearch();
+      renderClipboard();
+      closeStyleVariantMenu();
+    });
+    menu.appendChild(item);
+  });
+  document.body.appendChild(menu);
+  const { innerWidth, innerHeight } = window;
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(x, Math.max(8, innerWidth - rect.width - 8));
+  const top = Math.min(y, Math.max(8, innerHeight - rect.height - 8));
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  styleVariantMenuEl = menu;
+};
+
+const getTandaMoveTargets = () => {
+  const general = clipboardCollections.find((collection) => collection.id === "general");
+  const custom = clipboardCollections.filter(
+    (collection) => !isPinnedCollectionId(collection.id),
+  );
+  return [general, ...custom].filter(Boolean) as ClipboardCollection[];
+};
+
+const moveTandaBetweenClipboardCollections = (
+  tandaId: string,
+  targetCollectionId: string,
+) => {
+  clipboardCollections = moveTandaToCollection(
+    clipboardCollections,
+    tandaId,
+    targetCollectionId,
+    [CLIPBOARD_NEW_ID, CLIPBOARD_TOP_ID, CLIPBOARD_LEAST_ID, CLIPBOARD_AVAILABLE_ID],
+  );
+  activeClipboardCollectionId = targetCollectionId;
+  includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
+    (id) => id !== targetCollectionId,
+  );
+  selectedClipboardTandaId = tandaId;
+  selectedClipboardTrackId = null;
+  saveClipboardCollections();
+  renderClipboardCollections();
+  renderClipboard();
+};
+
+const openTandaMoveTargetMenu = (
+  x: number,
+  y: number,
+  tandaId: string,
+  targets: ClipboardCollection[],
+) => {
+  closeCollectionTargetMenu();
+  const menu = document.createElement("div");
+  menu.className = "style-variant-menu";
+  menu.setAttribute("role", "menu");
+  targets.forEach((collection) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "style-variant-menu-item";
+    item.setAttribute("role", "menuitem");
+    item.textContent = collection.name;
+    item.addEventListener("click", () => {
+      moveTandaBetweenClipboardCollections(tandaId, collection.id);
+      closeCollectionTargetMenu();
+    });
+    menu.appendChild(item);
+  });
+  document.body.appendChild(menu);
+  const { innerWidth, innerHeight } = window;
+  const rect = menu.getBoundingClientRect();
+  const left = Math.min(x, Math.max(8, innerWidth - rect.width - 8));
+  const top = Math.min(y, Math.max(8, innerHeight - rect.height - 8));
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  collectionTargetMenuEl = menu;
+};
+
 const resetModalCardPosition = (modal: HTMLElement) => {
   const card = modal.querySelector<HTMLElement>(".modal-card");
   if (!card) {
@@ -5260,8 +5920,11 @@ const getTandaStyleBadge = (tanda: TandaDraft) => {
       ),
     )
     .map(([code]) => code);
-  if (codes.length > 0) {
-    return codes.join("/");
+  if (codes.length === 1) {
+    return codes[0];
+  }
+  if (codes.length > 1) {
+    return `${codes[0]}+`;
   }
   return "?";
 };
@@ -5530,19 +6193,14 @@ const resolveSearchStylesForTrack = (track: TrackRow) => {
   if (!normalized) {
     return [] as string[];
   }
-  if (availableStyles.length === 0) {
-    return [normalized];
-  }
-  const match =
-    availableStyles.find((style) => normalizeStyleName(style) === normalized) ??
-    null;
-  return match ? [match] : [];
+  const { base } = splitStyleLabel(normalized);
+  return [base || normalized];
 };
 
 const runSearchForTrack = (track: TrackRow, preferredStyles?: string[]) => {
   const styles = preferredStyles ?? resolveSearchStylesForTrack(track);
   if (styles.length > 0 || selectedStyles.length > 0) {
-    selectedStyles = [...styles];
+    selectedStyles = toBaseStyleFilters(styles);
     loadStyles();
   }
   runSearchQuery(buildSearchQueryForTrack(track), true);
@@ -5564,7 +6222,9 @@ const resolveSearchStylesForPlaylistIndex = (index: number) => {
   if (!rule?.code || rule.code === "*" || rule.code === "ANY") {
     return [] as string[];
   }
-  return [...(getPlaylistStyleMap()[rule.code] ?? [])];
+  return [...(getPlaylistStyleMap()[rule.code] ?? [])]
+    .map((style) => splitStyleLabel(style).base || normalizeStyleName(style))
+    .filter(Boolean);
 };
 
 const getTrackEditorFieldQueryValue = (field: string) => {
@@ -5675,11 +6335,15 @@ const resolveSearchStylesForTanda = (
   tanda: TandaDraft,
   tracks: TrackRow[],
 ) =>
-  resolveTandaSearchStyles({
+  Array.from(
+    new Set(
+      resolveTandaSearchStyles({
     tandaStyles: tanda.styles,
     tracks,
     availableStyles,
-  });
+      }).map((style) => splitStyleLabel(style).base || normalizeStyleName(style)),
+    ),
+  ).filter(Boolean);
 
 const runSearchForTanda = (tanda: TandaDraft, preferredStyles?: string[]) => {
   const tracks = tanda.trackSlots
@@ -5687,7 +6351,7 @@ const runSearchForTanda = (tanda: TandaDraft, preferredStyles?: string[]) => {
     .filter(Boolean) as TrackRow[];
   const styles = preferredStyles ?? resolveSearchStylesForTanda(tanda, tracks);
   if (styles.length > 0 || selectedStyles.length > 0) {
-    selectedStyles = [...styles];
+    selectedStyles = toBaseStyleFilters(styles);
     loadStyles();
   }
   runSearchQuery(buildSearchQueryForTanda(tanda), true);
@@ -5784,6 +6448,15 @@ const renderTandaRow = (
         "add-playlist-tanda",
       ),
     );
+    if (canRemoveFromClipboard) {
+      menu.appendChild(
+        buildActionButton(
+          "actionMoveCollection",
+          "actionMoveCollectionShort",
+          "move-clip-tanda-collection",
+        ),
+      );
+    }
     if (canRemoveFromClipboard) {
       menu.appendChild(
         buildActionButton(
@@ -6099,29 +6772,6 @@ const buildTopOrLeastCollectionIds = async (least: boolean) => {
   await ensureSmartCollectionCaches();
   const tracks = allTracksForSmartCollections ?? [];
   const tandas = allTandasForSmartCollections ?? [];
-  if (!least) {
-    const sortedTandas = tandas
-      .slice()
-      .sort((left, right) => {
-        const ratingDiff = (right.rating ?? 0) - (left.rating ?? 0);
-        if (ratingDiff !== 0) {
-          return ratingDiff;
-        }
-        return getTandaSortKey(left).localeCompare(getTandaSortKey(right));
-      })
-      .slice(0, SMART_COLLECTION_LIMIT);
-    const tandaIds = sortedTandas.map((tanda) => tanda.id);
-    const trackIds: string[] = [];
-    sortedTandas.forEach((tanda) => {
-      tanda.trackSlots.forEach((trackId) => {
-        if (!trackId || trackIds.includes(trackId)) {
-          return;
-        }
-        trackIds.push(trackId);
-      });
-    });
-    return { trackIds: trackIds.slice(0, SMART_COLLECTION_LIMIT), tandaIds };
-  }
   const countForTrack = (id: string) => playCounts.tracks[id] ?? 0;
   const countForTanda = (id: string) => playCounts.tandas[id] ?? 0;
   const trackIds = tracks
@@ -6145,6 +6795,10 @@ const buildTopOrLeastCollectionIds = async (least: boolean) => {
       const byCount = least ? diff : -diff;
       if (byCount !== 0) {
         return byCount;
+      }
+      const ratingDiff = (right.rating ?? 0) - (left.rating ?? 0);
+      if (ratingDiff !== 0) {
+        return ratingDiff;
       }
       return getTandaSortKey(left).localeCompare(getTandaSortKey(right));
     })
@@ -6287,7 +6941,7 @@ const renderClipboard = async () => {
   const filteredTracks =
     forcedStyles.length > 0
       ? clipboardTracks.filter((track) =>
-          forcedStyles.includes(normalizeStyleName(track.genre)),
+          styleMatchesFilter(track.genre ?? "", forcedStyles),
         )
       : clipboardTracks;
   const matchedTracks = filterText
@@ -6313,23 +6967,15 @@ const renderClipboard = async () => {
   if (clipTandasEl) {
     clipTandasEl.innerHTML = "";
     const sizeFilter = getTandaSearchSizeFilter();
-    const styleFilter = getActiveStyleFilter();
-    const normalizedStyleFilter = styleFilter.map((style) =>
-      normalizeStyleName(style),
-    );
+    const styleFilter = getActiveStyleFilter().map((style) => normalizeStyleName(style));
     const filteredTandas = clipboardTandas.filter((tanda) => {
       if (sizeFilter && tanda.trackSlots.filter(Boolean).length !== sizeFilter) {
         return false;
       }
-      if (normalizedStyleFilter.length === 0) {
+      if (styleFilter.length === 0) {
         return true;
       }
-      const normalizedTandaStyles = tanda.styles.map((style) =>
-        normalizeStyleName(style),
-      );
-      return normalizedStyleFilter.some((style) =>
-        normalizedTandaStyles.includes(style),
-      );
+      return tanda.styles.some((style) => styleMatchesFilter(style, styleFilter));
     });
     const matchedTandas = filterText
       ? filteredTandas.filter((tanda) =>
@@ -8177,13 +8823,14 @@ const renderTandaDesigner = () => {
       anyButton.disabled = locked;
       anyButton.addEventListener("click", () => {
         tanda.styles = [];
-        selectedStyles = [...tanda.styles];
+        selectedStyles = toBaseStyleFilters(tanda.styles);
         setActiveTanda(tanda.id);
       });
       styleOptions.appendChild(anyButton);
       availableStyles.forEach((style) => {
         const button = document.createElement("button");
-        button.textContent = style;
+        button.textContent = formatStylePillLabel(style, styleFamilies);
+        button.title = style;
         button.classList.toggle("active", tanda.styles.includes(style));
         button.disabled = locked;
         button.addEventListener("click", () => {
@@ -8192,7 +8839,7 @@ const renderTandaDesigner = () => {
           } else {
             tanda.styles = [...tanda.styles, style];
           }
-          selectedStyles = [...tanda.styles];
+          selectedStyles = toBaseStyleFilters(tanda.styles);
           setActiveTanda(tanda.id);
         });
         styleOptions.appendChild(button);
@@ -8532,12 +9179,12 @@ const applyPlaylistTargetStyles = (index: number) => {
   if (item?.kind === "tanda") {
     const tanda = resolveTandaDraft(item.tandaId);
     if (tanda) {
-      selectedStyles = [...tanda.styles];
+      selectedStyles = toBaseStyleFilters(tanda.styles);
     }
   } else {
     const rule = getRuleForSlot(index);
     if (rule?.code && rule.code !== "*" && rule.code !== "ANY") {
-      selectedStyles = [...(getPlaylistStyleMap()[rule.code] ?? [])];
+      selectedStyles = toBaseStyleFilters(getPlaylistStyleMap()[rule.code] ?? []);
     } else {
       selectedStyles = [];
     }
@@ -8873,7 +9520,7 @@ const getDefaultPlaylistTandaSize = (slotIndex: number) =>
   getDefaultSlotSize(getRuleForSlot(slotIndex), getDefaultTandaSize());
 
 const getDefaultPlaylistStyles = (slotIndex: number) =>
-  getDefaultStylesForRule(getRuleForSlot(slotIndex), getPlaylistStyleMap());
+  toBaseStyleFilters(getDefaultStylesForRule(getRuleForSlot(slotIndex), getPlaylistStyleMap()));
 
 const getStyleMismatchForTrack = (slotIndex: number, track: TrackRow) => {
   const rule = getRuleForSlot(slotIndex);
@@ -9427,7 +10074,7 @@ const setActiveTanda = (tandaId: string | null) => {
   selectedTandaId = tandaId;
   const tanda = getActiveTanda();
   if (tanda) {
-    selectedStyles = [...tanda.styles];
+    selectedStyles = toBaseStyleFilters(tanda.styles);
   }
   loadStyles();
   updateSearchTabVisibility();
@@ -9484,11 +10131,11 @@ const addTrackToTanda = (tandaId: string | null, track: TrackRow) => {
     .filter(Boolean) as string[];
   tanda.styles = Array.from(new Set([...normalizedExisting, ...derivedStyles]));
   if (isActive) {
-    selectedStyles = [...tanda.styles];
+    selectedStyles = toBaseStyleFilters(tanda.styles);
   }
   if (selectedTandaId !== tanda.id) {
     selectedTandaId = tanda.id;
-    selectedStyles = [...tanda.styles];
+    selectedStyles = toBaseStyleFilters(tanda.styles);
   }
   if (isActive || selectedTandaId === tanda.id) {
     loadStyles();
@@ -9724,6 +10371,14 @@ const showAlert = (message: string) => {
   alertBanner.textContent = message;
   alertBanner.classList.add("visible");
   alertBanner.classList.remove("pulse");
+};
+
+const formatAlertErrorMessage = (message: string) => {
+  const compact = message.replace(/\s+/g, " ").trim();
+  if (!compact) {
+    return t("statusUnknownError");
+  }
+  return compact.length > 220 ? `${compact.slice(0, 217)}...` : compact;
 };
 
 const clearAlert = () => {
@@ -10229,36 +10884,289 @@ const renderClipboardCollections = () => {
   });
 };
 
-const renderStyleList = () => {
-  if (!styleList) {
+const getBaseStyles = () => {
+  const bases = styleFamilies.map((family) => family.base).filter(Boolean);
+  if (bases.length > 0) {
+    return bases;
+  }
+  return Array.from(new Set(availableStyles.map((style) => splitStyleLabel(style).base).filter(Boolean)));
+};
+
+const getSelectableStyles = () => {
+  const expanded = Object.values(getPlaylistStyleMap()).flat();
+  if (expanded.length > 0) {
+    return Array.from(new Set(expanded.map((style) => normalizeStyleName(style)).filter(Boolean)));
+  }
+  return availableStyles;
+};
+
+const syncStylesFromFamilies = async () => {
+  if (!window.tanda) {
     return;
   }
-  styleList.innerHTML = "";
-  if (availableStyles.length === 0) {
-    styleList.textContent = t("styleEmpty");
+  const desired = new Set<string>();
+  styleFamilies.forEach((family) => {
+    const base = normalizeStyleName(family.base);
+    if (!base) {
+      return;
+    }
+    desired.add(base);
+    family.variants.forEach((variant) => {
+      const composed = composeStyleLabel(base, variant);
+      if (composed) {
+        desired.add(composed);
+      }
+    });
+  });
+  for (const style of Array.from(desired)) {
+    await window.tanda.addStyle(style);
+  }
+};
+
+const setStyleFamilies = async (families: StyleFamily[]) => {
+  styleFamilies = families
+    .map((family) => ({
+      code: family.code.trim().toUpperCase(),
+      base: normalizeStyleName(family.base),
+      variants: family.variants
+        .map((variant) => normalizeStyleName(variant))
+        .filter(Boolean),
+    }))
+    .filter((family) => family.code && family.base);
+  localStorage.setItem(STYLE_FAMILIES_KEY, serializeStyleFamilies(styleFamilies));
+  await syncStylesFromFamilies();
+  await loadStyles();
+  await refreshLegacyStyleRows();
+  renderTandaDesigner();
+  refreshSearch();
+};
+
+const renderStyleFamilyList = () => {
+  if (!styleFamilyList) {
     return;
   }
-  availableStyles.forEach((style) => {
+  styleFamilyList.innerHTML = "";
+  if (styleFamilies.length === 0) {
+    styleFamilyList.textContent = t("styleEmpty");
+    return;
+  }
+  styleFamilies.forEach((family) => {
     const row = document.createElement("div");
-    row.className = "style-row";
-    const name = document.createElement("span");
-    name.textContent = style;
+    row.className = "style-family-row";
+
+    const code = document.createElement("span");
+    code.className = "code";
+    code.textContent = family.code;
+
+    const base = document.createElement("span");
+    base.className = "base";
+    base.textContent = family.base;
+
+    const variants = document.createElement("span");
+    variants.className = "variants";
+    variants.textContent =
+      family.variants.length > 0
+        ? family.variants.join(" · ")
+        : family.base;
+
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.textContent = t("styleFamilyEdit");
+    edit.addEventListener("click", () => {
+      if (styleFamilyCodeInput) {
+        styleFamilyCodeInput.value = family.code;
+      }
+      if (styleFamilyBaseInput) {
+        styleFamilyBaseInput.value = family.base;
+      }
+      if (styleFamilyVariantsInput) {
+        styleFamilyVariantsInput.value = family.variants.join(", ");
+      }
+    });
+
     const remove = document.createElement("button");
     remove.type = "button";
     remove.textContent = t("styleRemove");
-    remove.setAttribute("aria-label", t("styleRemoveLabel", { style }));
-    remove.title = t("styleRemoveLabel", { style });
+    remove.setAttribute("aria-label", t("styleRemoveLabel", { style: family.base }));
     remove.addEventListener("click", async () => {
-      if (!window.tanda) {
+      const next = styleFamilies.filter((item) => item.code !== family.code);
+      await setStyleFamilies(next);
+    });
+    row.append(code, base, variants, edit, remove);
+    styleFamilyList.appendChild(row);
+  });
+};
+
+const mapLegacyStyleToCanonical = async (
+  legacyStyle: string,
+  canonicalStyle: string,
+) => {
+  if (!window.tanda) {
+    return;
+  }
+  const target = canonicalStyle.trim();
+  if (!target) {
+    return;
+  }
+  const definitions = await window.tanda.listStyleDefinitions();
+  const current = definitions.find((definition) => definition.name === target);
+  const aliases = current?.aliases ?? [];
+  const normalizedLegacy = normalizeStyleName(legacyStyle);
+  const alreadyMapped =
+    normalizeStyleName(target).toLowerCase() === normalizedLegacy.toLowerCase() ||
+    aliases.some(
+      (alias) => normalizeStyleName(alias).toLowerCase() === normalizedLegacy.toLowerCase(),
+    );
+  if (alreadyMapped) {
+    return;
+  }
+  const definition = [target, ...aliases, legacyStyle].join(";");
+  await window.tanda.addStyle(definition);
+};
+
+const refreshLegacyStyleRows = async () => {
+  if (!window.tanda || !legacyImportRootPath) {
+    return;
+  }
+  const result = await window.tanda.listLegacyStyles(legacyImportRootPath);
+  if (!result.ok) {
+    return;
+  }
+  legacyStyleRows = result.styles;
+  if (legacyStylesResult) {
+    const mappedCount = legacyStyleRows.filter((entry) => entry.mappedTo).length;
+    legacyStylesResult.textContent = t("legacyStylesSummary", {
+      total: legacyStyleRows.length,
+      mapped: mappedCount,
+      unmapped: Math.max(0, legacyStyleRows.length - mappedCount),
+    });
+  }
+  renderLegacyStyleMappingTable();
+};
+
+const renderLegacyStyleMappingTable = () => {
+  if (!legacyStyleMappingEl || !legacyStyleMappingBody) {
+    return;
+  }
+  legacyStyleMappingBody.innerHTML = "";
+  if (legacyStyleRows.length === 0) {
+    legacyStyleMappingEl.classList.add("hidden");
+    return;
+  }
+  legacyStyleMappingEl.classList.remove("hidden");
+  legacyStyleRows.forEach((entry) => {
+    const row = document.createElement("tr");
+
+    const valueCell = document.createElement("td");
+    valueCell.textContent = entry.value;
+
+    const countCell = document.createElement("td");
+    countCell.textContent = entry.count.toString();
+
+    const mappedCell = document.createElement("td");
+    mappedCell.textContent = entry.mappedTo || t("legacyStylesUnmapped");
+
+    const actionsCell = document.createElement("td");
+    const actions = document.createElement("div");
+    actions.className = "legacy-style-mapping-actions";
+    const primaryActions = document.createElement("div");
+    primaryActions.className = "legacy-style-actions-primary";
+    const secondaryActions = document.createElement("div");
+    secondaryActions.className = "legacy-style-actions-secondary hidden";
+    const select = document.createElement("select");
+    const empty = document.createElement("option");
+    empty.value = "";
+    empty.textContent = t("legacyStylesMapSelect");
+    select.appendChild(empty);
+    getSelectableStyles().forEach((style) => {
+      const option = document.createElement("option");
+      option.value = style;
+      option.textContent = style;
+      select.appendChild(option);
+    });
+    select.value = entry.mappedTo || "";
+    select.addEventListener("change", () => {
+      const selected = select.value;
+      if (!selected) {
         return;
       }
-      await window.tanda.removeStyle(style);
-      await loadStyles();
-      renderTandaDesigner();
-      refreshSearch();
+      void mapLegacyStyleToCanonical(entry.value, selected).then(async () => {
+        await loadStyles();
+        await refreshLegacyStyleRows();
+      });
     });
-    row.append(name, remove);
-    styleList.appendChild(row);
+
+    const addCode = document.createElement("input");
+    addCode.type = "text";
+    addCode.maxLength = 3;
+    addCode.value = (entry.value.trim().slice(0, 1).toUpperCase() || "X").replace(
+      /[^A-Z0-9]/g,
+      "",
+    );
+    addCode.title = t("styleFamilyCodePlaceholder");
+    addCode.setAttribute("aria-label", t("styleFamilyCodePlaceholder"));
+
+    const addBase = document.createElement("input");
+    addBase.type = "text";
+    addBase.value = entry.mappedTo || normalizeStyleName(entry.value);
+    addBase.title = t("styleFamilyBasePlaceholder");
+    addBase.setAttribute("aria-label", t("styleFamilyBasePlaceholder"));
+
+    const addAlias = document.createElement("input");
+    addAlias.type = "text";
+    addAlias.value = entry.value;
+    addAlias.title = t("legacyStylesColValue");
+    addAlias.setAttribute("aria-label", t("legacyStylesColValue"));
+
+    const addNewBtn = document.createElement("button");
+    addNewBtn.type = "button";
+    addNewBtn.textContent = t("legacyStylesAddAsNew");
+    const toggleAddNewBtn = document.createElement("button");
+    toggleAddNewBtn.type = "button";
+    toggleAddNewBtn.textContent = t("legacyStylesAddAsNew");
+    toggleAddNewBtn.addEventListener("click", () => {
+      const opening = secondaryActions.classList.contains("hidden");
+      secondaryActions.classList.toggle("hidden", !opening);
+      toggleAddNewBtn.textContent = opening ? t("cancel") : t("legacyStylesAddAsNew");
+    });
+    addNewBtn.addEventListener("click", async () => {
+      const code = addCode.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      const base = normalizeStyleName(addBase.value);
+      const alias = addAlias.value.trim();
+      if (!code || !base) {
+        return;
+      }
+      const baseParts = splitStyleLabel(base);
+      const incoming = {
+        code,
+        base: baseParts.base || normalizeStyleName(base),
+        variants: baseParts.variant ? [baseParts.variant] : [],
+      };
+      const existing = styleFamilies.find((family) => family.code === code);
+      const nextFamilies = styleFamilies.filter((family) => family.code !== code);
+      if (existing && existing.base === incoming.base) {
+        nextFamilies.push({
+          code,
+          base: existing.base,
+          variants: Array.from(new Set(existing.variants.concat(incoming.variants))),
+        });
+      } else {
+        nextFamilies.push(incoming);
+      }
+      await setStyleFamilies(nextFamilies);
+      await mapLegacyStyleToCanonical(entry.value, base);
+      if (alias && normalizeStyleName(alias) !== normalizeStyleName(entry.value)) {
+        await mapLegacyStyleToCanonical(alias, base);
+      }
+      await refreshLegacyStyleRows();
+    });
+    primaryActions.append(select, toggleAddNewBtn);
+    secondaryActions.append(addCode, addBase, addAlias, addNewBtn);
+    actions.append(primaryActions, secondaryActions);
+    actionsCell.appendChild(actions);
+
+    row.append(valueCell, countCell, mappedCell, actionsCell);
+    legacyStyleMappingBody.appendChild(row);
   });
 };
 
@@ -10581,6 +11489,15 @@ const normalizeStyleList = (styles: string[]) =>
     .filter(Boolean)
     .sort();
 
+const toBaseStyleFilters = (styles: string[]) =>
+  Array.from(
+    new Set(
+      styles
+        .map((style) => splitStyleLabel(style).base || normalizeStyleName(style))
+        .filter(Boolean),
+    ),
+  );
+
 const canonicalizeStyleForMatching = (style: string) => {
   const normalized = normalizeStyleName(style);
   if (!normalized) {
@@ -10652,6 +11569,34 @@ const loadStyles = async () => {
     styles = await window.tanda.listStyles();
   }
   availableStyles = styles;
+  styleDefinitions = await window.tanda.listStyleDefinitions();
+  styleFamilies = getStyleFamilies();
+  if (styleFamilies.length === 0) {
+    const derived = deriveFamiliesFromStyles(availableStyles);
+    if (derived.length > 0) {
+      styleFamilies = derived;
+      localStorage.setItem(STYLE_FAMILIES_KEY, serializeStyleFamilies(styleFamilies));
+    } else {
+      styleFamilies = parseStyleFamilies(DEFAULT_STYLE_FAMILIES);
+      localStorage.setItem(STYLE_FAMILIES_KEY, DEFAULT_STYLE_FAMILIES);
+    }
+  }
+  const desiredStyles = new Set(
+    Object.values(styleFamilyMapFromFamilies(styleFamilies)).flat().map((style) =>
+      normalizeStyleName(style),
+    ),
+  );
+  const existingStyles = new Set(availableStyles.map((style) => normalizeStyleName(style)));
+  const missingStyles = Array.from(desiredStyles).filter((style) => !existingStyles.has(style));
+  if (missingStyles.length > 0) {
+    for (const style of missingStyles) {
+      await window.tanda.addStyle(style);
+    }
+    availableStyles = await window.tanda.listStyles();
+    styleDefinitions = await window.tanda.listStyleDefinitions();
+  }
+  familyStyleIndex = buildFamilyStyleIndex(availableStyles);
+  closeStyleVariantMenu();
   styleOptions.innerHTML = "";
   const allButton = document.createElement("button");
   allButton.textContent = t("styleAll");
@@ -10666,13 +11611,42 @@ const loadStyles = async () => {
     renderClipboard();
   });
   styleOptions.appendChild(allButton);
-  availableStyles.forEach((style) => {
+  getBaseStyles().forEach((style) => {
     const button = document.createElement("button");
-    button.textContent = style;
-    button.classList.toggle("active", selectedStyles.includes(style));
+    const selectedVariantStyle = selectedStyles.reduce<string | null>((found, selectedStyle) => {
+      if (found) {
+        return found;
+      }
+      const parts = splitStyleLabel(selectedStyle);
+      return parts.base === style && parts.variant ? selectedStyle : null;
+    }, null);
+    button.textContent = selectedVariantStyle
+      ? formatStylePillLabel(selectedVariantStyle, styleFamilies)
+      : style;
+    button.classList.toggle(
+      "active",
+      selectedStyles.includes(style) ||
+        selectedStyles.some((selected) => splitStyleLabel(selected).base === style),
+    );
+    let longPressTimer: number | null = null;
+    const clearLongPress = () => {
+      if (longPressTimer !== null) {
+        window.clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    };
     button.addEventListener("click", () => {
-      if (selectedStyles.includes(style)) {
-        selectedStyles = selectedStyles.filter((value) => value !== style);
+      if (button.dataset.longPressHandled === "1") {
+        button.dataset.longPressHandled = "0";
+        return;
+      }
+      const hasBase = selectedStyles.some(
+        (value) => splitStyleLabel(value).base === style || value === style,
+      );
+      if (hasBase) {
+        selectedStyles = selectedStyles.filter(
+          (value) => splitStyleLabel(value).base !== style && value !== style,
+        );
       } else {
         selectedStyles = [...selectedStyles, style];
       }
@@ -10680,9 +11654,62 @@ const loadStyles = async () => {
       refreshSearch();
       renderClipboard();
     });
+    button.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      const family = styleFamilies.find((item) => item.base === style);
+      if (!family || family.variants.length === 0) {
+        return;
+      }
+      clearLongPress();
+      openStyleVariantMenu(event.clientX, event.clientY, style, family);
+    });
+    button.addEventListener("mousedown", (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      const family = styleFamilies.find((item) => item.base === style);
+      if (!family || family.variants.length === 0) {
+        return;
+      }
+      clearLongPress();
+      longPressTimer = window.setTimeout(() => {
+        longPressTimer = null;
+        const rect = button.getBoundingClientRect();
+        button.dataset.longPressHandled = "1";
+        openStyleVariantMenu(
+          rect.left + Math.min(rect.width - 8, 24),
+          rect.bottom + 4,
+          style,
+          family,
+        );
+      }, STYLE_VARIANT_LONG_PRESS_MS);
+    });
+    button.addEventListener("mouseup", clearLongPress);
+    button.addEventListener("mouseleave", clearLongPress);
+    button.addEventListener("touchstart", () => {
+      const family = styleFamilies.find((item) => item.base === style);
+      if (!family || family.variants.length === 0) {
+        return;
+      }
+      clearLongPress();
+      longPressTimer = window.setTimeout(() => {
+        longPressTimer = null;
+        const rect = button.getBoundingClientRect();
+        button.dataset.longPressHandled = "1";
+        openStyleVariantMenu(
+          rect.left + Math.min(rect.width - 8, 24),
+          rect.bottom + 4,
+          style,
+          family,
+        );
+      }, STYLE_VARIANT_LONG_PRESS_MS);
+    });
+    button.addEventListener("touchend", clearLongPress);
+    button.addEventListener("touchcancel", clearLongPress);
     styleOptions.appendChild(button);
   });
-  renderStyleList();
+  renderStyleFamilyList();
+  renderLegacyStyleMappingTable();
   if (trackEditorState.track) {
     fillTrackEditorFields(trackEditorState.track);
   }
@@ -10694,11 +11721,38 @@ const getActiveStyleFilter = () => {
   return selectedStyles;
 };
 
+const getExpandedStyleFilter = () => {
+  const active = getActiveStyleFilter();
+  const baseStyles = active.filter((style) => !splitStyleLabel(style).variant);
+  const explicitVariants = active
+    .filter((style) => splitStyleLabel(style).variant)
+    .map((style) => normalizeStyleName(style))
+    .filter(Boolean);
+  return Array.from(
+    new Set([
+      ...expandStyleFilters(baseStyles, familyStyleIndex),
+      ...explicitVariants,
+    ]),
+  );
+};
+
+const styleMatchesFilter = (style: string, filters: string[]) => {
+  const normalized = normalizeStyleName(style);
+  if (!normalized) {
+    return false;
+  }
+  if (filters.includes(normalized)) {
+    return true;
+  }
+  const { base } = splitStyleLabel(normalized);
+  return base ? filters.includes(base) : false;
+};
+
 const getSearchParams = () => {
   const config = getSearchConfig();
   return {
     query: searchInput?.value?.trim() ?? "",
-    styles: getActiveStyleFilter(),
+    styles: getExpandedStyleFilter(),
     minScore: config.minScore,
     bpmRange: config.bpmRange,
   };
@@ -11097,12 +12151,23 @@ const updateLegacyImport = async (candidatePath?: string | null) => {
     if (legacyReadinessResult && !legacyReadinessResult.textContent) {
       legacyReadinessResult.textContent = "";
     }
+    if (legacyStylesResult && !legacyStylesResult.textContent) {
+      legacyStylesResult.textContent = "";
+    }
+    legacyStyleTools?.classList.remove("hidden");
+    renderLegacyStyleMappingTable();
   } else {
     legacyImportRootPath = null;
     legacyImportDescription.textContent = "";
     if (legacyReadinessResult) {
       legacyReadinessResult.textContent = "";
     }
+    if (legacyStylesResult) {
+      legacyStylesResult.textContent = "";
+    }
+    legacyStyleTools?.classList.add("hidden");
+    legacyStyleRows = [];
+    renderLegacyStyleMappingTable();
     legacyImportSection.classList.add("hidden");
   }
 };
@@ -11116,7 +12181,11 @@ const init = async () => {
   window.addEventListener("error", (event) => {
     const message =
       event.error?.message ?? event.message ?? t("statusUnknownError");
-    showAlert(t("statusRendererError"));
+    showAlert(
+      t("statusRendererErrorDetail", {
+        message: formatAlertErrorMessage(message),
+      }),
+    );
     window.tanda?.logClientError({
       message,
       stack: event.error?.stack,
@@ -11129,7 +12198,11 @@ const init = async () => {
       typeof reason === "string"
         ? reason
         : reason?.message ?? t("statusUnknownError");
-    showAlert(t("statusRendererError"));
+    showAlert(
+      t("statusRendererErrorDetail", {
+        message: formatAlertErrorMessage(message),
+      }),
+    );
     window.tanda?.logClientError({
       message,
       stack: typeof reason === "string" ? undefined : reason?.stack,
@@ -11312,9 +12385,24 @@ const init = async () => {
     }
   });
   searchDiversityBtn?.addEventListener("click", () => {
-    void renderSearchDiversityStats().then(() => {
-      setSearchDiversityModalVisible(true);
-    });
+    if (searchDiversityRenderInFlight) {
+      return;
+    }
+    searchDiversityRenderInFlight = true;
+    searchDiversityBtn.disabled = true;
+    setSearchDiversityModalVisible(true);
+    void renderSearchDiversityStats()
+      .catch((error) => {
+        setStatus(
+          t("statusPrecomputeCompressionFailed", {
+            message: error instanceof Error ? error.message : t("statusUnknownError"),
+          }),
+        );
+      })
+      .finally(() => {
+        searchDiversityRenderInFlight = false;
+        searchDiversityBtn.disabled = false;
+      });
   });
   searchDiversityCloseBtn?.addEventListener("click", () => {
     setSearchDiversityModalVisible(false);
@@ -11575,8 +12663,29 @@ const init = async () => {
     });
   }
   renderNowPlayingDynamicsControl();
+  if (nowPlayingDynamicsControl) {
+    const stopNowPlayingPropagation = (event: Event) => {
+      event.stopPropagation();
+    };
+    nowPlayingDynamicsControl.addEventListener("pointerdown", stopNowPlayingPropagation);
+    nowPlayingDynamicsControl.addEventListener("mousedown", stopNowPlayingPropagation);
+    nowPlayingDynamicsControl.addEventListener("touchstart", stopNowPlayingPropagation);
+    nowPlayingDynamicsControl.addEventListener("click", stopNowPlayingPropagation);
+  }
   if (nowPlayingDynamicsMixInput) {
     nowPlayingDynamicsMixInput.value = getAudioDynamicsDepthPercent().toString();
+    nowPlayingDynamicsMixInput.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+    nowPlayingDynamicsMixInput.addEventListener("mousedown", (event) => {
+      event.stopPropagation();
+    });
+    nowPlayingDynamicsMixInput.addEventListener("touchstart", (event) => {
+      event.stopPropagation();
+    });
+    nowPlayingDynamicsMixInput.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
     nowPlayingDynamicsMixInput.addEventListener("input", () => {
       const next = Number.parseInt(nowPlayingDynamicsMixInput.value, 10);
       const clamped = Number.isFinite(next) ? Math.min(100, Math.max(0, next)) : 0;
@@ -11946,34 +13055,44 @@ const init = async () => {
     renderOrchestraRegistry();
   });
 
-  if (styleAddBtn) {
-    styleAddBtn.addEventListener("click", async () => {
-      if (!window.tanda || !styleNameInput) {
+  if (styleFamilyAddBtn) {
+    styleFamilyAddBtn.addEventListener("click", async () => {
+      const code = styleFamilyCodeInput?.value?.trim().toUpperCase() ?? "";
+      const base = styleFamilyBaseInput?.value?.trim() ?? "";
+      const variants = (styleFamilyVariantsInput?.value ?? "")
+        .split(/[;,/]+/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      if (!code || !base) {
         return;
       }
-      const name = styleNameInput.value.trim();
-      if (!name) {
-        return;
+      const next = styleFamilies.filter((family) => family.code !== code);
+      next.push({ code, base, variants });
+      await setStyleFamilies(next);
+      if (styleFamilyCodeInput) {
+        styleFamilyCodeInput.value = "";
       }
-      const result = await window.tanda.addStyle(name);
-      if (result?.ok) {
-        styleNameInput.value = "";
-        await loadStyles();
-        renderTandaDesigner();
-        refreshSearch();
-        setStatus(t("statusStyleAdded", { style: name }));
-      } else {
-        setStatus(t("statusStyleAddFailed"));
+      if (styleFamilyBaseInput) {
+        styleFamilyBaseInput.value = "";
       }
+      if (styleFamilyVariantsInput) {
+        styleFamilyVariantsInput.value = "";
+      }
+      recomputePlaylistMismatches();
+      renderPlaylist();
+      updateExternalDisplay();
+      setStatus(t("statusStyleAdded", { style: base }));
     });
   }
 
-  styleNameInput?.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter") {
-      return;
-    }
-    event.preventDefault();
-    styleAddBtn?.click();
+  [styleFamilyCodeInput, styleFamilyBaseInput, styleFamilyVariantsInput].forEach((input) => {
+    input?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") {
+        return;
+      }
+      event.preventDefault();
+      styleFamilyAddBtn?.click();
+    });
   });
 
   clipboardCollectionAddBtn?.addEventListener("click", () => {
@@ -12019,15 +13138,6 @@ const init = async () => {
     });
   }
 
-  if (playlistStyleMapInput) {
-    playlistStyleMapInput.value = getPlaylistStyleMapInput();
-    playlistStyleMapInput.addEventListener("change", () => {
-      localStorage.setItem("tanda-playlist-style-map", playlistStyleMapInput.value);
-      recomputePlaylistMismatches();
-      renderPlaylist();
-      updateExternalDisplay();
-    });
-  }
   cortinaStopBtn?.addEventListener("click", () => {
     if (!cortinaPlaying) {
       return;
@@ -12226,6 +13336,25 @@ const init = async () => {
     }
     if (progressLabelSettings) {
       progressLabelSettings.textContent = progressText;
+    }
+  });
+
+  window.tanda.onPrecomputeCompressedProgress((progress) => {
+    if (!precomputeCompressionInProgress) {
+      return;
+    }
+    if (progressElSettings) {
+      progressElSettings.max = Math.max(1, progress.total || 1);
+      progressElSettings.value = Math.min(progress.current, progress.total || progress.current);
+    }
+    if (progressLabelSettings) {
+      progressLabelSettings.textContent = t("statusPrecomputeCompressionProgress", {
+        current: progress.current,
+        total: progress.total,
+        rendered: progress.rendered,
+        cached: progress.cached,
+        failed: progress.failed,
+      });
     }
   });
 
@@ -12494,6 +13623,26 @@ const init = async () => {
   legacyReadinessButton?.addEventListener("click", () => {
     void verifyLegacyReadiness();
   });
+  legacyStylesButton?.addEventListener("click", async () => {
+    if (!window.tanda || !legacyImportRootPath || !legacyStylesResult) {
+      return;
+    }
+    legacyStylesResult.textContent = t("legacyStylesLoading");
+    const result = await window.tanda.listLegacyStyles(legacyImportRootPath);
+    if (!result.ok) {
+      legacyStylesResult.textContent = t("legacyStylesUnavailable");
+      legacyStyleRows = [];
+      renderLegacyStyleMappingTable();
+      return;
+    }
+    if (result.styles.length === 0) {
+      legacyStylesResult.textContent = t("legacyStylesNoneFound");
+      legacyStyleRows = [];
+      renderLegacyStyleMappingTable();
+      return;
+    }
+    await refreshLegacyStyleRows();
+  });
 
   const runScan = async (kind: "music" | "cortina") => {
     if (scanRequestInFlight) {
@@ -12581,6 +13730,14 @@ const init = async () => {
     }
     const config = getAudioDynamicsConfig();
     setStatus(t("statusPrecomputeCompressionRunning"));
+    precomputeCompressionInProgress = true;
+    if (progressElSettings) {
+      progressElSettings.max = 1;
+      progressElSettings.value = 0;
+    }
+    if (progressLabelSettings) {
+      progressLabelSettings.textContent = t("statusPrecomputeCompressionRunning");
+    }
     precomputeCompressedBtn.disabled = true;
     try {
       const result = await window.tanda.precomputeCompressedTracks({
@@ -12617,6 +13774,7 @@ const init = async () => {
         }),
       );
     } finally {
+      precomputeCompressionInProgress = false;
       precomputeCompressedBtn.disabled = false;
     }
   });
@@ -12799,6 +13957,29 @@ const init = async () => {
       closeRowMenus();
       return;
     }
+    if (action === "move-clip-tanda-collection") {
+      const targets = getTandaMoveTargets();
+      if (targets.length === 0) {
+        closeRowMenus();
+        return;
+      }
+      if (targets.length === 1) {
+        moveTandaBetweenClipboardCollections(tandaId, targets[0].id);
+        closeRowMenus();
+        return;
+      }
+      const actionButton = target.closest<HTMLButtonElement>(
+        'button[data-action="move-clip-tanda-collection"]',
+      );
+      if (actionButton) {
+        const rect = actionButton.getBoundingClientRect();
+        openTandaMoveTargetMenu(rect.left, rect.bottom + 4, tandaId, targets);
+      } else {
+        openTandaMoveTargetMenu(event.clientX, event.clientY, tandaId, targets);
+      }
+      closeRowMenus();
+      return;
+    }
     if (action === "remove-clip-tanda") {
       removeClipboardTanda(tandaId);
       renderClipboard();
@@ -12894,6 +14075,10 @@ const init = async () => {
     }
     closeRowMenus();
     closeDetailMenus();
+    if (!target?.closest(".style-variant-menu")) {
+      closeStyleVariantMenu();
+      closeCollectionTargetMenu();
+    }
   });
 
   panelTabButtons.forEach((button) => {
@@ -13534,7 +14719,7 @@ const init = async () => {
       const rule = getRuleForSlot(index);
       if (rule?.code && rule.code !== "*" && rule.code !== "ANY") {
         const mappedStyles = getPlaylistStyleMap()[rule.code] ?? [];
-        selectedStyles = [...mappedStyles];
+        selectedStyles = toBaseStyleFilters(mappedStyles);
         loadStyles();
         updateSearchTabVisibility();
         refreshSearch();
@@ -13667,7 +14852,7 @@ const init = async () => {
         .filter(Boolean) as string[];
       tanda.styles = Array.from(new Set([...normalizedExisting, ...derivedStyles]));
       if (selectedTandaId === tanda.id) {
-        selectedStyles = [...tanda.styles];
+        selectedStyles = toBaseStyleFilters(tanda.styles);
         loadStyles();
         updateSearchTabVisibility();
         refreshSearch();

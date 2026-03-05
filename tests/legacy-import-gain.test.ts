@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadLegacyLibrary } from "../app/src/main/legacy-import";
+import { listLegacyStyles, loadLegacyLibrary } from "../app/src/main/legacy-import";
 
 const tempPaths: string[] = [];
 
@@ -44,5 +44,30 @@ describe("loadLegacyLibrary gain parsing", () => {
     expect(derived?.gainDb).toBeCloseTo(3.5);
     expect(explicit?.loudnessDb).toBeCloseTo(-12);
     expect(explicit?.gainDb).toBeCloseTo(-4);
+  });
+
+  it("lists distinct legacy styles with counts", () => {
+    const legacyPath = writeLegacyFile({
+      "/music/a.mp3": {
+        track: { title: "A", artist: "Artist", genre: "Vals" },
+      },
+      "/music/b.mp3": {
+        track: { title: "B", artist: "Artist", genre: "Vals" },
+      },
+      "/music/c.mp3": {
+        track: { title: "C", artist: "Artist", genre: "Waltz" },
+      },
+      "/music/d.mp3": {
+        track: { title: "D", artist: "Artist" },
+        classifiers: { style: "Milonga" },
+      },
+    });
+
+    const styles = listLegacyStyles(legacyPath);
+    expect(styles).toEqual([
+      { value: "Vals", normalized: "Vals", count: 2 },
+      { value: "Milonga", normalized: "Milonga", count: 1 },
+      { value: "Waltz", normalized: "Waltz", count: 1 },
+    ]);
   });
 });

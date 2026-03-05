@@ -57,7 +57,7 @@ describe("buildTrackSearchQuery", () => {
 });
 
 describe("buildTrackSimilarityQuery", () => {
-  it("includes similarity metadata and excludes style/title/album", () => {
+  it("includes similarity metadata and excludes style/title/album/notes", () => {
     const query = buildTrackSimilarityQuery({
       title: "Todo Corazon",
       artist: "Julio De Caro",
@@ -73,7 +73,7 @@ describe("buildTrackSimilarityQuery", () => {
     expect(query).toContain("Carlos Gardel");
     expect(query).toContain("1932");
     expect(query).toContain("99");
-    expect(query).toContain("test note");
+    expect(query).not.toContain("test note");
     expect(query).not.toContain("Tango");
     expect(query).not.toContain("Todo Corazon");
     expect(query).not.toContain("Golden Years");

@@ -239,6 +239,37 @@ const normalizeLegacyGenre = (rawGenre: string, styleMap: Map<string, string>) =
   return styleMap.get(normalized.toLowerCase()) ?? "";
 };
 
+export const listLegacyStyles = (libraryPath: string) => {
+  const entries = loadLegacyLibrary(libraryPath);
+  const counts = new Map<string, { normalized: string; count: number }>();
+  entries.forEach((entry) => {
+    const raw = entry.genre?.trim() ?? "";
+    if (!raw) {
+      return;
+    }
+    const normalized = normalizeStyleName(raw);
+    const key = raw;
+    const current = counts.get(key);
+    counts.set(key, {
+      normalized,
+      count: (current?.count ?? 0) + 1,
+    });
+  });
+  return Array.from(counts.entries())
+    .map(([value, payload]) => ({
+      value,
+      normalized: payload.normalized,
+      count: payload.count,
+    }))
+    .sort((left, right) => {
+      const byCount = right.count - left.count;
+      if (byCount !== 0) {
+        return byCount;
+      }
+      return left.value.localeCompare(right.value);
+    });
+};
+
 const importLegacyTracks = async (
   entries: Map<string, LegacyTrackOverride>,
   roots: LibraryRoot[],
@@ -261,9 +292,16 @@ const importLegacyTracks = async (
   const styleRows = db
     .prepare("select name, normalized from styles")
     .all() as { name: string; normalized: string }[];
-  const styleMap = new Map(
+  const canonicalStyleMap = new Map(
     styleRows.map((row) => [row.normalized.toLowerCase(), row.name]),
   );
+  const aliasRows = db
+    .prepare("select style_name, alias_normalized from style_aliases")
+    .all() as { style_name: string; alias_normalized: string }[];
+  const styleMap = new Map(canonicalStyleMap);
+  aliasRows.forEach((row) => {
+    styleMap.set(row.alias_normalized.toLowerCase(), row.style_name);
+  });
   const selectStmt = db.prepare(
     `select id, title, artist, album, year, genre, bpm, notes, singer, created_at,
         duration_ms, start_offset_ms, end_trim_ms, loudness_db, gain_db

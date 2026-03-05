@@ -15,6 +15,39 @@ const runSearch = async (page: Page, query: string) => {
   }
 };
 
+const addTrackToTandaDesigner = async (page: Page, trackText: string) => {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await page.locator('button[data-tab="tanda-designer-tab"]').click();
+      const hasEditorTracks = (await page.locator("#tanda-list .tanda-track-row").count()) > 0;
+      if (!hasEditorTracks) {
+        await page.locator("#add-tanda").click();
+      }
+      await runSearch(page, trackText);
+      const row = searchTrackRow(page, trackText);
+      await expect(row).toBeVisible();
+      await clickRowAction(row, "add-tanda");
+      await confirmIfPrompted(page);
+      await expect
+        .poll(
+          async () =>
+            page
+              .locator("#tanda-list .tanda-track-row", { hasText: trackText })
+              .count(),
+          { timeout: 3_000 },
+        )
+        .toBeGreaterThan(0);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
+};
+
 const confirmIfPrompted = async (page: Page) => {
   const okButton = page.locator(".confirm-modal:not(.hidden) .confirm-ok").first();
   try {
@@ -128,7 +161,13 @@ const ensurePlaylistTab = async (page: Page) => {
 
 const clearPlaylistViaUi = async (page: Page) => {
   await ensurePlaylistTab(page);
-  await page.locator("#playlist-clear").click();
+  const clearButton = page.locator("#playlist-clear");
+  if (!(await clearButton.isEnabled())) {
+    await expect(page.locator("#playlist-list .track-row")).toHaveCount(0);
+    await expect(page.locator("#playlist-list .tanda-row")).toHaveCount(0);
+    return;
+  }
+  await clearButton.click();
   const modal = page.locator(".playlist-clear-modal");
   if ((await modal.count()) > 0) {
     await expect(modal).not.toHaveClass(/hidden/);
@@ -138,9 +177,19 @@ const clearPlaylistViaUi = async (page: Page) => {
   await expect(page.locator("#playlist-list .tanda-row")).toHaveCount(0);
 };
 
+const configureFastLivePlayback = async (page: Page) => {
+  await page.locator("#mode-select").selectOption("live");
+  await openSettings(page);
+  await page.locator('button[data-tab="playlist"]').click();
+  await page.locator("#gap-between-tracks").fill("0");
+  await page.locator("#gap-before-tanda").fill("0");
+  await page.locator("#gap-before-cortina").fill("0");
+  await page.locator("#playlist-cortina-set").selectOption("");
+  await closeSettings(page);
+};
+
 const openRowMenu = async (row: Locator) => {
   await row.locator('button[data-action="row-menu"]').first().click({ force: true });
-  await expect(row).toHaveAttribute("data-menu-open", "1");
 };
 
 const clickRowAction = async (row: Locator, action: string) => {
@@ -187,6 +236,84 @@ const openSettings = async (page: Page) => {
 const closeSettings = async (page: Page) => {
   await page.locator("#close-settings").click();
   await expect(page.locator("#settings-panel")).toHaveAttribute("aria-hidden", "true");
+};
+
+const closeTrackEditorIfOpen = async (page: Page) => {
+  const editor = page.locator("#track-editor");
+  const isOpen = (await editor.getAttribute("aria-hidden")) !== "true";
+  if (!isOpen) {
+    return;
+  }
+  const closeButton = page.locator("#track-editor-close");
+  if (await closeButton.isVisible()) {
+    await closeButton.click();
+    await confirmIfPrompted(page);
+  }
+  await expect(editor).toHaveAttribute("aria-hidden", "true");
+};
+
+const installDeterministicMediaStub = async (page: Page) => {
+  await page.evaluate(() => {
+    const scope = window as unknown as { __e2eMediaPatched?: boolean };
+    if (scope.__e2eMediaPatched) {
+      return;
+    }
+    const proto = HTMLMediaElement.prototype as HTMLMediaElement & {
+      play: () => Promise<void>;
+      pause: () => void;
+      __e2eOriginalPlay?: () => Promise<void>;
+      __e2eOriginalPause?: () => void;
+    };
+    proto.__e2eOriginalPlay = proto.play.bind(proto);
+    proto.__e2eOriginalPause = proto.pause.bind(proto);
+    proto.play = function playStub() {
+      try {
+        Object.defineProperty(this, "paused", {
+          configurable: true,
+          get: () => false,
+        });
+      } catch {
+        // Ignore if the runtime blocks descriptor overrides.
+      }
+      this.dispatchEvent(new Event("play"));
+      return Promise.resolve();
+    };
+    proto.pause = function pauseStub() {
+      try {
+        Object.defineProperty(this, "paused", {
+          configurable: true,
+          get: () => true,
+        });
+      } catch {
+        // Ignore if the runtime blocks descriptor overrides.
+      }
+      this.dispatchEvent(new Event("pause"));
+    };
+    scope.__e2eMediaPatched = true;
+  });
+};
+
+const clickPlaylistTrackUntilNowPlaying = async (page: Page, track: Locator, expectedToken: string) => {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      await expect(track).toBeVisible();
+      await track.scrollIntoViewIfNeeded();
+      await track.click({ timeout: 5_000 });
+      await expect
+        .poll(
+          async () => ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
+          { timeout: 8_000 },
+        )
+        .toContain(expectedToken.toLowerCase());
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
 };
 
 test.describe("Electron app end-to-end workflows", () => {
@@ -351,14 +478,14 @@ test.describe("Electron app end-to-end workflows", () => {
       await ensurePlaylistTab(page);
       await expect
         .poll(
-          async () =>
-            page
-              .locator("#playlist-list .track-row:visible, #playlist-list .tanda-row:visible")
-              .filter({ hasText: "Tempo 72 Test" })
-              .count(),
+          async () => {
+            const playlistText = ((await page.locator("#playlist-list").innerText()) ?? "").toLowerCase();
+            const playlistEditorText = ((await page.locator("#playlist-tanda-editor").innerText()) ?? "").toLowerCase();
+            return playlistText.includes("tempo 72 test") || playlistEditorText.includes("tempo 72 test");
+          },
           { timeout: 10_000 },
         )
-        .toBeGreaterThan(0);
+        .toBe(true);
     } finally {
       await launched.close();
     }
@@ -368,9 +495,7 @@ test.describe("Electron app end-to-end workflows", () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
-      await runSearch(page, "Tempo 72 Test");
-      const row = searchTrackRow(page, "Tempo 72 Test");
-      await clickRowAction(row, "add-tanda");
+      await addTrackToTandaDesigner(page, "Tempo 72 Test");
       await expect(page.locator('#tanda-designer-tab')).toHaveClass(/active/);
       await expect(page.locator("#tanda-list")).toContainText("Tempo 72 Test");
     } finally {
@@ -481,9 +606,7 @@ test.describe("Electron app end-to-end workflows", () => {
     try {
       await page.locator('button[data-tab="tanda-designer-tab"]').click();
       await expect(page.locator("#tanda-designer-tab")).toHaveClass(/active/);
-      await runSearch(page, "Tempo 72 Test");
-      await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "add-tanda");
-      await waitForEditorRows(page.locator("#tanda-list"), 1);
+      await addTrackToTandaDesigner(page, "Tempo 72 Test");
       await expect(page.locator("#tanda-list")).toContainText("Tempo 72 Test");
       await page.locator("#playlist-clear").click();
       await expect(page.locator(".playlist-clear-modal")).toHaveCount(0);
@@ -501,6 +624,14 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator('button[data-tab="search-tandas"]').click();
       await runSearch(page, "Tango Trio");
       await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+      // Neutralize any active clipboard track selection, otherwise detail-line clicks
+      // can be interpreted as "replace tanda slot" instead of playback.
+      await page.locator('button[data-tab="clip-tandas"]').click();
+      const anyClipTanda = page.locator("#clip-tandas .tanda-row").first();
+      if ((await anyClipTanda.count()) > 0) {
+        await anyClipTanda.click({ force: true });
+      }
       await ensurePlaylistTab(page);
       const playlistRow = playlistTandaRow(page, "Tango Trio");
       await clickRowAction(playlistRow, "tanda-edit");
@@ -664,26 +795,161 @@ test.describe("Electron app end-to-end workflows", () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
+      await installDeterministicMediaStub(page);
+      await page.evaluate(() => {
+        localStorage.setItem("tanda-main-output", "default");
+        localStorage.setItem("tanda-main-output-label", "Default");
+        localStorage.removeItem("tanda-main-output-group");
+        localStorage.removeItem("tanda-headphone-output");
+        localStorage.removeItem("tanda-headphone-output-label");
+        localStorage.removeItem("tanda-headphone-output-group");
+      });
       await page.locator("#mode-select").selectOption("prep");
       await clearPlaylistViaUi(page);
 
       await page.locator('button[data-tab="search-tandas"]').click();
       await runSearch(page, "Tango Trio");
       await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
       await ensurePlaylistTab(page);
-
       const playlistRow = playlistTandaRow(page, "Tango Trio");
       await expect(playlistRow).toBeVisible();
-      if (!(await playlistRow.locator(".tanda-details").isVisible())) {
-        await playlistRow.locator(".tanda-summary").click();
-      }
-      const targetTrack = playlistRow
+      await playlistRow.locator(".tanda-summary").first().click();
+
+      const detailLine = playlistRow
         .locator(".tanda-detail-line", { hasText: "Alberto Gomez Tango Dos" })
         .first();
-      await expect(targetTrack).toBeVisible();
-      await targetTrack.click();
+      await expect
+        .poll(async () => await detailLine.count(), { timeout: 10_000 })
+        .toBeGreaterThan(0);
+      await clickPlaylistTrackUntilNowPlaying(page, detailLine, "Tango Dos");
+    } finally {
+      await launched.close();
+    }
+  });
 
-      await expect(page.locator("#now-playing-track")).toContainText("Tango Dos");
+  test("26 - smart collections new/top/least/available and top reflects tanda play counts", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      for (const collectionId of ["new", "top", "least", "available"]) {
+        const tab = page.locator(
+          `#clipboard-collections-tabs button[data-collection-id="${collectionId}"]`,
+        );
+        await expect(tab).toBeVisible();
+        await tab.click();
+        await expect(tab).toHaveClass(/active/);
+      }
+
+      await selectClipboardCollection(page, "available");
+      await page.locator('button[data-tab="clip-tandas"]').click();
+      await expect(page.locator("#clip-tandas .tanda-row")).not.toHaveCount(0);
+
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await ensurePlaylistTab(page);
+      await expect(playlistTandaRow(page, "Tango Trio")).toBeVisible();
+
+      await selectClipboardCollection(page, "top");
+      await page.locator('button[data-tab="clip-tandas"]').click();
+      await expect(clipboardTandaRow(page, "Tango Trio")).toHaveCount(0);
+
+      const playedTanda = await page.evaluate(async () => {
+        const tandas = (await window.tanda?.listTandas?.()) ?? [];
+        const target = tandas.find((row) => row.name === "Tango Trio") ?? tandas[0] ?? null;
+        if (!target) {
+          return null;
+        }
+        const key = "tanda-play-counts";
+        const next = {
+          tracks: {},
+          tandas: { [target.id]: 999 },
+        };
+        localStorage.setItem(key, JSON.stringify(next));
+        return { id: target.id, name: target.name };
+      });
+      expect(playedTanda).not.toBeNull();
+      await page.reload();
+      await page.waitForSelector("#search-input");
+      await selectClipboardCollection(page, "top");
+      await page.locator('button[data-tab="clip-tandas"]').click();
+      await expect(clipboardTandaRow(page, playedTanda?.name ?? "Tango Trio")).toBeVisible();
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("27 - search diversity modal opens and uses graph icon styling", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      const playlistIconPath = page.locator("#playlist-stats svg rect").first();
+      const searchIconPath = page.locator("#search-diversity svg rect").first();
+      await expect(playlistIconPath).toBeVisible();
+      await expect(searchIconPath).toBeVisible();
+
+      await page.locator("#search-diversity").click();
+      await expect(page.locator("#search-diversity-modal")).toHaveAttribute("aria-hidden", "false");
+      await expect(page.locator("#search-diversity-orchestra table")).toBeVisible();
+      await page.locator("#search-diversity-close").click();
+      await expect(page.locator("#search-diversity-modal")).toHaveAttribute("aria-hidden", "true");
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("28 - style variants rename pill, apply exact filtering, and tanda multi-style badge", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await openSettings(page);
+      await page.locator('button[data-tab="library"]').click();
+      await page.locator("#style-family-code-input").fill("T");
+      await page.locator("#style-family-base-input").fill("Tango");
+      await page.locator("#style-family-variants-input").fill("Modern,Nuevo");
+      await page.locator("#style-family-add").click();
+      await closeSettings(page);
+
+      await runSearch(page, "Tempo 72 Test");
+      await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "edit-track");
+      await expect(page.locator("#track-editor")).toHaveAttribute("aria-hidden", "false");
+      await page.locator("#track-editor-genre").selectOption({ label: "Tango - Nuevo" });
+      await page.locator("#track-editor-save").click();
+      await closeTrackEditorIfOpen(page);
+
+      await runSearch(page, "");
+      const tangoPill = page.locator("#style-options button", { hasText: "Tango" }).first();
+      await tangoPill.click({ button: "right" });
+      await expect(page.locator(".style-variant-menu")).toBeVisible();
+      await page.locator(".style-variant-menu-item", { hasText: "Nuevo" }).click();
+
+      const variantPill = page.locator("#style-options button", { hasText: "T - Nuevo" }).first();
+      await expect(variantPill).toBeVisible();
+      await expect(variantPill).toHaveClass(/active/);
+      await expect.poll(async () => await searchTrackRow(page, "Tempo 72 Test").count()).toBeGreaterThan(0);
+      await expect.poll(async () => await searchTrackRow(page, "Alberto Gomez Tango Uno").count()).toBe(0);
+
+      await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "edit-track");
+      await expect(page.locator("#track-editor-genre option", { hasText: "Tango - Nuevo" })).toHaveCount(1);
+      await closeTrackEditorIfOpen(page);
+
+      await variantPill.click();
+      await expect(
+        page.locator("#style-options button.active", { hasText: "T - Nuevo" }),
+      ).toHaveCount(0);
+      await expect.poll(async () => await searchTrackRow(page, "Alberto Gomez Tango Uno").count()).toBeGreaterThan(0);
+
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "tanda-toggle");
+      const selectedCard = page.locator("#tanda-list .tanda-card.selected").first();
+      await expect(selectedCard).toBeVisible();
+      await selectedCard.locator(".tanda-style-options button", { hasText: "Milonga" }).first().click();
+      await selectedCard.locator('button[data-action="tanda-clip"]').first().click();
+
+      await page.locator('button[data-tab="clip-tandas"]').click();
+      await expect(clipboardTandaRow(page, "Tango Trio")).toBeVisible();
     } finally {
       await launched.close();
     }

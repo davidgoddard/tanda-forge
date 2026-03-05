@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   filterAndScoreTracks,
   normalizeSearchQuery,
+  parseScopedSearchQuery,
   scoreTrackAgainstQuery,
 } from "../app/src/main/library/fuzzy-search";
 import type { TrackRow } from "../app/src/shared/types";
@@ -373,5 +374,55 @@ describe("fuzzy search helpers", () => {
       sortDir: "desc",
     });
     expect(result[0].track.id).toBe("canonical-track");
+  });
+
+  it("parses artist-scoped queries and normalizes the scoped part", () => {
+    const parsed = parseScopedSearchQuery("artist: D'Aríenzo");
+    expect(parsed.scope).toBe("artist");
+    expect(normalizeSearchQuery("artist: D'Aríenzo")).toBe("d arienzo");
+  });
+
+  it("limits artist-scoped search to artist field (not title)", () => {
+    const artistMatch = buildTrack({
+      id: "artist-match",
+      artist: "Juan D'Arienzo",
+      title: "Random Title",
+    });
+    const titleOnly = buildTrack({
+      id: "title-only",
+      artist: "Different Orchestra",
+      title: "Juan D'Arienzo Special",
+    });
+    const result = filterAndScoreTracks([titleOnly, artistMatch], {
+      query: "artist: darienzo",
+      minScore: 0.2,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].track.id).toBe("artist-match");
+  });
+
+  it("matches alias-equivalent artists in artist-scoped search", () => {
+    const aliasTrack = buildTrack({
+      id: "alias-track",
+      artist: "Pacho",
+      title: "Track A",
+    });
+    const unrelated = buildTrack({
+      id: "other-track",
+      artist: "Random Artist",
+      title: "Track B",
+    });
+    const result = filterAndScoreTracks([unrelated, aliasTrack], {
+      query: "artist: Juan Maglio",
+      minScore: 0.2,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].track.id).toBe("alias-track");
   });
 });

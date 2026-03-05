@@ -1,7 +1,13 @@
 import { createHash, randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
-import { analyzeTrack, readTags, renderWaveformPng } from "./analysis";
+import {
+  analyzeTrack,
+  readTags,
+  renderWaveformPng,
+  type TagResult,
+  type TrackAnalysis,
+} from "./analysis";
 import {
   extractSingerName,
   normalizeStyleName,
@@ -162,6 +168,12 @@ export const scanLibraryRoots = async (
   const styleMap = new Map(
     styleRows.map((row) => [row.normalized.toLowerCase(), row.name]),
   );
+  const styleAliasRows = db
+    .prepare("select style_name, alias_normalized from style_aliases")
+    .all() as { style_name: string; alias_normalized: string }[];
+  styleAliasRows.forEach((row) => {
+    styleMap.set(row.alias_normalized.toLowerCase(), row.style_name);
+  });
   let scanned = 0;
   let added = 0;
   let updated = 0;
@@ -284,31 +296,76 @@ export const scanLibraryRoots = async (
         const trackId = existing?.id ?? randomUUID();
         const unchanged = shouldReuseUnchangedAnalysis(existing, stat);
 
-        if (!unchanged) {
-          const tagResult = await readTags(filePath);
-          tags = tagResult.tags;
-          if (tagResult.error) {
-            tagError = tagResult.error;
+        const existingAnalysis: TrackAnalysis = {
+          durationMs: existing?.duration_ms ?? 0,
+          startOffsetMs: existing?.start_offset_ms ?? 0,
+          endTrimMs: existing?.end_trim_ms ?? 0,
+          loudnessDb: existing?.loudness_db ?? undefined,
+          gainDb: existing?.gain_db ?? undefined,
+          error: existing?.analysis_error ?? "",
+        };
+        const parseExistingTags = () => {
+          if (!existing?.tag_json) {
+            return {};
           }
-        } else if (existing?.tag_json) {
           try {
-            tags = JSON.parse(existing.tag_json) as Record<string, string>;
+            return JSON.parse(existing.tag_json) as Record<string, string>;
           } catch {
-            tags = {};
+            return {};
           }
+        };
+        const tagPromise: Promise<TagResult> = unchanged
+          ? Promise.resolve({
+              tags: parseExistingTags(),
+              error: existing?.tag_error ?? undefined,
+            })
+          : readTags(filePath);
+        const analysisPromise: Promise<TrackAnalysis> = unchanged
+          ? Promise.resolve(existingAnalysis)
+          : analyzeTrack(filePath);
+        const waveformPath = waveformsDir ? path.join(waveformsDir, `${trackId}.png`) : "";
+        const waveformPromise: Promise<void> =
+          waveformsDir && !fs.existsSync(waveformPath)
+            ? renderWaveformPng(filePath, waveformPath)
+            : Promise.resolve();
+        const [tagSettled, analysisSettled, waveformSettled] =
+          await Promise.allSettled([tagPromise, analysisPromise, waveformPromise]);
+
+        if (tagSettled.status === "fulfilled") {
+          tags = tagSettled.value.tags ?? {};
+          if (tagSettled.value.error) {
+            tagError = tagSettled.value.error;
+          }
+        } else {
+          tags = {};
+          tagError =
+            tagSettled.reason instanceof Error
+              ? tagSettled.reason.message
+              : "Tag read failed";
         }
 
-        const analysis = unchanged
-          ? ({
-              durationMs: existing?.duration_ms ?? 0,
-              startOffsetMs: existing?.start_offset_ms ?? 0,
-              endTrimMs: existing?.end_trim_ms ?? 0,
-              loudnessDb: existing?.loudness_db ?? null,
-              gainDb: existing?.gain_db ?? null,
-              error: existing?.analysis_error ?? "",
-            } as const)
-          : await analyzeTrack(filePath);
+        let analysis: TrackAnalysis = existingAnalysis;
+        if (analysisSettled.status === "fulfilled") {
+          analysis = analysisSettled.value;
+        } else {
+          const analysisFailure =
+            analysisSettled.reason instanceof Error
+              ? analysisSettled.reason.message
+              : "Analysis failed";
+          analysis = { ...existingAnalysis, error: analysisFailure };
+        }
         const analysisError = analysis.error ?? "";
+
+        if (waveformSettled.status === "rejected") {
+          errors.push({
+            filePath,
+            message: `Waveform: ${
+              waveformSettled.reason instanceof Error
+                ? waveformSettled.reason.message
+                : "Waveform failed"
+            }`,
+          });
+        }
 
         const legacy =
           options?.getLegacyMetadata?.(root, relativePath) ?? null;
@@ -407,22 +464,6 @@ export const scanLibraryRoots = async (
             updated += 1;
           } else {
             added += 1;
-          }
-        }
-
-        if (waveformsDir) {
-          const wavePath = path.join(waveformsDir, `${trackId}.png`);
-          if (!fs.existsSync(wavePath)) {
-            try {
-              await renderWaveformPng(filePath, wavePath);
-            } catch (error) {
-              errors.push({
-                filePath,
-                message: `Waveform: ${
-                  error instanceof Error ? error.message : "Waveform failed"
-                }`,
-              });
-            }
           }
         }
 

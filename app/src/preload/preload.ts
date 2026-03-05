@@ -12,6 +12,8 @@ const api: AppApi = {
   listRoots: async () => ipcRenderer.invoke("library:listRoots"),
   detectLegacy: async (path) => ipcRenderer.invoke("legacy:detect", path),
   importLegacy: async (rootPath) => ipcRenderer.invoke("legacy:import", rootPath),
+  listLegacyStyles: async (rootPath) =>
+    ipcRenderer.invoke("legacy:listStyles", rootPath),
   scanAll: async () => ipcRenderer.invoke("library:scanAll"),
   scanKind: async (kind) => ipcRenderer.invoke("library:scanKind", kind),
   listTracks: async () => ipcRenderer.invoke("library:listTracks"),
@@ -51,6 +53,17 @@ const api: AppApi = {
     ipcRenderer.invoke("audio:renderCompressedTrack", params),
   precomputeCompressedTracks: async (params) =>
     ipcRenderer.invoke("audio:precomputeCompressedTracks", params),
+  onPrecomputeCompressedProgress: (handler) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: unknown) => {
+      handler(progress as never);
+    };
+    ipcRenderer.on("audio:precomputeProgress", listener);
+    return () => {
+      ipcRenderer.removeListener("audio:precomputeProgress", listener);
+    };
+  },
+  getSearchDiversityStats: async () =>
+    ipcRenderer.invoke("stats:getSearchDiversity"),
   getDiagnosticsPaths: async () =>
     ipcRenderer.invoke("diagnostics:getPaths"),
   getDiagnosticsLogs: async (params) =>
@@ -62,6 +75,7 @@ const api: AppApi = {
   logPlaybackDiagnostic: async (params) =>
     ipcRenderer.invoke("app:logPlaybackDiagnostic", params),
   listStyles: async () => ipcRenderer.invoke("styles:list"),
+  listStyleDefinitions: async () => ipcRenderer.invoke("styles:listDefinitions"),
   addStyle: async (name) => ipcRenderer.invoke("styles:add", name),
   removeStyle: async (name) => ipcRenderer.invoke("styles:remove", name),
   replaceDefaultStyles: async (payload) =>

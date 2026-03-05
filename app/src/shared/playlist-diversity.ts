@@ -169,6 +169,68 @@ export const buildAdaptiveNumericDistribution = (
   return rows;
 };
 
+const mergeStyleCounts = (
+  target: Record<string, number>,
+  source: Record<string, number> | undefined,
+) => {
+  if (!source) {
+    return target;
+  }
+  Object.entries(source).forEach(([style, value]) => {
+    if (!style || !Number.isFinite(value) || value <= 0) {
+      return;
+    }
+    target[style] = (target[style] ?? 0) + value;
+  });
+  return target;
+};
+
+export const buildAdaptiveStyleNumericDistribution = (
+  counts: Map<number, Record<string, number>>,
+  maxDensePoints = 30,
+  histogramBuckets = 30,
+) => {
+  if (counts.size === 0) {
+    return [] as { label: string; value: number; styleValues: Record<string, number> }[];
+  }
+  const keys = Array.from(counts.keys()).sort((a, b) => a - b);
+  const min = keys[0] ?? 0;
+  const max = keys[keys.length - 1] ?? 0;
+  const span = max - min + 1;
+  if (span <= maxDensePoints) {
+    const rows: { label: string; value: number; styleValues: Record<string, number> }[] = [];
+    for (let bucket = min; bucket <= max; bucket += 1) {
+      const styleValues = { ...(counts.get(bucket) ?? {}) };
+      const value = Object.values(styleValues).reduce((sum, current) => sum + current, 0);
+      rows.push({
+        label: bucket.toString(),
+        value,
+        styleValues,
+      });
+    }
+    return rows;
+  }
+  const bucketCount = Math.max(1, histogramBuckets);
+  const bucketWidth = span / bucketCount;
+  const rows: { label: string; value: number; styleValues: Record<string, number> }[] = [];
+  for (let index = 0; index < bucketCount; index += 1) {
+    const start = Math.floor(min + index * bucketWidth);
+    const nextStart = Math.floor(min + (index + 1) * bucketWidth);
+    const end = index === bucketCount - 1 ? max : Math.max(start, nextStart - 1);
+    const styleValues: Record<string, number> = {};
+    for (let point = start; point <= end; point += 1) {
+      mergeStyleCounts(styleValues, counts.get(point));
+    }
+    const value = Object.values(styleValues).reduce((sum, current) => sum + current, 0);
+    rows.push({
+      label: start === end ? `${start}` : `${start}-${end}`,
+      value,
+      styleValues,
+    });
+  }
+  return rows;
+};
+
 export type OrchestraDurationEntry = {
   artist: string;
   seconds: number;

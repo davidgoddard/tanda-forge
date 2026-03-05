@@ -1,9 +1,44 @@
 import type Database from "better-sqlite3";
 import { effectiveDurationMs } from "../../shared/tanda-utils";
+import { ORCHESTRA_SEED_DATA } from "../../shared/orchestra-seed";
+import {
+  buildOrchestraAliasIndex,
+  convertSeedToRegistry,
+  normalizeOrchestraText,
+} from "../../shared/orchestra-registry";
+import { parseScopedSearchQuery } from "./fuzzy-search";
 
 type TandaSearchParams = {
   query: string;
   styles: string[];
+};
+
+const ORCHESTRA_REGISTRY = convertSeedToRegistry(ORCHESTRA_SEED_DATA);
+const ORCHESTRA_ALIAS_INDEX = buildOrchestraAliasIndex(ORCHESTRA_REGISTRY);
+const ORCHESTRA_BY_ID = new Map(
+  ORCHESTRA_REGISTRY.map((entry) => [entry.id, entry]),
+);
+
+const resolveArtistScopedCandidates = (artistQuery: string) => {
+  const trimmed = artistQuery.trim();
+  if (!trimmed) {
+    return [] as string[];
+  }
+  const normalized = normalizeOrchestraText(trimmed);
+  if (!normalized) {
+    return [trimmed];
+  }
+  const direct = ORCHESTRA_ALIAS_INDEX.get(normalized);
+  if (!direct) {
+    return [trimmed];
+  }
+  const entry = ORCHESTRA_BY_ID.get(direct);
+  if (!entry) {
+    return [trimmed];
+  }
+  return [entry.canonical, ...entry.aliases]
+    .map((value) => value.trim())
+    .filter((value, index, list) => value.length > 0 && list.indexOf(value) === index);
 };
 
 export type TandaSavePayload = {
@@ -55,28 +90,59 @@ export type TandaSearchRow = {
 };
 
 export const buildTandaSearchWhere = (params: TandaSearchParams) => {
-  const query = params.query.trim();
+  const scoped = parseScopedSearchQuery(params.query ?? "");
+  const query = scoped.query.trim();
   const where: string[] = [];
   const values: unknown[] = [];
 
   if (query) {
-    const like = `%${query}%`;
-    where.push(
-      `(
-        tandas.name like ?
-        or exists (
-          select 1 from tanda_styles ts
-          where ts.tanda_id = tandas.id and ts.style_name like ?
-        )
-        or exists (
-          select 1 from tanda_tracks tt
-          join tracks t on t.id = tt.track_id
-          where tt.tanda_id = tandas.id
-            and (t.title like ? or t.artist like ? or t.singer like ? or t.album like ? or t.year like ? or t.genre like ? or t.notes like ?)
-        )
-      )`,
-    );
-    values.push(like, like, like, like, like, like, like, like, like);
+    if (scoped.scope === "artist") {
+      const candidates = resolveArtistScopedCandidates(query);
+      if (candidates.length > 0) {
+        const artistConditions = candidates
+          .map(() => "(lower(coalesce(t.artist_summary, '')) like ? or lower(coalesce(t.artist, '')) like ?)")
+          .join(" or ");
+        where.push(
+          `exists (
+            select 1 from tanda_tracks tt
+            join tracks t on t.id = tt.track_id
+            where tt.tanda_id = tandas.id
+              and (${artistConditions})
+          )`,
+        );
+        candidates.forEach((candidate) => {
+          const like = `%${candidate.toLowerCase()}%`;
+          values.push(like, like);
+        });
+      }
+    } else {
+      const like = `%${query}%`;
+      where.push(
+        `(
+          tandas.name like ?
+          or exists (
+            select 1 from tanda_styles ts
+            where ts.tanda_id = tandas.id and ts.style_name like ?
+          )
+          or exists (
+            select 1 from tanda_tracks tt
+            join tracks t on t.id = tt.track_id
+            where tt.tanda_id = tandas.id
+              and (
+                t.title like ?
+                or t.artist_summary like ?
+                or t.artist like ?
+                or t.singer like ?
+                or t.album like ?
+                or t.year like ?
+                or t.genre like ?
+                or t.notes like ?
+              )
+          )
+        )`,
+      );
+      values.push(like, like, like, like, like, like, like, like, like, like);
+    }
   }
 
   if (params.styles.length > 0) {

@@ -171,6 +171,15 @@ export type AppApi = {
     missingFiles: { filePath: string; message: string }[];
     rootPath: string;
   }>;
+  listLegacyStyles: (rootPath: string) => Promise<{
+    ok: boolean;
+    styles: Array<{
+      value: string;
+      normalized: string;
+      count: number;
+      mappedTo: string;
+    }>;
+  }>;
   scanAll: () => Promise<ScanSummary>;
   scanKind: (kind: "music" | "cortina") => Promise<ScanSummary>;
   listTracks: () => Promise<TrackRow[]>;
@@ -246,6 +255,32 @@ export type AppApi = {
     limiterCeilingDb: number;
     limiterReleaseMs: number;
   }) => Promise<{ ok: boolean; rendered: number; cached: number; failed: number; error?: string }>;
+  onPrecomputeCompressedProgress: (handler: (progress: {
+    current: number;
+    total: number;
+    rendered: number;
+    cached: number;
+    failed: number;
+    done: boolean;
+  }) => void) => () => void;
+  getSearchDiversityStats: () => Promise<{
+    orchestraRows: Array<{ artist: string; total: number; styles: Record<string, number> }>;
+    availableOrchestraRows: Array<{
+      artist: string;
+      trackCount: number;
+      styles: Record<string, number>;
+      yearCount: number;
+      tempoCount: number;
+    }>;
+    yearBuckets: Array<[number, number]>;
+    yearStyleBuckets: Array<[number, Array<[string, number]>]>;
+    tempoBuckets: Array<[number, number]>;
+    tempoStyleBuckets: Array<[number, Array<[string, number]>]>;
+    styleBuckets: Array<[string, number]>;
+    availableYearBuckets: Array<[number, number]>;
+    availableTempoBuckets: Array<[number, number]>;
+    availableStyleBuckets: Array<[string, number]>;
+  }>;
   getDiagnosticsPaths: () => Promise<{
     userData: string;
     waveformsDir: string;
@@ -290,6 +325,7 @@ export type AppApi = {
     attemptedOutputDeviceIds?: string[];
   }) => Promise<void>;
   listStyles: () => Promise<string[]>;
+  listStyleDefinitions: () => Promise<Array<{ name: string; aliases: string[] }>>;
   addStyle: (name: string) => Promise<{ ok: boolean }>;
   removeStyle: (name: string) => Promise<{ ok: boolean }>;
   replaceDefaultStyles: (params: {

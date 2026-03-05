@@ -18,7 +18,19 @@ describe("tanda search helpers", () => {
     const likeCount = result.values.filter(
       (value) => value === "%troilo%",
     ).length;
-    expect(likeCount).toBe(9);
+    expect(likeCount).toBe(10);
     expect(result.values.slice(-2)).toEqual(["Tango", "Vals"]);
+  });
+
+  it("builds artist-scoped query against track artist fields only", () => {
+    const result = buildTandaSearchWhere({
+      query: "artist: Juan Maglio",
+      styles: [],
+    });
+    expect(result.whereSql).toContain("join tracks t on t.id = tt.track_id");
+    expect(result.whereSql).toContain("t.artist_summary");
+    expect(result.whereSql).toContain("t.artist");
+    expect(result.whereSql).not.toContain("t.title like");
+    expect(result.values.length).toBeGreaterThanOrEqual(2);
   });
 });

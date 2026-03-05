@@ -57,8 +57,14 @@ const createSchema = (database: Database.Database) => {
       name text primary key,
       normalized text not null unique
     );
+    create table if not exists style_aliases (
+      style_name text not null,
+      alias text not null,
+      alias_normalized text not null unique
+    );
 
     create index if not exists idx_tracks_root on tracks (root_id);
+    create index if not exists idx_style_aliases_style_name on style_aliases (style_name);
 
     create table if not exists tandas (
       id text primary key,
@@ -99,6 +105,11 @@ const createSchema = (database: Database.Database) => {
       value text not null,
       updated_at text not null
     );
+
+    create index if not exists idx_tanda_tracks_tanda on tanda_tracks (tanda_id);
+    create index if not exists idx_tanda_tracks_track on tanda_tracks (track_id);
+    create index if not exists idx_tanda_styles_tanda on tanda_styles (tanda_id);
+    create index if not exists idx_playlist_items_playlist on playlist_items (playlist_id);
   `);
 };
 
@@ -146,6 +157,11 @@ export const initDb = () => {
     );
   } catch {}
   try {
+    db.exec(
+      "create table if not exists style_aliases (style_name text not null, alias text not null, alias_normalized text not null unique)",
+    );
+  } catch {}
+  try {
     db.exec("alter table tracks add column loudness_db real");
   } catch {}
   try {
@@ -184,6 +200,21 @@ export const initDb = () => {
     db.exec(
       "create table if not exists app_state (key text primary key, value text not null, updated_at text not null)",
     );
+  } catch {}
+  try {
+    db.exec("create index if not exists idx_tanda_tracks_tanda on tanda_tracks (tanda_id)");
+  } catch {}
+  try {
+    db.exec("create index if not exists idx_tanda_tracks_track on tanda_tracks (track_id)");
+  } catch {}
+  try {
+    db.exec("create index if not exists idx_tanda_styles_tanda on tanda_styles (tanda_id)");
+  } catch {}
+  try {
+    db.exec("create index if not exists idx_playlist_items_playlist on playlist_items (playlist_id)");
+  } catch {}
+  try {
+    db.exec("create index if not exists idx_style_aliases_style_name on style_aliases (style_name)");
   } catch {}
   return db;
 };
