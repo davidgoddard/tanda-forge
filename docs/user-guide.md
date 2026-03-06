@@ -276,6 +276,8 @@ For each legacy style row:
 - choose an existing canonical style in the dropdown to map this legacy value as an alias, or
 - fill **Code / Base style / Alias** and click **Add as new style** to create and map that legacy value immediately.
 
+When importing legacy tandas, any legacy name equal to `Auto Generated Tanda` is intentionally cleared so the app can show its richer dynamic artist-summary label instead.
+
 Although the old legacy data does include some information to help normalise the sound levels and trim tracks, the compression and trimming is slightly different and so it is recommended to use the **scan** buttons and leave the system to read the files. 
 
 Further to this, if **compression** (dynamic range reduction) is to be enabled, the system will generate compressed files on the fly when you play a track but this can mean a sudden CPU load on the PC and perhaps a few seconds delay.  It is recommended to click **Precompute compressed cache** button once all else is done and it will ensure all files are immediately available as compressed versions.  This takes a very long time to complete.
@@ -307,4 +309,3 @@ Check **Settings → Diagnostics** for:
 
 - Audio tool locations (ffmpeg/ffprobe)
 - Waveform paths and test button
-

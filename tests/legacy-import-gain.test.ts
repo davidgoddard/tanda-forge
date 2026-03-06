@@ -2,7 +2,11 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { listLegacyStyles, loadLegacyLibrary } from "../app/src/main/legacy-import";
+import {
+  listLegacyStyles,
+  loadLegacyLibrary,
+  normalizeLegacyTandaName,
+} from "../app/src/main/legacy-import";
 
 const tempPaths: string[] = [];
 
@@ -73,5 +77,12 @@ describe("loadLegacyLibrary gain parsing", () => {
       { value: "Milonga", normalized: "Milonga", count: 1 },
       { value: "Tango - Nuevo", normalized: "Tango - Nuevo", count: 1 },
     ]);
+  });
+
+  it("normalizes legacy auto-generated tanda names to blank", () => {
+    expect(normalizeLegacyTandaName("Auto Generated Tanda")).toBe("");
+    expect(normalizeLegacyTandaName(" auto generated tanda ")).toBe("");
+    expect(normalizeLegacyTandaName("My Custom Tanda")).toBe("My Custom Tanda");
+    expect(normalizeLegacyTandaName("")).toBe("");
   });
 });

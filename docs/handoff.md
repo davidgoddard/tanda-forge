@@ -5575,3 +5575,25 @@
   - `npm run build` passed.
   - `npm test` passed (64 files, 288 tests).
   - Targeted Playwright check was attempted but Electron launch failed in this execution environment.
+
+### Latest update
+- Added legacy tanda-name import normalization for low-value auto labels.
+- Requirement implemented:
+  - If a legacy tanda name equals `Auto Generated Tanda` (trimmed, case-insensitive), imported tanda name is set to blank.
+  - Otherwise, legacy tanda name is imported as provided.
+- Implementation details:
+  - `app/src/main/legacy-import.ts`
+    - added `normalizeLegacyTandaName(...)` helper.
+    - updated `importLegacyTandas(...)` label selection logic to clear only auto-generated label values while preserving normal names.
+    - retained synthetic fallback `Imported Tanda N` only when both legacy name fields are absent.
+- Tests:
+  - `tests/legacy-import-gain.test.ts`
+    - added unit test for `normalizeLegacyTandaName(...)` covering exact/trim/case variants and normal-name pass-through.
+- Documentation:
+  - `design/14-settings-and-configuration.md`
+    - added `CFG-LIB-008.a` for this import-name behavior.
+  - `docs/user-guide.md`
+    - documented the `Auto Generated Tanda` clearing behavior in legacy import notes.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 289 tests).

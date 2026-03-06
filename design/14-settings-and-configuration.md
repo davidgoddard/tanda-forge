@@ -33,6 +33,9 @@ Board, Diagnostics, System).
   exposes a legacy import action.
 - CFG-LIB-008: Legacy import replaces existing tandas and applies any available
   legacy track metadata in preference to tag/analysis data when fields are non-empty.
+- CFG-LIB-008.a: During legacy tanda import, any legacy tanda name equal to
+  `Auto Generated Tanda` (case-insensitive, trimmed) is rewritten to a blank name so
+  the app can use dynamic artist-summary rendering instead of the low-value legacy label.
 - CFG-LIB-009: Legacy import does not perform a full rescan; it validates file existence,
   derives trims from legacy analysis fields, and reuses legacy waveform PNGs when present.
 - CFG-LIB-011: Style families are configured in the Library tab before import/scan workflows.

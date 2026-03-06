@@ -79,6 +79,8 @@ type LegacyTandaEntry = {
   tracks?: string[];
 };
 
+const LEGACY_AUTO_GENERATED_TANDA_NAME = "auto generated tanda";
+
 const LEGACY_FILES = ["config.js", "tandas.dat", "library.dat"];
 
 const hasLegacyFiles = (rootPath: string) =>
@@ -299,6 +301,17 @@ export const listLegacyStyles = (libraryPath: string) => {
       }
       return left.value.localeCompare(right.value);
     });
+};
+
+export const normalizeLegacyTandaName = (value: string | null | undefined) => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) {
+    return "";
+  }
+  if (trimmed.toLowerCase() === LEGACY_AUTO_GENERATED_TANDA_NAME) {
+    return "";
+  }
+  return trimmed;
 };
 
 const importLegacyTracks = async (
@@ -619,10 +632,15 @@ const importLegacyTandas = (tandasPath: string, roots: LibraryRoot[]) => {
   let imported = 0;
   let missingTracks = 0;
   raw.forEach((entry, index) => {
+    const rawLabel = entry.label?.trim() ?? "";
+    const rawDescription = entry.description?.trim() ?? "";
+    const normalizedLabel = normalizeLegacyTandaName(rawLabel);
+    const normalizedDescription = normalizeLegacyTandaName(rawDescription);
+    const hasLegacyNameField = rawLabel.length > 0 || rawDescription.length > 0;
     const label =
-      entry.label?.trim() ||
-      entry.description?.trim() ||
-      `Imported Tanda ${index + 1}`;
+      normalizedLabel ||
+      normalizedDescription ||
+      (hasLegacyNameField ? "" : `Imported Tanda ${index + 1}`);
     const style = entry.style ? normalizeStyleName(entry.style) : "";
     const styles = style ? [style] : [];
     const trackSlots: (string | null)[] = [];

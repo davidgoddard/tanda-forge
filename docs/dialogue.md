@@ -4004,3 +4004,21 @@ Code diffs are omitted; only intent and outcomes are captured.
   - `npm run build` passed.
   - `npm test` passed (64 files, 288 tests).
   - Targeted Playwright run could not complete in this environment: Electron process failed to launch.
+
+### Latest update
+- User prompt: Requested legacy import feature where tanda name `Auto Generated Tanda` should be imported as blank (because the new app summary is better), while all other names import normally.
+- Assistant response:
+  - Added legacy tanda-name normalization for import:
+    - exact match after trim/case-fold of `Auto Generated Tanda` becomes blank.
+    - non-matching names are preserved.
+  - Applied this in legacy tanda import label resolution.
+  - Preserved fallback behavior: synthetic `Imported Tanda N` only used when legacy provides no name fields at all.
+  - Added unit test coverage for the normalization rule.
+- Files changed:
+  - `app/src/main/legacy-import.ts`
+  - `tests/legacy-import-gain.test.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/user-guide.md`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (64 files, 289 tests).
