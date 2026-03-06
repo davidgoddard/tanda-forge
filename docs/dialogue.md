@@ -4022,3 +4022,21 @@ Code diffs are omitted; only intent and outcomes are captured.
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (64 files, 289 tests).
+
+### Latest update
+- User prompt: Reported that legacy style mappings were lost when returning to import again; requested mappings be saved and reused automatically for repeated legacy imports.
+- Assistant response:
+  - Added persistent legacy style mapping storage in renderer (per legacy root path).
+  - Mapping choices from the legacy style table are now saved when user maps to existing styles or uses Add-as-new.
+  - Legacy style table now rehydrates `mappedTo` from saved mappings when DB alias mapping is not yet present.
+  - Before running legacy import, saved mappings are auto-applied as style aliases, so repeated imports do not require remapping.
+  - Added dedicated unit tests for mapping state parse/get/set behavior.
+- Files changed:
+  - `app/src/shared/legacy-style-mappings.ts` (new)
+  - `app/src/renderer/renderer.ts`
+  - `tests/legacy-style-mappings.test.ts` (new)
+  - `design/14-settings-and-configuration.md`
+  - `docs/user-guide.md`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 292 tests).

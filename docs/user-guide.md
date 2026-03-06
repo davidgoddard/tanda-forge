@@ -275,6 +275,7 @@ For each legacy style row:
 
 - choose an existing canonical style in the dropdown to map this legacy value as an alias, or
 - fill **Code / Base style / Alias** and click **Add as new style** to create and map that legacy value immediately.
+- mappings are remembered per legacy root and automatically reused on future imports.
 
 When importing legacy tandas, any legacy name equal to `Auto Generated Tanda` is intentionally cleared so the app can show its richer dynamic artist-summary label instead.
 

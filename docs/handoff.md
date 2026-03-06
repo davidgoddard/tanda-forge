@@ -5597,3 +5597,29 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (64 files, 289 tests).
+
+### Latest update
+- Implemented persistent legacy-style mapping reuse across repeated imports.
+- Problem addressed:
+  - Users had to remap legacy styles each time they retried legacy import.
+- Implementation:
+  - Added new helper module: `app/src/shared/legacy-style-mappings.ts`
+    - `parseLegacyStyleMappingState(...)`
+    - `getLegacyStyleMapping(...)`
+    - `setLegacyStyleMapping(...)`
+  - Renderer integration (`app/src/renderer/renderer.ts`):
+    - stores mappings in `localStorage` under `tanda-legacy-style-mappings-v1`, scoped per legacy root path,
+    - records mappings from both dropdown mapping and Add-as-new flow,
+    - rehydrates legacy style rows with stored mappings when backend mapping is not yet present,
+    - auto-applies stored mappings before `legacy:import` execution to avoid remapping churn.
+- Tests:
+  - Added `tests/legacy-style-mappings.test.ts` covering:
+    - per-root isolation,
+    - normalized lookup/removal,
+    - defensive parse behavior.
+- Documentation:
+  - `design/14-settings-and-configuration.md`: added `CFG-LIB-011.e`.
+  - `docs/user-guide.md`: documented persisted/reused mappings.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 292 tests).

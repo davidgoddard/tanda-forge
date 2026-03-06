@@ -43,6 +43,7 @@ Board, Diagnostics, System).
 - CFG-LIB-011.b: Legacy style mapping table supports mapping each legacy style to an existing style or creating a new family/style from that row.
 - CFG-LIB-011.c: Legacy style preview/import style extraction uses legacy `library.dat` classifier fields only (`classifiers.style`, `classifiers.sub-style`/`classifiers.subStyle`) and does not infer styles from ID3/tag genre values.
 - CFG-LIB-011.d: Legacy style rows with no classifier style/sub-style are shown as `?` in the legacy style preview.
+- CFG-LIB-011.e: Legacy style mappings selected in the UI are persisted per legacy root and automatically re-applied on later imports, so users do not need to remap each time.
 - CFG-LIB-012: Library tab section order is: library roots first, style families + legacy style mapper second, legacy import third, and scan/progress controls at the bottom.
 
 ## System Configuration

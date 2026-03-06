@@ -41,6 +41,12 @@ import {
   type StyleFamily,
 } from "../shared/style-families.js";
 import {
+  getLegacyStyleMapping,
+  parseLegacyStyleMappingState,
+  setLegacyStyleMapping,
+  type LegacyStyleMappingState,
+} from "../shared/legacy-style-mappings.js";
+import {
   buildPlaylistDuplicateIndex,
   getDuplicateStatusForTanda,
   getDuplicateStatusForTrack,
@@ -752,6 +758,7 @@ let availableStyles: string[] = [];
 let styleDefinitions: Array<{ name: string; aliases: string[] }> = [];
 let styleFamilies: StyleFamily[] = [];
 let familyStyleIndex = new Map<string, string[]>();
+let legacyStyleMappings: LegacyStyleMappingState = {};
 let legacyStyleRows: Array<{
   value: string;
   normalized: string;
@@ -782,10 +789,15 @@ const PLAY_COUNTS_KEY = "tanda-play-counts";
 const PLAYLIST_ARTIST_REPEAT_GAP_MIN_KEY = "tanda-playlist-artist-repeat-gap-min";
 const DEFAULT_PLAYLIST_ARTIST_REPEAT_GAP_MIN = 30;
 const STYLE_FAMILIES_KEY = "tanda-style-families";
+const LEGACY_STYLE_MAPPINGS_KEY = "tanda-legacy-style-mappings-v1";
 const STYLE_VARIANT_LONG_PRESS_MS = 1000;
 const ORCHESTRA_REGISTRY_KEY = "tanda-orchestra-registry-v1";
 const CORTINA_ANY_ID = "__any__";
 const TANDA_SEARCH_SIZE_KEY = "tanda-search-size";
+
+legacyStyleMappings = parseLegacyStyleMappingState(
+  localStorage.getItem(LEGACY_STYLE_MAPPINGS_KEY),
+);
 
 let clipboardCollections: ClipboardCollection[] = [];
 let activeClipboardCollectionId: string | null = null;
@@ -11157,6 +11169,37 @@ const mapLegacyStyleToCanonical = async (
   await window.tanda.addStyle(definition);
 };
 
+const saveLegacyStyleMappings = () => {
+  localStorage.setItem(
+    LEGACY_STYLE_MAPPINGS_KEY,
+    JSON.stringify(legacyStyleMappings),
+  );
+};
+
+const rememberLegacyStyleMapping = (legacyStyle: string, canonicalStyle: string) => {
+  if (!legacyImportRootPath) {
+    return;
+  }
+  legacyStyleMappings = setLegacyStyleMapping(
+    legacyStyleMappings,
+    legacyImportRootPath,
+    legacyStyle,
+    canonicalStyle,
+  );
+  saveLegacyStyleMappings();
+};
+
+const resolveStoredLegacyStyleMapping = (legacyStyle: string) => {
+  if (!legacyImportRootPath) {
+    return "";
+  }
+  return getLegacyStyleMapping(
+    legacyStyleMappings,
+    legacyImportRootPath,
+    legacyStyle,
+  );
+};
+
 const refreshLegacyStyleRows = async () => {
   if (!window.tanda || !legacyImportRootPath) {
     return;
@@ -11165,7 +11208,16 @@ const refreshLegacyStyleRows = async () => {
   if (!result.ok) {
     return;
   }
-  legacyStyleRows = result.styles;
+  legacyStyleRows = result.styles.map((entry) => {
+    const mappedTo = entry.mappedTo || resolveStoredLegacyStyleMapping(entry.value);
+    if (mappedTo) {
+      rememberLegacyStyleMapping(entry.value, mappedTo);
+    }
+    return {
+      ...entry,
+      mappedTo,
+    };
+  });
   if (legacyStylesResult) {
     const mappedCount = legacyStyleRows.filter((entry) => entry.mappedTo).length;
     legacyStylesResult.textContent = t("legacyStylesSummary", {
@@ -11175,6 +11227,29 @@ const refreshLegacyStyleRows = async () => {
     });
   }
   renderLegacyStyleMappingTable();
+};
+
+const applyStoredLegacyStyleMappingsForImport = async () => {
+  if (!window.tanda || !legacyImportRootPath || legacyStyleRows.length === 0) {
+    return;
+  }
+  let changed = false;
+  for (const row of legacyStyleRows) {
+    if (row.mappedTo) {
+      continue;
+    }
+    const target = resolveStoredLegacyStyleMapping(row.value);
+    if (!target) {
+      continue;
+    }
+    await mapLegacyStyleToCanonical(row.value, target);
+    rememberLegacyStyleMapping(row.value, target);
+    changed = true;
+  }
+  if (changed) {
+    await loadStyles();
+    await refreshLegacyStyleRows();
+  }
 };
 
 const renderLegacyStyleMappingTable = () => {
@@ -11224,6 +11299,7 @@ const renderLegacyStyleMappingTable = () => {
         return;
       }
       void mapLegacyStyleToCanonical(entry.value, selected).then(async () => {
+        rememberLegacyStyleMapping(entry.value, selected);
         await loadStyles();
         await refreshLegacyStyleRows();
       });
@@ -11288,6 +11364,7 @@ const renderLegacyStyleMappingTable = () => {
       }
       await setStyleFamilies(nextFamilies);
       await mapLegacyStyleToCanonical(entry.value, base);
+      rememberLegacyStyleMapping(entry.value, base);
       if (alias && normalizeStyleName(alias) !== normalizeStyleName(entry.value)) {
         await mapLegacyStyleToCanonical(alias, base);
       }
@@ -13768,6 +13845,7 @@ const init = async () => {
     if (!confirmed) {
       return;
     }
+    await applyStoredLegacyStyleMappingsForImport();
     const result = await window.tanda.importLegacy(legacyImportRootPath);
     setStatus(
       t("statusLegacyImportDone", {
