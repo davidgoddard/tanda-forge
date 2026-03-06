@@ -5636,3 +5636,40 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed.
+
+### Latest update
+- Hardened legacy tanda-name blanking for `Saved Auto-Generated Tanda`.
+- Problem:
+  - Re-import could still leave legacy auto-labels visible when formatting varied (quotes/dash/spacing differences).
+- Change:
+  - `normalizeLegacyTandaName(...)` now canonicalizes candidate names before comparison:
+    - trims,
+    - strips wrapping quotes,
+    - normalizes unicode dashes to `-`,
+    - collapses repeated whitespace,
+    - compares case-insensitively to `saved auto-generated tanda`.
+- Tests:
+  - Added regression cases in `tests/legacy-import-gain.test.ts` for quoted, spacing, and unicode-dash variants.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed.
+
+### Latest update
+- Follow-up fix for legacy tanda-name normalization.
+- Change:
+  - Added additional accepted legacy auto-label variant: `Saved Auto Generated Tanda` (space instead of hyphen) so it is also blanked during import.
+- File:
+  - `app/src/main/legacy-import.ts`
+- Validation:
+  - `npm test` passed (65 files, 292 tests).
+  - `npm run build` passed.
+
+### Latest update
+- Extended legacy tanda-name blanking to include both known auto-label variants.
+- Change:
+  - Import now clears names matching `Auto Generated Tanda` and `Saved Auto-Generated Tanda` (plus tolerant formatting variants).
+- Files:
+  - `app/src/main/legacy-import.ts`
+  - `tests/legacy-import-gain.test.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/user-guide.md`

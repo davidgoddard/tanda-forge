@@ -79,7 +79,11 @@ type LegacyTandaEntry = {
   tracks?: string[];
 };
 
-const LEGACY_AUTO_GENERATED_TANDA_NAME = "saved auto-generated tanda";
+const LEGACY_AUTO_GENERATED_TANDA_NAMES = new Set([
+  "auto generated tanda",
+  "saved auto-generated tanda",
+  "saved auto generated tanda",
+]);
 
 const LEGACY_FILES = ["config.js", "tandas.dat", "library.dat"];
 
@@ -308,7 +312,13 @@ export const normalizeLegacyTandaName = (value: string | null | undefined) => {
   if (!trimmed) {
     return "";
   }
-  if (trimmed.toLowerCase() === LEGACY_AUTO_GENERATED_TANDA_NAME) {
+  const canonical = trimmed
+    .normalize("NFKC")
+    .replace(/^["'\u201c\u201d\u2018\u2019]+|["'\u201c\u201d\u2018\u2019]+$/g, "")
+    .replace(/[‐‑‒–—−]/g, "-")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  if (LEGACY_AUTO_GENERATED_TANDA_NAMES.has(canonical)) {
     return "";
   }
   return trimmed;

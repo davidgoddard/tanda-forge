@@ -4052,3 +4052,37 @@ Code diffs are omitted; only intent and outcomes are captured.
   - `tests/legacy-import-gain.test.ts`
   - `design/14-settings-and-configuration.md`
   - `docs/user-guide.md`
+
+### Latest update
+- User prompt: Reported that after re-import, playlist still showed tandas named `Saved Auto-Generated Tanda`; asked to fix because name should be removed.
+- Assistant response:
+  - Diagnosed that the name normalization check was too literal.
+  - Hardened legacy tanda-name normalization to treat quote/dash/spacing variants of `Saved Auto-Generated Tanda` as equivalent and clear them.
+  - Added regression tests for quoted, spacing-only-hyphen, and unicode-dash variants.
+  - Updated design/user docs to reflect tolerant matching behavior.
+- Files changed:
+  - `app/src/main/legacy-import.ts`
+  - `tests/legacy-import-gain.test.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/user-guide.md`
+
+### Latest update
+- User prompt: Reported `Saved Auto-Generated Tanda` still visible after legacy re-import.
+- Assistant response:
+  - Extended legacy tanda-name normalization to also clear no-hyphen variant `Saved Auto Generated Tanda`.
+  - Kept tolerant handling for quote and unicode-dash variants.
+  - Re-ran full unit tests and build successfully.
+- Files changed:
+  - `app/src/main/legacy-import.ts`
+
+### Latest update
+- User prompt: Reported legacy data contains both `Auto Generated Tanda` and `Saved Auto-Generated Tanda` labels and requested handling of both.
+- Assistant response:
+  - Updated legacy tanda-name normalization to blank both variants.
+  - Kept tolerant matching for case/quotes/dash/spacing differences.
+  - Updated tests and docs.
+- Files changed:
+  - `app/src/main/legacy-import.ts`
+  - `tests/legacy-import-gain.test.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/user-guide.md`
