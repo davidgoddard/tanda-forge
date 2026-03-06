@@ -188,6 +188,22 @@ const configureFastLivePlayback = async (page: Page) => {
   await closeSettings(page);
 };
 
+const waitForFirstNamedCortinaSetValue = async (page: Page, timeout = 10_000) => {
+  const resolveValue = async () =>
+    await page.evaluate(() => {
+      const select = document.querySelector<HTMLSelectElement>("#playlist-cortina-set");
+      if (!select) {
+        return "";
+      }
+      const option = Array.from(select.options).find(
+        (opt) => (opt.value ?? "").trim().length > 0,
+      );
+      return option?.value ?? "";
+    });
+  await expect.poll(resolveValue, { timeout }).not.toBe("");
+  return await resolveValue();
+};
+
 const openRowMenu = async (row: Locator) => {
   await row.locator('button[data-action="row-menu"]').first().click({ force: true });
 };
@@ -291,6 +307,87 @@ const installDeterministicMediaStub = async (page: Page) => {
     };
     scope.__e2eMediaPatched = true;
   });
+};
+
+const installAutoEndingMediaStub = async (page: Page, endedDelayMs = 250) => {
+  await page.evaluate((delayMs) => {
+    const scope = window as unknown as { __e2eAutoEndingMediaPatched?: boolean };
+    if (scope.__e2eAutoEndingMediaPatched) {
+      return;
+    }
+    const proto = HTMLMediaElement.prototype as HTMLMediaElement & {
+      play: () => Promise<void>;
+      pause: () => void;
+      __e2eOriginalPlay?: () => Promise<void>;
+      __e2eOriginalPause?: () => void;
+      __e2eEndTimer?: number;
+      __e2ePlaybackEnded?: boolean;
+    };
+    proto.__e2eOriginalPlay = proto.play.bind(proto);
+    proto.__e2eOriginalPause = proto.pause.bind(proto);
+    proto.play = function playStub() {
+      const media = this as HTMLMediaElement & {
+        __e2eEndTimer?: number;
+        __e2ePlaybackEnded?: boolean;
+      };
+      if (media.__e2eEndTimer) {
+        window.clearTimeout(media.__e2eEndTimer);
+      }
+      media.__e2ePlaybackEnded = false;
+      try {
+        Object.defineProperty(media, "paused", {
+          configurable: true,
+          get: () => false,
+        });
+        Object.defineProperty(media, "ended", {
+          configurable: true,
+          get: () => Boolean(media.__e2ePlaybackEnded),
+        });
+      } catch {
+        // Ignore if runtime blocks descriptor overrides.
+      }
+      media.dispatchEvent(new Event("play"));
+      media.__e2eEndTimer = window.setTimeout(() => {
+        media.__e2ePlaybackEnded = true;
+        try {
+          Object.defineProperty(media, "paused", {
+            configurable: true,
+            get: () => true,
+          });
+        } catch {
+          // Ignore if runtime blocks descriptor overrides.
+        }
+        media.dispatchEvent(new Event("pause"));
+        media.dispatchEvent(new Event("ended"));
+      }, Math.max(50, delayMs));
+      return Promise.resolve();
+    };
+    proto.pause = function pauseStub() {
+      const media = this as HTMLMediaElement & {
+        __e2eEndTimer?: number;
+        __e2ePlaybackEnded?: boolean;
+      };
+      if (media.__e2eEndTimer) {
+        window.clearTimeout(media.__e2eEndTimer);
+        media.__e2eEndTimer = undefined;
+      }
+      media.__e2ePlaybackEnded = true;
+      try {
+        Object.defineProperty(media, "paused", {
+          configurable: true,
+          get: () => true,
+        });
+        Object.defineProperty(media, "ended", {
+          configurable: true,
+          get: () => Boolean(media.__e2ePlaybackEnded),
+        });
+      } catch {
+        // Ignore if runtime blocks descriptor overrides.
+      }
+      media.dispatchEvent(new Event("pause"));
+    };
+    scope.__e2eAutoEndingMediaPatched = true;
+  }, endedDelayMs);
 };
 
 const clickPlaylistTrackUntilNowPlaying = async (page: Page, track: Locator, expectedToken: string) => {
@@ -1036,6 +1133,157 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator('button[data-tab="clip-tandas"]').click();
       await page.locator("#clipboard-filter").fill("");
       await expect(clipboardTandaRow(page, "Tango Trio")).toHaveCount(0);
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("30 - playlist continues across prep/live mode switch mid-playback", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await installAutoEndingMediaStub(page, 1200);
+      await page.locator("#mode-select").selectOption("prep");
+      await clearPlaylistViaUi(page);
+
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+      await ensurePlaylistTab(page);
+      const playlistRow = playlistTandaRow(page, "Tango Trio");
+      await expect(playlistRow).toBeVisible();
+      await playlistRow.locator(".tanda-summary").first().click();
+      const firstDetailLine = playlistRow
+        .locator(".tanda-detail-line", { hasText: "Alberto Gomez Tango Uno" })
+        .first();
+      await expect
+        .poll(async () => await firstDetailLine.count(), { timeout: 10_000 })
+        .toBeGreaterThan(0);
+      await clickPlaylistTrackUntilNowPlaying(page, firstDetailLine, "tango uno");
+
+      await page.locator("#mode-select").selectOption("live");
+      await expect
+        .poll(
+          async () => ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
+          { timeout: 15_000 },
+        )
+        .toContain("tango dos");
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("31 - display keeps farewell headline after final cortina completes", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await installAutoEndingMediaStub(page, 250);
+
+      await page.locator("#mode-select").selectOption("live");
+      await openSettings(page);
+      await page.locator('button[data-tab="playlist"]').click();
+      await page.locator("#gap-between-tracks").fill("0");
+      await page.locator("#gap-before-tanda").fill("0");
+      await page.locator("#gap-before-cortina").fill("0");
+      await page.locator("#playlist-cortina-duration").fill("1");
+      const setValue = await waitForFirstNamedCortinaSetValue(page);
+      await page.locator("#playlist-cortina-set").selectOption(setValue);
+      await closeSettings(page);
+
+      await clearPlaylistViaUi(page);
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await ensurePlaylistTab(page);
+      await expect(playlistTandaRow(page, "Tango Trio")).toBeVisible();
+      await page.locator("#playlist-last-tanda").check();
+      await page.evaluate(() => {
+        localStorage.setItem("tanda-playlist-current-last", "1");
+      });
+      await expect(page.locator("#playlist-last-tanda")).toBeChecked();
+      await page.locator("#open-display").click();
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(async () => {
+              if (!window.tanda?.getDisplayStatus) {
+                return false;
+              }
+              const status = await window.tanda.getDisplayStatus();
+              return status.open;
+            }),
+          { timeout: 10_000 },
+        )
+        .toBe(true);
+
+      await page.locator("#playlist-start").click();
+      await expect(page.locator("#playlist-stop")).toBeEnabled({ timeout: 10_000 });
+      await expect(page.locator("#playlist-stop")).toBeDisabled({ timeout: 20_000 });
+
+      const farewellState = await page.evaluate(() => {
+        const expected =
+          (
+            (window as unknown as {
+              tanda?: { t?: (key: string, fallback?: string) => string };
+            }).tanda?.t?.("displayNoMoreTandas", "That's all folks")
+          ) ?? "That's all folks";
+        const normalize = (value: string) =>
+          value
+            .toLowerCase()
+            .replace(/[\u2018\u2019']/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+        const snapshot = (
+          window as Window & {
+            __e2eDisplaySnapshot?: { title?: string };
+          }
+        ).__e2eDisplaySnapshot;
+        const titleNorm = normalize(snapshot?.title ?? "");
+        const expectedNorm = normalize(expected);
+        const matched =
+          titleNorm === expectedNorm ||
+          titleNorm.includes("all folks") ||
+          titleNorm.includes("todo, amigos") ||
+          titleNorm.includes("tout, les amis");
+        return { matched, title: snapshot?.title ?? "" };
+      });
+      expect(farewellState.matched).toBe(true);
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(async () => {
+              const normalize = (value: string) =>
+                value
+                  .toLowerCase()
+                  .replace(/[\u2018\u2019']/g, "")
+                  .replace(/\s+/g, " ")
+                  .trim();
+              const expected =
+                (
+                  (window as unknown as {
+                    tanda?: { t?: (key: string, fallback?: string) => string };
+                  }).tanda?.t?.("displayNoMoreTandas", "That's all folks")
+                ) ?? "That's all folks";
+              if (!window.tanda?.getDisplayStatus) {
+                return false;
+              }
+              const status = await window.tanda.getDisplayStatus();
+              if (!status.open) {
+                return false;
+              }
+              const titleNorm = normalize(status.lastPayload?.title ?? "");
+              const expectedNorm = normalize(expected);
+              return (
+                titleNorm === expectedNorm ||
+                titleNorm.includes("all folks") ||
+                titleNorm.includes("todo, amigos") ||
+                titleNorm.includes("tout, les amis")
+              );
+            }),
+          { timeout: 10_000 },
+        )
+        .toBe(true);
     } finally {
       await launched.close();
     }

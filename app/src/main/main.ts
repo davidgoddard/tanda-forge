@@ -1792,6 +1792,11 @@ const registerIpc = () => {
     return { ok: true };
   });
 
+  ipcMain.handle("display:status", async () => ({
+    open: Boolean(displayWindow && !displayWindow.isDestroyed() && displayWindow.isVisible()),
+    lastPayload: lastDisplayPayload ?? null,
+  }));
+
   ipcMain.handle("display:update", async (_event, payload: DisplayUpdatePayload) => {
     lastDisplayPayload = payload ?? {};
     if (!displayWindow || displayWindow.isDestroyed()) {

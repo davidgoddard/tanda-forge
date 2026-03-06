@@ -21,6 +21,7 @@ describe("display view helpers", () => {
   it("resolves next tanda style/label", () => {
     const style = resolveNextTandaStyle({
       isMarkedLast: false,
+      isFinalCortinaPhase: false,
       playbackStatus: "playing",
       resumeItemIndex: null,
       currentIndex: 0,
@@ -50,5 +51,38 @@ describe("display view helpers", () => {
       translateNext: (s) => `Next ${s}`,
     });
     expect(label).toBe("Next Tango");
+  });
+
+  it("suppresses next-style lookup during final cortina phase when marked-last is enabled", () => {
+    const style = resolveNextTandaStyle({
+      isMarkedLast: true,
+      isFinalCortinaPhase: true,
+      playbackStatus: "playing",
+      resumeItemIndex: null,
+      currentIndex: 0,
+      playlistItems: [{ kind: "tanda", tandaId: "td2" }],
+      resolveTandaStyle: () => "tango",
+      shouldShowDisplayNextTanda: () => true,
+    });
+    expect(style).toBe("");
+
+    const label = resolveNextTandaLabel({
+      isMarkedLast: true,
+      nextStyle: style,
+      translateLast: () => "LAST",
+      translateNext: (s) => `Next ${s}`,
+    });
+    expect(label).toBe("LAST");
+  });
+
+  it("uses explicit last-tanda label override when requested", () => {
+    const label = resolveNextTandaLabel({
+      isMarkedLast: false,
+      nextStyle: "Tango",
+      forceLastLabel: true,
+      translateLast: () => "LAST",
+      translateNext: (s) => `Next ${s}`,
+    });
+    expect(label).toBe("LAST");
   });
 });

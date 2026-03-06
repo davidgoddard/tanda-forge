@@ -30,6 +30,7 @@ export const resolveCurrentProgressText = (params: {
 
 export const resolveNextTandaStyle = (params: {
   isMarkedLast: boolean;
+  isFinalCortinaPhase?: boolean;
   playbackStatus: PlaylistPlaybackStatus;
   resumeItemIndex: number | null;
   currentIndex: number;
@@ -37,6 +38,9 @@ export const resolveNextTandaStyle = (params: {
   resolveTandaStyle: (tandaId: string) => string | null;
   shouldShowDisplayNextTanda: (status: PlaylistPlaybackStatus) => boolean;
 }) => {
+  if (params.isMarkedLast && params.isFinalCortinaPhase) {
+    return "";
+  }
   if (!params.shouldShowDisplayNextTanda(params.playbackStatus)) {
     return "";
   }
@@ -63,9 +67,13 @@ export const resolveNextTandaStyle = (params: {
 export const resolveNextTandaLabel = (params: {
   isMarkedLast: boolean;
   nextStyle: string;
+  forceLastLabel?: boolean;
   translateLast: () => string;
   translateNext: (style: string) => string;
 }) => {
+  if (params.forceLastLabel) {
+    return params.translateLast();
+  }
   if (params.isMarkedLast && !params.nextStyle) {
     return params.translateLast();
   }

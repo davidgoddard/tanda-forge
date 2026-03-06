@@ -92,6 +92,7 @@ const api: AppApi = {
     ipcRenderer.invoke("cortinas:searchTracks", params),
   listBackgroundImages: async (group) => ipcRenderer.invoke("backgrounds:list", group),
   openDisplay: async () => ipcRenderer.invoke("display:open"),
+  getDisplayStatus: async () => ipcRenderer.invoke("display:status"),
   updateDisplay: async (payload) => ipcRenderer.invoke("display:update", payload),
   onDisplayUpdate: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: unknown) => {

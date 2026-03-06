@@ -356,6 +356,10 @@ export type AppApi = {
   }) => Promise<CortinaTrackRow[]>;
   listBackgroundImages: (group?: "images" | "cortina_images") => Promise<string[]>;
   openDisplay: () => Promise<{ ok: boolean }>;
+  getDisplayStatus: () => Promise<{
+    open: boolean;
+    lastPayload: DisplayUpdatePayload | null;
+  }>;
   updateDisplay: (payload: DisplayUpdatePayload) => Promise<void>;
   onDisplayUpdate: (handler: (payload: DisplayUpdatePayload) => void) => () => void;
   closeApp: () => Promise<void>;

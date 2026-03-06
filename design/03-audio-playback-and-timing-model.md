@@ -47,6 +47,9 @@ FR-052.R6.a: In Preparation mode, playlist-click start does not play a lead-in
 cortina before the selected starting track; the selected track starts
 immediately. Live mode retains lead-in cortina behavior when starting at the
 first track of a tanda.
+FR-052.R6.b: Switching between Preparation and Live modes during active
+playlist playback must not interrupt runtime progression; when the current
+track ends, playlist playback continues to the next track/tanda as normal.
 
 ---
 

@@ -17,6 +17,10 @@ describe("shouldContinueAfterEndCortina", () => {
   it("returns false when still at the end of the playlist", () => {
     expect(shouldContinueAfterEndCortina(3, 3)).toBe(false);
   });
+
+  it("returns false when trailing appended slots are not playable", () => {
+    expect(shouldContinueAfterEndCortina(1, 3, [true, false, false])).toBe(false);
+  });
 });
 
 describe("shouldInsertCortinaBeforeTanda", () => {

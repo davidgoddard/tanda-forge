@@ -1,7 +1,18 @@
 export const shouldContinueAfterEndCortina = (
   currentIndex: number,
   playlistLength: number,
-) => playlistLength > currentIndex;
+  hasPlayableByIndex?: boolean[],
+) => {
+  if (!(playlistLength > currentIndex)) {
+    return false;
+  }
+  if (!hasPlayableByIndex) {
+    return true;
+  }
+  return hasPlayableByIndex
+    .slice(Math.max(0, currentIndex))
+    .some((isPlayable) => isPlayable);
+};
 
 export const shouldInsertCortinaBeforeTanda = (
   cortinasEnabled: boolean,

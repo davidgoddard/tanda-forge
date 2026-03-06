@@ -120,8 +120,11 @@ normal use the DJ should set this to 0%.
 ![Now Playing](../images/user-guide/09-now-playing.png)
 
 When the DJ is playing the last tanda of the evening they can click on the "This is the last tanda" check-box and this will ensure that the music stops after this tanda has played
-completely and, if using cortinas, the final cortina has played.  The display board's final cortina will have the text "That's all folks" instead of the "Cortina" wording.  The
-track information in the display board will show "Last Tanda".
+completely and, if using cortinas, the final cortina has played.  Display behavior is:
+- lead-in cortina before that tanda stays normal ("Cortina" + "This tanda: {style}");
+- while tracks in that tanda are playing, bottom-right text changes to "This is the last tanda";
+- the final cortina after that tanda shows only "That's all folks";
+- after that final cortina ends and playback stops, the display remains on "That's all folks" until new playback/display state replaces it.
 
 ![Now Playing](../images/user-guide/10-last-tanda.png)
 

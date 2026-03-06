@@ -558,6 +558,14 @@ Features:
   not sit hard against screen edges.
 - UI-060.R13: Cortina-mode typography supports an independent font scale (%)
   configured in Settings > Display Board.
+- UI-060.R14: When "Current tanda is the last tanda" is enabled:
+  - lead-in cortinas before that tanda remain normal ("Cortina" + "This tanda: {style}"),
+  - while tracks of that tanda are playing, next-item text shows "This is the last tanda",
+  - the final cortina after that tanda shows only the farewell headline (localized
+    equivalent of "That's all folks") with no secondary line.
+- UI-060.R15: After the final cortina of a marked-last tanda ends and playback
+  stops, the display remains on the farewell cortina state (does not revert to
+  generic "Cortina" idle text) until superseded by later playback/display updates.
 
 Rules:
 - UI-060.R4: No control affordances.

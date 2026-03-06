@@ -725,6 +725,7 @@ let cortinaModalSetValue: string | null = null;
 let cortinaSetsLoaded = false;
 type CortinaDisplayPhase = "none" | "about" | "playing" | "after";
 let cortinaDisplayPhase: CortinaDisplayPhase = "none";
+let isMarkedLastFinalCortinaActive = false;
 let holdCortinaDisplayWhenIdle = false;
 let lastDisplayPayloadSignature = "";
 const waveformWidgets = [
@@ -2433,6 +2434,9 @@ const getCurrentProgressText = () =>
 const getNextTandaStyle = () =>
   resolveNextTandaStyle({
     isMarkedLast: isCurrentTandaMarkedLast(),
+    isFinalCortinaPhase:
+      isMarkedLastFinalCortinaActive &&
+      (cortinaDisplayPhase !== "none" || holdCortinaDisplayWhenIdle),
     playbackStatus: playlistPlayback.status,
     resumeItemIndex: playlistPlayback.resume?.itemIndex ?? null,
     currentIndex: playlistPlayback.currentIndex,
@@ -2442,15 +2446,26 @@ const getNextTandaStyle = () =>
   });
 
 const isFinalCortinaForMarkedLast = (isMarkedLast: boolean, nextStyle: string) =>
-  isMarkedLast && cortinaDisplayPhase !== "none" && !nextStyle;
+  isMarkedLast &&
+  isMarkedLastFinalCortinaActive &&
+  (cortinaDisplayPhase !== "none" || holdCortinaDisplayWhenIdle) &&
+  !nextStyle;
 
 const getNextTandaLabel = () =>
   (() => {
     const nextStyle = getNextTandaStyle();
     const isMarkedLast = isCurrentTandaMarkedLast();
+    const activeItem = playlistItems[playlistPlayback.currentIndex];
+    const forceLastLabel =
+      isMarkedLast &&
+      !isMarkedLastFinalCortinaActive &&
+      playlistPlayback.status === "playing" &&
+      !!activeItem &&
+      activeItem.kind === "tanda";
     return resolveNextTandaLabel({
       isMarkedLast: isFinalCortinaForMarkedLast(isMarkedLast, nextStyle),
       nextStyle,
+      forceLastLabel,
       translateLast: () => t("displayThisIsLastTanda"),
       translateNext: (style) => t("displayNextTanda", { style }),
     });
@@ -2460,6 +2475,13 @@ const updateExternalDisplay = () => {
   if (!window.tanda?.updateDisplay) {
     return;
   }
+  const setE2eDisplaySnapshot = (payload: DisplayUpdatePayload) => {
+    (
+      window as Window & {
+        __e2eDisplaySnapshot?: DisplayUpdatePayload;
+      }
+    ).__e2eDisplaySnapshot = payload;
+  };
   const nextStyle = getNextTandaStyle();
   const isMarkedLast = isCurrentTandaMarkedLast();
   const showFinalCortinaMessage = isFinalCortinaForMarkedLast(isMarkedLast, nextStyle);
@@ -2486,6 +2508,7 @@ const updateExternalDisplay = () => {
       edgePaddingVmin: getDisplayEdgePaddingVmin(),
       mode: "cortina",
     };
+    setE2eDisplaySnapshot(payload);
     const signature = JSON.stringify(payload);
     if (signature === lastDisplayPayloadSignature) {
       return;
@@ -2510,6 +2533,7 @@ const updateExternalDisplay = () => {
         edgePaddingVmin: getDisplayEdgePaddingVmin(),
         mode: "cortina",
       };
+      setE2eDisplaySnapshot(payload);
       const signature = JSON.stringify(payload);
       if (signature === lastDisplayPayloadSignature) {
         return;
@@ -2527,6 +2551,7 @@ const updateExternalDisplay = () => {
       edgePaddingVmin: getDisplayEdgePaddingVmin(),
       mode: "normal",
     };
+    setE2eDisplaySnapshot(payload);
     const signature = JSON.stringify(payload);
     if (signature === lastDisplayPayloadSignature) {
       return;
@@ -2555,6 +2580,7 @@ const updateExternalDisplay = () => {
     edgePaddingVmin: getDisplayEdgePaddingVmin(),
     mode: "normal",
   };
+  setE2eDisplaySnapshot(payload);
   const signature = JSON.stringify(payload);
   if (signature === lastDisplayPayloadSignature) {
     return;
@@ -7870,12 +7896,24 @@ const runPlaylistPlayback = async (
     playlistPlayback.currentTrackIndex = resumeState.trackIndex;
   }
   playlistPlayback.status = "playing";
+  isMarkedLastFinalCortinaActive = false;
   playlistPlayback.activeTrackId = null;
   playlistPlayback.activeTandaId = null;
   playlistPlayback.liveBaseStartMs = computeLiveBaseStartMs(
     buildPlaylistTimeline(),
     resumeState,
   );
+  let runCompleted = false;
+  const finalizeRunAsIdle = () => {
+    playlistPlayback.status = "idle";
+    cortinaDisplayPhase = "none";
+    playlistPlayback.activeTrackId = null;
+    playlistPlayback.activeTandaId = null;
+    playlistPlayback.resume = null;
+    playlistPlayback.liveBaseStartMs = null;
+    renderPlaylist();
+    runCompleted = true;
+  };
   renderPlaylist();
   const skipInitialGap = options?.skipInitialCortinaGap ?? false;
   let skipInitialGapPending = skipInitialGap;
@@ -7885,47 +7923,16 @@ const runPlaylistPlayback = async (
   const selectedStartIndex = resumeState?.itemIndex ?? null;
   let continuedFromEndCortina = false;
   let leadInCortinaPlayed = false;
-
-  const hasPlayableItems = playlistItems.some((item) => {
-    if (!item) {
-      return false;
-    }
-    return resolvePlaylistTracks(item).length > 0;
-  });
-  if (!resume && hasPlayableItems && isCortinaEnabled()) {
-    cortinaDisplayPhase = "about";
-    const ok = await playCortina(runId, playlistPlayback.currentIndex);
-    if (!ok) {
-      return;
-    }
-    cortinaDisplayPhase = "after";
-    const postOk = await waitBeforeTanda(runId);
-    if (!postOk) {
-      return;
-    }
-    cortinaDisplayPhase = "none";
-  }
-  if (
-    resume &&
-    startFromIdle &&
-    isCortinaEnabled() &&
-    !suppressLeadInCortinaForSelectedStart
-  ) {
-    const item = playlistItems[playlistPlayback.currentIndex];
-    if (
-      item?.kind === "tanda" &&
-      playlistPlayback.currentTrackIndex === 0 &&
-      !resumeState?.resumeTime
-    ) {
-      if (skipInitialGapPending) {
-        skipInitialGapPending = false;
-      } else {
-        cortinaDisplayPhase = "about";
-        const gapOk = await waitBeforeCortina(runId);
-        if (!gapOk) {
-          return;
-        }
+  try {
+    const hasPlayableItems = playlistItems.some((item) => {
+      if (!item) {
+        return false;
       }
+      return resolvePlaylistTracks(item).length > 0;
+    });
+    if (!resume && hasPlayableItems && isCortinaEnabled()) {
+      isMarkedLastFinalCortinaActive = false;
+      cortinaDisplayPhase = "about";
       const ok = await playCortina(runId, playlistPlayback.currentIndex);
       if (!ok) {
         return;
@@ -7936,14 +7943,48 @@ const runPlaylistPlayback = async (
         return;
       }
       cortinaDisplayPhase = "none";
-      leadInCortinaPlayed = true;
     }
-  }
+    if (
+      resume &&
+      startFromIdle &&
+      isCortinaEnabled() &&
+      !suppressLeadInCortinaForSelectedStart
+    ) {
+      const item = playlistItems[playlistPlayback.currentIndex];
+      if (
+        item?.kind === "tanda" &&
+        playlistPlayback.currentTrackIndex === 0 &&
+        !resumeState?.resumeTime
+      ) {
+        if (skipInitialGapPending) {
+          skipInitialGapPending = false;
+        } else {
+          isMarkedLastFinalCortinaActive = false;
+          cortinaDisplayPhase = "about";
+          const gapOk = await waitBeforeCortina(runId);
+          if (!gapOk) {
+            return;
+          }
+        }
+        const ok = await playCortina(runId, playlistPlayback.currentIndex);
+        if (!ok) {
+          return;
+        }
+        cortinaDisplayPhase = "after";
+        const postOk = await waitBeforeTanda(runId);
+        if (!postOk) {
+          return;
+        }
+        cortinaDisplayPhase = "none";
+        leadInCortinaPlayed = true;
+      }
+    }
 
-  let playedAny = false;
-  while (isPlaylistRunActive(runId)) {
+    let playedAny = false;
+    while (isPlaylistRunActive(runId)) {
     if (playlistPlayback.currentIndex >= playlistItems.length) {
       if (playedAny && isCortinaEnabled()) {
+        isMarkedLastFinalCortinaActive = false;
         cortinaDisplayPhase = "about";
         const gapOk = await waitBeforeCortina(runId);
         if (!gapOk) {
@@ -7953,15 +7994,16 @@ const runPlaylistPlayback = async (
         if (!ok) {
           return;
         }
+        const hasPlayableByIndex = playlistItems.map((entry) =>
+          entry ? resolvePlaylistTracks(entry).length > 0 : false,
+        );
         if (
           shouldContinueAfterEndCortina(
             playlistPlayback.currentIndex,
             playlistItems.length,
+            hasPlayableByIndex,
           )
         ) {
-          const hasPlayableByIndex = playlistItems.map((entry) =>
-            entry ? resolvePlaylistTracks(entry).length > 0 : false,
-          );
           playlistPlayback.currentIndex = resolveContinuationIndexAfterEndCortina(
             playlistPlayback.currentIndex,
             playlistPlayback.playedThroughIndex,
@@ -7972,13 +8014,7 @@ const runPlaylistPlayback = async (
           continue;
         }
       }
-      playlistPlayback.status = "idle";
-      cortinaDisplayPhase = "none";
-      playlistPlayback.activeTrackId = null;
-      playlistPlayback.activeTandaId = null;
-      playlistPlayback.resume = null;
-      playlistPlayback.liveBaseStartMs = null;
-      renderPlaylist();
+      finalizeRunAsIdle();
       return;
     }
     const item = playlistItems[playlistPlayback.currentIndex];
@@ -8083,6 +8119,7 @@ const runPlaylistPlayback = async (
           : undefined;
       playlistPlayback.resume = null;
       cortinaDisplayPhase = "none";
+      isMarkedLastFinalCortinaActive = false;
       const started = await playOnChannel(
         "main",
         track.full_path,
@@ -8092,20 +8129,14 @@ const runPlaylistPlayback = async (
         { allowToggle: false, startAtSeconds: resumeSeconds, fromPlaylist: true },
       );
       if (!started) {
-        playlistPlayback.status = "idle";
-        cortinaDisplayPhase = "none";
-        playlistPlayback.activeTrackId = null;
-        playlistPlayback.activeTandaId = null;
-        playlistPlayback.liveBaseStartMs = null;
-        renderPlaylist();
+        finalizeRunAsIdle();
+        isMarkedLastFinalCortinaActive = false;
         return;
       }
       const activeAudio = playback.main.active;
       if (!activeAudio) {
-        playlistPlayback.status = "idle";
-        cortinaDisplayPhase = "none";
-        playlistPlayback.liveBaseStartMs = null;
-        renderPlaylist();
+        finalizeRunAsIdle();
+        isMarkedLastFinalCortinaActive = false;
         return;
       }
       const ended = await waitForAudioEnd(activeAudio, runId);
@@ -8144,6 +8175,7 @@ const runPlaylistPlayback = async (
     renderPlaylist();
     if (stopAfterThisTanda) {
       if (isCortinaEnabled()) {
+        isMarkedLastFinalCortinaActive = true;
         cortinaDisplayPhase = "about";
         const gapOk = await waitBeforeCortina(runId);
         if (!gapOk) {
@@ -8154,14 +8186,13 @@ const runPlaylistPlayback = async (
           return;
         }
       }
-      playlistPlayback.status = "idle";
-      cortinaDisplayPhase = "none";
-      playlistPlayback.activeTrackId = null;
-      playlistPlayback.activeTandaId = null;
-      playlistPlayback.resume = null;
-      playlistPlayback.liveBaseStartMs = null;
-      renderPlaylist();
+      finalizeRunAsIdle();
       return;
+    }
+    }
+  } finally {
+    if (!runCompleted && isPlaylistRunActive(runId)) {
+      finalizeRunAsIdle();
     }
   }
 };
@@ -8602,6 +8633,7 @@ const clearPlaylistState = async () => {
   playlistPlayback.currentTrackIndex = 0;
   playlistPlayback.playedThroughIndex = -1;
   cortinaDisplayPhase = "none";
+  isMarkedLastFinalCortinaActive = false;
   playlistPlayback.activeTrackId = null;
   playlistPlayback.activeTandaId = null;
   playlistPlayback.liveBaseStartMs = null;
@@ -8841,6 +8873,66 @@ const startPlaylistFrom = (index: number, trackId?: string | null) => {
     startFromIdle: wasIdle,
     suppressLeadInCortinaForSelectedStart: appMode === "prep",
   });
+};
+
+const resolvePlaylistPositionForTrackId = (
+  trackId: string,
+): { itemIndex: number; trackIndex: number } | null => {
+  if (!trackId) {
+    return null;
+  }
+  for (let itemIndex = 0; itemIndex < playlistItems.length; itemIndex += 1) {
+    const item = playlistItems[itemIndex];
+    if (!item) {
+      continue;
+    }
+    if (item.kind === "track") {
+      if (item.track.id === trackId) {
+        return { itemIndex, trackIndex: 0 };
+      }
+      continue;
+    }
+    const tanda = resolveTandaDraft(item.tandaId);
+    if (!tanda) {
+      continue;
+    }
+    const trackIndex = tanda.trackSlots.indexOf(trackId);
+    if (trackIndex >= 0) {
+      return { itemIndex, trackIndex };
+    }
+  }
+  return null;
+};
+
+const attachActivePlaylistTrackToRun = () => {
+  if (playlistPlayback.status !== "idle") {
+    return false;
+  }
+  const active = playback.main.active;
+  const activeTrackId = playback.main.currentTrackId;
+  if (!active || active.paused || !activeTrackId) {
+    return false;
+  }
+  const position = resolvePlaylistPositionForTrackId(activeTrackId);
+  if (!position) {
+    return false;
+  }
+  playlistPlayback.status = "paused";
+  playlistPlayback.currentIndex = position.itemIndex;
+  playlistPlayback.currentTrackIndex = position.trackIndex;
+  playlistPlayback.playedThroughIndex = Math.max(-1, position.itemIndex - 1);
+  playlistPlayback.resume = {
+    itemIndex: position.itemIndex,
+    trackIndex: position.trackIndex,
+    trackId: activeTrackId,
+    resumeTime: active.currentTime ?? 0,
+  };
+  void runPlaylistPlayback(true, {
+    skipInitialCortinaGap: false,
+    startFromIdle: false,
+    suppressLeadInCortinaForSelectedStart: true,
+  });
+  return true;
 };
 
 const renderAllLists = () => {
@@ -13418,10 +13510,14 @@ const init = async () => {
     modeSelect.value = appMode;
     document.body.classList.toggle("mode-live", appMode === "live");
     modeSelect.addEventListener("change", () => {
+      const previousMode = appMode;
       const nextMode = resolveOutputModeValue(modeSelect.value);
       setAppModeState(nextMode);
       localStorage.setItem("tanda-mode", appMode);
       document.body.classList.toggle("mode-live", appMode === "live");
+      if (previousMode !== "live" && appMode === "live") {
+        attachActivePlaylistTrackToRun();
+      }
       if (appMode === "edit") {
         setTrackEditorOpen(false);
         trackEditorState.track = null;
@@ -13792,6 +13888,7 @@ const init = async () => {
     playlistPlayback.currentTrackIndex = 0;
     playlistPlayback.playedThroughIndex = -1;
     cortinaDisplayPhase = "none";
+    isMarkedLastFinalCortinaActive = false;
     playlistPlayback.activeTrackId = null;
     playlistPlayback.activeTandaId = null;
     playlistPlayback.liveBaseStartMs = null;
