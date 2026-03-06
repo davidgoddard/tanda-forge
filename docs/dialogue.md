@@ -4040,3 +4040,15 @@ Code diffs are omitted; only intent and outcomes are captured.
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (65 files, 292 tests).
+
+### Latest update
+- User prompt: Corrected legacy tanda-name blanking target; the label to clear is `Saved Auto-Generated Tanda` (not `Auto Generated Tanda`).
+- Assistant response:
+  - Updated legacy import normalization to clear `Saved Auto-Generated Tanda` (trimmed, case-insensitive).
+  - Updated unit tests and docs to match the corrected legacy label.
+  - Ran build and test validation.
+- Files changed:
+  - `app/src/main/legacy-import.ts`
+  - `tests/legacy-import-gain.test.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/user-guide.md`

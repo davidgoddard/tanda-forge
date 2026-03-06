@@ -79,7 +79,7 @@ type LegacyTandaEntry = {
   tracks?: string[];
 };
 
-const LEGACY_AUTO_GENERATED_TANDA_NAME = "auto generated tanda";
+const LEGACY_AUTO_GENERATED_TANDA_NAME = "saved auto-generated tanda";
 
 const LEGACY_FILES = ["config.js", "tandas.dat", "library.dat"];
 

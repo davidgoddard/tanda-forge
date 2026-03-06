@@ -277,7 +277,7 @@ For each legacy style row:
 - fill **Code / Base style / Alias** and click **Add as new style** to create and map that legacy value immediately.
 - mappings are remembered per legacy root and automatically reused on future imports.
 
-When importing legacy tandas, any legacy name equal to `Auto Generated Tanda` is intentionally cleared so the app can show its richer dynamic artist-summary label instead.
+When importing legacy tandas, any legacy name equal to `Saved Auto-Generated Tanda` is intentionally cleared so the app can show its richer dynamic artist-summary label instead.
 
 Although the old legacy data does include some information to help normalise the sound levels and trim tracks, the compression and trimming is slightly different and so it is recommended to use the **scan** buttons and leave the system to read the files. 
 

@@ -5623,3 +5623,16 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (65 files, 292 tests).
+
+### Latest update
+- Corrected legacy tanda-name normalization target string.
+- Change:
+  - Legacy import now blanks tanda names only when they match `Saved Auto-Generated Tanda` (trimmed, case-insensitive).
+- Files:
+  - `app/src/main/legacy-import.ts`
+  - `tests/legacy-import-gain.test.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/user-guide.md`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed.

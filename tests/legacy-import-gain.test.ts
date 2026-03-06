@@ -80,8 +80,8 @@ describe("loadLegacyLibrary gain parsing", () => {
   });
 
   it("normalizes legacy auto-generated tanda names to blank", () => {
-    expect(normalizeLegacyTandaName("Auto Generated Tanda")).toBe("");
-    expect(normalizeLegacyTandaName(" auto generated tanda ")).toBe("");
+    expect(normalizeLegacyTandaName("Saved Auto-Generated Tanda")).toBe("");
+    expect(normalizeLegacyTandaName(" saved auto-generated tanda ")).toBe("");
     expect(normalizeLegacyTandaName("My Custom Tanda")).toBe("My Custom Tanda");
     expect(normalizeLegacyTandaName("")).toBe("");
   });
