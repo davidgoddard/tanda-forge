@@ -14,8 +14,11 @@ export const mapLegacyPathToRelative = (legacyPath: string, rootPath: string) =>
   if (baseLower === "music" && lower.startsWith("music/")) {
     return normalized.slice("music/".length);
   }
-  if (baseLower === "cortinas" && lower.startsWith("cortinas/")) {
+  if ((baseLower === "cortinas" || baseLower === "cortina") && lower.startsWith("cortinas/")) {
     return normalized.slice("cortinas/".length);
+  }
+  if (baseLower === "cortinas" && lower.startsWith("cortina/")) {
+    return normalized.slice("cortina/".length);
   }
   return normalized;
 };

@@ -4086,3 +4086,14 @@ Code diffs are omitted; only intent and outcomes are captured.
   - `tests/legacy-import-gain.test.ts`
   - `design/14-settings-and-configuration.md`
   - `docs/user-guide.md`
+
+### Latest update
+- User prompt: Reported playlist autofill had no cortinas after legacy import despite cortina set selected and cortina root configured with matching folders.
+- Assistant response:
+  - Diagnosed likely legacy path-mapping mismatch for singular/plural cortina root names (`cortina` vs `cortinas`) causing cortina tracks not to import into DB.
+  - Updated legacy path mapping to treat `cortina`/`cortinas` prefixes as equivalent for cortina roots.
+  - Added unit test coverage for both mapping directions.
+  - Ran build and tests.
+- Files changed:
+  - `app/src/shared/legacy-path.ts`
+  - `tests/legacy-path.test.ts`

@@ -5673,3 +5673,18 @@
   - `tests/legacy-import-gain.test.ts`
   - `design/14-settings-and-configuration.md`
   - `docs/user-guide.md`
+
+### Latest update
+- Fixed legacy cortina-path import compatibility for singular/plural root naming.
+- Problem:
+  - Users with cortina root named `cortina` and legacy entries under `cortinas/...` could end up with no imported cortina tracks, so playlist autofill showed no cortinas even when set/root looked correct.
+- Change:
+  - `app/src/shared/legacy-path.ts`
+    - `mapLegacyPathToRelative(...)` now maps `cortina` and `cortinas` prefixes interchangeably for cortina roots.
+- Tests:
+  - `tests/legacy-path.test.ts` adds regression cases for both directions:
+    - `cortinas/...` with `/.../cortina`
+    - `cortina/...` with `/.../cortinas`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 293 tests).

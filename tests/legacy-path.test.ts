@@ -26,6 +26,15 @@ describe("mapLegacyPathToRelative", () => {
     );
   });
 
+  it("maps cortina/cortinas singular-plural prefixes for cortina roots", () => {
+    expect(mapLegacyPathToRelative("cortinas/Dance/01.m4a", "/Volumes/USB/cortina")).toBe(
+      "Dance/01.m4a",
+    );
+    expect(mapLegacyPathToRelative("cortina/Dance/01.m4a", "/Volumes/USB/cortinas")).toBe(
+      "Dance/01.m4a",
+    );
+  });
+
   it("returns normalized path when no prefix matches", () => {
     expect(mapLegacyPathToRelative("set/track.m4a", "/Volumes/USB/music")).toBe(
       "set/track.m4a",
