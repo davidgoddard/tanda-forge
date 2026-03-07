@@ -8,6 +8,7 @@ export const resolveCollectionForClipboardWrite = (
   activeCollectionId: string | null | undefined,
   generalCollectionId: string | null | undefined,
   newCollectionId = "new",
+  fallbackCollectionIds: string[] = [newCollectionId],
 ): ClipboardWriteTarget => {
   const active = activeCollectionId ?? null;
   const general = generalCollectionId ?? null;
@@ -18,7 +19,7 @@ export const resolveCollectionForClipboardWrite = (
       switchedFromNew: false,
     };
   }
-  if (active !== newCollectionId) {
+  if (!fallbackCollectionIds.includes(active)) {
     return {
       targetCollectionId: active,
       nextActiveCollectionId: active,

@@ -6077,3 +6077,19 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (65 files, 297 tests).
+
+### Latest update
+- Fixed clipboard write behavior when active collection is read-only smart collection.
+- Problem:
+  - Adding from Search to Clipboard while active on `Available` could no-op because target resolution attempted to write to the active collection directly.
+- Changes:
+  - `app/src/shared/clipboard-target.ts`
+    - Extended `resolveCollectionForClipboardWrite` with optional `fallbackCollectionIds` parameter.
+    - Any active id in fallback set now routes writes to General (if available).
+  - `app/src/renderer/renderer.ts`
+    - Updated clipboard-write call sites to pass read-only smart collection ids (`new`, `top`, `least`, `available`) as fallback ids.
+  - `tests/clipboard-target.test.ts`
+    - Added unit test asserting `available -> general` fallback behavior.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 298 tests).

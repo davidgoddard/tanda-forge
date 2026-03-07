@@ -38,4 +38,18 @@ describe("resolveCollectionForClipboardWrite", () => {
       switchedFromNew: false,
     });
   });
+
+  it("switches available smart collection to general when configured as fallback", () => {
+    const result = resolveCollectionForClipboardWrite(
+      "available",
+      "general",
+      "new",
+      ["new", "top", "least", "available"],
+    );
+    expect(result).toEqual({
+      targetCollectionId: "general",
+      nextActiveCollectionId: "general",
+      switchedFromNew: true,
+    });
+  });
 });

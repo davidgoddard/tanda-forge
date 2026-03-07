@@ -4364,3 +4364,18 @@ Code diffs are omitted; only intent and outcomes are captured.
 - Files changed:
   - `app/src/renderer/index.html`
   - `app/src/renderer/renderer.ts`
+
+### Latest update
+- User prompt: Reported that sending a track from Search to Clipboard while viewing `Available` failed silently; it only worked after manually switching to `General`.
+- Assistant response:
+  - Identified root cause: clipboard write-target resolution only auto-fell back from `New`, not from other read-only smart collections (`Available`, `Top`, `Least`).
+  - Updated clipboard target resolution to support a fallback collection set.
+  - Updated renderer callers to pass read-only smart collection ids as fallback targets so writes route to `General` when active collection is read-only.
+  - Added unit test coverage for `Available -> General` fallback behavior.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 298 tests).
+- Files changed:
+  - `app/src/shared/clipboard-target.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/clipboard-target.test.ts`

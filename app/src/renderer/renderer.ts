@@ -787,6 +787,12 @@ const CLIPBOARD_NEW_ID = "new";
 const CLIPBOARD_TOP_ID = "top";
 const CLIPBOARD_LEAST_ID = "least";
 const CLIPBOARD_AVAILABLE_ID = "available";
+const READ_ONLY_CLIPBOARD_COLLECTION_IDS = [
+  CLIPBOARD_NEW_ID,
+  CLIPBOARD_TOP_ID,
+  CLIPBOARD_LEAST_ID,
+  CLIPBOARD_AVAILABLE_ID,
+] as const;
 const DEFAULT_NEW_LIMIT = 100;
 const SMART_COLLECTION_LIMIT = 100;
 const PLAY_COUNTS_KEY = "tanda-play-counts";
@@ -9316,6 +9322,7 @@ const addTrackToClipboard = (track: TrackRow) => {
     activeClipboardCollectionId,
     getGeneralCollection()?.id ?? null,
     CLIPBOARD_NEW_ID,
+    [...READ_ONLY_CLIPBOARD_COLLECTION_IDS],
   );
   if (!target.targetCollectionId) {
     return;
@@ -10444,6 +10451,7 @@ const addTandaToClipboard = (tandaId: string) => {
     activeClipboardCollectionId,
     getGeneralCollection()?.id ?? null,
     CLIPBOARD_NEW_ID,
+    [...READ_ONLY_CLIPBOARD_COLLECTION_IDS],
   );
   if (!target.targetCollectionId) {
     return;
@@ -10970,6 +10978,7 @@ const addTrackToActiveCollection = (track: TrackRow) => {
     preferredActive,
     getGeneralCollection()?.id ?? null,
     CLIPBOARD_NEW_ID,
+    [...READ_ONLY_CLIPBOARD_COLLECTION_IDS],
   );
   if (!target.targetCollectionId) {
     return false;
@@ -10997,6 +11006,7 @@ const addTandaToActiveCollection = (tandaId: string) => {
     preferredActive,
     getGeneralCollection()?.id ?? null,
     CLIPBOARD_NEW_ID,
+    [...READ_ONLY_CLIPBOARD_COLLECTION_IDS],
   );
   if (!target.targetCollectionId) {
     return false;
