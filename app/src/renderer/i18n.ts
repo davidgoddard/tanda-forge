@@ -3,6 +3,7 @@ export type LanguageKey = "en" | "es" | "fr" | "de" | "pt" | "it";
 export const translations: Record<LanguageKey, Record<string, string>> = {
   en: {
     appTitle: "Tanda Forge",
+    appSubtitle: "From David Goddard (c)2026",
     closeApp: "Close app",
     playlistStart: "Start",
     playlistResume: "Resume",
@@ -525,6 +526,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
   },
   es: {
     appTitle: "Tanda Forge",
+    appSubtitle: "From David Goddard (c)2026",
     closeApp: "Cerrar app",
     playlistStart: "Iniciar",
     playlistResume: "Reanudar",
@@ -934,6 +936,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
   },
   fr: {
     appTitle: "Tanda Forge",
+    appSubtitle: "From David Goddard (c)2026",
     closeApp: "Fermer l'application",
     playlistStart: "Demarrer",
     playlistResume: "Reprendre",
@@ -1343,6 +1346,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
   },
   de: {
     appTitle: "Tanda Forge",
+    appSubtitle: "From David Goddard (c)2026",
     closeApp: "App schliessen",
     playlistStart: "Start",
     playlistResume: "Fortsetzen",
@@ -1753,6 +1757,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
   },
   pt: {
     appTitle: "Tanda Forge",
+    appSubtitle: "From David Goddard (c)2026",
     closeApp: "Fechar app",
     playlistStart: "Iniciar",
     playlistResume: "Retomar",
@@ -2161,6 +2166,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
   },
   it: {
     appTitle: "Tanda Forge",
+    appSubtitle: "From David Goddard (c)2026",
     closeApp: "Chiudi app",
     playlistStart: "Avvia",
     playlistResume: "Riprendi",

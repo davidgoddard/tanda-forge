@@ -5977,3 +5977,18 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (65 files, 296 tests).
+
+### Latest update
+- Added README brand icon and app header subtitle.
+- Changes:
+  - `README.md`
+    - Added top-level icon image reference: `images/user-guide/tandaforge_icon_1024.png`.
+  - `app/src/renderer/index.html`
+    - Wrapped title in `app-title-block` and added subtitle line with i18n key `appSubtitle`.
+  - `app/src/renderer/styles.css`
+    - Added `app-title-block` and `app-subtitle` styling (small muted text under title).
+  - `app/src/renderer/i18n.ts`
+    - Added `appSubtitle: "From David Goddard (c)2026"` to all language maps.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 296 tests).

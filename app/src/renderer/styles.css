@@ -363,6 +363,12 @@ body {
   gap: 1rem;
 }
 
+.app-title-block {
+  display: grid;
+  justify-items: center;
+  gap: 0.12rem;
+}
+
 .playlist-controls {
   display: flex;
   gap: 0.35rem;
@@ -451,6 +457,13 @@ h1 {
   font-size: 2.1rem;
   letter-spacing: 0.03em;
   color: var(--text);
+}
+
+.app-subtitle {
+  font-size: 0.55rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  line-height: 1.1;
 }
 
 #status {

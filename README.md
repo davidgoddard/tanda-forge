@@ -1,5 +1,13 @@
 # Tanda Forge
 
+![Tanda Forge Icon](images/user-guide/tandaforge_icon_1024.png)
+
+## User Guide
+
+See [User Guide](docs/user-guide.md)
+
+## Background
+
 Tanda Forge is a desktop app for Argentine Tango DJs who want a fast, safe, and flexible tanda preparation and live playback app.
 
 It evolved from the original Raspberry Pi Tanda Player and focuses on practical live DJ workflows: building tandas, managing playlists, cueing audio, and adapting quickly during a milonga.
@@ -8,10 +16,6 @@ This project is a collaboration between David Goddard (design and requirements) 
 
 ![Main screen layout](images/user-guide/01-main-layout.png)
 ![Display screen layout](images/user-guide/02-display-board.png)
-
-## User Guide
-
-See [User Guide](docs/user-guide.md)
 
 ## Why should DJs use it
 
