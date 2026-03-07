@@ -85,7 +85,7 @@ jobs:
                 exit 1
               fi
               echo "DMG build attempt $attempt failed; forcing detach of stale mounted images and retrying..."
-              hdiutil info | awk '/\/Volumes\/Tanda Player Lite/ {print $1}' | while read -r dev; do
+              hdiutil info | awk '/\/Volumes\/Tanda Forge/ {print $1}' | while read -r dev; do
                 [ -n "$dev" ] && hdiutil detach "$dev" -force || true
               done
               sleep 5
@@ -123,7 +123,7 @@ jobs:
           test -s "$zipf"
           hdiutil verify "$dmg"
           unzip -t "$zipf" >/dev/null
-          APP_BIN=$(find dist -type f -path "*Tanda Player Lite.app/Contents/MacOS/Tanda Player Lite" | head -n 1)
+          APP_BIN=$(find dist -type f -path "*Tanda Forge.app/Contents/MacOS/Tanda Forge" | head -n 1)
           APP_ROOT=$(dirname "$(dirname "$(dirname "$APP_BIN")")")
           if [ -z "$APP_BIN" ] || [ -z "$APP_ROOT" ]; then
             echo "Could not resolve packaged .app in dist/"
@@ -154,9 +154,9 @@ jobs:
           }
           trap cleanup EXIT
           hdiutil attach "$dmg" -nobrowse -mountpoint "$mount_dir" >/dev/null
-          app=$(find "$mount_dir" -maxdepth 2 -name "Tanda Player Lite.app" | head -n 1)
+          app=$(find "$mount_dir" -maxdepth 2 -name "Tanda Forge.app" | head -n 1)
           if [ -z "$app" ]; then
-            echo "Tanda Player Lite.app not found in mounted DMG"
+            echo "Tanda Forge.app not found in mounted DMG"
             exit 1
           fi
           if /usr/bin/codesign -dv "$app" >/dev/null 2>&1; then
@@ -203,7 +203,7 @@ jobs:
           if [ -n "$ELECTRON_BIN" ]; then
             file "$ELECTRON_BIN"
           fi
-          APP_BIN=$(find dist -type f -path "*Tanda Player Lite.app/Contents/MacOS/Tanda Player Lite" | head -n 1)
+          APP_BIN=$(find dist -type f -path "*Tanda Forge.app/Contents/MacOS/Tanda Forge" | head -n 1)
           if [ -z "$APP_BIN" ]; then
             echo "App binary not found in dist."
             exit 1

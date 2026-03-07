@@ -4324,3 +4324,8 @@ Code diffs are omitted; only intent and outcomes are captured.
 - User: Asked to add the new icon into the README/GitHub view and add small header text under `Tanda Forge`: `From David Goddard (c)2026`.
 - Assistant: Added README icon reference (`images/user-guide/tandaforge_icon_1024.png`), added a subtitle element under the app title in renderer header, added `appSubtitle` i18n key across all language maps, and added styling for a small muted subtitle.
 - Verification: `npm run build && npm test` passed (65 files, 296 tests).
+
+### Latest update
+- User: Reported CI mac build failures: release workflow could not resolve packaged `.app` in `dist/` after rename.
+- Assistant: Updated `.github/workflows/release.yml` hard-coded app and volume names from `Tanda Player Lite` to `Tanda Forge` in all mac verification and detach steps.
+- Verification: `npm run build && npm test` passed (65 files, 296 tests).

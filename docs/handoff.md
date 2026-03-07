@@ -5992,3 +5992,18 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (65 files, 296 tests).
+
+### Latest update
+- Fixed release workflow mac verification after app rename.
+- Root cause:
+  - `.github/workflows/release.yml` still looked for `Tanda Player Lite.app` and binary path `.../MacOS/Tanda Player Lite`, so post-build integrity checks failed despite valid DMGs.
+- Changes:
+  - Updated mac workflow checks to use `Tanda Forge` names:
+    - stale volume detach match: `/Volumes/Tanda Forge`
+    - packaged app binary path: `*Tanda Forge.app/Contents/MacOS/Tanda Forge`
+    - mounted DMG app lookup: `Tanda Forge.app`
+    - associated error messages.
+  - File changed: `.github/workflows/release.yml`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 296 tests).
