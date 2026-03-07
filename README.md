@@ -123,7 +123,7 @@ Settings -> **System**
 Settings -> **Playlist**
 
 - Start/end timing
-- Sequence rules
+- Sequence rules - for example: "3T 3T 3W 3T 3T 3M" - defines preferred size and styles for the playlist
   - Supports grouped alternatives, e.g. `(2C 3M)`
   - Sequence validation checks syntax and that style letters exist in configured style families
 - Cortina timing and behavior
