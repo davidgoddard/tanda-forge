@@ -600,7 +600,7 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
-  test("14 - search-tanda menu action opens tanda in designer", async () => {
+  test("14 - search-tanda edit action opens tanda in designer", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
@@ -608,7 +608,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await runSearch(page, "Tango Trio");
       const row = searchTandaRow(page, "Tango Trio");
       await expect(row).toBeVisible();
-      await clickRowAction(row, "tanda-toggle");
+      await clickRowAction(row, "tanda-edit");
       await expect.poll(async () => await page.locator("#tanda-designer-tab").getAttribute("class")).toMatch(
         /active/,
       );

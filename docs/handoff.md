@@ -5918,3 +5918,17 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (65 files, 296 tests).
+
+### Latest update
+- Added missing tanda-designer action (`T`) to search tanda menus.
+- Change:
+  - `app/src/renderer/renderer.ts`
+    - in `renderTandaRow(..., context === "search")`, added:
+      - `buildActionButton("actionEditTanda", "actionEditTandaShort", "tanda-edit")`
+    - this exposes `T` action in search tanda rows to open/send tanda to designer.
+    - action handler already existed, so no additional runtime wiring needed.
+  - `tests/e2e/workflows.e2e.ts`
+    - updated test 14 to use `tanda-edit` action from search tanda row menu and assert designer tab activation.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 296 tests).

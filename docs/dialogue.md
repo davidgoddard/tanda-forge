@@ -4293,3 +4293,14 @@ Code diffs are omitted; only intent and outcomes are captured.
   - `app/src/preload/preload.ts`
   - `app/src/main/main.ts`
   - `tests/e2e/workflows.e2e.ts`
+
+### Latest update
+- User prompt: Requested adding `T` action for tandas in search results to send/open in the tanda designer (already present for tracks).
+- Assistant response:
+  - Added `tanda-edit` action button to search-context tanda row menus, using existing labels/shortcuts (`actionEditTanda` / `actionEditTandaShort`, short key `T`).
+  - Reused existing search handler branch for `tanda-edit` (no new behavior path required).
+  - Updated E2E coverage by switching test 14 to invoke `tanda-edit` from search tanda row menu and verify designer opens.
+  - Ran build and unit tests successfully.
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `tests/e2e/workflows.e2e.ts`

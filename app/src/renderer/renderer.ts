@@ -6589,6 +6589,13 @@ const renderTandaRow = (
   if (context === "search") {
     menu.appendChild(
       buildActionButton(
+        "actionEditTanda",
+        "actionEditTandaShort",
+        "tanda-edit",
+      ),
+    );
+    menu.appendChild(
+      buildActionButton(
         "actionAddPlaylist",
         "actionAddPlaylistShort",
         "add-playlist-tanda",
