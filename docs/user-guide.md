@@ -1,4 +1,4 @@
-# **Tanda Player Lite** User Guide
+# **Tanda Forge** User Guide
 
 This guide introduces the layout, explains initial setup, and walks through searching, collecting, and building tandas and playlists.
 

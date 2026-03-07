@@ -1,6 +1,6 @@
-# Tanda Player Lite
+# Tanda Forge
 
-Tanda Player Lite is a desktop app for Argentine Tango DJs who want a fast, safe, and flexible tanda preparation and live playback app.
+Tanda Forge is a desktop app for Argentine Tango DJs who want a fast, safe, and flexible tanda preparation and live playback app.
 
 It evolved from the original Raspberry Pi Tanda Player and focuses on practical live DJ workflows: building tandas, managing playlists, cueing audio, and adapting quickly during a milonga.
 
@@ -56,7 +56,7 @@ If you install the wrong macOS architecture, macOS will reject launch.
 
 For first launch:
 
-1. Move **Tanda Player Lite.app** to Applications.
+1. Move **Tanda Forge.app** to Applications.
 2. Right-click app -> **Open** -> **Open**.
 3. If blocked: **System Settings -> Privacy & Security -> Open Anyway**.
 
@@ -166,7 +166,7 @@ Typical practical flow:
 
 ## Legacy import
 
-If legacy files are present (for example `config.js`, `tandas.dat`, `library.dat`), import can:
+If legacy Tanda Player files are present (for example `config.js`, `tandas.dat`, `library.dat`), import can:
 
 - recreate tandas,
 - apply curated metadata,

@@ -1,7 +1,7 @@
 # Resilience and Persistence
 
 This document defines the guarantees, failure modes, and persistence strategy
-for Tanda Player Lite. These rules exist to ensure that DJ work is never lost and
+for Tanda Forge. These rules exist to ensure that DJ work is never lost and
 that the system behaves predictably under imperfect real-world conditions.
 
 This document defines *what must be true*, not *how it is implemented*.
@@ -35,7 +35,7 @@ Silent corruption is unacceptable.
 ## NFR-003 — USB as Primary State Store
 
 ### Rationale
-Tanda Player operates in environments where:
+Tanda Forge operates in environments where:
 - NFR-003.R1: Internet access may not exist.
 - NFR-003.R2: Devices may be shared.
 - NFR-003.R3: DJs may physically swap libraries.

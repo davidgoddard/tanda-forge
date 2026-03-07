@@ -5932,3 +5932,48 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (65 files, 296 tests).
+
+### Latest update
+- Branding rename to **Tanda Forge**.
+- Changes:
+  - Updated product-facing name references from `Tanda Player Lite` / `Tanda Player` to `Tanda Forge` in:
+    - `package.json`
+    - `README.md`
+    - `docs/user-guide.md`
+    - `app/src/renderer/index.html`
+    - `app/src/renderer/display.html`
+    - `app/src/renderer/i18n.ts`
+    - design docs (`design/01`, `04`, `05`, `06`, `07`, `08`, `14`)
+  - Intentionally preserved legacy identifier references (`Tanda Player 2`) used for old data-location import compatibility.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 296 tests).
+
+### Latest update
+- Branding/context correction and build artifact rename.
+- Changes:
+  - Build/package identity switched to `tanda-forge`:
+    - `package.json` name changed to `tanda-forge`.
+    - artifact names changed to `tanda-forge-${version}-...` for mac/win/linux.
+    - `package-lock.json` top-level package name updated accordingly.
+  - Restored old-system references to **Tanda Player** where context is legacy import/history:
+    - `docs/user-guide.md`
+    - `design/14-settings-and-configuration.md`
+    - `design/08-storage-and-data-model.md`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 296 tests).
+
+### Latest update
+- Updated Tanda Forge icon transparency and regenerated packaged icon assets.
+- Changes:
+  - `app/resources/icons/tandaforge_icon_1024.png`: white outer background converted to transparent.
+  - Regenerated app icons from updated source:
+    - `app/resources/icons/icon.png`
+    - `app/resources/icons/icon.ico`
+    - `app/resources/icons/icon.icns`
+  - Synced user-guide copy:
+    - `images/user-guide/tandaforge_icon_1024.png`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 296 tests).

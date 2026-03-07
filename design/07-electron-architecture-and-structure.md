@@ -2,7 +2,7 @@
 
 ## Overview
 
-Tanda Player Lite is delivered as a desktop Electron app. The app runs entirely
+Tanda Forge is delivered as a desktop Electron app. The app runs entirely
 offline and accesses local media via USB volumes or user-selected folders.
 TypeScript is used for main, preload, and renderer code.
 

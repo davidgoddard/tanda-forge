@@ -1,8 +1,8 @@
-# Tanda Player Lite — Domain and Vision
+# Tanda Forge — Domain and Vision
 
 ## Purpose
 
-Tanda Player Lite is a music playback and preparation system designed specifically
+Tanda Forge is a music playback and preparation system designed specifically
 for DJs playing milongas, where the primary unit of musical intent is the tanda,
 not the individual track.
 

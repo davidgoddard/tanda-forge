@@ -2,7 +2,7 @@ export type LanguageKey = "en" | "es" | "fr" | "de" | "pt" | "it";
 
 export const translations: Record<LanguageKey, Record<string, string>> = {
   en: {
-    appTitle: "Tanda Player Lite",
+    appTitle: "Tanda Forge",
     closeApp: "Close app",
     playlistStart: "Start",
     playlistResume: "Resume",
@@ -524,7 +524,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     lang_it: "Italian",
   },
   es: {
-    appTitle: "Tanda Player Lite",
+    appTitle: "Tanda Forge",
     closeApp: "Cerrar app",
     playlistStart: "Iniciar",
     playlistResume: "Reanudar",
@@ -933,7 +933,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     lang_it: "Italiano",
   },
   fr: {
-    appTitle: "Tanda Player Lite",
+    appTitle: "Tanda Forge",
     closeApp: "Fermer l'application",
     playlistStart: "Demarrer",
     playlistResume: "Reprendre",
@@ -1342,7 +1342,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     lang_it: "Italien",
   },
   de: {
-    appTitle: "Tanda Player Lite",
+    appTitle: "Tanda Forge",
     closeApp: "App schliessen",
     playlistStart: "Start",
     playlistResume: "Fortsetzen",
@@ -1752,7 +1752,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     lang_it: "Italienisch",
   },
   pt: {
-    appTitle: "Tanda Player Lite",
+    appTitle: "Tanda Forge",
     closeApp: "Fechar app",
     playlistStart: "Iniciar",
     playlistResume: "Retomar",
@@ -2160,7 +2160,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     lang_it: "Italiano",
   },
   it: {
-    appTitle: "Tanda Player Lite",
+    appTitle: "Tanda Forge",
     closeApp: "Chiudi app",
     playlistStart: "Avvia",
     playlistResume: "Riprendi",

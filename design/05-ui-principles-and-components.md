@@ -1,7 +1,7 @@
 # UI Principles and Components
 
 This document defines the user interface principles and core UI components
-for Tanda Player Lite. Its purpose is to ensure consistency, safety, and clarity
+for Tanda Forge. Its purpose is to ensure consistency, safety, and clarity
 across all screens and devices.
 
 The UI is treated as a *control surface for a live musical instrument*,

@@ -4304,3 +4304,18 @@ Code diffs are omitted; only intent and outcomes are captured.
 - Files changed:
   - `app/src/renderer/renderer.ts`
   - `tests/e2e/workflows.e2e.ts`
+
+### Latest update
+- User: Asked to change all references to "Tanda Player Lite" / "Tanda Player" to "Tanda Forge".
+- Assistant: Renamed product-facing branding strings across app UI, package metadata, README, user guide, and design docs to "Tanda Forge". Kept legacy migration identifiers (e.g. `Tanda Player 2`) unchanged so legacy import path detection still works.
+- Verification: `npm run build` passed and `npm test` passed (65 files, 296 tests).
+
+### Latest update
+- User: Asked to keep references to the old system as "Tanda Player" (not "Tanda Forge"), rename build outputs from `tanda-player-lite` to `tanda-forge`, and asked how to rename the GitHub repository.
+- Assistant: Updated package/build naming to `tanda-forge` (including package name and artifact names), restored legacy-context references in docs/design back to "Tanda Player", and prepared GitHub repository rename steps.
+- Verification: `npm run build` passed and `npm test` passed (65 files, 296 tests).
+
+### Latest update
+- User: Asked to make the white outer part of the new icon transparent.
+- Assistant: Applied near-white background transparency to the new icon source, regenerated app icon assets (`icon.png`, `icon.ico`, `icon.icns`), and updated the user-guide icon copy to match.
+- Verification: `npm run build && npm test` passed (65 files, 296 tests).
