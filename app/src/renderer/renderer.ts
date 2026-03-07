@@ -206,6 +206,8 @@ const scanCortinasBtn =
   document.querySelector<HTMLButtonElement>("#scan-cortinas");
 const precomputeCompressedBtn =
   document.querySelector<HTMLButtonElement>("#precompute-compressed");
+const precomputeCompressedShortcutBtn =
+  document.querySelector<HTMLButtonElement>("#precompute-compressed-shortcut");
 const errorList = document.querySelector<HTMLUListElement>("#error-list");
 const diagnosticsPathsEl =
   document.querySelector<HTMLDivElement>("#diagnostics-paths");
@@ -257,6 +259,7 @@ const progressElSettings =
 const progressLabelSettings =
   document.querySelector<HTMLDivElement>("#progress-label-settings");
 const settingsPanel = document.querySelector<HTMLElement>("#settings-panel");
+const settingsContent = document.querySelector<HTMLElement>(".settings-content");
 const closeSettingsBtn =
   document.querySelector<HTMLButtonElement>("#close-settings");
 const dataLocationPathInput =
@@ -999,8 +1002,9 @@ const playlistPlayback: PlaylistPlaybackState = {
 const trackCache = new Map<string, TrackRow>();
 let lastPlayingIndicatorTrackId: string | null = null;
 
-const DEFAULT_PLAYLIST_SEQUENCE = "3t 3t 3w";
-const DEFAULT_STYLE_FAMILIES = "T=Tango:Nuevo, Traditional\nW=Waltz\nM=Milonga";
+const DEFAULT_PLAYLIST_SEQUENCE = "3t 3t 3w 3t 3t 3m";
+const DEFAULT_STYLE_FAMILIES =
+  "T=Tango:Traditional, Contemporary, Alternative - Electro\nW=Waltz:Traditional, Contemporary, Alternative - Electro\nM=Milonga:Traditional, Contemporary, Alternative - Electro\nO=Other";
 const DEFAULT_PLAYLIST_START_TIME = "20:00";
 const getLanguage = () =>
   (localStorage.getItem("tanda-language") as LanguageKey) || "en";
@@ -2170,7 +2174,7 @@ const getGapBetweenTracks = () =>
 const getGapBeforeTanda = () =>
   parseSettingNumber("tanda-gap-before-tanda", 4, 0, 30);
 const getGapBeforeCortina = () =>
-  parseSettingNumber("tanda-gap-before-cortina", 0, 0, 30);
+  parseSettingNumber("tanda-gap-before-cortina", 1, 0, 30);
 const getStopFadeSeconds = () =>
   parseSettingNumber("tanda-stop-fade", 2, 0, 10);
 const getCortinaLevelPercent = () =>
@@ -4347,31 +4351,63 @@ const renderMiniChart = (
   });
 };
 
+const resolveStyleColorGroup = (styleKey: string) => {
+  const key = normalizeStyleName(styleKey).toLowerCase();
+  const base = normalizeStyleName(splitStyleLabel(styleKey).base || "").toLowerCase();
+  const source = `${base} ${key}`.trim();
+  if (
+    source.includes("milonga") ||
+    base === "m" ||
+    key === "m" ||
+    key.startsWith("m - ")
+  ) {
+    return "milonga";
+  }
+  if (
+    source.includes("vals") ||
+    source.includes("waltz") ||
+    base === "w" ||
+    key === "w" ||
+    key.startsWith("w - ")
+  ) {
+    return "waltz";
+  }
+  if (
+    source.includes("tango") ||
+    base === "t" ||
+    key === "t" ||
+    key.startsWith("t - ")
+  ) {
+    return "tango";
+  }
+  return "other";
+};
+
 const colorForStyleKey = (styleKey: string) => {
-  const key = styleKey.toLowerCase();
-  if (key.includes("milonga")) {
+  const group = resolveStyleColorGroup(styleKey);
+  if (group === "milonga") {
     return "#1fbf75";
   }
-  if (key.includes("vals") || key.includes("waltz")) {
+  if (group === "waltz") {
     return "#3d7dff";
   }
-  if (key.includes("tango")) {
+  if (group === "tango") {
     return "#ff7847";
   }
   return "#8f9aad";
 };
 
 const patternForStyleKey = (styleKey: string) => {
-  const key = styleKey.toLowerCase();
-  if (key.includes("milonga")) {
+  const group = resolveStyleColorGroup(styleKey);
+  if (group === "milonga") {
     // Diagonal hatch
     return "repeating-linear-gradient(45deg, rgba(0,0,0,0.26) 0 2px, rgba(255,255,255,0) 2px 6px)";
   }
-  if (key.includes("vals") || key.includes("waltz")) {
+  if (group === "waltz") {
     // Opposite diagonal hatch
     return "repeating-linear-gradient(-45deg, rgba(0,0,0,0.26) 0 2px, rgba(255,255,255,0) 2px 6px)";
   }
-  if (key.includes("tango")) {
+  if (group === "tango") {
     // Vertical hatch
     return "repeating-linear-gradient(90deg, rgba(0,0,0,0.2) 0 2px, rgba(255,255,255,0) 2px 6px)";
   }
@@ -7109,7 +7145,12 @@ const renderClipboard = async () => {
   }
   const forcedStyles = getActiveStyleFilter();
   const filterText = normalizeClipboardFilter(clipboardFilterText);
-  const duplicateIndex = buildPlaylistDuplicateIndexFromState();
+  const showDuplicates =
+    !(
+      activeClipboardCollectionId === CLIPBOARD_AVAILABLE_ID &&
+      includedClipboardCollectionIds.length === 0
+    );
+  const duplicateIndex = showDuplicates ? buildPlaylistDuplicateIndexFromState() : undefined;
   clipTracksEl.innerHTML = "";
   const selectedId = selectedClipboardTrackId;
   const filteredTracks =
@@ -11790,6 +11831,7 @@ const getDefaultStyleNames = () => [
   t("defaultStyleTango"),
   t("defaultStyleWaltz"),
   t("defaultStyleMilonga"),
+  t("defaultStyleOther"),
 ].map((style) => style.trim()).filter(Boolean);
 
 const normalizeStyleList = (styles: string[]) =>
@@ -14072,7 +14114,7 @@ const init = async () => {
   scanMusicBtn?.addEventListener("click", () => runScan("music"));
   scanCortinasBtn?.addEventListener("click", () => runScan("cortina"));
 
-  precomputeCompressedBtn?.addEventListener("click", async () => {
+  const runPrecomputeCompressedTracks = async () => {
     if (!window.tanda) {
       setStatus(t("statusNoApi"));
       return;
@@ -14087,7 +14129,12 @@ const init = async () => {
     if (progressLabelSettings) {
       progressLabelSettings.textContent = t("statusPrecomputeCompressionRunning");
     }
-    precomputeCompressedBtn.disabled = true;
+    if (precomputeCompressedBtn) {
+      precomputeCompressedBtn.disabled = true;
+    }
+    if (precomputeCompressedShortcutBtn) {
+      precomputeCompressedShortcutBtn.disabled = true;
+    }
     try {
       const result = await window.tanda.precomputeCompressedTracks({
         mode: config.mode,
@@ -14124,8 +14171,25 @@ const init = async () => {
       );
     } finally {
       precomputeCompressionInProgress = false;
-      precomputeCompressedBtn.disabled = false;
+      if (precomputeCompressedBtn) {
+        precomputeCompressedBtn.disabled = false;
+      }
+      if (precomputeCompressedShortcutBtn) {
+        precomputeCompressedShortcutBtn.disabled = false;
+      }
     }
+  };
+
+  precomputeCompressedBtn?.addEventListener("click", async () => {
+    await runPrecomputeCompressedTracks();
+  });
+
+  precomputeCompressedShortcutBtn?.addEventListener("click", async () => {
+    activateSettingsTab("library");
+    if (settingsContent) {
+      settingsContent.scrollTop = settingsContent.scrollHeight;
+    }
+    await runPrecomputeCompressedTracks();
   });
 
   resetDbBtn?.addEventListener("click", async () => {

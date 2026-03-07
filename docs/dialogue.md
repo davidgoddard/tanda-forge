@@ -4333,3 +4333,34 @@ Code diffs are omitted; only intent and outcomes are captured.
 ### Latest update
 - User: Asked to add user-guide guidance that screen font size can be changed and explain how.
 - Assistant: Replaced the brief note with a dedicated **Screen font size (zoom)** section in `docs/user-guide.md` listing explicit shortcuts for macOS and Windows/Linux, including reset to default.
+
+### Latest update
+- User: Reported Finder Applications icon appears too small while running app icon is fine.
+- Assistant: Diagnosed low-resolution `icon.icns` payload issue and changed mac packaging config to use `app/resources/icons/icon.png` directly so electron-builder generates proper app-bundle icon assets for mac builds.
+- Verification: `npm run build && npm test` passed (65 files, 296 tests).
+
+### Latest update
+- User: Requested out-of-box style defaults be set to: `T=Tango`, `W=Waltz`, `M=Milonga`, `O=Other`; and for all except `Other`, sub-styles: `Traditional`, `Contemporary`, `Alternative - Electro`.
+- Assistant: Updated default style families and default seeded style names to include `Other`, added i18n key `defaultStyleOther` for all supported languages, and added a unit test to verify the new default family parsing.
+- Verification: `npm run build && npm test` passed (65 files, 297 tests).
+
+### Latest update
+- User: Requested default style sequence be `3t 3t 3w 3t 3t 3m`, and playlist settings UI to group start/end times together.
+- Assistant: Updated playlist default sequence constant and sequence placeholder in all language maps; added a dedicated grouped "Schedule" block in Playlist settings containing start and end time fields together.
+- Verification: `npm run build && npm test` passed (65 files, 297 tests).
+
+### Latest update
+- User prompt: "Make the default gap before cortina 1 second. Put a clone of the 'pre-compute compressed songs' button next to the enable compression checkbox and make it switch to Library tab bottom/progress. Fix available tanda duplicate indicator behavior. Ensure year/tempo diversity graphs are colored by style."
+- Assistant response:
+  - Changed default `gap before cortina` from `0` to `1` second.
+  - Added a second `Pre-compute compressed songs` button in the System compressor section (next to `Enable quiet boost + limiter`).
+  - Wired both precompute buttons to one shared runtime handler.
+  - Shortcut button now activates the `Library` settings tab, scrolls settings content to the bottom, then starts precompute so scan progress is visible.
+  - Suppressed duplicate warning indicators for `Available` collection when viewed alone (since it is already a playlist-excluded smart collection context).
+  - Improved style-group detection used by diversity chart coloring/hatching so family/variant keys (e.g. `T - ...`, `W - ...`, `M - ...`) map to Tango/Waltz/Milonga colors in year/tempo charts.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 297 tests).
+- Files changed:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/renderer.ts`

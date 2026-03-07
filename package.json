@@ -39,7 +39,7 @@
       "package.json"
     ],
     "mac": {
-      "icon": "app/resources/icons/icon.icns",
+      "icon": "app/resources/icons/icon.png",
       "artifactName": "tanda-forge-${version}-mac-${arch}.${ext}",
       "target": [
         "dmg",

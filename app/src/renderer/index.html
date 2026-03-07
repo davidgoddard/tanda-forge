@@ -890,18 +890,23 @@
                   step="0.5"
                 />
               </div>
-              <div class="settings-field">
-                <label for="playlist-start-time" data-i18n="playlistStartTimeLabel">
-                  Playlist start time
-                </label>
-                <input id="playlist-start-time" type="time" step="60" />
-              </div>
-              <div class="settings-field">
-                <label for="playlist-end-time" data-i18n="playlistEndTimeLabel">
-                  Playlist expected end time
-                </label>
-                <input id="playlist-end-time" type="time" step="60" />
-              </div>
+              <section class="settings-subgroup settings-field wide playlist-time-group">
+                <h4 data-i18n="playlistScheduleGroup">Schedule</h4>
+                <div class="playlist-time-grid">
+                  <div class="settings-field">
+                    <label for="playlist-start-time" data-i18n="playlistStartTimeLabel">
+                      Playlist start time
+                    </label>
+                    <input id="playlist-start-time" type="time" step="60" />
+                  </div>
+                  <div class="settings-field">
+                    <label for="playlist-end-time" data-i18n="playlistEndTimeLabel">
+                      Playlist expected end time
+                    </label>
+                    <input id="playlist-end-time" type="time" step="60" />
+                  </div>
+                </div>
+              </section>
               <div class="settings-field wide">
                 <label for="playlist-sequence" data-i18n="playlistSequenceLabel">
                   Tanda sequence
@@ -1048,7 +1053,15 @@
                     <label for="audio-dynamics-enabled" data-i18n="audioDynamicsEnabledLabel">
                       Enable quiet boost + limiter
                     </label>
-                    <input id="audio-dynamics-enabled" type="checkbox" />
+                    <div class="settings-inline">
+                      <input id="audio-dynamics-enabled" type="checkbox" />
+                      <button
+                        id="precompute-compressed-shortcut"
+                        data-i18n="precomputeCompression"
+                      >
+                        Pre-compute compressed songs
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>

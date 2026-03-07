@@ -2670,6 +2670,37 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   max-width: none;
 }
 
+.settings-subgroup {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 86%, var(--accent-soft));
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.7rem;
+  align-content: start;
+}
+
+.settings-subgroup h4 {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.playlist-time-grid {
+  display: grid;
+  gap: 0.65rem 0.8rem;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .playlist-time-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .settings-system-grid {
   grid-template-columns: repeat(3, minmax(220px, 1fr));
   gap: 0.9rem;

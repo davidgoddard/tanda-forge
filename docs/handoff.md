@@ -6016,3 +6016,64 @@
       - macOS: `Command` + `+`, `Command` + `-`, `Command` + `0`
       - Windows/Linux: `Ctrl` + `+`, `Ctrl` + `-`, `Ctrl` + `0`
     - Replaced older one-line note with clearer guidance.
+
+### Latest update
+- Fixed mac bundle icon source to avoid tiny Finder icon in Applications.
+- Root cause:
+  - Current `icon.icns` only contained a low-res representation, so Finder rendered a tiny icon.
+- Change:
+  - `package.json`
+    - `build.mac.icon` changed from `app/resources/icons/icon.icns` to `app/resources/icons/icon.png`.
+  - This makes electron-builder generate full mac icon representations from the PNG source during packaging.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 296 tests).
+
+### Latest update
+- Updated out-of-box style defaults.
+- Changes:
+  - `app/src/renderer/renderer.ts`
+    - `DEFAULT_STYLE_FAMILIES` now:
+      - `T=Tango:Traditional, Contemporary, Alternative - Electro`
+      - `W=Waltz:Traditional, Contemporary, Alternative - Electro`
+      - `M=Milonga:Traditional, Contemporary, Alternative - Electro`
+      - `O=Other`
+    - Default style seed list now includes `defaultStyleOther`.
+  - `app/src/renderer/i18n.ts`
+    - Added `defaultStyleOther` for all languages.
+  - `tests/style-families.test.ts`
+    - Added unit test validating parsing of the new default family configuration.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 297 tests).
+
+### Latest update
+- Playlist defaults and settings layout update.
+- Changes:
+  - `app/src/renderer/renderer.ts`
+    - `DEFAULT_PLAYLIST_SEQUENCE` changed to `3t 3t 3w 3t 3t 3m`.
+  - `app/src/renderer/i18n.ts`
+    - `playlistSequencePlaceholder` updated in all languages to `3t 3t 3w 3t 3t 3m`.
+    - Added `playlistScheduleGroup` translation key in all languages.
+  - `app/src/renderer/index.html`
+    - Grouped `playlist-start-time` and `playlist-end-time` fields into a dedicated `settings-subgroup` titled via `playlistScheduleGroup`.
+  - `app/src/renderer/styles.css`
+    - Added styling for `settings-subgroup` and `playlist-time-grid` to keep start/end time fields visually grouped and responsive.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 297 tests).
+
+### Latest update
+- Implemented requested UX/defaults and chart/collection behavior updates:
+  - Default `gap before cortina` is now `1` second.
+  - Added `#precompute-compressed-shortcut` button beside `#audio-dynamics-enabled` in System settings.
+  - Refactored precompute trigger to shared function used by both buttons.
+  - Shortcut behavior: switch settings tab to `library`, scroll `.settings-content` to bottom, then start precompute so progress bars are visible.
+  - Duplicate indicators are now hidden when viewing `Available` collection alone.
+  - Style-color grouping for diversity bars now recognizes style-family code variants (`T/W/M` forms like `T - Nuevo`) so year/tempo charts render style colors/patterns correctly.
+- Files changed:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/renderer.ts`
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 297 tests).
