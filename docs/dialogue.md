@@ -4329,3 +4329,7 @@ Code diffs are omitted; only intent and outcomes are captured.
 - User: Reported CI mac build failures: release workflow could not resolve packaged `.app` in `dist/` after rename.
 - Assistant: Updated `.github/workflows/release.yml` hard-coded app and volume names from `Tanda Player Lite` to `Tanda Forge` in all mac verification and detach steps.
 - Verification: `npm run build && npm test` passed (65 files, 296 tests).
+
+### Latest update
+- User: Asked to add user-guide guidance that screen font size can be changed and explain how.
+- Assistant: Replaced the brief note with a dedicated **Screen font size (zoom)** section in `docs/user-guide.md` listing explicit shortcuts for macOS and Windows/Linux, including reset to default.

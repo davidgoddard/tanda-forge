@@ -2,7 +2,18 @@
 
 This guide introduces the layout, explains initial setup, and walks through searching, collecting, and building tandas and playlists.
 
-Note that the application's font size and hence how much information fits on the screen can be controlled in the same way as for a web browser.  Command + "-" keys on a Mac for example. 
+## Screen font size (zoom)
+
+The app supports normal browser-style zoom controls so you can change the on-screen font size and layout density:
+
+- **macOS**:
+  - Increase size: `Command` + `+`
+  - Decrease size: `Command` + `-`
+  - Reset to default: `Command` + `0`
+- **Windows / Linux**:
+  - Increase size: `Ctrl` + `+`
+  - Decrease size: `Ctrl` + `-`
+  - Reset to default: `Ctrl` + `0`
 
 ## Key Areas and Roles
 

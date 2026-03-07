@@ -6007,3 +6007,12 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (65 files, 296 tests).
+
+### Latest update
+- User-guide zoom documentation improved.
+- Changes:
+  - `docs/user-guide.md`
+    - Added a dedicated **Screen font size (zoom)** section with explicit shortcut instructions:
+      - macOS: `Command` + `+`, `Command` + `-`, `Command` + `0`
+      - Windows/Linux: `Ctrl` + `+`, `Ctrl` + `-`, `Ctrl` + `0`
+    - Replaced older one-line note with clearer guidance.
