@@ -92,6 +92,10 @@ export type TandaSearchRow = {
 export const buildTandaSearchWhere = (params: TandaSearchParams) => {
   const scoped = parseScopedSearchQuery(params.query ?? "");
   const query = scoped.query.trim();
+  const queryTokens = query
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
   const where: string[] = [];
   const values: unknown[] = [];
 
@@ -116,32 +120,32 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
         });
       }
     } else {
-      const like = `%${query}%`;
+      const tokenPredicates = queryTokens.map(
+        () =>
+          `(t.title like ?
+            or t.artist_summary like ?
+            or t.artist like ?
+            or t.singer like ?
+            or t.album like ?
+            or t.year like ?
+            or t.genre like ?
+            or t.notes like ?
+            or cast(round(t.bpm) as text) like ?)`,
+      );
+      const trackPredicate =
+        tokenPredicates.length > 0 ? tokenPredicates.join(" and ") : "1=1";
       where.push(
-        `(
-          tandas.name like ?
-          or exists (
-            select 1 from tanda_styles ts
-            where ts.tanda_id = tandas.id and ts.style_name like ?
-          )
-          or exists (
-            select 1 from tanda_tracks tt
-            join tracks t on t.id = tt.track_id
-            where tt.tanda_id = tandas.id
-              and (
-                t.title like ?
-                or t.artist_summary like ?
-                or t.artist like ?
-                or t.singer like ?
-                or t.album like ?
-                or t.year like ?
-                or t.genre like ?
-                or t.notes like ?
-              )
-          )
+        `exists (
+          select 1 from tanda_tracks tt
+          join tracks t on t.id = tt.track_id
+          where tt.tanda_id = tandas.id
+            and (${trackPredicate})
         )`,
       );
-      values.push(like, like, like, like, like, like, like, like, like, like);
+      queryTokens.forEach((token) => {
+        const like = `%${token}%`;
+        values.push(like, like, like, like, like, like, like, like, like);
+      });
     }
   }
 

@@ -6093,3 +6093,18 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (65 files, 298 tests).
+
+### Latest update
+- Improved tanda search relevance for similarity-style queries.
+- Problem:
+  - Similar-track queries (artist/year/bpm token mix) could return zero tandas because tanda search required broad phrase-like matching over tanda-level fields.
+- Change:
+  - `app/src/main/library/tandas.ts` (`buildTandaSearchWhere`):
+    - Non-artist scoped query now tokenizes the query.
+    - Search condition now returns tandas where there exists a track in the tanda such that **all tokens** match across track fields (`title`, `artist_summary`, `artist`, `singer`, `album`, `year`, `genre`, `notes`, `bpm`).
+    - Added BPM token matching with `cast(round(t.bpm) as text) like ?`.
+  - `tests/tanda-search.test.ts`:
+    - Updated SQL-builder expectations for tokenized per-track matching and BPM token behavior.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 298 tests).

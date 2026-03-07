@@ -4379,3 +4379,18 @@ Code diffs are omitted; only intent and outcomes are captured.
   - `app/src/shared/clipboard-target.ts`
   - `app/src/renderer/renderer.ts`
   - `tests/clipboard-target.test.ts`
+
+### Latest update
+- User prompt: Reported that using a similar-search from a playlist track produced track matches but no tanda matches unless the query was manually shortened; asked for intuitive tanda behavior.
+- Assistant response:
+  - Updated tanda search semantics to operate as track-level token matching within tandas.
+  - For non-artist-scoped queries, tanda search now returns tandas where **at least one track** matches all query tokens across track metadata fields.
+  - Added BPM token support in tanda search matching via `cast(round(t.bpm) as text)`.
+  - This replaces previous full-query phrase matching that often failed for generated similarity queries with mixed tokens.
+  - Updated unit tests for tanda search SQL builder accordingly.
+- Verification:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 298 tests).
+- Files changed:
+  - `app/src/main/library/tandas.ts`
+  - `tests/tanda-search.test.ts`

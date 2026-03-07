@@ -6,6 +6,10 @@
 
 See [User Guide](docs/user-guide.md)
 
+## Note
+
+This app requires **ffmpeg** to be installed before it can be used.  See instructions below.
+
 ## Background
 
 Tanda Forge is a desktop app for Argentine Tango DJs who want a fast, safe, and flexible tanda preparation and live playback app.
