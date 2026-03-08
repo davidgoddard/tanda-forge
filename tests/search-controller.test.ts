@@ -52,4 +52,97 @@ describe("search controller", () => {
     expect(state.items.map((row) => row.id)).toEqual(["a", "b"]);
     expect(state.offsetStart).toBe(0);
   });
+
+  it("preserves the active search tab when no override is provided", () => {
+    let state = baseState();
+    let activatedTab: "search-tracks" | "search-tandas" | null = null;
+    let scheduled = false;
+    const controller = createSearchController<Track>({
+      searchPageSize: 2,
+      getWindowApi: () => null,
+      getState: () => state,
+      setState: (next) => {
+        state = next;
+      },
+      patchState: (patch) => {
+        state = { ...state, ...patch };
+      },
+      getSearchParams: () => ({ query: "Trio" }),
+      applySearchUiState: () => {},
+      getRefreshVersion: () => 1,
+      incrementRefreshVersion: () => 1,
+      setTrackInCache: () => {},
+      renderSearchResults: () => {},
+      updateSearchSortDefaults: () => {},
+      updateTabCount: () => {},
+      updateJumpIndex: async () => {},
+      loadTandaSearchResults: async () => {},
+      getActiveSearchTab: () => "search-tandas",
+      getSearchListBody: () => null,
+      getSearchListMetrics: () => null,
+      setSearchListScrollTop: () => {},
+    });
+
+    controller.runSearchQuery(
+      "Trio",
+      true,
+      {
+        setInputValue: () => {},
+        schedule: () => {
+          scheduled = true;
+        },
+        setActiveSearchTab: (tab) => {
+          activatedTab = tab;
+        },
+      },
+    );
+
+    expect(activatedTab).toBe("search-tandas");
+    expect(scheduled).toBe(true);
+  });
+
+  it("uses an explicit tab override for programmatic searches", () => {
+    let state = baseState();
+    let activatedTab: "search-tracks" | "search-tandas" | null = null;
+    const controller = createSearchController<Track>({
+      searchPageSize: 2,
+      getWindowApi: () => null,
+      getState: () => state,
+      setState: (next) => {
+        state = next;
+      },
+      patchState: (patch) => {
+        state = { ...state, ...patch };
+      },
+      getSearchParams: () => ({ query: "Trio" }),
+      applySearchUiState: () => {},
+      getRefreshVersion: () => 1,
+      incrementRefreshVersion: () => 1,
+      setTrackInCache: () => {},
+      renderSearchResults: () => {},
+      updateSearchSortDefaults: () => {},
+      updateTabCount: () => {},
+      updateJumpIndex: async () => {},
+      loadTandaSearchResults: async () => {},
+      getActiveSearchTab: () => "search-tandas",
+      getSearchListBody: () => null,
+      getSearchListMetrics: () => null,
+      setSearchListScrollTop: () => {},
+    });
+
+    controller.runSearchQuery(
+      "Busqueda Artistica",
+      true,
+      {
+        setInputValue: () => {},
+        schedule: () => {},
+        setActiveSearchTab: (tab) => {
+          activatedTab = tab;
+        },
+      },
+      "search-tracks",
+    );
+
+    expect(activatedTab).toBe("search-tracks");
+  });
 });

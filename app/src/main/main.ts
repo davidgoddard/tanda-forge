@@ -83,6 +83,7 @@ const closeStateByWebContentsId = new Map<
 let mainAppWindow: BrowserWindow | null = null;
 let displayWindow: BrowserWindow | null = null;
 let lastDisplayPayload: DisplayUpdatePayload = {};
+const DEFAULT_MAIN_WINDOW_ZOOM_FACTOR = 0.72;
 
 const imageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"]);
 const audioExtensions = new Set([
@@ -367,19 +368,33 @@ const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
+    show: false,
     fullscreen: false,
     fullscreenable: true,
+    backgroundColor: "#111827",
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      zoomFactor: DEFAULT_MAIN_WINDOW_ZOOM_FACTOR,
       // Keep timers/audio smooth when app is not focused (avoid background jumps).
       backgroundThrottling: false,
     },
   });
   mainAppWindow = mainWindow;
+  mainWindow.webContents.setZoomFactor(DEFAULT_MAIN_WINDOW_ZOOM_FACTOR);
 
   mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+  mainWindow.webContents.on("did-finish-load", () => {
+    mainWindow.webContents.setZoomFactor(DEFAULT_MAIN_WINDOW_ZOOM_FACTOR);
+  });
+  mainWindow.once("ready-to-show", () => {
+    if (mainWindow.isDestroyed()) {
+      return;
+    }
+    mainWindow.webContents.setZoomFactor(DEFAULT_MAIN_WINDOW_ZOOM_FACTOR);
+    mainWindow.show();
+  });
 
   const windowId = mainWindow.webContents.id;
   const closeState = { allowClose: false, closeRequested: false };

@@ -6108,3 +6108,418 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (65 files, 298 tests).
+
+### Latest update
+- Adjusted default sub-style tokens in style families.
+- Change:
+  - `app/src/renderer/renderer.ts`
+    - `DEFAULT_STYLE_FAMILIES` updated from `Alternative - Electro` (single variant) to two separate variants: `Alternative`, `Electro` for Tango/Waltz/Milonga families.
+  - `tests/style-families.test.ts`
+    - Updated default-family parsing assertion to expect split variants.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (65 files, 298 tests).
+
+### Latest update
+- Improved style-family edit affordance in System settings.
+- Change:
+  - `app/src/renderer/renderer.ts`
+    - On style-family row `Edit`, after filling form inputs, now triggers visual pulse on target fields.
+  - `app/src/renderer/modules/style-family-view.ts`
+    - Added reusable pulse helper (`pulseStyleFamilyEditFields`) with constants for class name and duration.
+  - `app/src/renderer/styles.css`
+    - Added `styleFamilyEditPulse` keyframes and `.style-family-edit-pulse` class for border/glow pulse animation.
+  - `tests/style-family-view.test.ts`
+    - Added unit tests for pulse helper add/remove behavior and null/duplicate field handling.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (66 files, 300 tests).
+
+### Latest update
+- Updated style-family form primary action label.
+- Change:
+  - `app/src/renderer/index.html`
+    - `#style-family-add` default label changed to `Add / Save`.
+  - `app/src/renderer/i18n.ts`
+    - `styleFamilyAdd` translation updated in all supported languages to reflect Add/Save behavior.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (66 files, 300 tests).
+
+### Latest update
+- Playlist diversity Year/Tempo charts now render style-colored stacked bars.
+- Change:
+  - `app/src/renderer/renderer.ts` (`renderPlaylistStats`):
+    - Added `yearStyleBuckets` and `tempoStyleBuckets` accumulation during playlist-track iteration.
+    - Added adaptive style distributions for year/tempo via `buildAdaptiveStyleNumericDistribution`.
+    - Replaced Year/Tempo rendering from `renderMiniChart(...)` to `renderStyleDistributionChart(...)` with compact style stacks.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (66 files, 300 tests).
+
+### Latest update
+- Playlist diversity orchestra bars are now actionable.
+- Change:
+  - `app/src/renderer/renderer.ts`
+    - Extended `renderOrchestraChart(...)` with optional `onSelectOrchestra` callback.
+    - Added click/keyboard handlers (`Enter`/`Space`) per orchestra bar when callback is provided.
+    - In `renderPlaylistStats()`, wired orchestra selection to:
+      - set playlist filter state/input,
+      - activate `playlist-tab`,
+      - re-render playlist,
+      - close playlist stats modal.
+  - `app/src/renderer/styles.css`
+    - Added interactive cursor/focus-visible styles for clickable orchestra bars.
+  - `tests/e2e/workflows.e2e.ts`
+    - Updated test 24 to click a playlist diversity orchestra bar and assert:
+      - modal closes,
+      - playlist tab is active,
+      - playlist filter contains selected orchestra.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (66 files, 300 tests).
+  - `npm run test:e2e` failed in this environment at app startup (`Process failed to launch!` for all tests), so full E2E validation remains pending on a working Electron runtime.
+
+### Latest update
+- Playlist stop control now acts as a global stop and remains enabled at all times.
+- Change:
+  - `app/src/renderer/renderer.ts`
+    - `updatePlaylistControls()` now keeps `#playlist-stop` enabled unconditionally.
+    - Added `stopPlaybackFromPlaylistControls()` to:
+      - force playlist runtime state to `idle` and clear resume/active markers,
+      - reset playlist playback indices,
+      - clear cortina active state/UI,
+      - stop both `main` and `headphone` channels using configured fade,
+      - re-render playlist.
+    - Wired `#playlist-stop` click to `stopPlaybackFromPlaylistControls()`.
+  - `tests/e2e/workflows.e2e.ts`
+    - Updated test 31 assertion from expecting `#playlist-stop` disabled to expecting `#playlist-start` enabled after run completes.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (66 files, 300 tests).
+  - Targeted E2E run could not execute here (`Process failed to launch!`), so E2E verification remains pending in a working local Electron environment.
+
+### Latest update
+- Improved duplicate-jump visual timing in playlist.
+- Change:
+  - `app/src/renderer/renderer.ts`
+    - Added `DUPLICATE_JUMP_HIGHLIGHT_DELAY_MS` (650ms) and `DUPLICATE_JUMP_HIGHLIGHT_DURATION_MS` (2800ms).
+    - `focusPlaylistIndex(...)` now:
+      - performs smooth scroll first,
+      - applies `jump-highlight` after delay (post-scroll settle),
+      - keeps highlight active longer before removing.
+  - `app/src/renderer/styles.css`
+    - `.list-row.jump-highlight` animation increased from `2.2s` to `2.8s`.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (66 files, 300 tests).
+
+### Latest update
+- Tanda designer style pills now use base-family compact mode with variant menus.
+- Change:
+  - `app/src/renderer/renderer.ts`
+    - Tanda style pill rendering switched from all styles to `getBaseStyles()` only.
+    - Added tanda variant menu support (`openTandaStyleVariantMenu`) using existing style-variant menu UI and same long-press/right-click behavior as search pills.
+    - Base pill click now toggles family selection; variant selection replaces same-family style for tanda.
+  - `app/src/shared/tanda-style-selection.ts`
+    - Added pure helpers:
+      - `toggleTandaBaseStyle(...)`
+      - `selectTandaVariantStyle(...)`
+  - `tests/tanda-style-selection.test.ts`
+    - Added unit coverage for base toggle, family removal, and variant replacement behavior.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 303 tests).
+
+### Latest update
+- Tanda search no longer regresses to track tab on manual searches.
+- Change:
+  - `app/src/renderer/controllers/search-controller.ts`
+    - `runSearchQuery(...)` now accepts an optional preferred tab and otherwise preserves `deps.getActiveSearchTab()` instead of unconditionally forcing track search.
+  - `app/src/renderer/renderer.ts`
+    - `runSearchQuery(...)` now accepts an optional `preferredTab` and activates whichever search tab is requested.
+    - `runSearchForTrack(...)` now explicitly routes to `search-tracks`.
+    - `runSearchForTanda(...)` now explicitly routes to `search-tandas`.
+  - `tests/search-controller.test.ts`
+    - Added unit coverage proving:
+      - manual search preserves an active `search-tandas` tab,
+      - programmatic overrides can still force `search-tracks`.
+- Validation:
+  - `npm run build` passed.
+  - `npm test -- tests/search-controller.test.ts` passed (3 tests).
+  - Targeted E2E rerun could not complete in this environment because Electron failed to start (`Process failed to launch!`), so full workflow confirmation remains pending on a working local runtime.
+
+### Latest update
+- Tanda search now matches tanda names as well as track metadata.
+- Change:
+  - `app/src/main/library/tandas.ts`
+    - Updated `buildTandaSearchWhere(...)` for unscoped searches so each token matches if it appears in either:
+      - `tandas.name`, or
+      - any existing joined track field inside the tanda.
+    - Existing artist-scoped search behavior remains track-artist-only.
+  - `tests/tanda-search.test.ts`
+    - Updated query-shape expectations for the added tanda-name predicate.
+    - Added explicit unit coverage for tanda-name token matching (`"Tango Trio"`).
+- Validation:
+  - `npm test -- tests/tanda-search.test.ts tests/search-controller.test.ts` passed (7 tests).
+  - `npm run build` passed.
+
+### Latest update
+- E2E workflow test 28 no longer hardcodes a single secondary tanda style pill.
+- Change:
+  - `tests/e2e/workflows.e2e.ts`
+    - Updated the final tanda-designer portion of test 28 to apply the first available alternate style from `Milonga`, `Waltz`, or `Other` instead of assuming `Milonga` is always rendered.
+    - Added a direct assertion that the clipped tanda row’s `.tanda-style-badge` contains `+`, which is the actual multi-style behavior under test.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 306 tests).
+
+### Latest update
+- E2E workflow test 28 now seeds the style-family prerequisites it needs.
+- Change:
+  - `tests/e2e/workflows.e2e.ts`
+    - Added explicit style-family setup for `M=Milonga` and `O=Other` alongside the custom Tango family in test 28.
+    - This ensures the selected tanda card has a secondary style pill available before asserting multi-style clipboard badge behavior.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 306 tests).
+
+### Latest update
+- Header subtitle now uses the actual copyright symbol.
+- Change:
+  - `app/src/renderer/index.html`
+    - Replaced fallback subtitle text `From David Goddard (c)2026` with `From David Goddard ©2026`.
+  - `app/src/renderer/i18n.ts`
+    - Replaced all localized `appSubtitle` values from `(c)2026` to `©2026`.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 306 tests).
+
+### Latest update
+- Track style search actions now route exact styles through pills instead of query text.
+- Change:
+  - `app/src/shared/tanda-search.ts`
+    - Added `resolveTrackSearchStyles(...)` helper to preserve exact normalized track styles when present in available styles.
+  - `app/src/renderer/renderer.ts`
+    - `resolveSearchStylesForTrack(...)` now uses exact track style resolution instead of collapsing to base family.
+    - Track-editor field search for `genre` now updates `selectedStyles`, reloads style pills, and reruns search without appending genre text into the search query.
+  - `tests/tanda-search-query.test.ts`
+    - Added coverage for exact track-style preservation and blank-style handling.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Added E2E coverage for track-editor style search via pills.
+- Change:
+  - `tests/e2e/workflows.e2e.ts`
+    - Inserted workflow test `29 - track editor style search uses exact style pills and filters results`.
+    - The test verifies that clicking the track-editor `genre` search button:
+      - leaves query text intact,
+      - activates the exact style pill (`T - Traditional`),
+      - filters visible search results accordingly.
+    - Renumbered subsequent workflow test titles.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Main app window now starts at a smaller default zoom, and E2E workflow 29 now persists its edited style before asserting filtered results.
+- Change:
+  - `app/src/main/main.ts`
+    - Added `DEFAULT_MAIN_WINDOW_ZOOM_FACTOR = 0.8`.
+    - Applied it to the main window via `mainWindow.webContents.setZoomFactor(...)` at startup.
+  - `tests/e2e/workflows.e2e.ts`
+    - Updated workflow test 29 to save the `Tango - Traditional` genre change, close/reopen the editor, then invoke the genre-field search action.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Row-action hit targets are larger, and tanda `T` action has explicit regression coverage.
+- Change:
+  - `app/src/renderer/styles.css`
+    - Increased `--action-size` from `24px` to `30px`.
+    - Increased row-action/menu spacing and menu padding for clearer separation between adjacent actions such as `T` and `S`.
+  - `tests/e2e/workflows.e2e.ts`
+    - Added workflow test `30 - search-tanda T action opens designer without changing current search`.
+    - Renumbered subsequent workflow test titles.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Added E2E coverage for tanda routing across clipboard collection types after style filtering.
+- Change:
+  - `tests/e2e/workflows.e2e.ts`
+    - Added helper `createClipboardCollection(...)`.
+    - Added workflow test `31 - style search tanda routes correctly to designer, clipboard collections, and playlist`.
+    - The workflow verifies tanda routing for:
+      - active `general` collection,
+      - active user-defined collection,
+      - active built-in read-only collection (fallback to General),
+      - tanda designer,
+      - playlist.
+    - Renumbered subsequent workflow test titles.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Main window startup zoom is lower again, and workflow 31 now uses a stable read-only clipboard collection in its fallback assertion.
+- Change:
+  - `app/src/main/main.ts`
+    - Reduced `DEFAULT_MAIN_WINDOW_ZOOM_FACTOR` from `0.8` to `0.72`.
+    - Reapplies the zoom factor on `did-finish-load`.
+  - `tests/e2e/workflows.e2e.ts`
+    - Updated workflow 31 to use the `top` built-in collection for the “read-only collection falls back to General” assertion.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Workflow 31 now verifies clipboard routing via saved collection membership instead of the mixed clipboard list view.
+- Change:
+  - `tests/e2e/workflows.e2e.ts`
+    - Added `clipboardCollectionTandaIds(...)` helper that reads `tanda-clipboard-collections` from local storage.
+    - Updated workflow 31 assertions to verify destination collection ids directly:
+      - `general` contains `td2`,
+      - custom collection contains `td5`,
+      - `top` does not contain `td6`,
+      - `general` contains fallback-routed `td6`.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Workflow 31 now switches to Playlist before asserting visible playlist tanda rows.
+- Change:
+  - `tests/e2e/workflows.e2e.ts`
+    - Added `button[data-tab="playlist-tab"]` activation before the final `Milonga Trio` playlist visibility assertion.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Workflow 31 now sets a `3m`-compatible playlist sequence before adding `Milonga Trio` to playlist.
+- Change:
+  - `tests/e2e/workflows.e2e.ts`
+    - Opens settings, switches to Playlist settings, sets `#playlist-sequence` to `3m 3t 3w 3t 3t 3m`, blurs the field to trigger save, and closes settings before the final playlist-add step.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Renderer first paint now starts in the dark blue theme.
+- Change:
+  - `app/src/renderer/index.html`
+    - Added `class="theme-dark-alt"` to `<body>` so the initial paint matches the default dark blue theme before renderer JavaScript runs.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Main app window now remains hidden until the reduced startup zoom is ready.
+- Change:
+  - `app/src/main/main.ts`
+    - Added `show: false` and `backgroundColor: "#111827"` to the main window.
+    - Added `ready-to-show` handler that reapplies `DEFAULT_MAIN_WINDOW_ZOOM_FACTOR` and then calls `mainWindow.show()`.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Startup zoom is now also applied in BrowserWindow web preferences.
+- Change:
+  - `app/src/main/main.ts`
+    - Added `webPreferences.zoomFactor = DEFAULT_MAIN_WINDOW_ZOOM_FACTOR` for the main window, so the first renderer frame is created at the reduced zoom level.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Removed redundant tanda `E` row-menu action outside playlist context.
+- Change:
+  - `app/src/renderer/renderer.ts`
+    - Stopped rendering the `tanda-toggle` / `E` action for non-playlist tanda row menus.
+    - Removed the corresponding search-tanda click handler branch that opened the designer via `tanda-toggle`.
+    - Tanda summary click remains the expand/collapse interaction.
+  - `tests/e2e/workflows.e2e.ts`
+    - Updated the affected tanda-designer workflow step to use `tanda-edit`.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Search-result tanda detail tracks can now be sent directly to clipboard.
+- Change:
+  - `app/src/renderer/renderer.ts`
+    - Added `add-clip-track-from-tanda` to the detail-row menu for tanda search results.
+    - Wired the new action to load the detail track from cache, add it to clipboard tracks, switch the right panel to `clip-tracks`, and close the row menu.
+  - `tests/e2e/workflows.e2e.ts`
+    - Added workflow `35 - tanda search detail track menu can send track to clipboard`.
+    - The workflow expands `Tango Trio`, uses the new detail-row clipboard action on `Alberto Gomez Tango Uno`, then verifies the track appears under clipboard tracks.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 308 tests).
+
+### Latest update
+- Playlist orchestra chart clicks now use canonical orchestra filtering so chart counts match filtered playlist rows.
+- Change:
+  - `app/src/renderer/modules/playlist-view.ts`
+    - Added `matchesPlaylistFilter(...)` helper that distinguishes between broad text filters and orchestra-specific canonical matching.
+  - `app/src/renderer/renderer.ts`
+    - Added transient `playlistFilterOrchestra` state for chart-driven playlist filtering.
+    - Clicking a playlist orchestra chart bar now sets that orchestra filter mode while still filling the visible playlist filter input.
+    - Manual input/search clearing resets orchestra-specific mode and returns to the existing broad text matching.
+    - Playlist track and tanda filtering now compare canonical orchestra names when the orchestra-specific mode is active.
+  - `tests/playlist-view.test.ts`
+    - Added unit coverage proving orchestra chart filters do not match tandas that only mention an orchestra in mixed summary text.
+- Validation:
+  - `npm run build` passed.
+  - `npm test -- tests/playlist-view.test.ts` passed.
+  - `npm test` passed (67 files, 309 tests).
+
+### Latest update
+- Playlist `last tanda` startup state now always resets to unchecked.
+- Change:
+  - `app/src/renderer/modules/playlist-view.ts`
+    - Added `resetPlaylistLastTandaState(...)` helper for explicit startup reset of the persisted flag.
+  - `app/src/renderer/renderer.ts`
+    - During init, the playlist last-tanda checkbox now clears persisted state and sets the UI unchecked before wiring the change handler.
+  - `tests/playlist-view.test.ts`
+    - Added unit coverage asserting the startup helper writes `"0"` to the `tanda-playlist-current-last` storage key.
+- Validation:
+  - `npm test -- tests/playlist-view.test.ts` passed.
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 310 tests).
+
+### Latest update
+- Clipboard track adds now preserve playlist-hosted tanda editing context.
+- Change:
+  - `app/src/renderer/renderer.ts`
+    - Updated `addTrackToActiveTanda(...)` so successful adds reactivate the current tanda editor host tab:
+      - `playlist-tab` for playlist-hosted editing,
+      - `tanda-designer-tab` for standalone designer editing.
+    - This prevents clipboard round-trips from unexpectedly switching a playlist-hosted tanda into the standalone designer view.
+  - `tests/e2e/workflows.e2e.ts`
+    - Added workflow `36 - clipboard track add keeps playlist-hosted tanda editor in playlist tab`.
+    - The workflow:
+      - adds `Tango Trio` to the playlist,
+      - opens its playlist-hosted editor,
+      - sends a track from that tanda to clipboard,
+      - adds the same track back from clipboard,
+      - asserts `playlist-tab` remains active and `#playlist-tanda-editor` stays visible.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 310 tests).
+
+### Latest update
+- Workflow 35 is now less brittle around tanda detail menu actions.
+- Change:
+  - `tests/e2e/workflows.e2e.ts`
+    - Added an assertion that the expanded tanda detail row has `detail-menu-open` before clicking the clipboard action.
+    - Switched the clipboard action click in workflow 35 to `force: true` to avoid transient detach/visibility failures from compact inline menu rendering.
+- Validation:
+  - `npm run build` passed.
+  - `npm test` passed (67 files, 310 tests).

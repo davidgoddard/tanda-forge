@@ -121,30 +121,28 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
       }
     } else {
       const tokenPredicates = queryTokens.map(
-        () =>
-          `(t.title like ?
-            or t.artist_summary like ?
-            or t.artist like ?
-            or t.singer like ?
-            or t.album like ?
-            or t.year like ?
-            or t.genre like ?
-            or t.notes like ?
-            or cast(round(t.bpm) as text) like ?)`,
+        () => `(lower(coalesce(tandas.name, '')) like ?
+          or exists (
+            select 1 from tanda_tracks tt
+            join tracks t on t.id = tt.track_id
+            where tt.tanda_id = tandas.id
+              and (
+                lower(coalesce(t.title, '')) like ?
+                or lower(coalesce(t.artist_summary, '')) like ?
+                or lower(coalesce(t.artist, '')) like ?
+                or lower(coalesce(t.singer, '')) like ?
+                or lower(coalesce(t.album, '')) like ?
+                or lower(coalesce(t.year, '')) like ?
+                or lower(coalesce(t.genre, '')) like ?
+                or lower(coalesce(t.notes, '')) like ?
+                or cast(round(t.bpm) as text) like ?
+              )
+          ))`,
       );
-      const trackPredicate =
-        tokenPredicates.length > 0 ? tokenPredicates.join(" and ") : "1=1";
-      where.push(
-        `exists (
-          select 1 from tanda_tracks tt
-          join tracks t on t.id = tt.track_id
-          where tt.tanda_id = tandas.id
-            and (${trackPredicate})
-        )`,
-      );
+      where.push(tokenPredicates.join(" and "));
       queryTokens.forEach((token) => {
-        const like = `%${token}%`;
-        values.push(like, like, like, like, like, like, like, like, like);
+        const like = `%${token.toLowerCase()}%`;
+        values.push(like, like, like, like, like, like, like, like, like, like);
       });
     }
   }

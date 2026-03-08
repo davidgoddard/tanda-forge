@@ -13,6 +13,7 @@ describe("tanda search helpers", () => {
       query: "troilo 1937 64",
       styles: ["Tango", "Vals"],
     });
+    expect(result.whereSql).toContain("lower(coalesce(tandas.name, '')) like ?");
     expect(result.whereSql).toContain("exists (");
     expect(result.whereSql).toContain("join tracks t on t.id = tt.track_id");
     expect(result.whereSql).toContain("cast(round(t.bpm) as text) like ?");
@@ -21,16 +22,26 @@ describe("tanda search helpers", () => {
     const likeCount = result.values.filter(
       (value) => value === "%troilo%",
     ).length;
-    expect(likeCount).toBe(9);
+    expect(likeCount).toBe(10);
     const yearLikeCount = result.values.filter(
       (value) => value === "%1937%",
     ).length;
-    expect(yearLikeCount).toBe(9);
+    expect(yearLikeCount).toBe(10);
     const bpmLikeCount = result.values.filter(
       (value) => value === "%64%",
     ).length;
-    expect(bpmLikeCount).toBe(9);
+    expect(bpmLikeCount).toBe(10);
     expect(result.values.slice(-2)).toEqual(["Tango", "Vals"]);
+  });
+
+  it("matches tanda name tokens in unscoped searches", () => {
+    const result = buildTandaSearchWhere({
+      query: "Tango Trio",
+      styles: [],
+    });
+    expect(result.whereSql).toContain("lower(coalesce(tandas.name, '')) like ?");
+    expect(result.values).toContain("%tango%");
+    expect(result.values).toContain("%trio%");
   });
 
   it("builds artist-scoped query against track artist fields only", () => {

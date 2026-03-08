@@ -92,23 +92,23 @@ describe("style families", () => {
 
   test("supports out-of-box style family defaults", () => {
     const defaults = parseStyleFamilies(
-      "T=Tango:Traditional, Contemporary, Alternative - Electro\nW=Waltz:Traditional, Contemporary, Alternative - Electro\nM=Milonga:Traditional, Contemporary, Alternative - Electro\nO=Other",
+      "T=Tango:Traditional, Contemporary, Alternative, Electro\nW=Waltz:Traditional, Contemporary, Alternative, Electro\nM=Milonga:Traditional, Contemporary, Alternative, Electro\nO=Other",
     );
     expect(defaults).toEqual([
       {
         code: "T",
         base: "Tango",
-        variants: ["Traditional", "Contemporary", "Alternative - Electro"],
+        variants: ["Traditional", "Contemporary", "Alternative", "Electro"],
       },
       {
         code: "W",
         base: "Waltz",
-        variants: ["Traditional", "Contemporary", "Alternative - Electro"],
+        variants: ["Traditional", "Contemporary", "Alternative", "Electro"],
       },
       {
         code: "M",
         base: "Milonga",
-        variants: ["Traditional", "Contemporary", "Alternative - Electro"],
+        variants: ["Traditional", "Contemporary", "Alternative", "Electro"],
       },
       { code: "O", base: "Other", variants: [] },
     ]);

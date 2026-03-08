@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTandaSearchQuery,
+  resolveTrackSearchStyles,
   resolveTandaSearchStyles,
 } from "../app/src/shared/tanda-search";
 
@@ -45,5 +46,21 @@ describe("tanda search helpers", () => {
       availableStyles: ["Tango", "Waltz", "Milonga"],
     });
     expect(styles).toEqual(["Milonga"]);
+  });
+
+  it("preserves exact track style variants for track similarity searches", () => {
+    const styles = resolveTrackSearchStyles({
+      trackStyle: "Tango - Traditional",
+      availableStyles: ["Tango", "Tango - Traditional", "Tango - Alternative"],
+    });
+    expect(styles).toEqual(["Tango - Traditional"]);
+  });
+
+  it("returns empty styles when track style is blank", () => {
+    const styles = resolveTrackSearchStyles({
+      trackStyle: "",
+      availableStyles: ["Tango"],
+    });
+    expect(styles).toEqual([]);
   });
 });

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolvePlaylistWindowMs } from "../app/src/renderer/modules/playlist-view";
+import {
+  matchesPlaylistFilter,
+  resetPlaylistLastTandaState,
+  resolvePlaylistWindowMs,
+} from "../app/src/renderer/modules/playlist-view";
 
 describe("playlist view helpers", () => {
   it("computes same-day playlist window", () => {
@@ -20,5 +24,42 @@ describe("playlist view helpers", () => {
       defaultEndMinutes: 3 * 60,
     });
     expect(ms).toBe(3 * 60 * 60 * 1000);
+  });
+
+  it("uses canonical orchestra matching for orchestra-chart playlist filters", () => {
+    expect(
+      matchesPlaylistFilter({
+        filterText: "Francisco Canaro",
+        orchestraFilter: "Francisco Canaro",
+        fallbackText:
+          "1938 - Edgardo Donato / Francisco Canaro Instrumental / Francisco Lomuto",
+        canonicalArtists: ["Edgardo Donato", "Francisco Lomuto"],
+      }),
+    ).toBe(false);
+
+    expect(
+      matchesPlaylistFilter({
+        filterText: "Francisco Canaro",
+        orchestraFilter: "Francisco Canaro",
+        fallbackText: "Canaro. Easy old faves - Francisco Canaro(3) - Sung",
+        canonicalArtists: ["Francisco Canaro"],
+      }),
+    ).toBe(true);
+  });
+
+  it("clears the persisted last-tanda flag on startup", () => {
+    const calls: Array<{ key: string; value: string }> = [];
+    resetPlaylistLastTandaState(
+      {
+        setItem: (key, value) => {
+          calls.push({ key, value });
+        },
+      },
+      "tanda-playlist-current-last",
+    );
+
+    expect(calls).toEqual([
+      { key: "tanda-playlist-current-last", value: "0" },
+    ]);
   });
 });

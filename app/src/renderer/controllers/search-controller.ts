@@ -141,8 +141,9 @@ export const createSearchController = <TTrack extends { id: string }>(
     helpers: {
       setInputValue: (value: string) => void;
       schedule: (fn: () => void) => void;
-      setActiveSearchTracksTab: () => void;
+      setActiveSearchTab: (tab: "search-tracks" | "search-tandas") => void;
     },
+    preferredTab?: "search-tracks" | "search-tandas",
   ) => {
     const value = query.trim();
     if (!value && !allowEmpty) {
@@ -150,7 +151,7 @@ export const createSearchController = <TTrack extends { id: string }>(
     }
     helpers.setInputValue(value);
     deps.applySearchUiState("loading", deps.getRefreshVersion() + 1, deps.getState().total);
-    helpers.setActiveSearchTracksTab();
+    helpers.setActiveSearchTab(preferredTab ?? deps.getActiveSearchTab());
     helpers.schedule(() => {
       void refreshSearch();
     });

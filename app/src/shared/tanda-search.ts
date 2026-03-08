@@ -77,3 +77,17 @@ export const resolveTandaSearchStyles = (params: {
   }
   return collectStylesFromTracks(params.tracks, params.availableStyles);
 };
+
+export const resolveTrackSearchStyles = (params: {
+  trackStyle?: string | null;
+  availableStyles: string[];
+}) => {
+  const normalized = normalizeStyleName(params.trackStyle ?? "");
+  if (!normalized) {
+    return [] as string[];
+  }
+  const matched = params.availableStyles.find(
+    (style) => normalizeStyleName(style) === normalized,
+  );
+  return [matched ?? normalized];
+};
