@@ -99,6 +99,11 @@ Board, Diagnostics, System).
   - CFG-PL-001a: Gap between tracks within a tanda.
   - CFG-PL-001b: Gap before each tanda.
   - CFG-PL-001c: Gap before cortina (stored for future cortina playback).
+  - CFG-PL-001d: Gap values may be negative to request overlap/crossfade instead
+    of silence.
+  - CFG-PL-001e: Negative values are applied between tracks and across
+    track/cortina boundaries using the absolute gap value as the overlap fade
+    duration.
 - CFG-PL-002: Users can configure the stop fade duration for live playlist playback.
 - CFG-PL-003: A tanda sequence string (e.g. `3t 3t 3w`) defines slot expectations.
 - CFG-PL-003.a: Sequence syntax supports grouped alternatives with per-option size/style,

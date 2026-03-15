@@ -49,6 +49,27 @@ export const shouldTreatClickStartAsIdle = (
   playbackStatus === "idle" ||
   (!isMainChannelActivelyPlaying && playbackStatus !== "playing");
 
+export const shouldStartPlaylistFromClick = (
+  appMode: "prep" | "live" | "edit",
+  isMainChannelActivelyPlaying: boolean,
+) => appMode !== "edit" && !isMainChannelActivelyPlaying;
+
+export const shouldUseOverlapForGapMs = (gapMs: number) => gapMs < 0;
+
+export const resolveOverlapFadeMs = (gapMs: number) =>
+  shouldUseOverlapForGapMs(gapMs) ? Math.abs(gapMs) : 0;
+
+export const resolveScheduledTransitionTimeSeconds = (
+  playbackEndSeconds: number | null,
+  playbackStartSeconds: number,
+  gapMs: number,
+) => {
+  if (!playbackEndSeconds || gapMs >= 0) {
+    return null;
+  }
+  return Math.max(playbackStartSeconds, playbackEndSeconds + gapMs / 1000);
+};
+
 export const shouldStopAfterMarkedLastTanda = (
   itemKind: "track" | "tanda",
   markedLast: boolean,

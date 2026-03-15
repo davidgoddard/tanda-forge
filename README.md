@@ -132,6 +132,9 @@ Settings -> **Playlist**
   - Sequence validation checks syntax and that style letters exist in configured style families
 - Cortina timing and behavior
 - Gap controls
+  - Positive values add silence before the next item
+  - `0` means immediate transition
+  - Negative values create overlap/crossfade; for example `-2` means about a two-second mix
 
 ## Typical workflow
 

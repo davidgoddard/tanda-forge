@@ -4828,3 +4828,25 @@ Code diffs are omitted; only intent and outcomes are captured.
   - `npm test` passed (67 files, 310 tests).
 - Files changed:
   - `tests/e2e/workflows.e2e.ts`
+### 2026-03-15
+- User prompt:
+  - "In this project is an agents file and some documentation files under docs.
+  - I thought the requirement for clicking on a song to play it when in preperation mode and when th clicked song is within a tanda within the playlist, then it continues as if in live move - i.e. at the end of the song, use any pauses/silences and then play the next song or cortina etc.
+  - Seconly it seems that I have songs that have no compressed versions available yet and yet when I go into the config page and click to produce the compressed songs in advance, it whizzes through as if they had all been done and nothing is left to do.  I need the system to allow for user shut-down of the app etc. and allow the app to continue next time of the user clicks those same buttons to scan for tracks or analysze them by skipping those it has done that action for but then resume.
+  - Finally, would you confirm that if I set a negative time value between a track and a cortina that it results in a overlap or mix?"
+- Assistant response:
+  - Confirmed the documented requirement: in Preparation mode, clicking a playlist track inside a tanda should start from that track and then continue naturally through the remaining playlist sequence.
+  - Fixed the implementation so playlist click-start now works in Preparation mode when the main channel is idle, instead of being limited to Live mode.
+  - Fixed compressed precompute robustness so completed companion files are reused, incomplete outputs are retried, and new renders are written atomically via temp-file rename to support stop/restart workflows.
+  - Confirmed that negative gap values are specified as overlap/mix in the design docs, but the current implementation still clamps those settings to non-negative values, so overlap is not actually happening today.
+- User prompt:
+  - "Would you make the negative values cause an mix/overlap of the last and next tracks whether tracks or cortinas."
+- Assistant response:
+  - Implemented negative gap values as actual overlap/crossfade transitions for track-to-track, track-to-cortina, and cortina-to-track playback.
+  - Updated playlist settings handling so negative values are accepted and persisted instead of being clamped back to zero.
+  - Used the absolute negative gap value as the crossfade duration so the configured amount affects the audible overlap length.
+- User prompt:
+  - "Would you ensure that in the user guide and possibly if relevant to the readme mention the timing value impact."
+- Assistant response:
+  - Updated the user guide to explain the meaning of positive, zero, and negative timing values in the Playlist settings.
+  - Added a shorter version of the same explanation to the README Playlist section.

@@ -58,6 +58,9 @@ and stores both the measured loudness and gain offset.
   files plus runtime wet/dry mix on the main output channel.
 - AUD-003.R7: Companion files may be precomputed in bulk from Library settings,
   or generated/prefetched on demand during playback workflows.
+- AUD-003.R7.a: Bulk precompute writes companion files atomically and only treats
+  completed renders as reusable cache entries, so interrupted runs can be safely
+  resumed by running the same action again.
 
 ## AUD-004 — Output Routing
 

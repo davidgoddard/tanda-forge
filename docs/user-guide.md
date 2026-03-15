@@ -47,6 +47,11 @@ some tangos, then a break such as a Waltz followed by more tangos and a milonga 
 and letters; 3t or 4T etc.  So a simple playlist might be "4T 4T 3W 4T 4T 3M".  When adding tandas to the playlist the application will check the target position's size
 and style and warn if the user is about to drop a mis-matching tanda into it.
 
+The playlist timing values affect how one item leads into the next:
+- Positive value: silence/pause before the next track or cortina starts.
+- Zero: immediate handover with no added silence.
+- Negative value: overlap/crossfade.  The next item starts before the current one ends, and the absolute value of the number is used as the overlap duration.  For example `-2` means about a two-second mix.
+
 ![Tanda Sequence](../images/user-guide/04-tanda-sequence.png)
 
 The sequence also supports grouped alternatives with independent sizes, for example:
@@ -257,6 +262,20 @@ You need at least one music folder, and optionally a cortina folder.
 
 1. In **System**, choose **Language**.
 2. UI labels, menu shortcuts, and tooltips update based on the selected language.
+
+### 4) Playlist Timing
+
+In **Settings -> Playlist**, the gap/timing controls work as follows:
+
+1. **Gap between tracks** controls transitions inside a tanda.
+2. **Gap before tanda** controls the handover from a cortina or prior item into the first track of the next tanda.
+3. **Gap before cortina** controls the handover from the last track of a tanda into the cortina.
+
+For all three controls:
+
+- Positive values add silence.
+- `0` means no added silence.
+- Negative values create overlap/crossfade between the outgoing and incoming items.
 
 ### 4) Adjust Trim Padding (Optional)
 

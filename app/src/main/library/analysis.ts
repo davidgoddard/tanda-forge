@@ -384,6 +384,18 @@ const buildCompressionFilter = (request: OfflineCompressionRequest) => {
   ].join(",");
 };
 
+export const buildCompressedRenderTempPath = (outputPath: string) =>
+  `${outputPath}.${process.pid}.tmp`;
+
+export const hasUsableCompressedRender = (outputPath: string) => {
+  try {
+    const stat = fs.statSync(outputPath);
+    return stat.isFile() && stat.size > 44;
+  } catch {
+    return false;
+  }
+};
+
 export const renderCompressedAudio = async (
   filePath: string,
   outputPath: string,
@@ -447,13 +459,32 @@ export const renderCompressedAudio = async (
     "2",
     "-c:a",
     "pcm_s16le",
-    outputPath,
+    buildCompressedRenderTempPath(outputPath),
   ];
+  const tempOutputPath = renderArgs[renderArgs.length - 1];
+  if (typeof tempOutputPath !== "string") {
+    throw new Error("Compressed render output path missing");
+  }
+  try {
+    fs.rmSync(tempOutputPath, { force: true });
+  } catch {
+    // Ignore stale temp cleanup failures before render.
+  }
   try {
     await runCommand(binary, renderArgs);
+    fs.renameSync(tempOutputPath, outputPath);
     return;
   } catch {
-    await runCommand(fallback, renderArgs);
+    try {
+      await runCommand(fallback, renderArgs);
+      fs.renameSync(tempOutputPath, outputPath);
+    } finally {
+      try {
+        fs.rmSync(tempOutputPath, { force: true });
+      } catch {
+        // Ignore best-effort temp cleanup failures.
+      }
+    }
   }
 };
 

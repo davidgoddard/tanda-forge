@@ -6523,3 +6523,54 @@
 - Validation:
   - `npm run build` passed.
   - `npm test` passed (67 files, 310 tests).
+### Latest update
+- User prompt: Asked whether playlist track clicks in Preparation mode should continue through the tanda/playlist like Live mode, reported bulk compressed-song precompute appearing to skip unfinished items, and asked whether negative timing values before cortinas create overlap/mix.
+- Assistant response:
+  - Fixed playlist click-start gating so clicking a playlist track in Preparation mode now enters the sequenced playlist playback path when the main channel is idle, matching the documented behavior of continuing naturally through the remaining playlist.
+  - Hardened compressed companion rendering so bulk precompute only reuses completed cache files and writes new renders atomically via a temp file + rename; interrupted runs can now be retried safely without treating partial outputs as finished.
+  - Added focused unit coverage for playlist click-start gating and compressed-cache validity helpers.
+  - Confirmed from spec and implementation that negative gap values are documented as overlap/mix, but current UI/runtime still clamp those values to `0`, so overlap is not implemented yet.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-flow.test.ts tests/audio-compression-cache.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (68 files, 314 tests).
+- Files changed:
+  - `app/src/main/library/analysis.ts`
+  - `app/src/main/main.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/playlist-flow.ts`
+  - `design/04-resilience-and-persistence.md`
+  - `design/10-audio-pipeline.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `tests/audio-compression-cache.test.ts`
+  - `tests/playlist-flow.test.ts`
+### Latest update
+- User prompt: "Would you make the negative values cause an mix/overlap of the last and next tracks whether tracks or cortinas."
+- Assistant response:
+  - Implemented negative playlist gaps as real overlap/crossfade behavior for track-to-track, track-to-cortina, and cortina-to-track transitions.
+  - Negative gap values are now accepted in the Playlist settings inputs and persisted in the renderer.
+  - The absolute negative gap value now drives the transition fade duration so longer negative values produce longer audible overlaps.
+  - Added overlap helper coverage and kept playlist timing calculations defensive by clamping computed aggregate durations to non-negative values.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-flow.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (68 files, 317 tests).
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/playlist-flow.ts`
+  - `design/14-settings-and-configuration.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/dialogue.md`
+  - `tests/playlist-flow.test.ts`
+### Latest update
+- User prompt: "Would you ensure that in the user guide and possibly if relevant to the readme mention the timing value impact."
+- Assistant response:
+  - Updated the user guide to explain the timing-gap behavior in plain language: positive values add silence, zero gives an immediate transition, and negative values create overlap/crossfade.
+  - Added the same concise rule to the README Playlist settings section so the behavior is visible before opening the full guide.
+- Verification:
+  - Documentation-only change; tests/build not rerun.
+- Files changed:
+  - `README.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+  - `docs/user-guide.md`

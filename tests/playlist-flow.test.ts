@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   findPlaylistPositionForTrack,
   resolveContinuationIndexAfterEndCortina,
+  resolveOverlapFadeMs,
+  resolveScheduledTransitionTimeSeconds,
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
   shouldSkipLeadInCortinaForSelectedStart,
+  shouldStartPlaylistFromClick,
   shouldStopAfterMarkedLastTanda,
   shouldTreatClickStartAsIdle,
+  shouldUseOverlapForGapMs,
 } from "../app/src/shared/playlist-flow.js";
 
 describe("shouldContinueAfterEndCortina", () => {
@@ -64,6 +68,38 @@ describe("shouldTreatClickStartAsIdle", () => {
   it("does not treat active playback as idle", () => {
     expect(shouldTreatClickStartAsIdle("playing", true)).toBe(false);
     expect(shouldTreatClickStartAsIdle("paused", true)).toBe(false);
+  });
+});
+
+describe("shouldStartPlaylistFromClick", () => {
+  it("allows preparation and live click-starts only when main playback is idle", () => {
+    expect(shouldStartPlaylistFromClick("prep", false)).toBe(true);
+    expect(shouldStartPlaylistFromClick("live", false)).toBe(true);
+    expect(shouldStartPlaylistFromClick("prep", true)).toBe(false);
+    expect(shouldStartPlaylistFromClick("live", true)).toBe(false);
+  });
+
+  it("blocks click-starts in edit mode", () => {
+    expect(shouldStartPlaylistFromClick("edit", false)).toBe(false);
+  });
+});
+
+describe("overlap helpers", () => {
+  it("treats only negative gaps as overlap", () => {
+    expect(shouldUseOverlapForGapMs(-1500)).toBe(true);
+    expect(shouldUseOverlapForGapMs(0)).toBe(false);
+    expect(shouldUseOverlapForGapMs(1200)).toBe(false);
+  });
+
+  it("derives overlap fade from the absolute negative gap", () => {
+    expect(resolveOverlapFadeMs(-2200)).toBe(2200);
+    expect(resolveOverlapFadeMs(0)).toBe(0);
+  });
+
+  it("schedules overlap start before playback end and never before playback start", () => {
+    expect(resolveScheduledTransitionTimeSeconds(10, 0, -2_000)).toBe(8);
+    expect(resolveScheduledTransitionTimeSeconds(10, 9.5, -2_000)).toBe(9.5);
+    expect(resolveScheduledTransitionTimeSeconds(10, 0, 500)).toBeNull();
   });
 });
 

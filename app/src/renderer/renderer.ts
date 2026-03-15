@@ -127,11 +127,15 @@ import {
 } from "../shared/audio-outputs.js";
 import {
   resolveContinuationIndexAfterEndCortina,
+  resolveOverlapFadeMs,
+  resolveScheduledTransitionTimeSeconds,
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
   shouldSkipLeadInCortinaForSelectedStart,
+  shouldStartPlaylistFromClick,
   shouldStopAfterMarkedLastTanda,
   shouldTreatClickStartAsIdle,
+  shouldUseOverlapForGapMs,
 } from "../shared/playlist-flow.js";
 import { computeAutoClearRemainingMs } from "../shared/playlist-filter.js";
 import { normalizePlaylistItems } from "../shared/playlist-normalize.js";
@@ -1946,7 +1950,7 @@ const getTandaDurationMs = (tanda: TandaDraft) => {
     0,
   );
   if (durationMs > 0) {
-    return durationMs + gaps;
+    return Math.max(0, durationMs + gaps);
   }
   const fallback =
     typeof tanda.totalDurationMs === "number" && Number.isFinite(tanda.totalDurationMs)
@@ -1993,7 +1997,7 @@ const buildPlaylistTimeline = () => {
     const gaps =
       Math.max(0, trackDurationsMs.length - 1) * getGapBetweenTracks() * 1000;
     const durationMs =
-      trackDurationsMs.reduce((total, value) => total + value, 0) + gaps;
+      Math.max(0, trackDurationsMs.reduce((total, value) => total + value, 0) + gaps);
     entries.push({
       index,
       durationMs,
@@ -2187,11 +2191,11 @@ const validateTandaForSlot = (tanda: TandaDraft, slotIndex: number) => {
 };
 
 const getGapBetweenTracks = () =>
-  parseSettingNumber("tanda-gap-between-tracks", 2, 0, 30);
+  parseSettingNumber("tanda-gap-between-tracks", 2, -30, 30);
 const getGapBeforeTanda = () =>
-  parseSettingNumber("tanda-gap-before-tanda", 4, 0, 30);
+  parseSettingNumber("tanda-gap-before-tanda", 4, -30, 30);
 const getGapBeforeCortina = () =>
-  parseSettingNumber("tanda-gap-before-cortina", 1, 0, 30);
+  parseSettingNumber("tanda-gap-before-cortina", 1, -30, 30);
 const getStopFadeSeconds = () =>
   parseSettingNumber("tanda-stop-fade", 2, 0, 10);
 const getCortinaLevelPercent = () =>
@@ -3216,6 +3220,7 @@ type PlayOptions = {
   isCortinaPlayback?: boolean;
   autoStopFadeMs?: number;
   fromPlaylist?: boolean;
+  transitionFadeMs?: number;
 };
 
 const resolveNextLiveTrackForCompression = () => {
@@ -3785,9 +3790,13 @@ const playOnChannel = async (
       }
       return false;
     }
-    fadeBetween(previous, next, targetVolume);
+    const transitionFadeMs =
+      Number.isFinite(options?.transitionFadeMs) && (options?.transitionFadeMs ?? 0) > 0
+        ? options?.transitionFadeMs ?? 0
+        : 600;
+    fadeBetween(previous, next, targetVolume, transitionFadeMs);
     if (previousCompressed) {
-      void fadeOutAudio(previousCompressed, 600).then(() => {
+      void fadeOutAudio(previousCompressed, transitionFadeMs).then(() => {
         previousCompressed.pause();
         previousCompressed.currentTime = 0;
         void releaseAudioDspRuntime(previousCompressed);
@@ -7885,6 +7894,53 @@ const waitForGap = (ms: number, runId: number) =>
     tick();
   });
 
+const resolvePlaybackEndSeconds = (params: {
+  durationMs: number;
+  startAtSeconds: number;
+  endTrimMs: number;
+  maxDurationSeconds?: number | null;
+}) => {
+  const durationSeconds = Math.max(0, params.durationMs) / 1000;
+  const startAtSeconds = Math.max(0, params.startAtSeconds);
+  const endTrimSeconds = Math.max(0, params.endTrimMs) / 1000;
+  const trimmedEndSeconds = computeTrimmedEnd(
+    durationSeconds,
+    startAtSeconds,
+    endTrimSeconds,
+  );
+  const maxDurationSeconds =
+    Number.isFinite(params.maxDurationSeconds) && (params.maxDurationSeconds ?? 0) > 0
+      ? Math.max(0, params.maxDurationSeconds ?? 0)
+      : null;
+  if (trimmedEndSeconds === null) {
+    return maxDurationSeconds;
+  }
+  if (maxDurationSeconds === null) {
+    return trimmedEndSeconds;
+  }
+  return Math.min(trimmedEndSeconds, maxDurationSeconds);
+};
+
+const waitForPlaybackThreshold = (
+  audio: HTMLAudioElement,
+  runId: number,
+  targetSeconds: number,
+) =>
+  new Promise<boolean>((resolve) => {
+    const tick = () => {
+      if (!isPlaylistRunActive(runId)) {
+        resolve(false);
+        return;
+      }
+      if (audio.paused || audio.ended || audio.currentTime >= targetSeconds) {
+        resolve(true);
+        return;
+      }
+      window.setTimeout(tick, 40);
+    };
+    tick();
+  });
+
 const waitBeforeCortina = (runId: number) =>
   waitForGap(getGapBeforeCortina() * 1000, runId);
 
@@ -7992,18 +8048,25 @@ const waitForCortina = async (
     }, 200);
   });
 
-const playCortina = async (runId: number, targetIndex: number) => {
+const playCortina = async (
+  runId: number,
+  targetIndex: number,
+  options?: {
+    transitionFadeMs?: number;
+    allowOverlapIntoNextTanda?: boolean;
+  },
+): Promise<{ ok: boolean; overlappedIntoNext: boolean; overlapFadeMs: number | null }> => {
   if (!isCortinaEnabled()) {
-    return true;
+    return { ok: true, overlappedIntoNext: false, overlapFadeMs: null };
   }
   const setName = getCortinaSet();
   if (!setName) {
-    return true;
+    return { ok: true, overlappedIntoNext: false, overlapFadeMs: null };
   }
   const track = await pickNextCortina(targetIndex);
   if (!track) {
     cortinaDisplayPhase = "none";
-    return true;
+    return { ok: true, overlappedIntoNext: false, overlapFadeMs: null };
   }
   cortinaDisplayPhase = "playing";
   cortinaPlaying = true;
@@ -8030,6 +8093,7 @@ const playCortina = async (runId: number, targetIndex: number) => {
       maxDurationSeconds: effectiveDurationMs / 1000,
       autoStopFadeMs,
       fromPlaylist: true,
+      transitionFadeMs: options?.transitionFadeMs,
     },
   );
   if (!started) {
@@ -8038,7 +8102,7 @@ const playCortina = async (runId: number, targetIndex: number) => {
     cortinaActiveIndex = null;
     setCortinaControlsVisible(false);
     renderPlaylist();
-    return false;
+    return { ok: false, overlappedIntoNext: false, overlapFadeMs: null };
   }
   // Re-render after playback starts so the active cortina row reflects the
   // actual track now playing instead of any previously active main track.
@@ -8050,7 +8114,44 @@ const playCortina = async (runId: number, targetIndex: number) => {
     cortinaActiveIndex = null;
     setCortinaControlsVisible(false);
     renderPlaylist();
-    return false;
+    return { ok: false, overlappedIntoNext: false, overlapFadeMs: null };
+  }
+  if (options?.allowOverlapIntoNextTanda) {
+    const gapBeforeTandaMs = getGapBeforeTanda() * 1000;
+    const startAtSeconds = Math.max(0, track.start_offset_ms ?? 0) / 1000;
+    const playbackEndSeconds = resolvePlaybackEndSeconds({
+      durationMs: track.duration_ms,
+      startAtSeconds,
+      endTrimMs: track.end_trim_ms,
+      maxDurationSeconds: effectiveDurationMs / 1000,
+    });
+    const transitionTimeSeconds = resolveScheduledTransitionTimeSeconds(
+      playbackEndSeconds,
+      startAtSeconds,
+      gapBeforeTandaMs,
+    );
+    if (transitionTimeSeconds !== null) {
+      const thresholdReached = await waitForPlaybackThreshold(
+        activeAudio,
+        runId,
+        transitionTimeSeconds,
+      );
+      if (!thresholdReached) {
+        return { ok: false, overlappedIntoNext: false, overlapFadeMs: null };
+      }
+      if (!activeAudio.paused && !activeAudio.ended) {
+        cortinaDisplayPhase = "none";
+        cortinaPlaying = false;
+        cortinaActiveIndex = null;
+        setCortinaControlsVisible(false);
+        renderPlaylist();
+        return {
+          ok: true,
+          overlappedIntoNext: true,
+          overlapFadeMs: resolveOverlapFadeMs(gapBeforeTandaMs),
+        };
+      }
+    }
   }
   await waitForCortina(activeAudio, runId, effectiveDurationMs, autoStopFadeMs);
   const activeCompanion = playback.main.compressedActive;
@@ -8061,7 +8162,7 @@ const playCortina = async (runId: number, targetIndex: number) => {
       cortinaActiveIndex = null;
       setCortinaControlsVisible(false);
       renderPlaylist();
-      return true;
+      return { ok: true, overlappedIntoNext: false, overlapFadeMs: null };
     }
     if (cortinaStopRequested) {
       if (autoStopFadeMs > 0) {
@@ -8076,7 +8177,7 @@ const playCortina = async (runId: number, targetIndex: number) => {
     } else {
       const settled = await waitForGap(Math.max(300, autoStopFadeMs + 250), runId);
       if (!settled) {
-        return false;
+        return { ok: false, overlappedIntoNext: false, overlapFadeMs: null };
       }
       if (!activeAudio.paused && !activeAudio.ended) {
         const fadeMs = Math.max(400, getStopFadeSeconds() * 1000);
@@ -8097,7 +8198,7 @@ const playCortina = async (runId: number, targetIndex: number) => {
   cortinaActiveIndex = null;
   setCortinaControlsVisible(false);
   renderPlaylist();
-  return true;
+  return { ok: true, overlappedIntoNext: false, overlapFadeMs: null };
 };
 
 const runPlaylistPlayback = async (
@@ -8149,6 +8250,8 @@ const runPlaylistPlayback = async (
   const selectedStartIndex = resumeState?.itemIndex ?? null;
   let continuedFromEndCortina = false;
   let leadInCortinaPlayed = false;
+  let continuedFromGapOverlap = false;
+  let pendingTransitionFadeMs: number | null = null;
   try {
     const hasPlayableItems = playlistItems.some((item) => {
       if (!item) {
@@ -8159,16 +8262,23 @@ const runPlaylistPlayback = async (
     if (!resume && hasPlayableItems && isCortinaEnabled()) {
       isMarkedLastFinalCortinaActive = false;
       cortinaDisplayPhase = "about";
-      const ok = await playCortina(runId, playlistPlayback.currentIndex);
-      if (!ok) {
+      const cortinaResult = await playCortina(runId, playlistPlayback.currentIndex, {
+        allowOverlapIntoNextTanda: true,
+      });
+      if (!cortinaResult.ok) {
         return;
       }
-      cortinaDisplayPhase = "after";
-      const postOk = await waitBeforeTanda(runId);
-      if (!postOk) {
-        return;
+      if (cortinaResult.overlappedIntoNext) {
+        continuedFromGapOverlap = true;
+        pendingTransitionFadeMs = cortinaResult.overlapFadeMs;
+      } else {
+        cortinaDisplayPhase = "after";
+        const postOk = await waitBeforeTanda(runId);
+        if (!postOk) {
+          return;
+        }
+        cortinaDisplayPhase = "none";
       }
-      cortinaDisplayPhase = "none";
     }
     if (
       resume &&
@@ -8192,16 +8302,23 @@ const runPlaylistPlayback = async (
             return;
           }
         }
-        const ok = await playCortina(runId, playlistPlayback.currentIndex);
-        if (!ok) {
+        const cortinaResult = await playCortina(runId, playlistPlayback.currentIndex, {
+          allowOverlapIntoNextTanda: true,
+        });
+        if (!cortinaResult.ok) {
           return;
         }
-        cortinaDisplayPhase = "after";
-        const postOk = await waitBeforeTanda(runId);
-        if (!postOk) {
-          return;
+        if (cortinaResult.overlappedIntoNext) {
+          continuedFromGapOverlap = true;
+          pendingTransitionFadeMs = cortinaResult.overlapFadeMs;
+        } else {
+          cortinaDisplayPhase = "after";
+          const postOk = await waitBeforeTanda(runId);
+          if (!postOk) {
+            return;
+          }
+          cortinaDisplayPhase = "none";
         }
-        cortinaDisplayPhase = "none";
         leadInCortinaPlayed = true;
       }
     }
@@ -8216,8 +8333,10 @@ const runPlaylistPlayback = async (
         if (!gapOk) {
           return;
         }
-        const ok = await playCortina(runId, playlistPlayback.currentIndex);
-        if (!ok) {
+        const cortinaResult = await playCortina(runId, playlistPlayback.currentIndex, {
+          allowOverlapIntoNextTanda: true,
+        });
+        if (!cortinaResult.ok) {
           return;
         }
         const hasPlayableByIndex = playlistItems.map((entry) =>
@@ -8293,16 +8412,25 @@ const runPlaylistPlayback = async (
           return;
         }
       }
-      const ok = await playCortina(runId, playlistPlayback.currentIndex);
-      if (!ok) {
+      const cortinaResult = await playCortina(runId, playlistPlayback.currentIndex, {
+        transitionFadeMs: pendingTransitionFadeMs ?? undefined,
+        allowOverlapIntoNextTanda: true,
+      });
+      pendingTransitionFadeMs = null;
+      if (!cortinaResult.ok) {
         return;
       }
-      cortinaDisplayPhase = "after";
-      const postOk = await waitBeforeTanda(runId);
-      if (!postOk) {
-        return;
+      if (cortinaResult.overlappedIntoNext) {
+        continuedFromGapOverlap = true;
+        pendingTransitionFadeMs = cortinaResult.overlapFadeMs;
+      } else {
+        cortinaDisplayPhase = "after";
+        const postOk = await waitBeforeTanda(runId);
+        if (!postOk) {
+          return;
+        }
+        cortinaDisplayPhase = "none";
       }
-      cortinaDisplayPhase = "none";
     }
     if (continuedFromEndCortina) {
       cortinaDisplayPhase = "after";
@@ -8319,13 +8447,19 @@ const runPlaylistPlayback = async (
       playlistPlayback.currentIndex > 0 &&
       !isResumeWithOffset
     ) {
-      if (!isCortinaEnabled() && !skipInitialGap) {
+      if (!isCortinaEnabled() && !skipInitialGap && !continuedFromGapOverlap) {
         const ok = await waitBeforeTanda(runId);
         if (!ok) {
           return;
         }
       }
     }
+    continuedFromGapOverlap = false;
+    const stopAfterThisTanda = shouldStopAfterMarkedLastTanda(
+      item.kind,
+      isCurrentTandaMarkedLast(),
+    );
+    let tailTransitionStartedByOverlap = false;
     for (
       let index = playlistPlayback.currentTrackIndex;
       index < tracks.length;
@@ -8352,8 +8486,14 @@ const runPlaylistPlayback = async (
         track.id,
         track,
         track.gain_db,
-        { allowToggle: false, startAtSeconds: resumeSeconds, fromPlaylist: true },
+        {
+          allowToggle: false,
+          startAtSeconds: resumeSeconds,
+          fromPlaylist: true,
+          transitionFadeMs: pendingTransitionFadeMs ?? undefined,
+        },
       );
+      pendingTransitionFadeMs = null;
       if (!started) {
         finalizeRunAsIdle();
         isMarkedLastFinalCortinaActive = false;
@@ -8365,6 +8505,52 @@ const runPlaylistPlayback = async (
         isMarkedLastFinalCortinaActive = false;
         return;
       }
+      const isLastTrackInItem = index === tracks.length - 1;
+      const gapAfterTrackMs = !isLastTrackInItem
+        ? getGapBetweenTracks() * 1000
+        : isCortinaEnabled()
+          ? getGapBeforeCortina() * 1000
+          : playlistPlayback.currentIndex < playlistItems.length - 1 || stopAfterThisTanda
+            ? getGapBeforeTanda() * 1000
+            : 0;
+      const startAtSeconds =
+        Number.isFinite(resumeSeconds) && (resumeSeconds ?? 0) > 0
+          ? resumeSeconds ?? 0
+          : Math.max(0, track.start_offset_ms ?? 0) / 1000;
+      if (shouldUseOverlapForGapMs(gapAfterTrackMs)) {
+        const playbackEndSeconds = resolvePlaybackEndSeconds({
+          durationMs: track.duration_ms,
+          startAtSeconds,
+          endTrimMs: track.end_trim_ms,
+        });
+        const transitionTimeSeconds = resolveScheduledTransitionTimeSeconds(
+          playbackEndSeconds,
+          startAtSeconds,
+          gapAfterTrackMs,
+        );
+        if (transitionTimeSeconds !== null) {
+          const thresholdReached = await waitForPlaybackThreshold(
+            activeAudio,
+            runId,
+            transitionTimeSeconds,
+          );
+          if (!thresholdReached) {
+            return;
+          }
+          if (!activeAudio.paused && !activeAudio.ended) {
+            if (appMode === "live") {
+              incrementTrackPlayCount(track.id);
+            }
+            pendingTransitionFadeMs = resolveOverlapFadeMs(gapAfterTrackMs);
+            if (!isLastTrackInItem) {
+              continue;
+            }
+            continuedFromGapOverlap = true;
+            tailTransitionStartedByOverlap = true;
+            break;
+          }
+        }
+      }
       const ended = await waitForAudioEnd(activeAudio, runId);
       if (!ended) {
         return;
@@ -8373,17 +8559,13 @@ const runPlaylistPlayback = async (
         incrementTrackPlayCount(track.id);
       }
       if (index < tracks.length - 1) {
-        const ok = await waitForGap(getGapBetweenTracks() * 1000, runId);
+        const ok = await waitForGap(Math.max(0, getGapBetweenTracks() * 1000), runId);
         if (!ok) {
           return;
         }
       }
     }
     playedAny = true;
-    const stopAfterThisTanda = shouldStopAfterMarkedLastTanda(
-      item.kind,
-      isCurrentTandaMarkedLast(),
-    );
     if (appMode === "live" && item.kind === "tanda") {
       incrementTandaPlayCount(item.tandaId);
     }
@@ -8403,12 +8585,17 @@ const runPlaylistPlayback = async (
       if (isCortinaEnabled()) {
         isMarkedLastFinalCortinaActive = true;
         cortinaDisplayPhase = "about";
-        const gapOk = await waitBeforeCortina(runId);
-        if (!gapOk) {
-          return;
+        if (!tailTransitionStartedByOverlap) {
+          const gapOk = await waitBeforeCortina(runId);
+          if (!gapOk) {
+            return;
+          }
         }
-        const ok = await playCortina(runId, playlistPlayback.currentIndex);
-        if (!ok) {
+        const cortinaResult = await playCortina(runId, playlistPlayback.currentIndex, {
+          transitionFadeMs: pendingTransitionFadeMs ?? undefined,
+        });
+        pendingTransitionFadeMs = null;
+        if (!cortinaResult.ok) {
           return;
         }
       }
@@ -13245,7 +13432,7 @@ const init = async () => {
     gapBetweenTracksInput.value = getGapBetweenTracks().toString();
     gapBetweenTracksInput.addEventListener("change", () => {
       const next = Number.parseFloat(gapBetweenTracksInput.value);
-      if (!Number.isFinite(next) || next < 0) {
+      if (!Number.isFinite(next) || next < -30 || next > 30) {
         gapBetweenTracksInput.value = getGapBetweenTracks().toString();
         return;
       }
@@ -13257,7 +13444,7 @@ const init = async () => {
     gapBeforeTandaInput.value = getGapBeforeTanda().toString();
     gapBeforeTandaInput.addEventListener("change", () => {
       const next = Number.parseFloat(gapBeforeTandaInput.value);
-      if (!Number.isFinite(next) || next < 0) {
+      if (!Number.isFinite(next) || next < -30 || next > 30) {
         gapBeforeTandaInput.value = getGapBeforeTanda().toString();
         return;
       }
@@ -13269,7 +13456,7 @@ const init = async () => {
     gapBeforeCortinaInput.value = getGapBeforeCortina().toString();
     gapBeforeCortinaInput.addEventListener("change", () => {
       const next = Number.parseFloat(gapBeforeCortinaInput.value);
-      if (!Number.isFinite(next) || next < 0) {
+      if (!Number.isFinite(next) || next < -30 || next > 30) {
         gapBeforeCortinaInput.value = getGapBeforeCortina().toString();
         return;
       }
@@ -15748,10 +15935,7 @@ const init = async () => {
     const mainActive = playback.main.active;
     const isMainPlaying = !!mainActive && !mainActive.paused;
     if (!selectedClipboardTrackId || detailLine) {
-      if (appMode !== "live") {
-        return;
-      }
-      if (isMainPlaying) {
+      if (!shouldStartPlaylistFromClick(appMode, isMainPlaying)) {
         return;
       }
       startPlaylistFrom(index, detailTrackId);

@@ -13,6 +13,7 @@ import { getDataPaths, getDataRoot, getDefaultDataPath, setDataRoot } from "./da
 import { scanLibraryRoots } from "./library/scan";
 import type { LibraryRoot } from "./library/scan";
 import {
+  hasUsableCompressedRender,
   getResolvedFfmpegPath,
   getResolvedFfprobePath,
   renderCompressedAudio,
@@ -1504,9 +1505,10 @@ const registerIpc = () => {
         const cacheDir = getCompressedCacheDir();
         const outputPath = path.join(cacheDir, `${cacheKey}.wav`);
         fs.mkdirSync(cacheDir, { recursive: true });
-        if (fs.existsSync(outputPath)) {
+        if (hasUsableCompressedRender(outputPath)) {
           return { ok: true, filePath: outputPath, cached: true };
         }
+        fs.rmSync(outputPath, { force: true });
         const existing = compressedRenderInFlight.get(cacheKey);
         if (existing) {
           const filePath = await existing;
@@ -1605,11 +1607,12 @@ const registerIpc = () => {
               limiterReleaseMs: params.limiterReleaseMs,
             });
             const outputPath = path.join(cacheDir, `${cacheKey}.wav`);
-            if (fs.existsSync(outputPath)) {
+            if (hasUsableCompressedRender(outputPath)) {
               cached += 1;
               pushProgress(false);
               continue;
             }
+            fs.rmSync(outputPath, { force: true });
             await runWithCompressedRenderSlot(async () => {
               await renderCompressedAudio(row.full_path, outputPath, {
                 loudnessDb: row.loudness_db,

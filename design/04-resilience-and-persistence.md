@@ -27,6 +27,8 @@ section. Sub-bullets use `.<letter>` suffixes.
   - NFR-002.R2.a: Not lose committed DJ work.
   - NFR-002.R2.b: Detect incomplete or inconsistent state.
   - NFR-002.R2.c: Recover automatically where possible.
+  - NFR-002.R2.d: Re-running long-running per-track tasks must reuse completed
+    outputs and retry incomplete items rather than starting the whole batch again.
 
 Silent corruption is unacceptable.
 
