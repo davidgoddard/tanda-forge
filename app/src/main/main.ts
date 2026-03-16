@@ -14,6 +14,7 @@ import { scanLibraryRoots } from "./library/scan";
 import type { LibraryRoot } from "./library/scan";
 import {
   hasUsableCompressedRender,
+  hasUsableWaveformPng,
   getResolvedFfmpegPath,
   getResolvedFfprobePath,
   renderCompressedAudio,
@@ -273,8 +274,26 @@ const appendLogEntry = (logName: string, lines: string[]) => {
   return logPath;
 };
 
+const clearCachedArtifacts = () => {
+  const { waveformsDir, compressedCacheDir } = getDataPaths();
+  try {
+    if (fs.existsSync(waveformsDir)) {
+      fs.rmSync(waveformsDir, { recursive: true, force: true });
+    }
+  } catch {
+    // Best-effort cleanup; cache clear should not fail if waveform deletion fails.
+  }
+  try {
+    if (fs.existsSync(compressedCacheDir)) {
+      fs.rmSync(compressedCacheDir, { recursive: true, force: true });
+    }
+  } catch {
+    // Best-effort cleanup; cache clear should not fail if compressed cache deletion fails.
+  }
+};
+
 const clearDiagnosticsArtifacts = () => {
-  const { logDir, waveformsDir } = getDataPaths();
+  const { logDir } = getDataPaths();
   [RENDERER_ERROR_LOG, PLAYBACK_DIAGNOSTIC_LOG].forEach((logFile) => {
     try {
       const logPath = path.join(logDir, logFile);
@@ -285,13 +304,6 @@ const clearDiagnosticsArtifacts = () => {
       // Best-effort cleanup; reset should not fail if log deletion fails.
     }
   });
-  try {
-    if (fs.existsSync(waveformsDir)) {
-      fs.rmSync(waveformsDir, { recursive: true, force: true });
-    }
-  } catch {
-    // Best-effort cleanup; reset should not fail if cache deletion fails.
-  }
 };
 
 const clearDiagnosticsLogs = () => {
@@ -1444,7 +1456,8 @@ const registerIpc = () => {
     const wavePath = path.join(waveDir, `${trackId}.png`);
     try {
       fs.mkdirSync(waveDir, { recursive: true });
-      if (!fs.existsSync(wavePath)) {
+      if (!hasUsableWaveformPng(wavePath)) {
+        fs.rmSync(wavePath, { force: true });
         await renderWaveformPng(row.full_path, wavePath);
       }
       const data = fs.readFileSync(wavePath);
@@ -1466,6 +1479,7 @@ const registerIpc = () => {
     const wavePath = path.join(waveDir, `${trackId}.png`);
     try {
       fs.mkdirSync(waveDir, { recursive: true });
+      fs.rmSync(wavePath, { force: true });
       await renderWaveformPng(row.full_path, wavePath);
       return { ok: true, path: wavePath };
     } catch (error) {
@@ -1662,9 +1676,76 @@ const registerIpc = () => {
     return {
       userData,
       waveformsDir: path.join(userData, "waveforms"),
+      compressedCacheDir: path.join(userData, "compressed-audio-cache"),
       ffmpegPath: getResolvedFfmpegPath(),
       ffprobePath: getResolvedFfprobePath(),
       playbackLogPath: path.join(userData, PLAYBACK_DIAGNOSTIC_LOG),
+    };
+  });
+
+  ipcMain.handle("diagnostics:verifyCaches", async () => {
+    const db = getDb();
+    const { waveformsDir, compressedCacheDir } = getDataPaths();
+    const validTrackIds = new Set(
+      (
+        db.prepare("select id from tracks").all() as Array<{ id: string }>
+      ).map((row) => row.id),
+    );
+    let waveformFiles = 0;
+    let waveformRemoved = 0;
+    try {
+      if (fs.existsSync(waveformsDir)) {
+        fs.readdirSync(waveformsDir, { withFileTypes: true }).forEach((entry) => {
+          if (!entry.isFile()) {
+            return;
+          }
+          const ext = path.extname(entry.name).toLowerCase();
+          if (ext !== ".png") {
+            return;
+          }
+          waveformFiles += 1;
+          const fullPath = path.join(waveformsDir, entry.name);
+          const trackId = path.basename(entry.name, ext);
+          if (!validTrackIds.has(trackId) || !hasUsableWaveformPng(fullPath)) {
+            fs.rmSync(fullPath, { force: true });
+            waveformRemoved += 1;
+          }
+        });
+      }
+    } catch {
+      // Best-effort verification; report partial counts if directory traversal fails.
+    }
+
+    let compressedFiles = 0;
+    let compressedRemoved = 0;
+    try {
+      if (fs.existsSync(compressedCacheDir)) {
+        fs.readdirSync(compressedCacheDir, { withFileTypes: true }).forEach((entry) => {
+          if (!entry.isFile()) {
+            return;
+          }
+          const ext = path.extname(entry.name).toLowerCase();
+          if (ext !== ".wav") {
+            return;
+          }
+          compressedFiles += 1;
+          const fullPath = path.join(compressedCacheDir, entry.name);
+          if (!hasUsableCompressedRender(fullPath)) {
+            fs.rmSync(fullPath, { force: true });
+            compressedRemoved += 1;
+          }
+        });
+      }
+    } catch {
+      // Best-effort verification; report partial counts if directory traversal fails.
+    }
+
+    return {
+      ok: true,
+      waveformFiles,
+      waveformRemoved,
+      compressedFiles,
+      compressedRemoved,
     };
   });
 
@@ -1941,6 +2022,11 @@ const registerIpc = () => {
     resetDb();
     legacyOverridesByRootId = new Map();
     clearDiagnosticsArtifacts();
+    return { ok: true };
+  });
+
+  ipcMain.handle("app:clearCachedFiles", async () => {
+    clearCachedArtifacts();
     return { ok: true };
   });
 

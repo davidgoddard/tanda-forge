@@ -107,8 +107,10 @@ Settings -> **Library**
 6. Add Background folders (optional).
 7. Add images folders (optional).
 8. Import legacy data (optional, if detected - System is ready to use with some limitations).
-9. Scan music/cortinas. (takes ages!)
-10. Pre compute compressed versions of tracks (takes ages!)
+9. Scan music/cortinas. This builds or refreshes the library database, analysis, and waveform cache.
+10. If compression will be used, optionally precompute compressed versions of tracks. This takes a long time.
+11. If needed, use `Verify cached files` to prune broken waveform/compressed cache files without deleting the valid ones.
+12. `Erase Database` clears the database only. `Erase Cached Files` clears the waveform/compressed caches.
 
 ### 2) System
 

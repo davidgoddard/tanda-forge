@@ -9,7 +9,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-import { resolveLegacyDataRoot } from "../app/src/main/data-location.js";
+import { getDataPaths, resolveLegacyDataRoot } from "../app/src/main/data-location.js";
 
 const writeJson = (filePath: string, data: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -45,5 +45,21 @@ describe("resolveLegacyDataRoot", () => {
     fs.mkdirSync(legacyUserData, { recursive: true });
     fs.writeFileSync(path.join(legacyUserData, "tanda-player.db"), "");
     expect(resolveLegacyDataRoot(tmp)).toBe(legacyUserData);
+  });
+
+  it("includes compressed cache under the active data root", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tanda-lite-"));
+    process.env.TANDA_DATA_ROOT = tmp;
+    try {
+      expect(getDataPaths()).toEqual({
+        root: tmp,
+        dbPath: path.join(tmp, "tanda-player.db"),
+        waveformsDir: path.join(tmp, "waveforms"),
+        compressedCacheDir: path.join(tmp, "compressed-audio-cache"),
+        logDir: tmp,
+      });
+    } finally {
+      delete process.env.TANDA_DATA_ROOT;
+    }
   });
 });

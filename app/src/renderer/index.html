@@ -775,7 +775,7 @@
               </div>
             </div>
             <div class="settings-section">
-              <h3 data-i18n="scanMusic">Scan Music</h3>
+              <h3 data-i18n="libraryScanTitle">Library Scan</h3>
               <div class="settings-actions">
                 <button id="scan-music" data-i18n="scanMusic">
                   Scan Music
@@ -783,12 +783,9 @@
                 <button id="scan-cortinas" data-i18n="scanCortinas">
                   Scan Cortinas
                 </button>
-                <button id="precompute-compressed" data-i18n="precomputeCompression">
-                  Precompute compressed cache
-                </button>
               </div>
-              <p class="settings-note" data-i18n="precomputeCompressionHelp">
-                Optional: pre-renders compressed versions for tracks and cortinas. Only needed if compression will be used.
+              <p class="settings-note" data-i18n="libraryScanHelp">
+                Scanning builds or refreshes the track database, analysis, and waveform cache.
               </p>
               <div class="settings-progress">
                 <div class="progress-row">
@@ -802,9 +799,35 @@
                 <progress id="scan-progress-settings" value="0" max="1"></progress>
               </div>
             </div>
-            <button id="reset-db" class="danger" data-i18n="eraseDatabase">
-              Erase Database
-            </button>
+            <div class="settings-section">
+              <h3 data-i18n="derivedCacheTitle">Derived Caches</h3>
+              <div class="settings-actions">
+                <button id="verify-cached-files" data-i18n="verifyCachedFiles">
+                  Verify cached files
+                </button>
+                <button id="precompute-compressed" data-i18n="precomputeCompression">
+                  Precompute compressed cache
+                </button>
+                <button id="clear-cached-files" class="danger" data-i18n="eraseCachedFiles">
+                  Erase Cached Files
+                </button>
+              </div>
+              <p class="settings-note" data-i18n="precomputeCompressionHelp">
+                Optional: pre-renders compressed versions for tracks and cortinas. Only needed if compression will be used.
+              </p>
+              <div id="cache-verify-result" class="diagnostics-result"></div>
+            </div>
+            <div class="settings-section">
+              <h3 data-i18n="libraryMaintenanceTitle">Library Maintenance</h3>
+              <div class="settings-actions">
+                <button id="reset-db" class="danger" data-i18n="eraseDatabase">
+                  Erase Database
+                </button>
+              </div>
+              <p class="settings-note" data-i18n="eraseDatabaseHelp">
+                Removes database records only. Cached waveform and compressed files are kept unless erased separately.
+              </p>
+            </div>
           </div>
           <div class="settings-tab" data-tab="playlist">
             <h3 data-i18n="playlistSettingsTitle">Playlist Settings</h3>

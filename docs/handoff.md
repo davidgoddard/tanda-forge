@@ -6574,3 +6574,64 @@
   - `docs/dialogue.md`
   - `docs/handoff.md`
   - `docs/user-guide.md`
+### Latest update
+- User prompt: Reported that clicking a playlist track while idle was no longer starting playback from that point, and that scanned tracks could still show no waveform when played.
+- Assistant response:
+  - Fixed the playlist click regression by removing the prep-mode preview shortcut inside the playlist click handler so idle clicks in the playlist again enter the sequenced `startPlaylistFrom(...)` path.
+  - Hardened waveform caching so scans and on-demand waveform fetches no longer trust a merely existing PNG; invalid or tiny files are removed and regenerated.
+  - Updated waveform rendering to write atomically through a temp file so interrupted scans cannot leave behind empty/broken cache files that suppress later generation.
+  - Added waveform-cache helper coverage.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-flow.test.ts tests/audio-waveform-cache.test.ts tests/audio-compression-cache.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (69 files, 318 tests).
+- Files changed:
+  - `app/src/main/library/analysis.ts`
+  - `app/src/main/library/scan.ts`
+  - `app/src/main/main.ts`
+  - `app/src/renderer/renderer.ts`
+  - `design/10-audio-pipeline.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+  - `tests/audio-waveform-cache.test.ts`
+### Latest update
+- User prompt: Reported that reset should also erase the compressed cache because cached precompute results were surviving a database reset.
+- Assistant response:
+  - Updated `Reset Database` so it now removes the compressed-audio cache directory as well as the database, logs, and waveform cache.
+  - Extended the shared data-path contract to expose the compressed cache location explicitly.
+  - Added unit coverage for the data-path contract including the compressed cache directory.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/data-location.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (69 files, 319 tests).
+- Files changed:
+  - `app/src/main/data-location.ts`
+  - `app/src/main/main.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+  - `tests/data-location.test.ts`
+### Latest update
+- User prompt: Asked to keep expensive cached files on disk, add a way to verify or clear cached files separately from erasing the database, and improve the button organization on the Library tab.
+- Assistant response:
+  - Restored `Erase Database` to database-focused cleanup and separated derived cache cleanup into a new `Erase Cached Files` action.
+  - Added `Verify Cached Files`, which scans waveform/compressed caches and removes unusable entries so the cache can stay persistent without trusting broken files.
+  - Added compressed-cache path visibility in Diagnostics.
+  - Reorganized the Library tab into clearer sections: `Library Scan`, `Derived Caches`, and `Library Maintenance`, with the compressed-cache help text grouped only with the compressed-cache action.
+  - Updated the README and user guide so setup instructions now explain the difference between scanning, verifying cached files, precomputing compressed cache, erasing cached files, and erasing the database.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/data-location.test.ts tests/audio-waveform-cache.test.ts tests/audio-compression-cache.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (69 files, 319 tests).
+- Files changed:
+  - `README.md`
+  - `app/src/main/main.ts`
+  - `app/src/preload/preload.ts`
+  - `app/src/renderer/i18n.ts`
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/styles.css`
+  - `app/src/shared/types.ts`
+  - `design/14-settings-and-configuration.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+  - `docs/user-guide.md`

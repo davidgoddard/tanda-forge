@@ -303,6 +303,7 @@ export const renderWaveformPng = async (
   filePath: string,
   outputPath: string,
 ) => {
+  const tempOutputPath = `${outputPath}.${process.pid}.tmp`;
   const { binary, fallback } = resolveFfmpeg();
   const args = [
     "-v",
@@ -318,7 +319,7 @@ export const renderWaveformPng = async (
     "image2",
     "-c:v",
     "png",
-    outputPath,
+    tempOutputPath,
   ];
   const legacyArgs = [
     "-v",
@@ -337,21 +338,48 @@ export const renderWaveformPng = async (
     "png",
     "-frames:v",
     "1",
-    outputPath,
+    tempOutputPath,
   ];
 
   try {
+    fs.rmSync(tempOutputPath, { force: true });
+  } catch {
+    // Ignore stale temp cleanup failures before render.
+  }
+
+  try {
     await runCommand(binary, args);
+    fs.renameSync(tempOutputPath, outputPath);
   } catch {
     try {
       await runCommand(fallback, args);
+      fs.renameSync(tempOutputPath, outputPath);
     } catch {
       try {
         await runCommand(binary, legacyArgs);
+        fs.renameSync(tempOutputPath, outputPath);
       } catch {
-        await runCommand(fallback, legacyArgs);
+        try {
+          await runCommand(fallback, legacyArgs);
+          fs.renameSync(tempOutputPath, outputPath);
+        } finally {
+          try {
+            fs.rmSync(tempOutputPath, { force: true });
+          } catch {
+            // Ignore best-effort temp cleanup failures.
+          }
+        }
       }
     }
+  }
+};
+
+export const hasUsableWaveformPng = (outputPath: string) => {
+  try {
+    const stat = fs.statSync(outputPath);
+    return stat.isFile() && stat.size > 100;
+  } catch {
+    return false;
   }
 };
 

@@ -178,11 +178,26 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     addCortinaFolder: "Add Cortina Folder",
     addBackgroundFolder: "Add Background Folder",
     scanLibrary: "Scan Library",
+    libraryScanTitle: "Library Scan",
+    libraryScanHelp:
+      "Scanning builds or refreshes the track database, analysis, and waveform cache.",
     scanMusic: "Scan Music",
     scanCortinas: "Scan Cortinas",
+    derivedCacheTitle: "Derived Caches",
     precomputeCompression: "Precompute compressed cache",
     precomputeCompressionHelp:
       "Optional: pre-renders compressed versions for tracks and cortinas. Only needed if compression will be used.",
+    verifyCachedFiles: "Verify cached files",
+    verifyCachedFilesRunning: "Verifying cached files...",
+    verifyCachedFilesSummary:
+      "Cache verification complete. Waveforms checked {waveformFiles}, removed {waveformRemoved}. Compressed checked {compressedFiles}, removed {compressedRemoved}.",
+    verifyCachedFilesFailed: "Cache verification failed.",
+    verifyCachedFilesFailedDetail: "Cache verification failed: {message}",
+    eraseCachedFiles: "Erase Cached Files",
+    confirmEraseCachedFiles:
+      "This will remove cached waveform and compressed audio files. They can be regenerated later, but this may take time. Continue?",
+    eraseCachedFilesDone: "Cached files erased.",
+    libraryMaintenanceTitle: "Library Maintenance",
     system: "System",
     systemGroupLanguage: "Language",
     systemGroupOutputs: "Outputs",
@@ -292,6 +307,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsPaths: "Paths",
     diagnosticsPathsUserData: "User data",
     diagnosticsPathsWaveforms: "Waveforms",
+    diagnosticsPathsCompressedCache: "Compressed cache",
     diagnosticsPathsFfmpeg: "ffmpeg",
     diagnosticsPathsFfprobe: "ffprobe",
     diagnosticsWaveform: "Waveform",
@@ -340,6 +356,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     statusOrchestraRegistryReset: "Orchestra list reset to seeded defaults.",
     statusOrchestraRegistryInvalid: "Orchestra list has invalid entries.",
     eraseDatabase: "Erase Database",
+    eraseDatabaseHelp:
+      "Removes database records only. Cached waveform and compressed files are kept unless erased separately.",
     confirmEraseDatabase:
       "This will permanently delete your library scan, tandas, playlists, and settings stored in this app. You can re-import folders afterward, but this action cannot be undone.",
     statusIssue: "Issue",
@@ -688,8 +706,26 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     addCortinaFolder: "Agregar cortinas",
     addBackgroundFolder: "Agregar fondos",
     scanLibrary: "Escanear biblioteca",
+    libraryScanTitle: "Escaneo de biblioteca",
+    libraryScanHelp:
+      "El escaneo crea o actualiza la base de pistas, el analisis y la cache de formas de onda.",
     scanMusic: "Escanear musica",
     scanCortinas: "Escanear cortinas",
+    derivedCacheTitle: "Caches derivadas",
+    precomputeCompression: "Precalcular cache comprimida",
+    precomputeCompressionHelp:
+      "Opcional: prerenderiza versiones comprimidas para pistas y cortinas. Solo es necesario si se usara compresion.",
+    verifyCachedFiles: "Verificar archivos en cache",
+    verifyCachedFilesRunning: "Verificando archivos en cache...",
+    verifyCachedFilesSummary:
+      "Verificacion completada. Formas de onda revisadas {waveformFiles}, eliminadas {waveformRemoved}. Comprimidos revisados {compressedFiles}, eliminados {compressedRemoved}.",
+    verifyCachedFilesFailed: "La verificacion de cache fallo.",
+    verifyCachedFilesFailedDetail: "La verificacion de cache fallo: {message}",
+    eraseCachedFiles: "Borrar archivos en cache",
+    confirmEraseCachedFiles:
+      "Esto eliminara las formas de onda y el audio comprimido en cache. Se pueden regenerar despues, pero puede tardar. Continuar?",
+    eraseCachedFilesDone: "Archivos en cache borrados.",
+    libraryMaintenanceTitle: "Mantenimiento de biblioteca",
     system: "Sistema",
     systemGroupLanguage: "Idioma",
     systemGroupOutputs: "Salidas",
@@ -759,6 +795,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsPaths: "Rutas",
     diagnosticsPathsUserData: "Datos de usuario",
     diagnosticsPathsWaveforms: "Formas de onda",
+    diagnosticsPathsCompressedCache: "Cache comprimida",
     diagnosticsPathsFfmpeg: "ffmpeg",
     diagnosticsPathsFfprobe: "ffprobe",
     diagnosticsWaveform: "Forma de onda",
@@ -774,6 +811,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsReadinessAnalysisErrors: "Errores de analisis",
     diagnosticsReadinessMissingWaveforms: "Formas de onda faltantes",
     eraseDatabase: "Borrar base de datos",
+    eraseDatabaseHelp:
+      "Elimina solo los registros de la base. Las formas de onda y archivos comprimidos en cache se conservan salvo que se borren aparte.",
     confirmEraseDatabase:
       "Esto borrara permanentemente el escaneo de biblioteca, tandas, playlists y ajustes guardados en esta app. Puedes reimportar carpetas despues, pero esta accion no se puede deshacer.",
     statusIssue: "Problema",
@@ -1100,8 +1139,26 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     addCortinaFolder: "Ajouter cortinas",
     addBackgroundFolder: "Ajouter fonds",
     scanLibrary: "Scanner la bibliotheque",
+    libraryScanTitle: "Scan de bibliotheque",
+    libraryScanHelp:
+      "Le scan construit ou rafraichit la base de titres, l'analyse et le cache de formes d'onde.",
     scanMusic: "Scanner musique",
     scanCortinas: "Scanner cortinas",
+    derivedCacheTitle: "Caches derives",
+    precomputeCompression: "Precalculer le cache compresse",
+    precomputeCompressionHelp:
+      "Optionnel: pre-genere des versions compressees pour pistes et cortinas. Necessaire seulement si la compression sera utilisee.",
+    verifyCachedFiles: "Verifier les fichiers en cache",
+    verifyCachedFilesRunning: "Verification des fichiers en cache...",
+    verifyCachedFilesSummary:
+      "Verification terminee. Formes d'onde verifiees {waveformFiles}, supprimees {waveformRemoved}. Fichiers compresses verifies {compressedFiles}, supprimes {compressedRemoved}.",
+    verifyCachedFilesFailed: "La verification du cache a echoue.",
+    verifyCachedFilesFailedDetail: "La verification du cache a echoue: {message}",
+    eraseCachedFiles: "Effacer les fichiers en cache",
+    confirmEraseCachedFiles:
+      "Cette action supprimera les formes d'onde et l'audio compresse en cache. Ils pourront etre regeneres plus tard, mais cela peut prendre du temps. Continuer ?",
+    eraseCachedFilesDone: "Fichiers en cache effaces.",
+    libraryMaintenanceTitle: "Maintenance de bibliotheque",
     system: "Systeme",
     systemGroupLanguage: "Langue",
     systemGroupOutputs: "Sorties",
@@ -1171,6 +1228,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsPaths: "Chemins",
     diagnosticsPathsUserData: "Donnees utilisateur",
     diagnosticsPathsWaveforms: "Formes d'onde",
+    diagnosticsPathsCompressedCache: "Cache compresse",
     diagnosticsPathsFfmpeg: "ffmpeg",
     diagnosticsPathsFfprobe: "ffprobe",
     diagnosticsWaveform: "Forme d'onde",
@@ -1186,6 +1244,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsReadinessAnalysisErrors: "Erreurs d'analyse",
     diagnosticsReadinessMissingWaveforms: "Formes d'onde manquantes",
     eraseDatabase: "Effacer la base",
+    eraseDatabaseHelp:
+      "Supprime seulement les enregistrements de base. Les formes d'onde et fichiers compresses en cache sont conserves sauf suppression separee.",
     confirmEraseDatabase:
       "Cette action supprimera definitivement le scan de bibliotheque, les tandas, les playlists et les reglages stockes dans cette application. Vous pourrez reimporter des dossiers ensuite, mais cette action est irreversible.",
     statusIssue: "Probleme",
@@ -1512,8 +1572,26 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     addCortinaFolder: "Cortina-Ordner hinzufugen",
     addBackgroundFolder: "Hintergrundordner hinzufugen",
     scanLibrary: "Bibliothek scannen",
+    libraryScanTitle: "Bibliothek scannen",
+    libraryScanHelp:
+      "Der Scan erstellt oder aktualisiert Track-Datenbank, Analyse und Wellenform-Cache.",
     scanMusic: "Musik scannen",
     scanCortinas: "Cortinas scannen",
+    derivedCacheTitle: "Abgeleitete Caches",
+    precomputeCompression: "Komprimierten Cache vorberechnen",
+    precomputeCompressionHelp:
+      "Optional: rendert komprimierte Versionen fur Tracks und Cortinas vor. Nur notig, wenn Kompression verwendet wird.",
+    verifyCachedFiles: "Cache-Dateien prufen",
+    verifyCachedFilesRunning: "Cache-Dateien werden gepruft...",
+    verifyCachedFilesSummary:
+      "Cache-Prufung abgeschlossen. Wellenformen gepruft {waveformFiles}, entfernt {waveformRemoved}. Komprimierte Dateien gepruft {compressedFiles}, entfernt {compressedRemoved}.",
+    verifyCachedFilesFailed: "Cache-Prufung fehlgeschlagen.",
+    verifyCachedFilesFailedDetail: "Cache-Prufung fehlgeschlagen: {message}",
+    eraseCachedFiles: "Cache-Dateien loschen",
+    confirmEraseCachedFiles:
+      "Dadurch werden zwischengespeicherte Wellenformen und komprimierte Audiodateien entfernt. Sie konnen spater neu erzeugt werden, dies kann aber Zeit kosten. Fortfahren?",
+    eraseCachedFilesDone: "Cache-Dateien geloscht.",
+    libraryMaintenanceTitle: "Bibliothekswartung",
     system: "System",
     systemGroupLanguage: "Sprache",
     systemGroupOutputs: "Ausgange",
@@ -1584,6 +1662,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsPaths: "Pfade",
     diagnosticsPathsUserData: "Benutzerdaten",
     diagnosticsPathsWaveforms: "Wellenformen",
+    diagnosticsPathsCompressedCache: "Komprimierter Cache",
     diagnosticsPathsFfmpeg: "ffmpeg",
     diagnosticsPathsFfprobe: "ffprobe",
     diagnosticsWaveform: "Wellenform",
@@ -1599,6 +1678,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsReadinessAnalysisErrors: "Analysefehler",
     diagnosticsReadinessMissingWaveforms: "Fehlende Wellenformen",
     eraseDatabase: "Datenbank loschen",
+    eraseDatabaseHelp:
+      "Entfernt nur Datenbankeintrage. Wellenform- und komprimierte Cache-Dateien bleiben erhalten, bis sie separat geloscht werden.",
     confirmEraseDatabase:
       "Dadurch werden Bibliotheksscan, Tandas, Playlists und Einstellungen in dieser App dauerhaft geloscht. Ordner konnen danach erneut importiert werden, diese Aktion ist jedoch nicht ruckgangig zu machen.",
     statusIssue: "Problem",
@@ -1925,6 +2006,26 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     addCortinaFolder: "Adicionar cortinas",
     addBackgroundFolder: "Adicionar fundos",
     scanLibrary: "Escanear biblioteca",
+    libraryScanTitle: "Escanear biblioteca",
+    libraryScanHelp:
+      "O scan cria ou atualiza a base de faixas, a analise e a cache de formas de onda.",
+    scanMusic: "Escanear musica",
+    scanCortinas: "Escanear cortinas",
+    derivedCacheTitle: "Caches derivados",
+    precomputeCompression: "Precalcular cache comprimida",
+    precomputeCompressionHelp:
+      "Opcional: pregera versoes comprimidas para faixas e cortinas. So e necessario se a compressao for usada.",
+    verifyCachedFiles: "Verificar ficheiros em cache",
+    verifyCachedFilesRunning: "A verificar ficheiros em cache...",
+    verifyCachedFilesSummary:
+      "Verificacao concluida. Formas de onda verificadas {waveformFiles}, removidas {waveformRemoved}. Ficheiros comprimidos verificados {compressedFiles}, removidos {compressedRemoved}.",
+    verifyCachedFilesFailed: "A verificacao da cache falhou.",
+    verifyCachedFilesFailedDetail: "A verificacao da cache falhou: {message}",
+    eraseCachedFiles: "Apagar ficheiros em cache",
+    confirmEraseCachedFiles:
+      "Isto vai remover as formas de onda e o audio comprimido em cache. Podem ser regenerados depois, mas pode demorar. Continuar?",
+    eraseCachedFilesDone: "Ficheiros em cache apagados.",
+    libraryMaintenanceTitle: "Manutencao da biblioteca",
     system: "Sistema",
     systemGroupLanguage: "Idioma",
     systemGroupOutputs: "Saidas",
@@ -1995,6 +2096,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsPaths: "Caminhos",
     diagnosticsPathsUserData: "Dados do usuario",
     diagnosticsPathsWaveforms: "Formas de onda",
+    diagnosticsPathsCompressedCache: "Cache comprimida",
     diagnosticsPathsFfmpeg: "ffmpeg",
     diagnosticsPathsFfprobe: "ffprobe",
     diagnosticsWaveform: "Forma de onda",
@@ -2010,6 +2112,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsReadinessAnalysisErrors: "Erros de analise",
     diagnosticsReadinessMissingWaveforms: "Formas de onda ausentes",
     eraseDatabase: "Apagar base",
+    eraseDatabaseHelp:
+      "Remove apenas os registos da base de dados. As formas de onda e os ficheiros comprimidos em cache ficam guardados ate serem apagados separadamente.",
     confirmEraseDatabase:
       "Isto apagará permanentemente a varredura da biblioteca, tandas, playlists e configuracoes guardadas nesta app. Pode reimportar pastas depois, mas esta acao nao pode ser desfeita.",
     statusIssue: "Problema",
@@ -2336,8 +2440,26 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     addCortinaFolder: "Aggiungi cartella cortina",
     addBackgroundFolder: "Aggiungi cartella sfondi",
     scanLibrary: "Scansiona libreria",
+    libraryScanTitle: "Scansione libreria",
+    libraryScanHelp:
+      "La scansione crea o aggiorna database brani, analisi e cache delle forme d'onda.",
     scanMusic: "Scansiona musica",
     scanCortinas: "Scansiona cortine",
+    derivedCacheTitle: "Cache derivate",
+    precomputeCompression: "Precalcola cache compressa",
+    precomputeCompressionHelp:
+      "Opzionale: prerenderizza versioni compresse per brani e cortine. Serve solo se verra usata la compressione.",
+    verifyCachedFiles: "Verifica file in cache",
+    verifyCachedFilesRunning: "Verifica dei file in cache...",
+    verifyCachedFilesSummary:
+      "Verifica completata. Forme d'onda controllate {waveformFiles}, rimosse {waveformRemoved}. File compressi controllati {compressedFiles}, rimossi {compressedRemoved}.",
+    verifyCachedFilesFailed: "Verifica cache non riuscita.",
+    verifyCachedFilesFailedDetail: "Verifica cache non riuscita: {message}",
+    eraseCachedFiles: "Cancella file in cache",
+    confirmEraseCachedFiles:
+      "Questa azione rimuovera forme d'onda e audio compresso in cache. Potranno essere rigenerati in seguito, ma potrebbe volerci tempo. Continuare?",
+    eraseCachedFilesDone: "File in cache cancellati.",
+    libraryMaintenanceTitle: "Manutenzione libreria",
     system: "Sistema",
     systemGroupLanguage: "Lingua",
     systemGroupOutputs: "Uscite",
@@ -2408,6 +2530,7 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsPaths: "Percorsi",
     diagnosticsPathsUserData: "Dati utente",
     diagnosticsPathsWaveforms: "Forme d'onda",
+    diagnosticsPathsCompressedCache: "Cache compressa",
     diagnosticsPathsFfmpeg: "ffmpeg",
     diagnosticsPathsFfprobe: "ffprobe",
     diagnosticsWaveform: "Forma d'onda",
@@ -2423,6 +2546,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     diagnosticsReadinessAnalysisErrors: "Errori di analisi",
     diagnosticsReadinessMissingWaveforms: "Forme d'onda mancanti",
     eraseDatabase: "Cancella database",
+    eraseDatabaseHelp:
+      "Rimuove solo i record del database. Forme d'onda e file compressi in cache restano finche non vengono cancellati separatamente.",
     confirmEraseDatabase:
       "Questa azione eliminera definitivamente scansione libreria, tandas, playlist e impostazioni salvate in questa app. Potrai reimportare le cartelle dopo, ma l'azione non e annullabile.",
     statusIssue: "Problema",

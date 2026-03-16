@@ -312,9 +312,19 @@ For each legacy style row:
 
 When importing legacy tandas, legacy names equal to `Auto Generated Tanda` or `Saved Auto-Generated Tanda` are intentionally cleared so the app can show its richer dynamic artist-summary label instead (including simple quote/dash/spacing variants of those labels).
 
-Although the old legacy data does include some information to help normalise the sound levels and trim tracks, the compression and trimming is slightly different and so it is recommended to use the **scan** buttons and leave the system to read the files. 
+Although the old legacy data does include some information to help normalise the sound levels and trim tracks, the compression and trimming is slightly different and so it is recommended to use the **scan** buttons and leave the system to read the files.
 
-Further to this, if **compression** (dynamic range reduction) is to be enabled, the system will generate compressed files on the fly when you play a track but this can mean a sudden CPU load on the PC and perhaps a few seconds delay.  It is recommended to click **Precompute compressed cache** button once all else is done and it will ensure all files are immediately available as compressed versions.  This takes a very long time to complete.
+In **Settings -> Library**, the buttons are grouped by purpose:
+
+- **Library Scan** refreshes the database, analysis, and waveform PNG cache from the music and cortina folders.
+- **Derived Caches** manages the expensive on-disk cache files.
+- **Library Maintenance** contains database-only cleanup.
+
+If **compression** (dynamic range reduction) is enabled, the system can generate compressed files on demand when a track starts, but this may cause a short delay or CPU spike. Clicking **Precompute compressed cache** renders those compressed companions in advance. This takes a long time, but it is optional and only needed if compression will be used.
+
+If you want to keep the cache files on disk but do not fully trust them, use **Verify cached files**. This checks waveform PNGs and compressed cache files, removes broken or incomplete entries, and leaves valid cached files in place. Use **Erase Cached Files** only if you want to remove those derived files entirely and force them to be rebuilt later.
+
+**Erase Database** now removes only the database records. It does not remove waveform or compressed cache files.
 
 ## Tips and Good Practices
 

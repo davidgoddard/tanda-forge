@@ -185,6 +185,7 @@ export type AppApi = {
   listTracks: () => Promise<TrackRow[]>;
   onScanProgress: (handler: (progress: ScanProgress) => void) => () => void;
   resetDatabase: () => Promise<{ ok: boolean }>;
+  clearCachedFiles: () => Promise<{ ok: boolean }>;
   listTrackPage: (params: TrackPageRequest) => Promise<TrackRow[]>;
   jumpToPrefix: (params: JumpRequest) => Promise<{ offset: number }>;
   getJumpIndex: (params: { sortBy?: string }) => Promise<string[]>;
@@ -284,9 +285,17 @@ export type AppApi = {
   getDiagnosticsPaths: () => Promise<{
     userData: string;
     waveformsDir: string;
+    compressedCacheDir: string;
     ffmpegPath: string;
     ffprobePath: string;
     playbackLogPath: string;
+  }>;
+  verifyCachedFiles: () => Promise<{
+    ok: boolean;
+    waveformFiles: number;
+    waveformRemoved: number;
+    compressedFiles: number;
+    compressedRemoved: number;
   }>;
   getDiagnosticsLogs: (params: {
     kind: "playback" | "renderer";

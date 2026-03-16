@@ -4850,3 +4850,22 @@ Code diffs are omitted; only intent and outcomes are captured.
 - Assistant response:
   - Updated the user guide to explain the meaning of positive, zero, and negative timing values in the Playlist settings.
   - Added a shorter version of the same explanation to the README Playlist section.
+- User prompt:
+  - "I'm getting confused again, previously when no music is playing clicking a track within a playlist should play from there but it is not doing that now.
+  - Also, I scanned all music files and when I played a file it had no waveform - which is what the scan should have produced?"
+- Assistant response:
+  - Fixed the playlist click regression so idle clicks on playlist tracks once again start sequenced playback from the clicked track rather than falling back to prep-mode direct preview behavior.
+  - Hardened waveform cache handling so invalid or partial PNGs are discarded and regenerated during scan or on-demand waveform loading.
+  - Updated waveform rendering to use atomic temp-file writes so interrupted generation cannot leave behind placeholder cache files that block future waveform display.
+- User prompt:
+  - "I have been able to start a song and not be able to use the compressed version until produced, so I do not as yet believe this cache exists.  Can I get the erase database to erase that too?"
+- Assistant response:
+  - Updated `Reset Database` so it also removes the on-disk compressed audio cache.
+  - Added a unit test covering the explicit compressed-cache data path used by reset cleanup.
+- User prompt:
+  - "To be honest, I would like the hard to produce files such as the png and compressed waveforms to be cahced on disk but there needs to be a verify option just in case they end up existing as files but not actually being useful.  So perhaps have an erase database and a separate erasee cached files too.  Also, anything you can do to organise the buttons on the library tab of the settings page would be useful as there is a hint for the compressed buttons that sits below all of them implying that you only need scan if want compressed files."
+- Assistant response:
+  - Changed the maintenance model so database reset and derived-cache cleanup are separate actions.
+  - Added `Verify Cached Files` to prune unusable waveform/compressed cache files while keeping valid cached artifacts on disk.
+  - Reorganized the Library tab into scan, cache, and maintenance sections so the compressed-cache help text only applies to the compressed-cache action.
+  - Updated the README and user guide so the setup documentation now explains scan vs verify vs precompute vs erase-cache behavior explicitly.

@@ -117,6 +117,7 @@ export const getDataPaths = () => {
     root,
     dbPath: path.join(root, "tanda-player.db"),
     waveformsDir: path.join(root, "waveforms"),
+    compressedCacheDir: path.join(root, "compressed-audio-cache"),
     logDir: root,
   };
 };

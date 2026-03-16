@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import {
   analyzeTrack,
+  hasUsableWaveformPng,
   readTags,
   renderWaveformPng,
   type TagResult,
@@ -324,8 +325,11 @@ export const scanLibraryRoots = async (
           ? Promise.resolve(existingAnalysis)
           : analyzeTrack(filePath);
         const waveformPath = waveformsDir ? path.join(waveformsDir, `${trackId}.png`) : "";
+        if (waveformsDir && waveformPath && !hasUsableWaveformPng(waveformPath)) {
+          fs.rmSync(waveformPath, { force: true });
+        }
         const waveformPromise: Promise<void> =
-          waveformsDir && !fs.existsSync(waveformPath)
+          waveformsDir && waveformPath && !hasUsableWaveformPng(waveformPath)
             ? renderWaveformPng(filePath, waveformPath)
             : Promise.resolve();
         const [tagSettled, analysisSettled, waveformSettled] =

@@ -33,6 +33,8 @@ and stores both the measured loudness and gain offset.
   through real analysis on the next scan pass before they are treated as reusable.
 - AUD-002.R9: Per-track scan execution may run analysis and waveform generation
   concurrently; failures are isolated and logged independently.
+- AUD-002.R9.a: Waveform cache files are written atomically and invalid/missing
+  waveform PNGs must be regenerated on scan or on-demand playback access.
 
 ## AUD-003 — Playback Pipeline
 

@@ -150,8 +150,14 @@ Board, Diagnostics, System).
 - CFG-DIAG-003: A "View scan issues" link in progress areas jumps directly to Diagnostics.
 - CFG-DIAG-004: Diagnostics list the resolved user data, waveforms, ffmpeg, and ffprobe
   paths for troubleshooting.
+- CFG-DIAG-004.a: Diagnostics also list the compressed-audio cache path.
 - CFG-DIAG-005: Diagnostics provide a "Generate waveform for current track" action to
   validate waveform tooling.
+- CFG-DIAG-005.a: The Library tab separates scan actions from derived-cache actions so
+  optional cache generation cannot be mistaken for required scanning.
+- CFG-DIAG-005.b: Users can verify cached waveform/compressed files and prune unusable
+  entries without deleting the database.
+- CFG-DIAG-005.c: Users can erase derived caches separately from erasing the database.
 - CFG-DIAG-006: Diagnostics provide an explicit "Clear diagnostics logs" action so
   users can reset playback/renderer log history before reproducing an issue.
 - CFG-DIAG-007: Diagnostics provide an "Audio output probe" action that runs

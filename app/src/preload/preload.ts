@@ -27,6 +27,7 @@ const api: AppApi = {
     };
   },
   resetDatabase: async () => ipcRenderer.invoke("app:resetDatabase"),
+  clearCachedFiles: async () => ipcRenderer.invoke("app:clearCachedFiles"),
   listTrackPage: async (params) => ipcRenderer.invoke("tracks:listPage", params),
   jumpToPrefix: async (params) =>
     ipcRenderer.invoke("tracks:jumpToPrefix", params),
@@ -66,6 +67,8 @@ const api: AppApi = {
     ipcRenderer.invoke("stats:getSearchDiversity"),
   getDiagnosticsPaths: async () =>
     ipcRenderer.invoke("diagnostics:getPaths"),
+  verifyCachedFiles: async () =>
+    ipcRenderer.invoke("diagnostics:verifyCaches"),
   getDiagnosticsLogs: async (params) =>
     ipcRenderer.invoke("diagnostics:getLogs", params),
   clearDiagnosticsLogs: async () =>

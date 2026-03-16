@@ -220,6 +220,12 @@ const scanCortinasBtn =
   document.querySelector<HTMLButtonElement>("#scan-cortinas");
 const precomputeCompressedBtn =
   document.querySelector<HTMLButtonElement>("#precompute-compressed");
+const verifyCachedFilesBtn =
+  document.querySelector<HTMLButtonElement>("#verify-cached-files");
+const clearCachedFilesBtn =
+  document.querySelector<HTMLButtonElement>("#clear-cached-files");
+const cacheVerifyResult =
+  document.querySelector<HTMLDivElement>("#cache-verify-result");
 const precomputeCompressedShortcutBtn =
   document.querySelector<HTMLButtonElement>("#precompute-compressed-shortcut");
 const errorList = document.querySelector<HTMLUListElement>("#error-list");
@@ -12109,6 +12115,7 @@ const renderDiagnosticsPaths = async () => {
   const rows: { label: string; value: string }[] = [
     { label: t("diagnosticsPathsUserData"), value: paths.userData },
     { label: t("diagnosticsPathsWaveforms"), value: paths.waveformsDir },
+    { label: t("diagnosticsPathsCompressedCache"), value: paths.compressedCacheDir },
     { label: t("diagnosticsPathsFfmpeg"), value: paths.ffmpegPath },
     { label: t("diagnosticsPathsFfprobe"), value: paths.ffprobePath },
     { label: t("diagnosticsPathsPlaybackLog"), value: paths.playbackLogPath },
@@ -14694,6 +14701,53 @@ const init = async () => {
     await runPrecomputeCompressedTracks();
   });
 
+  verifyCachedFilesBtn?.addEventListener("click", async () => {
+    if (!window.tanda || !cacheVerifyResult) {
+      return;
+    }
+    cacheVerifyResult.textContent = t("verifyCachedFilesRunning");
+    try {
+      const result = await window.tanda.verifyCachedFiles();
+      if (!result?.ok) {
+        cacheVerifyResult.textContent = t("verifyCachedFilesFailed");
+        return;
+      }
+      cacheVerifyResult.textContent = t("verifyCachedFilesSummary", {
+        waveformFiles: result.waveformFiles,
+        waveformRemoved: result.waveformRemoved,
+        compressedFiles: result.compressedFiles,
+        compressedRemoved: result.compressedRemoved,
+      });
+    } catch (error) {
+      cacheVerifyResult.textContent = t("verifyCachedFilesFailedDetail", {
+        message: error instanceof Error ? error.message : t("statusUnknownError"),
+      });
+    }
+  });
+
+  clearCachedFilesBtn?.addEventListener("click", async () => {
+    if (!window.tanda) {
+      return;
+    }
+    const confirmed = await showConfirmModal(
+      t("confirmEraseCachedFiles"),
+      t("eraseCachedFiles"),
+    );
+    if (!confirmed) {
+      return;
+    }
+    const result = await window.tanda.clearCachedFiles();
+    if (result?.ok) {
+      if (cacheVerifyResult) {
+        cacheVerifyResult.textContent = t("eraseCachedFilesDone");
+      }
+      setStatus(t("eraseCachedFilesDone"));
+      await renderDiagnosticsPaths();
+      await renderDiagnosticsDataReadiness();
+      updateNowPlayingDisplay();
+    }
+  });
+
   resetDbBtn?.addEventListener("click", async () => {
     const confirmed = await showConfirmModal(
       t("confirmEraseDatabase"),
@@ -15856,7 +15910,7 @@ const init = async () => {
       renderPlaylist();
       return;
     }
-    if (appMode === "edit" || appMode === "prep") {
+    if (appMode === "edit") {
       if (detailTrackId) {
         const track = trackCache.get(detailTrackId);
         if (track) {
