@@ -4869,3 +4869,9 @@ Code diffs are omitted; only intent and outcomes are captured.
   - Added `Verify Cached Files` to prune unusable waveform/compressed cache files while keeping valid cached artifacts on disk.
   - Reorganized the Library tab into scan, cache, and maintenance sections so the compressed-cache help text only applies to the compressed-cache action.
   - Updated the README and user guide so the setup documentation now explains scan vs verify vs precompute vs erase-cache behavior explicitly.
+- User prompt:
+  - "I am still having trouble starting tracks by clicking on them - so the rule is that in live mode you cannot play a new song whilst one is playing or whilst the playlist is active.  But in prep or edit mode you can simply click a track anywhere any column either standalone tracks or within tandas and they will play immediately.  Please check as something has recently broken"
+- Assistant response:
+  - Updated playlist click-start gating so Preparation mode now allows restarting from the clicked playlist track even while main playback is already active, while Live mode still blocks playlist clicks during active main playback.
+  - Fixed playlist click routing so a selected clipboard track/tanda no longer steals direct playlist-track clicks in Preparation mode.
+  - Updated the playback design docs and tracking matrix to reflect the clarified Preparation-vs-Live click behavior.

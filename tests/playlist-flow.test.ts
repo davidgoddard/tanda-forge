@@ -72,10 +72,13 @@ describe("shouldTreatClickStartAsIdle", () => {
 });
 
 describe("shouldStartPlaylistFromClick", () => {
-  it("allows preparation and live click-starts only when main playback is idle", () => {
+  it("allows preparation click-starts regardless of current main playback", () => {
     expect(shouldStartPlaylistFromClick("prep", false)).toBe(true);
+    expect(shouldStartPlaylistFromClick("prep", true)).toBe(true);
+  });
+
+  it("allows live click-starts only when main playback is idle", () => {
     expect(shouldStartPlaylistFromClick("live", false)).toBe(true);
-    expect(shouldStartPlaylistFromClick("prep", true)).toBe(false);
     expect(shouldStartPlaylistFromClick("live", true)).toBe(false);
   });
 

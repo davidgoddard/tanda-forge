@@ -404,8 +404,9 @@ Behavior:
   upcoming cortina.
 - UI-012.R10: In Live mode, played tandas are visually muted and their slots are locked
   against edits, swaps, or drops while playback is active.
-- UI-012.R11: If no main output is playing, clicking a playlist track starts playback from
-  that track (prep or live mode).
+- UI-012.R11: In Preparation mode, clicking a playlist track starts playback from that
+  track even if another main track is already playing. In Live mode, this only works
+  when the main output is idle.
 - UI-012.R11.a: In Preparation mode, playlist-click playback starts immediately
   on the selected track with no lead-in cortina, even when the selected track
   is the first track in a tanda.

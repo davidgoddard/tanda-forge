@@ -15865,6 +15865,16 @@ const init = async () => {
     }
     const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
     const detailTrackId = detailLine?.dataset.trackId ?? null;
+    if (appMode === "prep") {
+      if (detailTrackId) {
+        startPlaylistFrom(index, detailTrackId);
+        return;
+      }
+      if (playlistItem?.kind === "track" && data) {
+        startPlaylistFrom(index, data.trackId);
+        return;
+      }
+    }
     if (selectedClipboardTandaId && !detailLine) {
       if (isLocked) {
         setStatus(t("statusPlaylistLocked"));

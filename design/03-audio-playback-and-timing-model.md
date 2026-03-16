@@ -43,6 +43,9 @@ change the main output state.
 FR-052.R6: In Preparation mode, clicking a track inside the playlist starts
 playback from that track position and continues naturally through the remaining
 playlist sequence.
+FR-052.R6.c: In Preparation mode, clicking a playlist track while another main
+track is already playing immediately restarts playlist playback from the newly
+selected track position.
 FR-052.R6.a: In Preparation mode, playlist-click start does not play a lead-in
 cortina before the selected starting track; the selected track starts
 immediately. Live mode retains lead-in cortina behavior when starting at the

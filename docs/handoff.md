@@ -6635,3 +6635,22 @@
   - `docs/dialogue.md`
   - `docs/handoff.md`
   - `docs/user-guide.md`
+### Latest update
+- User prompt: Reported that track clicks were still unreliable and restated the desired rule: Live mode blocks starting a new playlist track while main playback is active, but Preparation and Edit modes should let track clicks start playback immediately.
+- Assistant response:
+  - Updated playlist click-start gating so Preparation mode allows clicking any playlist track to restart from that selected position even while main playback is already active; Live mode remains guarded and still ignores playlist clicks during active main playback.
+  - Adjusted playlist click routing so in Preparation mode a direct click on a playlist track takes priority over clipboard swap/replace state, preventing selected clipboard content from hijacking playback clicks.
+  - Updated the playback design/docs and tracking matrix to reflect the Preparation-vs-Live click-start rule explicitly.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-flow.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (69 files, 320 tests).
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/playlist-flow.ts`
+  - `design/03-audio-playback-and-timing-model.md`
+  - `design/05-ui-principles-and-components.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+  - `tests/playlist-flow.test.ts`

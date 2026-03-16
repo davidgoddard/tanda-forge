@@ -52,7 +52,15 @@ export const shouldTreatClickStartAsIdle = (
 export const shouldStartPlaylistFromClick = (
   appMode: "prep" | "live" | "edit",
   isMainChannelActivelyPlaying: boolean,
-) => appMode !== "edit" && !isMainChannelActivelyPlaying;
+) => {
+  if (appMode === "prep") {
+    return true;
+  }
+  if (appMode === "live") {
+    return !isMainChannelActivelyPlaying;
+  }
+  return false;
+};
 
 export const shouldUseOverlapForGapMs = (gapMs: number) => gapMs < 0;
 
