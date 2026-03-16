@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isCompressionControlLockedForPrep,
   resolveCompressionProofState,
+  shouldWarmCompressionInBackground,
   shouldUseCompressionSource,
 } from "../app/src/shared/audio-compression";
 
@@ -76,6 +77,37 @@ describe("audio compression helpers", () => {
         appMode: "prep",
         isMainPlaying: true,
         usingCompressedSource: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("warms non-playlist main compression in the background without blocking click-start", () => {
+    expect(
+      shouldWarmCompressionInBackground({
+        channel: "main",
+        fromPlaylist: false,
+        compressionRequested: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldWarmCompressionInBackground({
+        channel: "main",
+        fromPlaylist: true,
+        compressionRequested: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldWarmCompressionInBackground({
+        channel: "headphone",
+        fromPlaylist: false,
+        compressionRequested: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldWarmCompressionInBackground({
+        channel: "main",
+        fromPlaylist: false,
+        compressionRequested: false,
       }),
     ).toBe(false);
   });

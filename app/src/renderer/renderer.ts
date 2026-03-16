@@ -97,6 +97,7 @@ import {
 } from "../shared/now-playing.js";
 import {
   isCompressionControlLockedForPrep,
+  shouldWarmCompressionInBackground,
   shouldUseCompressionSource,
 } from "../shared/audio-compression.js";
 import { resolveCompressionSliderUiState } from "../shared/compression-ui.js";
@@ -3472,15 +3473,14 @@ const playOnChannel = async (
   }
 
   if (
-    channel === "main" &&
-    options?.fromPlaylist !== true &&
     track &&
-    isCompressionRequestedForChannel(channel, options)
+    shouldWarmCompressionInBackground({
+      channel,
+      fromPlaylist: options?.fromPlaylist === true,
+      compressionRequested: isCompressionRequestedForChannel(channel, options),
+    })
   ) {
-    await requestCompressedSource(track, getAudioDynamicsConfig());
-    if (isStaleRequest()) {
-      return false;
-    }
+    void requestCompressedSource(track, getAudioDynamicsConfig());
   }
   const source =
     channel === "main"
@@ -5233,6 +5233,44 @@ const buildDetailMenuButton = () => {
 const buildNormalizedTandaKey = (trackIds: string[]) =>
   Array.from(new Set(trackIds.filter(Boolean))).sort().join("|");
 
+const handleTandaDetailTrackClick = async (
+  context: "search" | "clipboard" | "playlist",
+  trackId: string,
+  playlistIndex?: number,
+) => {
+  const track = trackCache.get(trackId) ?? resolveTrackById(trackId);
+  if (!track) {
+    return;
+  }
+  if (context === "playlist") {
+    if (appMode === "edit") {
+      await playTrackForMode(track, {
+        filePath: track.full_path,
+        trackId: track.id,
+        gainDb: track.gain_db ?? null,
+      });
+      return;
+    }
+    if (!Number.isFinite(playlistIndex ?? NaN) || (playlistIndex ?? -1) < 0) {
+      return;
+    }
+    const isMainPlaying = Boolean(playback.main.active && !playback.main.active.paused);
+    if (!shouldStartPlaylistFromClick(appMode, isMainPlaying)) {
+      return;
+    }
+    startPlaylistFrom(playlistIndex ?? -1, trackId);
+    return;
+  }
+  if (appMode === "live") {
+    return;
+  }
+  await playTrackForMode(track, {
+    filePath: track.full_path,
+    trackId: track.id,
+    gainDb: track.gain_db ?? null,
+  });
+};
+
 const findPlaylistDuplicateIndexForTrack = (trackId: string) => {
   for (let index = 0; index < playlistItems.length; index += 1) {
     const item = playlistItems[index];
@@ -6923,11 +6961,34 @@ const renderTandaRow = (
     if (line.trackId && line.trackId === options?.activeTrackId) {
       lineEl.classList.add("active");
     }
+    if (line.trackId) {
+      lineEl.addEventListener("click", (event) => {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest("button")) {
+          return;
+        }
+        event.stopPropagation();
+        void handleTandaDetailTrackClick(
+          context,
+          line.trackId!,
+          options?.playlistIndex,
+        );
+      });
+    }
     lineEl.textContent = line.text;
     if (line.trackId) {
       const actionWrap = document.createElement("div");
       actionWrap.className = "tanda-detail-actions-right";
       const menuButton = buildDetailMenuButton();
+      menuButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (lineEl.classList.contains("detail-menu-open")) {
+          lineEl.classList.remove("detail-menu-open");
+        } else {
+          closeDetailMenus();
+          lineEl.classList.add("detail-menu-open");
+        }
+      });
       const menuWrap = document.createElement("div");
       menuWrap.className = "tanda-detail-menu";
     if (headphoneAvailable) {
@@ -6956,6 +7017,15 @@ const renderTandaRow = (
           "add-clip-track-from-tanda",
         );
         clipButton.classList.add("detail-send");
+        clipButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const track = trackCache.get(line.trackId!);
+          if (track) {
+            addTrackToClipboard(track);
+          }
+          closeRowMenus();
+          closeDetailMenus();
+        });
         menuWrap.appendChild(clipButton);
       }
       if (context === "playlist" && options?.allowSendToClipboard) {
@@ -9313,7 +9383,7 @@ const startPlaylistFrom = (index: number, trackId?: string | null) => {
   void runPlaylistPlayback(true, {
     skipInitialCortinaGap,
     startFromIdle: wasIdle,
-    suppressLeadInCortinaForSelectedStart: appMode === "prep",
+    suppressLeadInCortinaForSelectedStart: appMode !== "edit",
   });
 };
 

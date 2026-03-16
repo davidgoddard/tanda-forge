@@ -13,6 +13,15 @@ export const shouldUseCompressionSource = (params: {
   return params.depthPercent > 0;
 };
 
+export const shouldWarmCompressionInBackground = (params: {
+  channel: "main" | "headphone";
+  fromPlaylist: boolean;
+  compressionRequested: boolean;
+}) =>
+  params.channel === "main" &&
+  !params.fromPlaylist &&
+  params.compressionRequested;
+
 export const isCompressionControlLockedForPrep = (params: {
   appMode: "prep" | "live" | "edit";
   isMainPlaying: boolean;

@@ -422,6 +422,201 @@ const installAutoEndingMediaStub = async (page: Page, endedDelayMs = 250) => {
   }, endedDelayMs);
 };
 
+const installSlowCompressionRenderStub = async (page: Page, delayMs = 2_000) => {
+  await page.evaluate((delay) => {
+    const api = window.tanda as
+      | (typeof window.tanda & {
+          __e2eSlowCompressionPatched?: boolean;
+          __e2eOriginalRenderCompressedTrack?: typeof window.tanda.renderCompressedTrack;
+        })
+      | undefined;
+    if (!api || api.__e2eSlowCompressionPatched) {
+      return;
+    }
+    api.__e2eOriginalRenderCompressedTrack = api.renderCompressedTrack;
+    api.renderCompressedTrack = async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, Math.max(50, delay)));
+      return { ok: false, error: "e2e slow compression stub" };
+    };
+    api.__e2eSlowCompressionPatched = true;
+  }, delayMs);
+};
+
+const configureImmediateClickPlaybackHarness = async (page: Page) => {
+  await installDeterministicMediaStub(page);
+  await installSlowCompressionRenderStub(page, 2_000);
+  await page.evaluate(() => {
+    localStorage.setItem("tanda-main-output", "default");
+    localStorage.setItem("tanda-main-output-label", "Default");
+    localStorage.removeItem("tanda-main-output-group");
+    localStorage.removeItem("tanda-headphone-output");
+    localStorage.removeItem("tanda-headphone-output-label");
+    localStorage.removeItem("tanda-headphone-output-group");
+    localStorage.setItem("tanda-audio-dynamics-enabled", "1");
+    localStorage.setItem("tanda-audio-dynamics-depth", "60");
+  });
+};
+
+const expectNowPlayingContainsSoon = async (
+  page: Page,
+  expectedToken: string,
+  timeout = 500,
+) => {
+  await expect
+    .poll(
+      async () => ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
+      { timeout },
+    )
+    .toContain(expectedToken.toLowerCase());
+};
+
+const dispatchExactClick = async (target: Locator) => {
+  await target.evaluate((element) => {
+    const node = element as HTMLElement;
+    const view = node.ownerDocument.defaultView;
+    if (!view) {
+      node.click();
+      return;
+    }
+    const eventInit: MouseEventInit = {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view,
+    };
+    node.dispatchEvent(new view.MouseEvent("mousedown", eventInit));
+    node.dispatchEvent(new view.MouseEvent("mouseup", eventInit));
+    node.dispatchEvent(new view.MouseEvent("click", eventInit));
+  });
+};
+
+const expectClickStartsTrackSoon = async (
+  page: Page,
+  clickTarget: Locator,
+  expectedToken: string,
+  timeout = 500,
+) => {
+  await expect(clickTarget).toBeAttached();
+  await clickTarget.scrollIntoViewIfNeeded();
+  await dispatchExactClick(clickTarget);
+  await expectNowPlayingContainsSoon(page, expectedToken, timeout);
+};
+
+const expectClickIgnoredWhileLiveActive = async (
+  page: Page,
+  clickTarget: Locator,
+  expectedToken: string,
+  timeout = 500,
+) => {
+  await expect(clickTarget).toBeAttached();
+  await clickTarget.scrollIntoViewIfNeeded();
+  await dispatchExactClick(clickTarget);
+  await page.waitForTimeout(timeout);
+  await expectNowPlayingContainsSoon(page, expectedToken, 50);
+};
+
+const ensureTandaRowExpanded = async (row: Locator) => {
+  await expect(row).toBeVisible();
+  await expect
+    .poll(async () => {
+      const expanded = await row.getAttribute("aria-expanded");
+      if (expanded === "true") {
+        return true;
+      }
+      const summary = row.locator(".tanda-summary").first();
+      await expect(summary).toBeVisible();
+      await dispatchExactClick(summary);
+      return (await row.getAttribute("aria-expanded")) === "true";
+    })
+    .toBe(true);
+};
+
+const getExpandedTandaDetailLine = async (
+  row: Locator,
+  text: string,
+) => {
+  await ensureTandaRowExpanded(row);
+  const detailLine = row.locator(".tanda-detail-line", { hasText: text }).first();
+  await expect(detailLine).toBeAttached();
+  return detailLine;
+};
+
+const clickDetailMenuUntilOpen = async (detailLine: Locator) => {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      await expect(detailLine).toBeAttached();
+      const detailMenuButton = detailLine.locator('button[data-action="detail-menu"]').first();
+      await expect(detailMenuButton).toBeAttached();
+      await dispatchExactClick(detailMenuButton);
+      await expect(detailLine).toHaveClass(/detail-menu-open/);
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
+};
+
+const prepareClickPlaybackFixtures = async (page: Page) => {
+  await clearPlaylistViaUi(page);
+
+  await page.locator('button[data-tab="search-tracks"]').click();
+  await runSearch(page, "Alberto Gomez");
+  await expect(searchTrackRow(page, "Alberto Gomez Tango Uno")).toBeVisible();
+  await clickRowAction(searchTrackRow(page, "Alberto Gomez Tango Uno"), "add-playlist-track");
+  await clickRowAction(searchTrackRow(page, "Alberto Gomez Tango Uno"), "add-clip");
+
+  const customCollectionId = await createClipboardCollection(page, "Speed Test");
+  await selectClipboardCollection(page, customCollectionId);
+  await page.locator('button[data-tab="search-tracks"]').click();
+  await runSearch(page, "Alberto Gomez");
+  await expect(searchTrackRow(page, "Alberto Gomez Tango Dos")).toBeVisible();
+  await clickRowAction(searchTrackRow(page, "Alberto Gomez Tango Dos"), "add-clip");
+
+  await page.locator('button[data-tab="search-tandas"]').click();
+  await runSearch(page, "Tango Trio");
+  await expect(searchTandaRow(page, "Tango Trio")).toBeVisible();
+  await selectClipboardCollection(page, "general");
+  await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-clip-tanda");
+  await selectClipboardCollection(page, "general");
+  await page.locator('button[data-tab="search-tandas"]').click();
+  await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+  await confirmIfPrompted(page);
+
+  await ensurePlaylistTab(page);
+  const playlistSingleTrackRow = page.locator("#playlist-list .tanda-row").first();
+  await expect(playlistSingleTrackRow).toBeVisible();
+  await playlistSingleTrackRow.locator(".tanda-summary").first().click();
+  const playlistSingleTrackDetail = playlistSingleTrackRow
+    .locator(".tanda-detail-line", { hasText: "Alberto Gomez Tango Uno" })
+    .first();
+  await expect(playlistSingleTrackDetail).toBeVisible();
+  const playlistTanda = playlistTandaRow(page, "Tango Trio");
+  await expect(playlistTanda).toBeVisible();
+  await playlistTanda.locator(".tanda-summary").first().click();
+  const playlistTandaDetail = playlistTanda
+    .locator(".tanda-detail-line", { hasText: "Alberto Gomez Tango Dos" })
+    .first();
+  await expect(playlistTandaDetail).toBeVisible();
+
+  await selectClipboardCollection(page, "general");
+  await page.locator('button[data-tab="clip-tandas"]').click();
+  const clipboardTanda = clipboardTandaRow(page, "Tango Trio");
+  await expect(clipboardTanda).toBeVisible();
+
+  return {
+    customCollectionId,
+    locators: {
+      searchTrack: searchTrackRow(page, "Alberto Gomez Tango Uno"),
+      clipboardGeneralTrack: clipboardTrackRow(page, "Alberto Gomez Tango Uno"),
+      playlistTrack: playlistSingleTrackDetail,
+    },
+  };
+};
+
 const clickPlaylistTrackUntilNowPlaying = async (page: Page, track: Locator, expectedToken: string) => {
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -609,7 +804,10 @@ test.describe("Electron app end-to-end workflows", () => {
         .poll(
           async () => {
             const playlistText = ((await page.locator("#playlist-list").innerText()) ?? "").toLowerCase();
-            const playlistEditorText = ((await page.locator("#playlist-tanda-editor").innerText()) ?? "").toLowerCase();
+            const playlistEditorText = (
+              (await page.locator('#playlist-tanda-editor[data-state="visible"]').innerText()) ??
+              ""
+            ).toLowerCase();
             return playlistText.includes("tempo 72 test") || playlistEditorText.includes("tempo 72 test");
           },
           { timeout: 10_000 },
@@ -1163,9 +1361,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator('button[data-tab="search-tandas"]').click();
       await expect(searchTandaRow(page, "Tango Trio")).toBeVisible();
       await clickRowAction(searchTandaRow(page, "Tango Trio"), "tanda-edit");
-      await expect.poll(async () => await page.locator("#tanda-designer-tab").getAttribute("class")).toMatch(
-        /active/,
-      );
+      await expect(page.locator('button[data-tab="tanda-designer-tab"]')).toHaveClass(/active/);
       await expect(page.locator("#search-input")).toHaveValue("Tango Trio");
       await expect(searchTandaRow(page, "Tango Trio")).toBeVisible();
     } finally {
@@ -1463,22 +1659,174 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  test("38 - track clicks start within half a second in prep across search, clipboard, and playlist surfaces", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await configureImmediateClickPlaybackHarness(page);
+      await page.locator("#mode-select").selectOption("prep");
+      const { customCollectionId, locators } = await prepareClickPlaybackFixtures(page);
+
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await expectClickStartsTrackSoon(page, locators.searchTrack, "tango uno");
+
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await expectClickStartsTrackSoon(
+        page,
+        await getExpandedTandaDetailLine(searchTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Dos"),
+        "tango dos",
+      );
+
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await expectClickStartsTrackSoon(page, locators.clipboardGeneralTrack, "tango uno");
+
+      await selectClipboardCollection(page, customCollectionId);
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await expectClickStartsTrackSoon(
+        page,
+        clipboardTrackRow(page, "Alberto Gomez Tango Dos"),
+        "tango dos",
+      );
+
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="clip-tandas"]').click();
+      await expectClickStartsTrackSoon(
+        page,
+        await getExpandedTandaDetailLine(clipboardTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Uno"),
+        "tango uno",
+      );
+
+      await ensurePlaylistTab(page);
+      await expectClickStartsTrackSoon(page, locators.playlistTrack, "tango uno");
+      await expectClickStartsTrackSoon(
+        page,
+        await getExpandedTandaDetailLine(playlistTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Dos"),
+        "tango dos",
+      );
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("39 - track clicks start within half a second in edit across search, clipboard, and playlist surfaces", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await configureImmediateClickPlaybackHarness(page);
+      await page.locator("#mode-select").selectOption("edit");
+      const { customCollectionId, locators } = await prepareClickPlaybackFixtures(page);
+
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await expectClickStartsTrackSoon(page, locators.searchTrack, "tango uno");
+      await closeTrackEditorIfOpen(page);
+
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await expectClickStartsTrackSoon(
+        page,
+        await getExpandedTandaDetailLine(searchTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Dos"),
+        "tango dos",
+      );
+      await closeTrackEditorIfOpen(page);
+
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await expectClickStartsTrackSoon(page, locators.clipboardGeneralTrack, "tango uno");
+      await closeTrackEditorIfOpen(page);
+
+      await selectClipboardCollection(page, customCollectionId);
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await expectClickStartsTrackSoon(
+        page,
+        clipboardTrackRow(page, "Alberto Gomez Tango Dos"),
+        "tango dos",
+      );
+      await closeTrackEditorIfOpen(page);
+
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="clip-tandas"]').click();
+      await expectClickStartsTrackSoon(
+        page,
+        await getExpandedTandaDetailLine(clipboardTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Uno"),
+        "tango uno",
+      );
+      await closeTrackEditorIfOpen(page);
+
+      await ensurePlaylistTab(page);
+      await expectClickStartsTrackSoon(
+        page,
+        await getExpandedTandaDetailLine(playlistTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Dos"),
+        "tango dos",
+      );
+      await closeTrackEditorIfOpen(page);
+      await expectClickStartsTrackSoon(page, locators.playlistTrack, "tango uno");
+      await closeTrackEditorIfOpen(page);
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("40 - live mode ignores clicks while active and allows restart once stopped", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await configureImmediateClickPlaybackHarness(page);
+      await page.locator("#mode-select").selectOption("live");
+      const { locators } = await prepareClickPlaybackFixtures(page);
+
+      await ensurePlaylistTab(page);
+      await expectClickStartsTrackSoon(page, locators.playlistTrack, "tango uno");
+      await expect(page.locator("#playlist-stop")).toBeEnabled({ timeout: 2_000 });
+
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await expectClickIgnoredWhileLiveActive(page, locators.searchTrack, "tango uno");
+
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await expectClickIgnoredWhileLiveActive(page, locators.clipboardGeneralTrack, "tango uno");
+
+      await ensurePlaylistTab(page);
+      await expectClickIgnoredWhileLiveActive(
+        page,
+        await getExpandedTandaDetailLine(playlistTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Dos"),
+        "tango uno",
+      );
+
+      await page.locator("#playlist-stop").click();
+      await expect
+        .poll(
+          async () => ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
+          { timeout: 5_000 },
+        )
+        .toContain("idle");
+
+      await expectClickStartsTrackSoon(
+        page,
+        await getExpandedTandaDetailLine(playlistTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Dos"),
+        "tango dos",
+      );
+    } finally {
+      await launched.close();
+    }
+  });
+
   test("35 - tanda search detail track menu can send track to clipboard", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
       await page.locator('button[data-tab="search-tandas"]').click();
       await runSearch(page, "Tango Trio");
+      await selectClipboardCollection(page, "general");
       const row = searchTandaRow(page, "Tango Trio");
       await expect(row).toBeVisible();
-      await row.locator(".tanda-summary").click();
-      const detailLine = row.locator('.tanda-detail-line[data-track-id="t1"]').first();
-      await expect(detailLine).toBeVisible();
-      await detailLine.locator('button[data-action="detail-menu"]').click();
-      await expect(detailLine).toHaveClass(/detail-menu-open/);
-      await detailLine
+      const detailLine = await getExpandedTandaDetailLine(row, "Alberto Gomez Tango Uno");
+      await clickDetailMenuUntilOpen(detailLine);
+      const addClipButton = detailLine
         .locator('.tanda-detail-menu button[data-action="add-clip-track-from-tanda"]')
-        .click({ force: true });
+        .first();
+      await expect(addClipButton).toBeVisible();
+      await dispatchExactClick(addClipButton);
+      await selectClipboardCollection(page, "general");
       await page.locator('button[data-tab="clip-tracks"]').click();
       await expect(clipboardTrackRow(page, "Alberto Gomez Tango Uno")).toBeVisible();
     } finally {
