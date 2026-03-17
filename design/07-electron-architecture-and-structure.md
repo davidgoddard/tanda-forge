@@ -13,11 +13,11 @@ identified as `ARCH-<section>.R<n>` in order under each section. Sub-bullets use
 ## Process Model
 
 - ARCH-001.R1: Main process owns the local data service, library scanning, audio
-  analysis, and playback control.
+  analysis, cache generation, and filesystem-backed diagnostics.
 - ARCH-001.R2: Preload exposes a minimal, typed API to the renderer via
   `contextBridge`.
-- ARCH-001.R3: Renderer handles UI and interaction logic with no direct filesystem
-  access.
+- ARCH-001.R3: Renderer handles UI, interaction logic, and the current
+  playback/sequencing control flow with no direct filesystem access.
 
 ## Bundled Media Tools
 
@@ -30,9 +30,11 @@ identified as `ARCH-<section>.R<n>` in order under each section. Sub-bullets use
 
 - ARCH-003.R1: Library roots (USB and/or local folders) are configured per user.
 - ARCH-003.R2: Metadata and analysis results are stored in the app data directory.
-- ARCH-003.R3: Missing/unmounted roots are tracked and surfaced to the UI.
+- ARCH-003.R3: Missing roots are surfaced to the UI through availability checks.
+- ARCH-003.R4: Some renderer-local preferences still use local browser storage,
+  but long-term persistence should trend toward the shared application data store.
 
-## Proposed Folder Structure
+## Current Folder Structure Direction
 
 ```
 app/
@@ -44,14 +46,14 @@ app/
       library/
         scan.ts             # Library discovery
         analysis.ts         # FFmpeg/ffprobe integration
-      playback/
-        engine.ts           # Playback state machine
     preload/
       preload.ts            # contextBridge API
     renderer/
       index.html
       renderer.ts
       styles.css
+      controllers/          # Localized orchestration
+      modules/              # Localized view/helper logic
     shared/
       types.ts              # Shared types and IPC contracts
 ```

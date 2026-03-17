@@ -5,11 +5,20 @@ if (process.platform === "darwin" && process.arch === "x64") {
   app.commandLine.appendSwitch("disable-gpu");
 }
 import fs from "fs";
-import os from "os";
 import { createHash, randomUUID } from "crypto";
 import path from "path";
 import { initDb, getDb, resetDb, reopenDb } from "./db";
 import { getDataPaths, getDataRoot, getDefaultDataPath, setDataRoot } from "./data-location";
+import {
+  appendLogEntry,
+  clearDiagnosticsLogs,
+  getDiagnosticsDataReadiness,
+  getDiagnosticsPaths,
+  PLAYBACK_DIAGNOSTIC_LOG,
+  readLogTail,
+  RENDERER_ERROR_LOG,
+  verifyCachedFiles,
+} from "./diagnostics";
 import { scanLibraryRoots } from "./library/scan";
 import type { LibraryRoot } from "./library/scan";
 import {
@@ -97,10 +106,6 @@ const audioExtensions = new Set([
   ".ogg",
   ".aiff",
 ]);
-const RENDERER_ERROR_LOG = "renderer-errors.log";
-const PLAYBACK_DIAGNOSTIC_LOG = "playback-diagnostics.log";
-const MAX_LOG_BYTES = 5 * 1024 * 1024;
-const KEEP_LOG_BYTES = 4 * 1024 * 1024;
 const compressedRenderInFlight = new Map<string, Promise<string>>();
 const MAX_CONCURRENT_COMPRESSED_RENDERS = 1;
 let activeCompressedRenderCount = 0;
@@ -253,27 +258,6 @@ const detectCortinaSetsFromRoot = (rootPath: string) => {
   return sets;
 };
 
-const appendLogEntry = (logName: string, lines: string[]) => {
-  const { logDir } = getDataPaths();
-  const logPath = path.join(logDir, logName);
-  fs.mkdirSync(path.dirname(logPath), { recursive: true });
-  try {
-    const currentSize = fs.existsSync(logPath) ? fs.statSync(logPath).size : 0;
-    if (currentSize > MAX_LOG_BYTES) {
-      const handle = fs.openSync(logPath, "r");
-      const start = Math.max(0, currentSize - KEEP_LOG_BYTES);
-      const buffer = Buffer.allocUnsafe(currentSize - start);
-      fs.readSync(handle, buffer, 0, buffer.length, start);
-      fs.closeSync(handle);
-      fs.writeFileSync(logPath, buffer);
-    }
-  } catch {
-    // Ignore rotation failures and keep app logging best-effort.
-  }
-  fs.appendFileSync(logPath, `${lines.join(os.EOL)}${os.EOL}`);
-  return logPath;
-};
-
 const clearCachedArtifacts = () => {
   const { waveformsDir, compressedCacheDir } = getDataPaths();
   try {
@@ -306,20 +290,6 @@ const clearDiagnosticsArtifacts = () => {
   });
 };
 
-const clearDiagnosticsLogs = () => {
-  const { logDir } = getDataPaths();
-  [RENDERER_ERROR_LOG, PLAYBACK_DIAGNOSTIC_LOG].forEach((logFile) => {
-    try {
-      const logPath = path.join(logDir, logFile);
-      if (fs.existsSync(logPath)) {
-        fs.unlinkSync(logPath);
-      }
-    } catch {
-      // Best-effort cleanup; log clear should not throw.
-    }
-  });
-};
-
 const saveLegacyOverrides = () => {
   const db = getDb();
   const now = new Date().toISOString();
@@ -346,21 +316,6 @@ const loadLegacyOverrides = () => {
   legacyOverridesByRootId = deserializeLegacyOverrides(
     typeof row?.value === "string" ? row.value : null,
   );
-};
-
-const readLogTail = (logName: string, limit: number) => {
-  const safeLimit = Number.isFinite(limit) ? Math.min(500, Math.max(1, limit)) : 200;
-  const { logDir } = getDataPaths();
-  const logPath = path.join(logDir, logName);
-  if (!fs.existsSync(logPath)) {
-    return { path: logPath, lines: [] as string[] };
-  }
-  const raw = fs.readFileSync(logPath, "utf-8");
-  const lines = raw
-    .split(/\r?\n/)
-    .map((line) => line.trimEnd())
-    .filter((line) => line.length > 0);
-  return { path: logPath, lines: lines.slice(Math.max(0, lines.length - safeLimit)) };
 };
 
 const setDockIcon = () => {
@@ -1576,34 +1531,56 @@ const registerIpc = () => {
         const db = getDb();
         const rows = db
           .prepare(
-            `select t.id, t.full_path, t.loudness_db
+            `select t.id, t.full_path, t.loudness_db, r.path as root_path, r.kind as root_kind
              from tracks t
              join library_roots r on r.id = t.root_id
              where r.kind in ('music', 'cortina')`,
           )
-          .all() as { id: string; full_path: string; loudness_db: number | null }[];
+          .all() as {
+          id: string;
+          full_path: string;
+          loudness_db: number | null;
+          root_path: string;
+          root_kind: "music" | "cortina";
+        }[];
         const cacheDir = getCompressedCacheDir();
         fs.mkdirSync(cacheDir, { recursive: true });
         let rendered = 0;
         let cached = 0;
         let failed = 0;
+        const errors: { filePath: string; message: string }[] = [];
         const total = rows.length;
-        const pushProgress = (done: boolean) => {
+        const pushProgress = (
+          done: boolean,
+          currentFile?: string | null,
+          latestError?: { filePath: string; message: string } | null,
+        ) => {
           event.sender.send("audio:precomputeProgress", {
             current: rendered + cached + failed,
             total,
             rendered,
             cached,
             failed,
+            currentFile: currentFile ?? null,
+            latestError: latestError ?? null,
             done,
           });
         };
         pushProgress(false);
         for (const row of rows) {
+          const relativeFile =
+            row.root_path && row.full_path
+              ? path.relative(row.root_path, row.full_path) || path.basename(row.full_path)
+              : path.basename(row.full_path || row.id);
           try {
             if (!row.full_path || !fs.existsSync(row.full_path)) {
               failed += 1;
-              pushProgress(false);
+              const latestError = {
+                filePath: row.full_path || row.id,
+                message: "Compression: Track file not found",
+              };
+              errors.push(latestError);
+              pushProgress(false, relativeFile, latestError);
               continue;
             }
             const stat = fs.statSync(row.full_path);
@@ -1623,7 +1600,7 @@ const registerIpc = () => {
             const outputPath = path.join(cacheDir, `${cacheKey}.wav`);
             if (hasUsableCompressedRender(outputPath)) {
               cached += 1;
-              pushProgress(false);
+              pushProgress(false, relativeFile);
               continue;
             }
             fs.rmSync(outputPath, { force: true });
@@ -1643,14 +1620,21 @@ const registerIpc = () => {
               });
             });
             rendered += 1;
-            pushProgress(false);
-          } catch {
+            pushProgress(false, relativeFile);
+          } catch (error) {
             failed += 1;
-            pushProgress(false);
+            const latestError = {
+              filePath: row.full_path,
+              message: `Compression: ${
+                error instanceof Error ? error.message : "Compression render failed"
+              }`,
+            };
+            errors.push(latestError);
+            pushProgress(false, relativeFile, latestError);
           }
         }
         pushProgress(true);
-        return { ok: true, rendered, cached, failed };
+        return { ok: true, rendered, cached, failed, errors };
       } catch (error) {
         event.sender.send("audio:precomputeProgress", {
           current: 0,
@@ -1658,6 +1642,8 @@ const registerIpc = () => {
           rendered: 0,
           cached: 0,
           failed: 0,
+          currentFile: null,
+          latestError: null,
           done: true,
         });
         return {
@@ -1665,6 +1651,7 @@ const registerIpc = () => {
           rendered: 0,
           cached: 0,
           failed: 0,
+          errors: [],
           error: error instanceof Error ? error.message : "Precompute failed",
         };
       }
@@ -1672,81 +1659,15 @@ const registerIpc = () => {
   );
 
   ipcMain.handle("diagnostics:getPaths", () => {
-    const userData = getDataRoot();
-    return {
-      userData,
-      waveformsDir: path.join(userData, "waveforms"),
-      compressedCacheDir: path.join(userData, "compressed-audio-cache"),
-      ffmpegPath: getResolvedFfmpegPath(),
-      ffprobePath: getResolvedFfprobePath(),
-      playbackLogPath: path.join(userData, PLAYBACK_DIAGNOSTIC_LOG),
-    };
+    return getDiagnosticsPaths(
+      getDataPaths,
+      getResolvedFfmpegPath(),
+      getResolvedFfprobePath(),
+    );
   });
 
   ipcMain.handle("diagnostics:verifyCaches", async () => {
-    const db = getDb();
-    const { waveformsDir, compressedCacheDir } = getDataPaths();
-    const validTrackIds = new Set(
-      (
-        db.prepare("select id from tracks").all() as Array<{ id: string }>
-      ).map((row) => row.id),
-    );
-    let waveformFiles = 0;
-    let waveformRemoved = 0;
-    try {
-      if (fs.existsSync(waveformsDir)) {
-        fs.readdirSync(waveformsDir, { withFileTypes: true }).forEach((entry) => {
-          if (!entry.isFile()) {
-            return;
-          }
-          const ext = path.extname(entry.name).toLowerCase();
-          if (ext !== ".png") {
-            return;
-          }
-          waveformFiles += 1;
-          const fullPath = path.join(waveformsDir, entry.name);
-          const trackId = path.basename(entry.name, ext);
-          if (!validTrackIds.has(trackId) || !hasUsableWaveformPng(fullPath)) {
-            fs.rmSync(fullPath, { force: true });
-            waveformRemoved += 1;
-          }
-        });
-      }
-    } catch {
-      // Best-effort verification; report partial counts if directory traversal fails.
-    }
-
-    let compressedFiles = 0;
-    let compressedRemoved = 0;
-    try {
-      if (fs.existsSync(compressedCacheDir)) {
-        fs.readdirSync(compressedCacheDir, { withFileTypes: true }).forEach((entry) => {
-          if (!entry.isFile()) {
-            return;
-          }
-          const ext = path.extname(entry.name).toLowerCase();
-          if (ext !== ".wav") {
-            return;
-          }
-          compressedFiles += 1;
-          const fullPath = path.join(compressedCacheDir, entry.name);
-          if (!hasUsableCompressedRender(fullPath)) {
-            fs.rmSync(fullPath, { force: true });
-            compressedRemoved += 1;
-          }
-        });
-      }
-    } catch {
-      // Best-effort verification; report partial counts if directory traversal fails.
-    }
-
-    return {
-      ok: true,
-      waveformFiles,
-      waveformRemoved,
-      compressedFiles,
-      compressedRemoved,
-    };
+    return verifyCachedFiles(getDb(), getDataPaths);
   });
 
   ipcMain.handle(
@@ -1758,98 +1679,17 @@ const registerIpc = () => {
       const kind = params?.kind === "renderer" ? "renderer" : "playback";
       const logName =
         kind === "renderer" ? RENDERER_ERROR_LOG : PLAYBACK_DIAGNOSTIC_LOG;
-      return readLogTail(logName, params?.limit ?? 200);
+      return readLogTail(getDataPaths, logName, params?.limit ?? 200);
     },
   );
 
   ipcMain.handle("diagnostics:clearLogs", async () => {
-    clearDiagnosticsLogs();
+    clearDiagnosticsLogs(getDataPaths);
     return { ok: true };
   });
 
   ipcMain.handle("diagnostics:getDataReadiness", async () => {
-    const db = getDb();
-    const rows = db
-      .prepare(
-        `select t.id, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.loudness_db, t.gain_db,
-            t.tag_error, t.analysis_error
-         from tracks t
-         join library_roots r on r.id = t.root_id
-         where r.kind = 'music'`,
-      )
-      .all() as {
-      id: string;
-      duration_ms?: number | null;
-      start_offset_ms?: number | null;
-      end_trim_ms?: number | null;
-      loudness_db?: number | null;
-      gain_db?: number | null;
-      tag_error?: string | null;
-      analysis_error?: string | null;
-    }[];
-    const { waveformsDir } = getDataPaths();
-    const waveformTrackIds = new Set<string>();
-    try {
-      if (fs.existsSync(waveformsDir)) {
-        fs.readdirSync(waveformsDir, { withFileTypes: true }).forEach((entry) => {
-          if (!entry.isFile()) {
-            return;
-          }
-          const ext = path.extname(entry.name).toLowerCase();
-          if (ext !== ".png") {
-            return;
-          }
-          waveformTrackIds.add(path.basename(entry.name, ext));
-        });
-      }
-    } catch {
-      // Ignore read errors and report waveform availability as missing.
-    }
-    let missingDuration = 0;
-    let missingLoudness = 0;
-    let missingTrimSignals = 0;
-    let analysisErrors = 0;
-    let missingWaveforms = 0;
-    rows.forEach((row) => {
-      const durationMs =
-        typeof row.duration_ms === "number" && Number.isFinite(row.duration_ms)
-          ? row.duration_ms
-          : 0;
-      if (durationMs <= 0) {
-        missingDuration += 1;
-      }
-      const hasLoudness =
-        typeof row.loudness_db === "number" && Number.isFinite(row.loudness_db);
-      const hasGain = typeof row.gain_db === "number" && Number.isFinite(row.gain_db);
-      if (!hasLoudness && !hasGain) {
-        missingLoudness += 1;
-      }
-      const startOffsetMs =
-        typeof row.start_offset_ms === "number" && Number.isFinite(row.start_offset_ms)
-          ? row.start_offset_ms
-          : 0;
-      const endTrimMs =
-        typeof row.end_trim_ms === "number" && Number.isFinite(row.end_trim_ms)
-          ? row.end_trim_ms
-          : 0;
-      if (durationMs > 0 && startOffsetMs <= 0 && endTrimMs <= 0) {
-        missingTrimSignals += 1;
-      }
-      if ((row.tag_error ?? "").trim() || (row.analysis_error ?? "").trim()) {
-        analysisErrors += 1;
-      }
-      if (!waveformTrackIds.has(row.id)) {
-        missingWaveforms += 1;
-      }
-    });
-    return {
-      totalTracks: rows.length,
-      missingDuration,
-      missingLoudness,
-      missingTrimSignals,
-      analysisErrors,
-      missingWaveforms,
-    };
+    return getDiagnosticsDataReadiness(getDb(), getDataPaths);
   });
 
   ipcMain.handle(
@@ -2116,7 +1956,7 @@ const registerIpc = () => {
   ipcMain.handle(
     "app:logClientError",
     async (_event, params: { message: string; stack?: string }) => {
-      appendLogEntry(RENDERER_ERROR_LOG, [
+      appendLogEntry(getDataPaths, RENDERER_ERROR_LOG, [
         new Date().toISOString(),
         params.message,
         params.stack ?? "",
@@ -2176,7 +2016,7 @@ const registerIpc = () => {
         outputRouteError: params.outputRouteError ?? null,
         attemptedOutputDeviceIds: params.attemptedOutputDeviceIds ?? [],
       };
-      appendLogEntry(PLAYBACK_DIAGNOSTIC_LOG, [JSON.stringify(payload)]);
+      appendLogEntry(getDataPaths, PLAYBACK_DIAGNOSTIC_LOG, [JSON.stringify(payload)]);
     },
   );
 };

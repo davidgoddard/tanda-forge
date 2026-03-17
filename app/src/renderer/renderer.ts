@@ -96,7 +96,10 @@ import {
   resolveWaveformSeekTargetSeconds,
 } from "../shared/now-playing.js";
 import {
+  COMPRESSION_TAIL_RESET_LEAD_SECONDS,
   isCompressionControlLockedForPrep,
+  shouldAutoResetCompressionMixNearEnd,
+  shouldResetCompressionMixForNewTrack,
   shouldWarmCompressionInBackground,
   shouldUseCompressionSource,
 } from "../shared/audio-compression.js";
@@ -188,6 +191,9 @@ import {
 } from "./modules/display-view.js";
 import { createSearchController } from "./controllers/search-controller.js";
 import { createSettingsDiagnosticsController } from "./controllers/settings-diagnostics-controller.js";
+import { createSettingsLibraryController } from "./controllers/settings-library-controller.js";
+import { createSettingsPlaylistController } from "./controllers/settings-playlist-controller.js";
+import { createSettingsSearchAudioController } from "./controllers/settings-search-audio-controller.js";
 import { createPlaybackCompressionController } from "./controllers/playback-compression-controller.js";
 import { createPlaylistRuntimeController } from "./controllers/playlist-runtime-controller.js";
 import { computeTapTempoBpm } from "./modules/track-editor-view.js";
@@ -200,7 +206,11 @@ import {
   resetPlaylistLastTandaState,
   resolvePlaylistWindowMs,
 } from "./modules/playlist-view.js";
-import { resolveOutputModeValue } from "./modules/settings-view.js";
+import {
+  activateSettingsTab,
+  pulseSettingsSection,
+  resolveOutputModeValue,
+} from "./modules/settings-view.js";
 import { pulseStyleFamilyEditFields } from "./modules/style-family-view.js";
 import {
   createRendererUiStore,
@@ -227,8 +237,17 @@ const clearCachedFilesBtn =
   document.querySelector<HTMLButtonElement>("#clear-cached-files");
 const cacheVerifyResult =
   document.querySelector<HTMLDivElement>("#cache-verify-result");
+const precomputeCompressedResult =
+  document.querySelector<HTMLDivElement>("#precompute-compressed-result");
+const precomputeProgressElSettings =
+  document.querySelector<HTMLProgressElement>("#precompute-progress-settings");
+const precomputeProgressLabelSettings =
+  document.querySelector<HTMLDivElement>("#precompute-progress-label-settings");
+const openDiagnosticsPrecompute =
+  document.querySelector<HTMLButtonElement>("#open-diagnostics-precompute");
 const precomputeCompressedShortcutBtn =
   document.querySelector<HTMLButtonElement>("#precompute-compressed-shortcut");
+const derivedCachesSection = document.querySelector<HTMLElement>("#derived-caches-section");
 const errorList = document.querySelector<HTMLUListElement>("#error-list");
 const diagnosticsPathsEl =
   document.querySelector<HTMLDivElement>("#diagnostics-paths");
@@ -940,6 +959,7 @@ type PlaybackState = {
   compressedSourcePath?: string;
   wetCompensationGain?: number;
   wetCompensationReferenceRatio?: number;
+  compressionTailAutoResetApplied?: boolean;
 };
 
 const playback: Record<OutputChannel, PlaybackState> = {
@@ -968,9 +988,7 @@ let waveformTrackId: string | null = null;
 let openRowMenuId: string | null = null;
 let playlistOpenTandaIndex: number | null = null;
 let tandaEditorHostTab: RightPanelTab = "tanda-designer-tab";
-let scanRequestInFlight = false;
 let searchDiversityRenderInFlight = false;
-let precomputeCompressionInProgress = false;
 
 type TrackEditorState = {
   track: TrackRow | null;
@@ -1219,6 +1237,22 @@ const getAudioDynamicsConfig = (): AudioDynamicsConfig => ({
 
 const getAudioDynamicsDepthPercent = () =>
   parseSettingNumber(AUDIO_DYNAMICS_DEPTH_KEY, DEFAULT_AUDIO_DYNAMICS_DEPTH, 0, 100);
+
+const setMainCompressionDepthPercent = (depthPercent: number) => {
+  const clamped = Math.min(100, Math.max(0, Math.round(depthPercent)));
+  localStorage.setItem(AUDIO_DYNAMICS_DEPTH_KEY, clamped.toString());
+  if (nowPlayingDynamicsMixInput) {
+    nowPlayingDynamicsMixInput.value = clamped.toString();
+  }
+  if (nowPlayingDynamicsMixValue) {
+    nowPlayingDynamicsMixValue.textContent = `${clamped}%`;
+  }
+  renderNowPlayingDynamicsControl();
+  if (clamped > 0) {
+    scheduleCompressionPrefetch();
+  }
+  void syncDynamicsRuntimeForActivePlayback();
+};
 
 const isCompressionRequestedForChannel = (
   channel: OutputChannel,
@@ -2228,6 +2262,7 @@ const stopCompressedCompanion = async (state: PlaybackState) => {
   state.compressedSourcePath = undefined;
   state.wetCompensationGain = 1;
   state.wetCompensationReferenceRatio = undefined;
+  state.compressionTailAutoResetApplied = undefined;
 };
 
 const stopAllCompressedCompanions = async () => {
@@ -3424,6 +3459,15 @@ const playOnChannel = async (
     await releaseAudioDspRuntime(audio);
   };
   const state = playback[channel];
+  if (
+    shouldResetCompressionMixForNewTrack({
+      channel,
+      previousTrackId: state.currentTrackId,
+      nextTrackId: trackId,
+    })
+  ) {
+    setMainCompressionDepthPercent(0);
+  }
   if (isStaleRequest()) {
     return false;
   }
@@ -3467,6 +3511,7 @@ const playOnChannel = async (
     state.activeSourcePath = undefined;
     state.originalSourcePath = undefined;
     state.compressedSourcePath = undefined;
+    state.compressionTailAutoResetApplied = undefined;
     lastAppliedGainDbByChannel[channel] = null;
     updateNowPlayingDisplay();
     return false;
@@ -3624,6 +3669,7 @@ const playOnChannel = async (
     compressedSourcePath: state.compressedSourcePath,
     wetCompensationGain: state.wetCompensationGain,
     wetCompensationReferenceRatio: state.wetCompensationReferenceRatio,
+    compressionTailAutoResetApplied: state.compressionTailAutoResetApplied,
   };
   state.active = next;
   state.compressedActive = undefined;
@@ -3635,6 +3681,7 @@ const playOnChannel = async (
   state.activeSourcePath = source.filePath;
   state.originalSourcePath = track?.full_path ?? filePath;
   state.compressedSourcePath = source.compressed ? source.filePath : undefined;
+  state.compressionTailAutoResetApplied = false;
   void updateWaveformSource(trackId);
   if (isStaleRequest()) {
     await discardAudio(next);
@@ -3652,6 +3699,8 @@ const playOnChannel = async (
       state.wetCompensationGain = previousStateSnapshot.wetCompensationGain;
       state.wetCompensationReferenceRatio =
         previousStateSnapshot.wetCompensationReferenceRatio;
+      state.compressionTailAutoResetApplied =
+        previousStateSnapshot.compressionTailAutoResetApplied;
       updateNowPlayingDisplay();
     }
     return false;
@@ -3699,6 +3748,7 @@ const playOnChannel = async (
       state.activeSourcePath = undefined;
       state.originalSourcePath = undefined;
       state.compressedSourcePath = undefined;
+      state.compressionTailAutoResetApplied = undefined;
       updateNowPlayingDisplay();
     }
   });
@@ -3771,6 +3821,21 @@ const playOnChannel = async (
       void finalize();
       return;
     }
+    if (
+      channel === "main" &&
+      !state.compressionTailAutoResetApplied &&
+      shouldAutoResetCompressionMixNearEnd({
+        enabled: localStorage.getItem(AUDIO_DYNAMICS_ENABLED_KEY) === "1",
+        depthPercent: getAudioDynamicsDepthPercent(),
+        currentTimeSeconds: next.currentTime ?? 0,
+        startAtSeconds: startAt,
+        effectiveEndSeconds,
+        leadSeconds: COMPRESSION_TAIL_RESET_LEAD_SECONDS,
+      })
+    ) {
+      state.compressionTailAutoResetApplied = true;
+      setMainCompressionDepthPercent(0);
+    }
     updateNowPlayingDisplay();
   });
 
@@ -3792,6 +3857,8 @@ const playOnChannel = async (
         state.wetCompensationGain = previousStateSnapshot.wetCompensationGain;
         state.wetCompensationReferenceRatio =
           previousStateSnapshot.wetCompensationReferenceRatio;
+        state.compressionTailAutoResetApplied =
+          previousStateSnapshot.compressionTailAutoResetApplied;
         updateNowPlayingDisplay();
       }
       return false;
@@ -3835,6 +3902,8 @@ const playOnChannel = async (
       state.wetCompensationGain = previousStateSnapshot.wetCompensationGain;
       state.wetCompensationReferenceRatio =
         previousStateSnapshot.wetCompensationReferenceRatio;
+      state.compressionTailAutoResetApplied =
+        previousStateSnapshot.compressionTailAutoResetApplied;
       updateNowPlayingDisplay();
     }
     setStatus(
@@ -3912,6 +3981,7 @@ const stopChannelPlayback = async (channel: OutputChannel, fadeMs: number) => {
   state.activeSourcePath = undefined;
   state.originalSourcePath = undefined;
   state.compressedSourcePath = undefined;
+  state.compressionTailAutoResetApplied = undefined;
   lastAppliedGainDbByChannel[channel] = null;
   updateNowPlayingDisplay();
 };
@@ -8464,7 +8534,6 @@ const runPlaylistPlayback = async (
     const skipLeadInCortinaForSelectedStart = shouldSkipLeadInCortinaForSelectedStart(
       suppressLeadInCortinaForSelectedStart,
       resume,
-      startFromIdle,
       playlistPlayback.currentIndex,
       playlistPlayback.currentTrackIndex,
       selectedStartIndex,
@@ -9383,7 +9452,7 @@ const startPlaylistFrom = (index: number, trackId?: string | null) => {
   void runPlaylistPlayback(true, {
     skipInitialCortinaGap,
     startFromIdle: wasIdle,
-    suppressLeadInCortinaForSelectedStart: appMode !== "edit",
+    suppressLeadInCortinaForSelectedStart: appMode !== "live",
   });
 };
 
@@ -12176,36 +12245,12 @@ const renderOrchestraRegistry = () => {
   });
 };
 
-const renderDiagnosticsPaths = async () => {
-  if (!diagnosticsPathsEl || !window.tanda?.getDiagnosticsPaths) {
-    return;
-  }
-  const paths = await window.tanda.getDiagnosticsPaths();
-  diagnosticsPathsEl.innerHTML = "";
-  const rows: { label: string; value: string }[] = [
-    { label: t("diagnosticsPathsUserData"), value: paths.userData },
-    { label: t("diagnosticsPathsWaveforms"), value: paths.waveformsDir },
-    { label: t("diagnosticsPathsCompressedCache"), value: paths.compressedCacheDir },
-    { label: t("diagnosticsPathsFfmpeg"), value: paths.ffmpegPath },
-    { label: t("diagnosticsPathsFfprobe"), value: paths.ffprobePath },
-    { label: t("diagnosticsPathsPlaybackLog"), value: paths.playbackLogPath },
-  ];
-  rows.forEach((row) => {
-    const line = document.createElement("div");
-    const label = document.createElement("strong");
-    label.textContent = `${row.label}:`;
-    const value = document.createElement("code");
-    value.textContent = row.value;
-    line.append(label, document.createTextNode(" "), value);
-    diagnosticsPathsEl.appendChild(line);
-  });
-};
-
 const getSettingsDiagnosticsController = () => {
   if (settingsDiagnosticsController) {
     return settingsDiagnosticsController;
   }
   if (
+    !window.tanda?.getDiagnosticsPaths ||
     !window.tanda?.getDiagnosticsLogs ||
     !window.tanda?.clearDiagnosticsLogs ||
     !window.tanda?.getDiagnosticsDataReadiness
@@ -12214,11 +12259,29 @@ const getSettingsDiagnosticsController = () => {
   }
   settingsDiagnosticsController = createSettingsDiagnosticsController({
     translate: t,
+    getDiagnosticsPaths: window.tanda.getDiagnosticsPaths,
     getDiagnosticsLogs: window.tanda.getDiagnosticsLogs,
     clearDiagnosticsLogs: window.tanda.clearDiagnosticsLogs,
     getDiagnosticsDataReadiness: window.tanda.getDiagnosticsDataReadiness,
+    enumerateDevices: () => navigator.mediaDevices.enumerateDevices(),
+    requestAudioAccess: async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+    },
+    createAudioProbe: () => new Audio(),
   });
   return settingsDiagnosticsController;
+};
+
+const renderDiagnosticsPaths = async () => {
+  if (!diagnosticsPathsEl) {
+    return;
+  }
+  const controller = getSettingsDiagnosticsController();
+  if (!controller) {
+    return;
+  }
+  await controller.renderDiagnosticsPaths(diagnosticsPathsEl);
 };
 
 const renderPlaybackDiagnosticsLog = async () => {
@@ -12247,99 +12310,22 @@ const runAudioOutputProbe = async () => {
   if (!diagnosticsOutputProbeResult) {
     return;
   }
-  diagnosticsOutputProbeResult.textContent = t("statusWaveformLoading");
-  try {
-    let devices = await navigator.mediaDevices.enumerateDevices();
-    if (devices.every((device) => device.kind !== "audiooutput" || !device.label)) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach((track) => track.stop());
-        devices = await navigator.mediaDevices.enumerateDevices();
-      } catch {
-        // continue with best-effort labels/devices
-      }
-    }
-    const outputs = devices.filter((device) => device.kind === "audiooutput");
-    if (outputs.length === 0) {
-      diagnosticsOutputProbeResult.textContent = t("diagnosticsOutputProbeNoDevices");
-      return;
-    }
-    const probe = new Audio();
-    const setSink = probe.setSinkId as ((sinkId: string) => Promise<void>) | undefined;
-    if (!setSink) {
-      diagnosticsOutputProbeResult.textContent = t(
-        "diagnosticsOutputProbeUnsupported",
-      );
-      return;
-    }
-    const lines: string[] = [];
-    for (const output of outputs) {
-      const label = output.label || "(unlabeled)";
-      const group = output.groupId || "-";
-      const id = output.deviceId || "-";
-      try {
-        await setSink.call(probe, output.deviceId);
-        lines.push(`PASS  ${label} | group=${group} | id=${id}`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        lines.push(`FAIL  ${label} | group=${group} | id=${id} | ${message}`);
-      }
-    }
-    probe.pause();
-    probe.src = "";
-    diagnosticsOutputProbeResult.textContent = lines.join("\n");
-  } catch (error) {
-    diagnosticsOutputProbeResult.textContent = t("diagnosticsOutputProbeError", {
-      message: error instanceof Error ? error.message : t("statusUnknownError"),
-    });
+  const controller = getSettingsDiagnosticsController();
+  if (!controller) {
+    return;
   }
+  await controller.runAudioOutputProbe(diagnosticsOutputProbeResult);
 };
 
 const renderDiagnosticsDataReadiness = async () => {
-  if (!diagnosticsDataReadinessEl || !window.tanda?.getDiagnosticsDataReadiness) {
+  if (!diagnosticsDataReadinessEl) {
     return;
   }
-  diagnosticsDataReadinessEl.textContent = t("statusWaveformLoading");
-  try {
-    const summary = await window.tanda.getDiagnosticsDataReadiness();
-    const rows: { label: string; value: number }[] = [
-      { label: t("diagnosticsReadinessTotalTracks"), value: summary.totalTracks },
-      {
-        label: t("diagnosticsReadinessMissingDuration"),
-        value: summary.missingDuration,
-      },
-      {
-        label: t("diagnosticsReadinessMissingLoudness"),
-        value: summary.missingLoudness,
-      },
-      {
-        label: t("diagnosticsReadinessMissingTrimSignals"),
-        value: summary.missingTrimSignals,
-      },
-      {
-        label: t("diagnosticsReadinessAnalysisErrors"),
-        value: summary.analysisErrors,
-      },
-      {
-        label: t("diagnosticsReadinessMissingWaveforms"),
-        value: summary.missingWaveforms,
-      },
-    ];
-    diagnosticsDataReadinessEl.innerHTML = "";
-    rows.forEach((row) => {
-      const line = document.createElement("div");
-      const label = document.createElement("strong");
-      label.textContent = `${row.label}:`;
-      const value = document.createElement("span");
-      value.textContent = `${row.value}`;
-      line.append(label, document.createTextNode(" "), value);
-      diagnosticsDataReadinessEl.appendChild(line);
-    });
-  } catch (error) {
-    diagnosticsDataReadinessEl.textContent = t("diagnosticsPlaybackLogFailed", {
-      message: error instanceof Error ? error.message : t("statusUnknownError"),
-    });
+  const controller = getSettingsDiagnosticsController();
+  if (!controller) {
+    return;
   }
+  await controller.renderDiagnosticsDataReadiness(diagnosticsDataReadinessEl);
 };
 
 const verifyLegacyReadiness = async () => {
@@ -12971,17 +12957,6 @@ const setSettingsOpen = async (open: boolean) => {
   settingsPanel.setAttribute("aria-hidden", open ? "false" : "true");
 };
 
-const activateSettingsTab = (tab: string) => {
-  tabButtons.forEach((btn) => btn.classList.remove("active"));
-  tabPanels.forEach((panel) => panel.classList.remove("active"));
-  tabButtons
-    .filter((btn) => btn.dataset.tab === tab)
-    .forEach((btn) => btn.classList.add("active"));
-  tabPanels
-    .filter((panel) => panel.dataset.tab === tab)
-    .forEach((panel) => panel.classList.add("active"));
-};
-
 const updateSearchTabVisibility = () => {
   if (searchTrackHeader) {
     searchTrackHeader.classList.toggle(
@@ -13095,6 +13070,196 @@ const init = async () => {
     setStatus(t("statusNoApi"));
     return;
   }
+
+  const settingsLibraryController = createSettingsLibraryController({
+    translate: t,
+    basenameForDisplay: (filePath) => basenameForDisplay(filePath ?? ""),
+    api: {
+      scanKind: (kind) => window.tanda!.scanKind(kind),
+      precomputeCompressedTracks: (params) => window.tanda!.precomputeCompressedTracks(params),
+      verifyCachedFiles: () => window.tanda!.verifyCachedFiles(),
+      clearCachedFiles: () => window.tanda!.clearCachedFiles(),
+    },
+    elements: {
+      errorList,
+      progressEl,
+      progressLabel,
+      progressElSettings,
+      progressLabelSettings,
+      precomputeProgressElSettings,
+      precomputeProgressLabelSettings,
+      precomputeCompressedResult,
+      precomputeCompressedBtn,
+      precomputeCompressedShortcutBtn,
+      scanMusicBtn,
+      scanCortinasBtn,
+      cacheVerifyResult,
+    },
+    setStatus,
+    clearAlert,
+    getCompressionConfig: getAudioDynamicsConfig,
+    scheduleCompressionPrefetch,
+    onScanCompleted: async (kind) => {
+      await loadStyles();
+      await loadCortinaSets();
+      if (kind === "music") {
+        await refreshNewCollectionTracks();
+      }
+      await refreshSearch();
+      await renderDiagnosticsDataReadiness();
+      renderAllLists();
+    },
+    onCachedFilesCleared: async () => {
+      await renderDiagnosticsPaths();
+      await renderDiagnosticsDataReadiness();
+      updateNowPlayingDisplay();
+    },
+  });
+  const settingsPlaylistController = createSettingsPlaylistController({
+    storage: localStorage,
+    elements: {
+      playlistLastTandaToggle,
+      playlistCortinaSetSelect,
+      playlistCortinaDurationInput,
+      displayBackgroundIntervalInput,
+      displayUseImagesInput,
+      displayImageDimInput,
+      displayBaseFontSizeInput,
+      displayCortinaFontSizeInput,
+      displayEdgePaddingInput,
+      playlistStartTimeInput,
+      playlistEndTimeInput,
+      playlistArtistRepeatGapInput,
+    },
+    keys: {
+      playlistLastTanda: PLAYLIST_LAST_TANDA_KEY,
+      cortinaSet: CORTINA_SET_KEY,
+      cortinaDuration: CORTINA_DURATION_KEY,
+      displayBackgroundInterval: DISPLAY_BACKGROUND_INTERVAL_KEY,
+      displayUseImages: DISPLAY_USE_IMAGES_KEY,
+      displayImageDim: DISPLAY_IMAGE_DIM_KEY,
+      displayFontScale: DISPLAY_FONT_SCALE_KEY,
+      displayCortinaFontScale: DISPLAY_CORTINA_FONT_SCALE_KEY,
+      displayEdgePadding: DISPLAY_EDGE_PADDING_KEY,
+      playlistStartTime: "tanda-playlist-start-time",
+      playlistEndTime: PLAYLIST_END_TIME_KEY,
+      playlistArtistRepeatGapMinutes: PLAYLIST_ARTIST_REPEAT_GAP_MIN_KEY,
+    },
+    readers: {
+      getCortinaSet,
+      getCortinaDuration,
+      getDisplayBackgroundIntervalSec,
+      getDisplayUseBackgroundImages,
+      getDisplayImageDimOpacity,
+      getDisplayFontScale,
+      getDisplayCortinaFontScale,
+      getDisplayEdgePaddingVmin,
+      getPlaylistStartTimeInput,
+      getPlaylistEndTimeInput,
+      getPlaylistArtistRepeatGapMinutes,
+    },
+    actions: {
+      resetPlaylistLastTandaState: () =>
+        resetPlaylistLastTandaState(localStorage, PLAYLIST_LAST_TANDA_KEY),
+      updateExternalDisplay,
+      onCortinaSetChanged: async (next) => {
+        cortinaQueue = [];
+        lastCortinaId = null;
+        cortinaTracksBySet.clear();
+        prefetchedCortinaTrackIds.clear();
+        cortinaOverrideByIndex.clear();
+        resetCortinaPlans();
+        await resetCortinaQueue();
+        await ensureCortinaPlans(getCortinaRowIndices(playlistItems));
+        renderPlaylist();
+        scheduleCompressionPrefetch();
+        if (cortinaModalSet) {
+          cortinaModalSet.value = next;
+        }
+        await renderCortinaResults();
+      },
+      onCortinaDurationChanged: () => {},
+      onPlaylistStartTimeChanged: () => {
+        renderPlaylist();
+      },
+    },
+  });
+  const settingsSearchAudioController = createSettingsSearchAudioController({
+    storage: localStorage,
+    elements: {
+      tandaSizeInput,
+      clipboardNewLimitInput,
+      searchMinScoreInput,
+      searchTandaSizeInput,
+      searchBpmRangeInput,
+      trimPaddingInput,
+      gapBetweenTracksInput,
+      gapBeforeTandaInput,
+      gapBeforeCortinaInput,
+      stopFadeInput,
+      cortinaLevelPercentInput,
+      audioDynamicsEnabledInput,
+      audioDynamicsLiftThresholdInput,
+      audioDynamicsMaxLiftInput,
+      audioDynamicsRatioInput,
+      audioDynamicsAttackInput,
+      audioDynamicsReleaseInput,
+      audioDynamicsGateThresholdInput,
+      audioDynamicsLimiterCeilingInput,
+      audioDynamicsLimiterReleaseInput,
+      audioDynamicsRampInput,
+    },
+    keys: {
+      tandaDefaultSize: "tanda-default-size",
+      clipboardNewLimit: CLIPBOARD_NEW_LIMIT_KEY,
+      searchMinScore: SEARCH_MIN_SCORE_KEY,
+      tandaSearchSize: TANDA_SEARCH_SIZE_KEY,
+      searchBpmRange: SEARCH_BPM_RANGE_KEY,
+      trimPadding: TRIM_PADDING_KEY,
+      gapBetweenTracks: "tanda-gap-between-tracks",
+      gapBeforeTanda: "tanda-gap-before-tanda",
+      gapBeforeCortina: "tanda-gap-before-cortina",
+      stopFade: "tanda-stop-fade",
+      cortinaLevelPercent: CORTINA_LEVEL_PERCENT_KEY,
+      dynamicsEnabled: AUDIO_DYNAMICS_ENABLED_KEY,
+      dynamicsLiftThreshold: AUDIO_DYNAMICS_LIFT_THRESHOLD_KEY,
+      dynamicsMaxLift: AUDIO_DYNAMICS_MAX_LIFT_KEY,
+      dynamicsRatio: AUDIO_DYNAMICS_RATIO_KEY,
+      dynamicsAttack: AUDIO_DYNAMICS_ATTACK_KEY,
+      dynamicsRelease: AUDIO_DYNAMICS_RELEASE_KEY,
+      dynamicsGateThreshold: AUDIO_DYNAMICS_GATE_THRESHOLD_KEY,
+      dynamicsLimiterCeiling: AUDIO_DYNAMICS_LIMITER_CEILING_KEY,
+      dynamicsLimiterRelease: AUDIO_DYNAMICS_LIMITER_RELEASE_KEY,
+      dynamicsRamp: AUDIO_DYNAMICS_RAMP_KEY,
+    },
+    readers: {
+      getDefaultTandaSize,
+      getNewCollectionLimit,
+      getSearchMinScore,
+      getSearchBpmRange,
+      getTrimPaddingSeconds,
+      getGapBetweenTracks,
+      getGapBeforeTanda,
+      getGapBeforeCortina,
+      getStopFadeSeconds,
+      getCortinaLevelPercent,
+      getAudioDynamicsConfig,
+    },
+    actions: {
+      refreshSearch: () => {
+        void refreshSearch();
+      },
+      renderClipboard: () => renderClipboard(),
+      refreshNewCollectionTracks: () => refreshNewCollectionTracks(),
+      renderTandaSearchResults,
+      renderPlaylist,
+      updateNowPlayingDisplay,
+      setMainCompressionDepthPercent,
+      scheduleCompressionPrefetch,
+      syncDynamicsRuntimeForActivePlayback,
+      normalizeTandaSearchSizeInput,
+    },
+  });
 
   window.addEventListener("error", (event) => {
     const message =
@@ -13380,208 +13545,7 @@ const init = async () => {
     });
   }
 
-  if (tandaSizeInput) {
-    tandaSizeInput.value = getDefaultTandaSize().toString();
-    tandaSizeInput.addEventListener("change", () => {
-      const next = Number.parseInt(tandaSizeInput.value, 10);
-      if (Number.isNaN(next) || next < 1) {
-        tandaSizeInput.value = getDefaultTandaSize().toString();
-        return;
-      }
-      localStorage.setItem("tanda-default-size", next.toString());
-    });
-  }
-
-  if (clipboardNewLimitInput) {
-    clipboardNewLimitInput.value = getNewCollectionLimit().toString();
-    clipboardNewLimitInput.addEventListener("change", () => {
-      const next = Number.parseInt(clipboardNewLimitInput.value, 10);
-      if (Number.isNaN(next) || next < 0) {
-        clipboardNewLimitInput.value = getNewCollectionLimit().toString();
-        return;
-      }
-      const clamped = Math.min(500, Math.max(0, next));
-      localStorage.setItem(CLIPBOARD_NEW_LIMIT_KEY, clamped.toString());
-      clipboardNewLimitInput.value = clamped.toString();
-      void refreshNewCollectionTracks();
-      void renderClipboard();
-    });
-  }
-
-  if (searchMinScoreInput) {
-    searchMinScoreInput.value = getSearchMinScore().toString();
-    searchMinScoreInput.addEventListener("change", () => {
-      const next = Number.parseFloat(searchMinScoreInput.value);
-      if (Number.isNaN(next) || next < 0) {
-        searchMinScoreInput.value = getSearchMinScore().toString();
-        return;
-      }
-      localStorage.setItem(SEARCH_MIN_SCORE_KEY, Math.min(next, 1).toString());
-      refreshSearch();
-    });
-  }
-
-  if (searchTandaSizeInput) {
-    const stored = localStorage.getItem(TANDA_SEARCH_SIZE_KEY);
-    if (stored === null) {
-      const defaultValue = getDefaultTandaSize().toString();
-      localStorage.setItem(TANDA_SEARCH_SIZE_KEY, defaultValue);
-      searchTandaSizeInput.value = defaultValue;
-    } else {
-      searchTandaSizeInput.value = stored;
-    }
-    const applyTandaSizeFilter = (raw: string, finalize = false) => {
-      const trimmed = raw.trim();
-      if (trimmed === "") {
-        localStorage.setItem(TANDA_SEARCH_SIZE_KEY, "");
-        renderTandaSearchResults();
-        void renderClipboard();
-        return;
-      }
-      if (trimmed === "-") {
-        localStorage.setItem(TANDA_SEARCH_SIZE_KEY, "-");
-        renderTandaSearchResults();
-        void renderClipboard();
-        return;
-      }
-      const parsed = Number.parseInt(trimmed, 10);
-      if (!Number.isFinite(parsed) || parsed < 1) {
-        if (finalize) {
-          const normalized = normalizeTandaSearchSizeInput(raw);
-          localStorage.setItem(TANDA_SEARCH_SIZE_KEY, normalized);
-          searchTandaSizeInput.value = normalized;
-          renderTandaSearchResults();
-          void renderClipboard();
-        }
-        return;
-      }
-      const clamped = Math.min(parsed, 10);
-      localStorage.setItem(TANDA_SEARCH_SIZE_KEY, clamped.toString());
-      if (trimmed !== clamped.toString()) {
-        searchTandaSizeInput.value = clamped.toString();
-      }
-      renderTandaSearchResults();
-      void renderClipboard();
-    };
-    searchTandaSizeInput.addEventListener("input", () => {
-      applyTandaSizeFilter(searchTandaSizeInput.value);
-    });
-    searchTandaSizeInput.addEventListener("blur", () => {
-      applyTandaSizeFilter(searchTandaSizeInput.value, true);
-    });
-  }
-
-  if (searchBpmRangeInput) {
-    searchBpmRangeInput.value = getSearchBpmRange().toString();
-    searchBpmRangeInput.addEventListener("change", () => {
-      const next = Number.parseFloat(searchBpmRangeInput.value);
-      if (Number.isNaN(next) || next < 0) {
-        searchBpmRangeInput.value = getSearchBpmRange().toString();
-        return;
-      }
-      localStorage.setItem(
-        SEARCH_BPM_RANGE_KEY,
-        Math.min(next, 20).toString(),
-      );
-      refreshSearch();
-    });
-  }
-
-  if (trimPaddingInput) {
-    trimPaddingInput.value = getTrimPaddingSeconds().toString();
-    trimPaddingInput.addEventListener("change", () => {
-      const next = Number.parseFloat(trimPaddingInput.value);
-      if (Number.isNaN(next) || next < 0) {
-        trimPaddingInput.value = getTrimPaddingSeconds().toString();
-        return;
-      }
-      const clamped = Math.min(next, 5);
-      localStorage.setItem(TRIM_PADDING_KEY, clamped.toString());
-      trimPaddingInput.value = clamped.toString();
-      updateNowPlayingDisplay();
-      renderPlaylist();
-      renderTandaSearchResults();
-      renderClipboard();
-    });
-  }
-
-  if (gapBetweenTracksInput) {
-    gapBetweenTracksInput.value = getGapBetweenTracks().toString();
-    gapBetweenTracksInput.addEventListener("change", () => {
-      const next = Number.parseFloat(gapBetweenTracksInput.value);
-      if (!Number.isFinite(next) || next < -30 || next > 30) {
-        gapBetweenTracksInput.value = getGapBetweenTracks().toString();
-        return;
-      }
-      localStorage.setItem("tanda-gap-between-tracks", next.toString());
-    });
-  }
-
-  if (gapBeforeTandaInput) {
-    gapBeforeTandaInput.value = getGapBeforeTanda().toString();
-    gapBeforeTandaInput.addEventListener("change", () => {
-      const next = Number.parseFloat(gapBeforeTandaInput.value);
-      if (!Number.isFinite(next) || next < -30 || next > 30) {
-        gapBeforeTandaInput.value = getGapBeforeTanda().toString();
-        return;
-      }
-      localStorage.setItem("tanda-gap-before-tanda", next.toString());
-    });
-  }
-
-  if (gapBeforeCortinaInput) {
-    gapBeforeCortinaInput.value = getGapBeforeCortina().toString();
-    gapBeforeCortinaInput.addEventListener("change", () => {
-      const next = Number.parseFloat(gapBeforeCortinaInput.value);
-      if (!Number.isFinite(next) || next < -30 || next > 30) {
-        gapBeforeCortinaInput.value = getGapBeforeCortina().toString();
-        return;
-      }
-      localStorage.setItem("tanda-gap-before-cortina", next.toString());
-    });
-  }
-
-  if (stopFadeInput) {
-    stopFadeInput.value = getStopFadeSeconds().toString();
-    stopFadeInput.addEventListener("change", () => {
-      const next = Number.parseFloat(stopFadeInput.value);
-      if (!Number.isFinite(next) || next < 0) {
-        stopFadeInput.value = getStopFadeSeconds().toString();
-        return;
-      }
-      localStorage.setItem("tanda-stop-fade", next.toString());
-    });
-  }
-
-  if (cortinaLevelPercentInput) {
-    cortinaLevelPercentInput.value = getCortinaLevelPercent().toString();
-    cortinaLevelPercentInput.addEventListener("change", () => {
-      const next = Number.parseInt(cortinaLevelPercentInput.value, 10);
-      if (!Number.isFinite(next)) {
-        cortinaLevelPercentInput.value = getCortinaLevelPercent().toString();
-        return;
-      }
-      const clamped = Math.min(100, Math.max(0, next));
-      localStorage.setItem(CORTINA_LEVEL_PERCENT_KEY, clamped.toString());
-      cortinaLevelPercentInput.value = clamped.toString();
-    });
-  }
-
-  if (audioDynamicsEnabledInput) {
-    audioDynamicsEnabledInput.checked = getAudioDynamicsConfig().enabled;
-    audioDynamicsEnabledInput.addEventListener("change", () => {
-      localStorage.setItem(
-        AUDIO_DYNAMICS_ENABLED_KEY,
-        audioDynamicsEnabledInput.checked ? "1" : "0",
-      );
-      localStorage.setItem(AUDIO_DYNAMICS_DEPTH_KEY, "0");
-      renderNowPlayingDynamicsControl();
-      if (audioDynamicsEnabledInput.checked) {
-        scheduleCompressionPrefetch();
-      }
-      void syncDynamicsRuntimeForActivePlayback();
-    });
-  }
+  settingsSearchAudioController.initialize();
   renderNowPlayingDynamicsControl();
   if (nowPlayingDynamicsControl) {
     const stopNowPlayingPropagation = (event: Event) => {
@@ -13609,326 +13573,10 @@ const init = async () => {
     nowPlayingDynamicsMixInput.addEventListener("input", () => {
       const next = Number.parseInt(nowPlayingDynamicsMixInput.value, 10);
       const clamped = Number.isFinite(next) ? Math.min(100, Math.max(0, next)) : 0;
-      localStorage.setItem(AUDIO_DYNAMICS_DEPTH_KEY, clamped.toString());
-      if (nowPlayingDynamicsMixValue) {
-        nowPlayingDynamicsMixValue.textContent = `${clamped}%`;
-      }
-      if (clamped > 0) {
-        scheduleCompressionPrefetch();
-      }
-      void syncDynamicsRuntimeForActivePlayback();
+      setMainCompressionDepthPercent(clamped);
     });
   }
-  if (audioDynamicsLiftThresholdInput) {
-    audioDynamicsLiftThresholdInput.value = getAudioDynamicsConfig().liftThresholdDb.toString();
-    audioDynamicsLiftThresholdInput.addEventListener("change", () => {
-      const next = Number.parseFloat(audioDynamicsLiftThresholdInput.value);
-      if (!Number.isFinite(next)) {
-        audioDynamicsLiftThresholdInput.value =
-          getAudioDynamicsConfig().liftThresholdDb.toString();
-        return;
-      }
-      const clamped = Math.min(-5, Math.max(-80, next));
-      localStorage.setItem(AUDIO_DYNAMICS_LIFT_THRESHOLD_KEY, clamped.toString());
-      audioDynamicsLiftThresholdInput.value = clamped.toString();
-      void syncDynamicsRuntimeForActivePlayback();
-    });
-  }
-  if (audioDynamicsMaxLiftInput) {
-    audioDynamicsMaxLiftInput.value = getAudioDynamicsConfig().maxLiftDb.toString();
-    audioDynamicsMaxLiftInput.addEventListener("change", () => {
-      const next = Number.parseFloat(audioDynamicsMaxLiftInput.value);
-      if (!Number.isFinite(next)) {
-        audioDynamicsMaxLiftInput.value = getAudioDynamicsConfig().maxLiftDb.toString();
-        return;
-      }
-      const clamped = Math.min(60, Math.max(0, next));
-      localStorage.setItem(AUDIO_DYNAMICS_MAX_LIFT_KEY, clamped.toString());
-      audioDynamicsMaxLiftInput.value = clamped.toString();
-      void syncDynamicsRuntimeForActivePlayback();
-    });
-  }
-  if (audioDynamicsRatioInput) {
-    audioDynamicsRatioInput.value = getAudioDynamicsConfig().ratio.toString();
-    audioDynamicsRatioInput.addEventListener("change", () => {
-      const next = Number.parseFloat(audioDynamicsRatioInput.value);
-      if (!Number.isFinite(next)) {
-        audioDynamicsRatioInput.value = getAudioDynamicsConfig().ratio.toString();
-        return;
-      }
-      const clamped = Math.min(24, Math.max(1, next));
-      localStorage.setItem(AUDIO_DYNAMICS_RATIO_KEY, clamped.toString());
-      audioDynamicsRatioInput.value = clamped.toString();
-      void syncDynamicsRuntimeForActivePlayback();
-    });
-  }
-  if (audioDynamicsAttackInput) {
-    audioDynamicsAttackInput.value = getAudioDynamicsConfig().attackMs.toString();
-    audioDynamicsAttackInput.addEventListener("change", () => {
-      const next = Number.parseFloat(audioDynamicsAttackInput.value);
-      if (!Number.isFinite(next)) {
-        audioDynamicsAttackInput.value = getAudioDynamicsConfig().attackMs.toString();
-        return;
-      }
-      const clamped = Math.min(1000, Math.max(1, next));
-      localStorage.setItem(AUDIO_DYNAMICS_ATTACK_KEY, clamped.toString());
-      audioDynamicsAttackInput.value = clamped.toString();
-      void syncDynamicsRuntimeForActivePlayback();
-    });
-  }
-  if (audioDynamicsReleaseInput) {
-    audioDynamicsReleaseInput.value = getAudioDynamicsConfig().releaseMs.toString();
-    audioDynamicsReleaseInput.addEventListener("change", () => {
-      const next = Number.parseFloat(audioDynamicsReleaseInput.value);
-      if (!Number.isFinite(next)) {
-        audioDynamicsReleaseInput.value = getAudioDynamicsConfig().releaseMs.toString();
-        return;
-      }
-      const clamped = Math.min(3000, Math.max(10, next));
-      localStorage.setItem(AUDIO_DYNAMICS_RELEASE_KEY, clamped.toString());
-      audioDynamicsReleaseInput.value = clamped.toString();
-      void syncDynamicsRuntimeForActivePlayback();
-    });
-  }
-  if (audioDynamicsGateThresholdInput) {
-    audioDynamicsGateThresholdInput.value = getAudioDynamicsConfig().gateThresholdDb.toString();
-    audioDynamicsGateThresholdInput.addEventListener("change", () => {
-      const next = Number.parseFloat(audioDynamicsGateThresholdInput.value);
-      if (!Number.isFinite(next)) {
-        audioDynamicsGateThresholdInput.value =
-          getAudioDynamicsConfig().gateThresholdDb.toString();
-        return;
-      }
-      const clamped = Math.min(-10, Math.max(-120, next));
-      localStorage.setItem(AUDIO_DYNAMICS_GATE_THRESHOLD_KEY, clamped.toString());
-      audioDynamicsGateThresholdInput.value = clamped.toString();
-      void syncDynamicsRuntimeForActivePlayback();
-    });
-  }
-  if (audioDynamicsLimiterCeilingInput) {
-    audioDynamicsLimiterCeilingInput.value = getAudioDynamicsConfig().limiterCeilingDb.toString();
-    audioDynamicsLimiterCeilingInput.addEventListener("change", () => {
-      const next = Number.parseFloat(audioDynamicsLimiterCeilingInput.value);
-      if (!Number.isFinite(next)) {
-        audioDynamicsLimiterCeilingInput.value =
-          getAudioDynamicsConfig().limiterCeilingDb.toString();
-        return;
-      }
-      const clamped = Math.min(-0.1, Math.max(-6, next));
-      localStorage.setItem(AUDIO_DYNAMICS_LIMITER_CEILING_KEY, clamped.toString());
-      audioDynamicsLimiterCeilingInput.value = clamped.toString();
-      void syncDynamicsRuntimeForActivePlayback();
-    });
-  }
-  if (audioDynamicsLimiterReleaseInput) {
-    audioDynamicsLimiterReleaseInput.value = getAudioDynamicsConfig().limiterReleaseMs.toString();
-    audioDynamicsLimiterReleaseInput.addEventListener("change", () => {
-      const next = Number.parseFloat(audioDynamicsLimiterReleaseInput.value);
-      if (!Number.isFinite(next)) {
-        audioDynamicsLimiterReleaseInput.value =
-          getAudioDynamicsConfig().limiterReleaseMs.toString();
-        return;
-      }
-      const clamped = Math.min(2000, Math.max(10, next));
-      localStorage.setItem(AUDIO_DYNAMICS_LIMITER_RELEASE_KEY, clamped.toString());
-      audioDynamicsLimiterReleaseInput.value = clamped.toString();
-      void syncDynamicsRuntimeForActivePlayback();
-    });
-  }
-  if (audioDynamicsRampInput) {
-    audioDynamicsRampInput.value = getAudioDynamicsConfig().rampMs.toString();
-    audioDynamicsRampInput.addEventListener("change", () => {
-      const next = Number.parseFloat(audioDynamicsRampInput.value);
-      if (!Number.isFinite(next)) {
-        audioDynamicsRampInput.value = getAudioDynamicsConfig().rampMs.toString();
-        return;
-      }
-      const clamped = Math.min(3000, Math.max(50, next));
-      localStorage.setItem(AUDIO_DYNAMICS_RAMP_KEY, clamped.toString());
-      audioDynamicsRampInput.value = clamped.toString();
-      void syncDynamicsRuntimeForActivePlayback();
-    });
-  }
-
-  if (playlistLastTandaToggle) {
-    resetPlaylistLastTandaState(localStorage, PLAYLIST_LAST_TANDA_KEY);
-    playlistLastTandaToggle.checked = false;
-    playlistLastTandaToggle.addEventListener("change", () => {
-      localStorage.setItem(
-        PLAYLIST_LAST_TANDA_KEY,
-        playlistLastTandaToggle.checked ? "1" : "0",
-      );
-      updateExternalDisplay();
-    });
-  }
-
-  if (playlistCortinaSetSelect) {
-    playlistCortinaSetSelect.value = getCortinaSet();
-    playlistCortinaSetSelect.addEventListener("change", async () => {
-      const next = playlistCortinaSetSelect.value ?? "";
-      localStorage.setItem(CORTINA_SET_KEY, next);
-      cortinaQueue = [];
-      lastCortinaId = null;
-      cortinaTracksBySet.clear();
-      prefetchedCortinaTrackIds.clear();
-      cortinaOverrideByIndex.clear();
-      resetCortinaPlans();
-      await resetCortinaQueue();
-      await ensureCortinaPlans(getCortinaRowIndices(playlistItems));
-      renderPlaylist();
-      scheduleCompressionPrefetch();
-      if (cortinaModalSet) {
-        cortinaModalSet.value = next;
-      }
-      await renderCortinaResults();
-    });
-  }
-
-  if (playlistCortinaDurationInput) {
-    const persistCortinaDuration = () => {
-      const next = Number.parseFloat(playlistCortinaDurationInput.value);
-      if (Number.isNaN(next) || next <= 0) {
-        playlistCortinaDurationInput.value = getCortinaDuration().toString();
-        return;
-      }
-      localStorage.setItem(CORTINA_DURATION_KEY, Math.min(next, 180).toString());
-    };
-    playlistCortinaDurationInput.value = getCortinaDuration().toString();
-    playlistCortinaDurationInput.addEventListener("change", persistCortinaDuration);
-    playlistCortinaDurationInput.addEventListener("input", persistCortinaDuration);
-    playlistCortinaDurationInput.addEventListener("blur", () => {
-      playlistCortinaDurationInput.value = getCortinaDuration().toString();
-    });
-  }
-
-  if (displayBackgroundIntervalInput) {
-    displayBackgroundIntervalInput.value =
-      getDisplayBackgroundIntervalSec().toString();
-    displayBackgroundIntervalInput.addEventListener("change", () => {
-      const next = Number.parseInt(displayBackgroundIntervalInput.value, 10);
-      if (!Number.isFinite(next) || next <= 0) {
-        displayBackgroundIntervalInput.value =
-          getDisplayBackgroundIntervalSec().toString();
-        return;
-      }
-      const clamped = Math.min(600, Math.max(5, next));
-      localStorage.setItem(DISPLAY_BACKGROUND_INTERVAL_KEY, clamped.toString());
-      displayBackgroundIntervalInput.value = clamped.toString();
-      updateExternalDisplay();
-    });
-  }
-
-  if (displayUseImagesInput) {
-    displayUseImagesInput.checked = getDisplayUseBackgroundImages();
-    displayUseImagesInput.addEventListener("change", () => {
-      localStorage.setItem(
-        DISPLAY_USE_IMAGES_KEY,
-        displayUseImagesInput.checked ? "1" : "0",
-      );
-      updateExternalDisplay();
-    });
-  }
-
-  if (displayImageDimInput) {
-    displayImageDimInput.value = Math.round(getDisplayImageDimOpacity() * 100).toString();
-    displayImageDimInput.addEventListener("change", () => {
-      const next = Number.parseInt(displayImageDimInput.value, 10);
-      if (!Number.isFinite(next)) {
-        displayImageDimInput.value = Math.round(getDisplayImageDimOpacity() * 100).toString();
-        return;
-      }
-      const clamped = Math.min(90, Math.max(0, next));
-      localStorage.setItem(DISPLAY_IMAGE_DIM_KEY, clamped.toString());
-      displayImageDimInput.value = clamped.toString();
-      updateExternalDisplay();
-    });
-  }
-
-  if (displayBaseFontSizeInput) {
-    displayBaseFontSizeInput.value = Math.round(getDisplayFontScale() * 100).toString();
-    displayBaseFontSizeInput.addEventListener("change", () => {
-      const next = Number.parseInt(displayBaseFontSizeInput.value, 10);
-      if (!Number.isFinite(next)) {
-        displayBaseFontSizeInput.value = Math.round(getDisplayFontScale() * 100).toString();
-        return;
-      }
-      const clamped = Math.min(200, Math.max(70, next));
-      localStorage.setItem(DISPLAY_FONT_SCALE_KEY, clamped.toString());
-      displayBaseFontSizeInput.value = clamped.toString();
-      updateExternalDisplay();
-    });
-  }
-
-  if (displayCortinaFontSizeInput) {
-    displayCortinaFontSizeInput.value = Math.round(getDisplayCortinaFontScale() * 100).toString();
-    displayCortinaFontSizeInput.addEventListener("change", () => {
-      const next = Number.parseInt(displayCortinaFontSizeInput.value, 10);
-      if (!Number.isFinite(next)) {
-        displayCortinaFontSizeInput.value = Math.round(
-          getDisplayCortinaFontScale() * 100,
-        ).toString();
-        return;
-      }
-      const clamped = Math.min(240, Math.max(70, next));
-      localStorage.setItem(DISPLAY_CORTINA_FONT_SCALE_KEY, clamped.toString());
-      displayCortinaFontSizeInput.value = clamped.toString();
-      updateExternalDisplay();
-    });
-  }
-
-  if (displayEdgePaddingInput) {
-    displayEdgePaddingInput.value = getDisplayEdgePaddingVmin().toString();
-    displayEdgePaddingInput.addEventListener("change", () => {
-      const next = Number.parseFloat(displayEdgePaddingInput.value);
-      if (!Number.isFinite(next)) {
-        displayEdgePaddingInput.value = getDisplayEdgePaddingVmin().toString();
-        return;
-      }
-      const clamped = Math.min(16, Math.max(1, next));
-      localStorage.setItem(DISPLAY_EDGE_PADDING_KEY, clamped.toString());
-      displayEdgePaddingInput.value = clamped.toString();
-      updateExternalDisplay();
-    });
-  }
-
-  if (playlistStartTimeInput) {
-    playlistStartTimeInput.value = getPlaylistStartTimeInput();
-    playlistStartTimeInput.addEventListener("change", () => {
-      const raw = playlistStartTimeInput.value.trim();
-      if (!raw.match(/^(\d{1,2}):(\d{2})$/)) {
-        playlistStartTimeInput.value = getPlaylistStartTimeInput();
-        return;
-      }
-      localStorage.setItem("tanda-playlist-start-time", raw);
-      renderPlaylist();
-    });
-  }
-
-  if (playlistEndTimeInput) {
-    playlistEndTimeInput.value = getPlaylistEndTimeInput();
-    playlistEndTimeInput.addEventListener("change", () => {
-      const raw = playlistEndTimeInput.value.trim();
-      if (!raw.match(/^(\d{1,2}):(\d{2})$/)) {
-        playlistEndTimeInput.value = getPlaylistEndTimeInput();
-        return;
-      }
-      localStorage.setItem(PLAYLIST_END_TIME_KEY, raw);
-    });
-  }
-
-  if (playlistArtistRepeatGapInput) {
-    playlistArtistRepeatGapInput.value = getPlaylistArtistRepeatGapMinutes().toString();
-    playlistArtistRepeatGapInput.addEventListener("change", () => {
-      const next = Number.parseInt(playlistArtistRepeatGapInput.value, 10);
-      if (!Number.isFinite(next)) {
-        playlistArtistRepeatGapInput.value = getPlaylistArtistRepeatGapMinutes().toString();
-        return;
-      }
-      const clamped = Math.max(0, Math.min(180, next));
-      localStorage.setItem(PLAYLIST_ARTIST_REPEAT_GAP_MIN_KEY, clamped.toString());
-      playlistArtistRepeatGapInput.value = clamped.toString();
-    });
-  }
+  settingsPlaylistController.initialize();
 
   clearPlayCountsBtn?.addEventListener("click", async () => {
     const confirmed = await showConfirmModal(t("confirmClearPlayCounts"));
@@ -14278,52 +13926,11 @@ const init = async () => {
   attachModalDrag(cortinaModal);
 
   window.tanda.onScanProgress((progress) => {
-    const currentFile = basenameForDisplay(progress.filePath);
-    const progressText = currentFile
-      ? t("statusScanProgressWithFile", {
-          current: progress.current,
-          total: progress.total,
-          root: progress.rootLabel,
-          file: currentFile,
-        })
-      : t("statusScanProgress", {
-          current: progress.current,
-          total: progress.total,
-          root: progress.rootLabel,
-        });
-    if (progressEl) {
-      progressEl.max = progress.total || 1;
-      progressEl.value = progress.current;
-    }
-    if (progressLabel) {
-      progressLabel.textContent = progressText;
-    }
-    if (progressElSettings) {
-      progressElSettings.max = progress.total || 1;
-      progressElSettings.value = progress.current;
-    }
-    if (progressLabelSettings) {
-      progressLabelSettings.textContent = progressText;
-    }
+    settingsLibraryController.handleScanProgress(progress);
   });
 
   window.tanda.onPrecomputeCompressedProgress((progress) => {
-    if (!precomputeCompressionInProgress) {
-      return;
-    }
-    if (progressElSettings) {
-      progressElSettings.max = Math.max(1, progress.total || 1);
-      progressElSettings.value = Math.min(progress.current, progress.total || progress.current);
-    }
-    if (progressLabelSettings) {
-      progressLabelSettings.textContent = t("statusPrecomputeCompressionProgress", {
-        current: progress.current,
-        total: progress.total,
-        rendered: progress.rendered,
-        cached: progress.cached,
-        failed: progress.failed,
-      });
-    }
+    settingsLibraryController.handlePrecomputeProgress(progress);
   });
 
   closeSettingsBtn?.addEventListener("click", () => {
@@ -14392,11 +13999,15 @@ const init = async () => {
   });
   openDiagnosticsMain?.addEventListener("click", () => {
     void setSettingsOpen(true);
-    activateSettingsTab("diagnostics");
+    activateSettingsTab(tabButtons, tabPanels, "diagnostics");
   });
   openDiagnosticsSettings?.addEventListener("click", () => {
     void setSettingsOpen(true);
-    activateSettingsTab("diagnostics");
+    activateSettingsTab(tabButtons, tabPanels, "diagnostics");
+  });
+  openDiagnosticsPrecompute?.addEventListener("click", () => {
+    void setSettingsOpen(true);
+    activateSettingsTab(tabButtons, tabPanels, "diagnostics");
   });
 
   diagnosticsWaveformBtn?.addEventListener("click", async () => {
@@ -14438,7 +14049,7 @@ const init = async () => {
       if (!tab) {
         return;
       }
-      activateSettingsTab(tab);
+      activateSettingsTab(tabButtons, tabPanels, tab);
     });
   });
 
@@ -14532,34 +14143,6 @@ const init = async () => {
     refreshSearch();
   });
 
-  const updateScanIssues = (errors: { filePath: string; message: string }[]) => {
-    if (progressLabel) {
-      progressLabel.textContent = t("statusScanIssues", {
-        count: errors.length,
-      });
-    }
-    if (progressLabelSettings) {
-      progressLabelSettings.textContent = t("statusScanIssues", {
-        count: errors.length,
-      });
-    }
-    if (errorList) {
-      errorList.innerHTML = "";
-      errors.slice(0, 50).forEach((error) => {
-        const li = document.createElement("li");
-        li.textContent = `${error.filePath}: ${error.message}`;
-        errorList.appendChild(li);
-      });
-      if (errors.length > 50) {
-        const li = document.createElement("li");
-        li.textContent = t("scanIssuesMore", {
-          count: errors.length - 50,
-        });
-        errorList.appendChild(li);
-      }
-    }
-  };
-
   legacyImportButton?.addEventListener("click", async () => {
     if (!window.tanda || !legacyImportRootPath) {
       return;
@@ -14580,7 +14163,7 @@ const init = async () => {
       }),
     );
     if (result.missingFiles) {
-      updateScanIssues(result.missingFiles);
+      settingsLibraryController.updateScanIssues(result.missingFiles);
     }
     await loadTandaDrafts();
     await refreshNewCollectionTracks();
@@ -14614,208 +14197,43 @@ const init = async () => {
     await refreshLegacyStyleRows();
   });
 
-  const runScan = async (kind: "music" | "cortina") => {
-    if (scanRequestInFlight) {
-      setStatus(t("statusScanInProgress"));
-      return;
-    }
-    scanRequestInFlight = true;
-    if (scanMusicBtn) {
-      scanMusicBtn.disabled = true;
-    }
-    if (scanCortinasBtn) {
-      scanCortinasBtn.disabled = true;
-    }
-    clearAlert();
-    setStatus(t("statusScanning"));
-    if (progressLabel) {
-      progressLabel.textContent = t("statusPreparingScan");
-    }
-    if (progressLabelSettings) {
-      progressLabelSettings.textContent = t("statusPreparingScan");
-    }
-    if (progressEl) {
-      progressEl.value = 0;
-      progressEl.max = 1;
-    }
-    if (progressElSettings) {
-      progressElSettings.value = 0;
-      progressElSettings.max = 1;
-    }
-    try {
-      const summary = await window.tanda?.scanKind(kind);
-      if (!summary) {
-        setStatus(t("statusScanFailedNoResponse"));
-        return;
-      }
-      if (summary.inProgress) {
-        setStatus(t("statusScanInProgress"));
-        return;
-      }
-      setStatus(
-        t("statusScanComplete", {
-          scanned: summary.scanned,
-          added: summary.added,
-          updated: summary.updated,
-          removed: summary.removed,
-        }),
-      );
-      updateScanIssues(summary.errors);
-      await loadStyles();
-      await loadCortinaSets();
-      if (kind === "music") {
-        await refreshNewCollectionTracks();
-      }
-      await refreshSearch();
-      await renderDiagnosticsDataReadiness();
-      renderAllLists();
-    } catch (error) {
-      if (error instanceof Error && error.message === "SCAN_IN_PROGRESS") {
-        setStatus(t("statusScanInProgress"));
-        return;
-      }
-      setStatus(
-        error instanceof Error
-          ? t("statusScanFailedDetail", { message: error.message })
-          : t("statusScanFailed"),
-      );
-    } finally {
-      scanRequestInFlight = false;
-      if (scanMusicBtn) {
-        scanMusicBtn.disabled = false;
-      }
-      if (scanCortinasBtn) {
-        scanCortinasBtn.disabled = false;
-      }
-    }
-  };
-
-  scanMusicBtn?.addEventListener("click", () => runScan("music"));
-  scanCortinasBtn?.addEventListener("click", () => runScan("cortina"));
-
-  const runPrecomputeCompressedTracks = async () => {
-    if (!window.tanda) {
-      setStatus(t("statusNoApi"));
-      return;
-    }
-    const config = getAudioDynamicsConfig();
-    setStatus(t("statusPrecomputeCompressionRunning"));
-    precomputeCompressionInProgress = true;
-    if (progressElSettings) {
-      progressElSettings.max = 1;
-      progressElSettings.value = 0;
-    }
-    if (progressLabelSettings) {
-      progressLabelSettings.textContent = t("statusPrecomputeCompressionRunning");
-    }
-    if (precomputeCompressedBtn) {
-      precomputeCompressedBtn.disabled = true;
-    }
-    if (precomputeCompressedShortcutBtn) {
-      precomputeCompressedShortcutBtn.disabled = true;
-    }
-    try {
-      const result = await window.tanda.precomputeCompressedTracks({
-        mode: config.mode,
-        liftThresholdDb: config.liftThresholdDb,
-        maxLiftDb: config.maxLiftDb,
-        ratio: config.ratio,
-        attackMs: config.attackMs,
-        releaseMs: config.releaseMs,
-        gateThresholdDb: config.gateThresholdDb,
-        limiterCeilingDb: config.limiterCeilingDb,
-        limiterReleaseMs: config.limiterReleaseMs,
-      });
-      if (!result?.ok) {
-        setStatus(
-          t("statusPrecomputeCompressionFailed", {
-            message: result?.error ?? t("statusUnknownError"),
-          }),
-        );
-        return;
-      }
-      setStatus(
-        t("statusPrecomputeCompressionDone", {
-          rendered: result.rendered,
-          cached: result.cached,
-          failed: result.failed,
-        }),
-      );
-      scheduleCompressionPrefetch();
-    } catch (error) {
-      setStatus(
-        t("statusPrecomputeCompressionFailed", {
-          message: error instanceof Error ? error.message : t("statusUnknownError"),
-        }),
-      );
-    } finally {
-      precomputeCompressionInProgress = false;
-      if (precomputeCompressedBtn) {
-        precomputeCompressedBtn.disabled = false;
-      }
-      if (precomputeCompressedShortcutBtn) {
-        precomputeCompressedShortcutBtn.disabled = false;
-      }
-    }
-  };
+  scanMusicBtn?.addEventListener("click", () => {
+    void settingsLibraryController.runScan("music");
+  });
+  scanCortinasBtn?.addEventListener("click", () => {
+    void settingsLibraryController.runScan("cortina");
+  });
 
   precomputeCompressedBtn?.addEventListener("click", async () => {
-    await runPrecomputeCompressedTracks();
+    await settingsLibraryController.runPrecomputeCompressedTracks();
   });
 
   precomputeCompressedShortcutBtn?.addEventListener("click", async () => {
-    activateSettingsTab("library");
-    if (settingsContent) {
-      settingsContent.scrollTop = settingsContent.scrollHeight;
-    }
-    await runPrecomputeCompressedTracks();
+    await setSettingsOpen(true);
+    activateSettingsTab(tabButtons, tabPanels, "library");
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          derivedCachesSection?.scrollIntoView({ block: "start", behavior: "auto" });
+          pulseSettingsSection(derivedCachesSection);
+          resolve();
+        });
+      });
+    });
+    await settingsLibraryController.runPrecomputeCompressedTracks();
   });
 
   verifyCachedFilesBtn?.addEventListener("click", async () => {
-    if (!window.tanda || !cacheVerifyResult) {
-      return;
-    }
-    cacheVerifyResult.textContent = t("verifyCachedFilesRunning");
-    try {
-      const result = await window.tanda.verifyCachedFiles();
-      if (!result?.ok) {
-        cacheVerifyResult.textContent = t("verifyCachedFilesFailed");
-        return;
-      }
-      cacheVerifyResult.textContent = t("verifyCachedFilesSummary", {
-        waveformFiles: result.waveformFiles,
-        waveformRemoved: result.waveformRemoved,
-        compressedFiles: result.compressedFiles,
-        compressedRemoved: result.compressedRemoved,
-      });
-    } catch (error) {
-      cacheVerifyResult.textContent = t("verifyCachedFilesFailedDetail", {
-        message: error instanceof Error ? error.message : t("statusUnknownError"),
-      });
-    }
+    await settingsLibraryController.runVerifyCachedFiles();
   });
 
   clearCachedFilesBtn?.addEventListener("click", async () => {
     if (!window.tanda) {
       return;
     }
-    const confirmed = await showConfirmModal(
-      t("confirmEraseCachedFiles"),
-      t("eraseCachedFiles"),
+    await settingsLibraryController.runClearCachedFiles(async () =>
+      showConfirmModal(t("confirmEraseCachedFiles"), t("eraseCachedFiles")),
     );
-    if (!confirmed) {
-      return;
-    }
-    const result = await window.tanda.clearCachedFiles();
-    if (result?.ok) {
-      if (cacheVerifyResult) {
-        cacheVerifyResult.textContent = t("eraseCachedFilesDone");
-      }
-      setStatus(t("eraseCachedFilesDone"));
-      await renderDiagnosticsPaths();
-      await renderDiagnosticsDataReadiness();
-      updateNowPlayingDisplay();
-    }
   });
 
   resetDbBtn?.addEventListener("click", async () => {

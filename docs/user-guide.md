@@ -120,6 +120,10 @@ See playlist image above.
 In live mode, to start playing, the DJ can click the small "play" button at the top or click on any song in the playlist.  If the song clicked on happens to be the first
 of the tanda, and if cortinas are in use, the system will play the cortina just before this tanda first otherwise it will simply play the track.
 
+In **Preparation** mode, clicking any playlist track always starts that exact
+track immediately, even if another playlist track is currently playing.  It
+does **not** insert the lead-in cortina first when you do this.
+
 The stop button will cause a fade out and stop of the playlist.  Pressing play again will resume the playlist.
 
 Whilst a cortina plays, in the now playing area the system provides two buttons; stop and play.  "Stop" will cause a fade out and then playing of the first song in the next
@@ -202,6 +206,41 @@ All collections can be filtered by both the "search" style and any text such as 
 All non built-in collections including **General** can be cleard with a single click of the **Clear** button.
 
 Tandas and tracks can be moved from one collection to another and to General by default using the **M** menu option and if there are multiple possible targets, it will offer a picklist otherwise if there is only one writable (i.e. not build-in rule based collection) then it will not prompt and will just move.
+
+### Working With Tandas
+
+There are several ways a tanda can be created or filled:
+
+- **Use an existing tanda from Search**: click **P** to send it to the playlist, **C** to send it to the active clipboard collection, or **T** to open it in the Tanda Designer for editing first.
+- **Use an existing tanda from a clipboard collection**: click **P** to place it in the playlist, or **T** to open it in the Tanda Designer.
+- **Build a tanda from individual tracks**:
+  - from **Search**, use **P** on a track to add it into the playlist. The app will create or continue a tanda there as needed.
+  - from **Search**, use **T** on a track to send it into the Tanda Designer.
+  - from a **clipboard track**, use **P** to add it into the playlist or **T** to send it into the Tanda Designer.
+  - from a **playlist tanda**, use the per-track send actions to move a track out to the clipboard or into another tanda slot.
+- **Auto-fill can create tandas automatically** when rebuilding a playlist and no saved tanda fits the required slot.
+
+Once a tanda is open in the **Tanda Designer** or the playlist-hosted tanda editor, it can be changed in several ways:
+
+- click tracks to audition them in Preparation or Edit mode
+- use the per-track menu to remove a track from the tanda
+- use the track move buttons in the editor to re-order tracks inside the tanda
+- send more tracks into the open tanda from Search or Clipboard
+- change the tanda name and other tanda-level details
+- click **Save** to keep the tanda
+
+Deleting or removing a tanda depends on where you are looking at it:
+
+- **Delete a saved tanda itself**: open it in the Tanda Designer with **T**, then click **Delete**. This removes the tanda record, so it disappears from collections and can no longer be used in playlists.
+- **Remove a tanda from a clipboard collection only**: use **R** on the tanda in that collection. This removes it from that collection view, but does not delete the tanda from the library if it still exists elsewhere.
+- **Remove a tanda from the playlist**: use **R** on the playlist tanda. The playlist keeps its sequence shape by leaving an empty placeholder slot.
+- **Delete a tanda seen in a collection**: as a safe rule, use **T** to send it to the Tanda Designer and then use **Delete** there.
+
+Re-ordering can happen in more than one place:
+
+- **Inside a tanda**: use the move controls in the Tanda Designer or playlist-hosted tanda editor.
+- **Between playlist positions**: use the playlist tanda move/swap controls to reposition tandas in the running order.
+- **Between clipboard collections**: use **M** to move a tanda from one collection to another.
 
 ### Now Playing
 
@@ -340,11 +379,14 @@ If you want to keep the cache files on disk but do not fully trust them, use **V
 If **Enable live compression control** is checked in Settings -> System, the
 now-playing panel shows a **Compression** slider.
 
-- The slider value is your preferred blend amount.
+- The slider is for the current item only. Each new song or cortina starts with
+  the mix back at `0%`.
 - If playback starts before the compressed companion file is ready, the slider
   is temporarily disabled and displayed as `0%`.
 - When the compressed companion becomes available, the slider is enabled again
-  and returns to your stored value automatically.
+  and can then be raised deliberately by the DJ.
+- About 20 seconds before the effective end of the item, the app automatically
+  returns the mix to `0%` so fade-outs are not corrected upward.
 - If compression is disabled in Settings, no compressed companion files are built.
 
 ## Diagnostics (If Something Seems Off)

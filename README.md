@@ -173,9 +173,15 @@ Use the app's compression control instead:
 
 Typical practical flow:
 
-1. Start the tanda with compression depth increased.
+1. Raise compression for the current song only when needed.
 2. As room chatter falls, gradually reduce compression depth back toward normal.
 3. Keep amplifier/master venue gain unchanged.
+
+Notes:
+
+- Each new song or cortina starts with the compression mix back at `0%`.
+- The app also returns the mix to `0%` in roughly the last 20 seconds of the
+  item so natural fade-outs are not lifted.
 
 ## Legacy import
 

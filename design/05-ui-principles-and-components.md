@@ -26,6 +26,8 @@ The system operates in explicit modes (FR-060):
 - UI-001.R3: UI affordances must change with mode.
 - UI-001.R4: Unsafe actions must be impossible in Performance Mode, not merely discouraged.
   UI-001.R4.a: Track click actions are disabled in Live mode except for headphone preview.
+  UI-001.R4.b: Playlist track click-start is allowed in Live mode only when the
+  main output is idle; this is a guarded start action rather than free browsing.
 
 ---
 
@@ -33,7 +35,9 @@ The system operates in explicit modes (FR-060):
 
 In Performance Mode:
 - UI-002.R1: No action may immediately change playback unless triggered via dedicated controls.
-- UI-002.R2: Clicking or tapping content (tracks, tandas) must not start playback.
+- UI-002.R2: Clicking or tapping arbitrary content (tracks, tandas) must not
+  start playback, except for the guarded idle-only playlist click-start behavior
+  defined in UI-001.R4.b.
 - UI-002.R3: Destructive or disruptive actions must be disabled or gated.
   UI-002.R3.a: Any allowed destructive action must present a clear warning and confirmation.
   UI-002.R3.b: Confirmation dialogs must use the app-styled in-app modal system
@@ -444,7 +448,9 @@ Must include:
 - UI-013.R4: Volume control (authoritative).
 
 Rules:
-- UI-013.R5: Only this component may initiate playback in Performance Mode.
+- UI-013.R5: In Performance Mode, this component is the primary playback control.
+- UI-013.R5.a: The only direct content-click exception is guarded playlist
+  track click-start when the main output is idle (UI-012.R11 / UI-012.R12).
 - UI-013.R6: Changes must be reflected across all connected clients.
 - UI-013.R7: Start resets playback to the top of the playlist.
 - UI-013.R8: Resume continues from the last stopped track position.
@@ -514,7 +520,8 @@ Features:
 
 Rules:
 - UI-040.R4: Enabled only in Preparation Mode.
-- UI-040.R5: Disabled entirely in Performance Mode.
+- UI-040.R5: In Performance Mode, waveform display remains visible but is
+  non-interactive.
 - UI-040.R6: Uses derived waveform artifacts if available.
 - UI-040.R7: Waveform PNGs are generated during library scan for instant playback.
 
@@ -525,10 +532,12 @@ Rules:
 Centralized configuration UI.
 
 Must allow adjustment of:
-- UI-050.R1: Gain targets.
+- UI-050.R1: Playback timing, level, diagnostics, and operational settings used
+  by the app.
 - UI-050.R2: Fade durations.
 - UI-050.R3: Gap defaults.
-- UI-050.R4: UI visibility toggles.
+- UI-050.R4: Diagnostics, cache-management, and operational visibility needed
+  for setup and live readiness.
 
 Rules:
 - UI-050.R5: Configuration changes must be explicit.

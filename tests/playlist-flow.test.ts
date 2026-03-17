@@ -40,22 +40,22 @@ describe("shouldInsertCortinaBeforeTanda", () => {
 describe("shouldSkipLeadInCortinaForSelectedStart", () => {
   it("skips selected-start lead-in only in preparation mode", () => {
     expect(
-      shouldSkipLeadInCortinaForSelectedStart(true, true, true, 2, 0, 2),
+      shouldSkipLeadInCortinaForSelectedStart(true, true, 2, 0, 2),
     ).toBe(true);
     expect(
-      shouldSkipLeadInCortinaForSelectedStart(false, true, true, 2, 0, 2),
+      shouldSkipLeadInCortinaForSelectedStart(false, true, 2, 0, 2),
     ).toBe(false);
   });
 
   it("does not skip when start is not from selected first track", () => {
     expect(
-      shouldSkipLeadInCortinaForSelectedStart(true, true, true, 2, 1, 2),
+      shouldSkipLeadInCortinaForSelectedStart(true, true, 2, 1, 2),
     ).toBe(false);
     expect(
-      shouldSkipLeadInCortinaForSelectedStart(true, true, true, 3, 0, 2),
+      shouldSkipLeadInCortinaForSelectedStart(true, true, 3, 0, 2),
     ).toBe(false);
     expect(
-      shouldSkipLeadInCortinaForSelectedStart(true, false, true, 2, 0, 2),
+      shouldSkipLeadInCortinaForSelectedStart(true, false, 2, 0, 2),
     ).toBe(false);
   });
 });

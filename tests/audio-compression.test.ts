@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  COMPRESSION_TAIL_RESET_LEAD_SECONDS,
   isCompressionControlLockedForPrep,
   resolveCompressionProofState,
+  shouldAutoResetCompressionMixNearEnd,
+  shouldResetCompressionMixForNewTrack,
   shouldWarmCompressionInBackground,
   shouldUseCompressionSource,
 } from "../app/src/shared/audio-compression";
@@ -108,6 +111,70 @@ describe("audio compression helpers", () => {
         channel: "main",
         fromPlaylist: false,
         compressionRequested: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("resets mix for each new main track but not headphone or same-track restarts", () => {
+    expect(
+      shouldResetCompressionMixForNewTrack({
+        channel: "main",
+        previousTrackId: "track-1",
+        nextTrackId: "track-2",
+      }),
+    ).toBe(true);
+    expect(
+      shouldResetCompressionMixForNewTrack({
+        channel: "main",
+        previousTrackId: "track-1",
+        nextTrackId: "track-1",
+      }),
+    ).toBe(false);
+    expect(
+      shouldResetCompressionMixForNewTrack({
+        channel: "headphone",
+        previousTrackId: "track-1",
+        nextTrackId: "track-2",
+      }),
+    ).toBe(false);
+  });
+
+  it("auto-resets mix near the effective playback end", () => {
+    expect(
+      shouldAutoResetCompressionMixNearEnd({
+        enabled: true,
+        depthPercent: 40,
+        currentTimeSeconds: 101,
+        startAtSeconds: 0,
+        effectiveEndSeconds: 120,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoResetCompressionMixNearEnd({
+        enabled: true,
+        depthPercent: 40,
+        currentTimeSeconds: 99,
+        startAtSeconds: 0,
+        effectiveEndSeconds: 120,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoResetCompressionMixNearEnd({
+        enabled: true,
+        depthPercent: 40,
+        currentTimeSeconds: 12,
+        startAtSeconds: 12,
+        effectiveEndSeconds: 24,
+        leadSeconds: COMPRESSION_TAIL_RESET_LEAD_SECONDS,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoResetCompressionMixNearEnd({
+        enabled: false,
+        depthPercent: 40,
+        currentTimeSeconds: 101,
+        startAtSeconds: 0,
+        effectiveEndSeconds: 120,
       }),
     ).toBe(false);
   });

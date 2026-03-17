@@ -601,10 +601,12 @@ button:hover {
 
 button.danger {
   background: #8a2c2c;
+  color: #fff4f4;
 }
 
 button.danger:hover {
   background: #a13737;
+  color: #ffffff;
 }
 
 .workspace {
@@ -2637,10 +2639,42 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
 }
 
+.settings-section.section-pulse {
+  border-radius: 18px;
+  animation: settingsSectionPulse 1.6s ease-in-out 0s 3;
+}
+
 .settings-section:last-child {
   margin-bottom: 0;
   padding-bottom: 0;
   border-bottom: none;
+}
+
+@keyframes settingsSectionPulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(0, 0, 0, 0),
+      inset 0 0 0 0 rgba(0, 0, 0, 0);
+    background: transparent;
+  }
+  25% {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 48%, transparent);
+  }
+  55% {
+    box-shadow:
+      0 0 0 8px color-mix(in srgb, var(--accent) 8%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 22%, transparent);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(0, 0, 0, 0),
+      inset 0 0 0 0 rgba(0, 0, 0, 0);
+    background: transparent;
+  }
 }
 
 .settings-progress {

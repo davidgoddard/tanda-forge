@@ -11,7 +11,7 @@ identified as `FR-<section>.R<n>` in order under each section. Sub-bullets use
 ### FR-001.1 Library Root Scanning
 - FR-001.1.R1: The system scans configured library roots for audio files.
 - FR-001.1.R2: Library roots may be mounted USB volumes or user-selected local folders.
-- FR-001.1.R3: The system detects mounts/unmounts for removable media and flags missing roots.
+- FR-001.1.R3: The system flags missing or unavailable roots on startup and during use.
 - FR-001.1.R4: Added, removed, and changed files are detected incrementally where possible.
 - FR-001.1.R5: File identity must be stable across rescans (e.g. path + content hash).
 
@@ -28,7 +28,8 @@ During discovery or re-analysis, the system performs background tasks:
 
 Analysis:
 - FR-001.2.R5: Must not block the UI (NFR-002).
-- FR-001.2.R6: Must be resumable and repeatable.
+- FR-001.2.R6: Must be repeatable and restart-safe; reruns must skip unchanged
+  files and reuse completed derived outputs where possible.
 - FR-001.2.R7: Must persist results for reuse at runtime (NFR-003).
 - FR-001.2.R8: Tag-derived styles are applied only when they match a known system style;
   otherwise the stored style remains blank.
@@ -57,7 +58,7 @@ Analysis:
 ### FR-002.2 Requirements
 - FR-002.2.R1: Loudness analysis is computed once per track and cached.
 - FR-002.2.R2: Playback applies gain adjustments dynamically.
-- FR-002.2.R3: A configurable reference loudness is used.
+- FR-002.2.R3: A fixed reference loudness is used for playback normalization.
 - FR-002.2.R4: Cortinas have their own configurable playback level.
 - FR-002.2.R5: DJs may adjust overall playback levels without recomputing analysis.
 - FR-002.2.R6: Gain is applied during preview playback and main output playback.
@@ -66,6 +67,12 @@ Analysis:
 - FR-002.2.R8: Compression processing applies to the main output path only;
   headphone preview remains uncompressed.
 - FR-002.2.R9: The compression mix control defaults to 0% on startup.
+- FR-002.2.R10: The compression mix control resets to 0% whenever a new main
+  playback item starts, including cortinas, so compression must be enabled
+  deliberately per item by the DJ.
+- FR-002.2.R11: During main playback, the compression mix is automatically
+  returned to 0% in the last ~20 seconds before the effective playback end so
+  fade-outs are not level-corrected.
 
 ---
 
@@ -128,18 +135,8 @@ Behavior:
 
 ## FR-022 — Auto DJ / Auto Play Mode
 
-- FR-022.R1: The system must support unattended playback.
-
-Rules:
-- FR-022.R2: A playlist may be marked as "auto play".
-- FR-022.R3: On startup, the system automatically plays the auto-play playlist if configured.
-- FR-022.R4: Rule-based playlists are regenerated at each run.
-- FR-022.R5: Auto DJ behavior must never repeat tracks within a single playlist.
-
-Use cases include:
-- FR-022.R6: Practicas.
-- FR-022.R7: Background playback.
-- FR-022.R8: Unattended events.
+This requirement set is no longer relevant for the current product scope and is
+intentionally deferred.
 
 ---
 

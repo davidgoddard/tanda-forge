@@ -376,6 +376,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     statusPrecomputeCompressionRunning: "Precomputing compressed cache...",
     statusPrecomputeCompressionProgress:
       "Precomputing compressed cache {current}/{total} (rendered {rendered}, cached {cached}, failed {failed})",
+    statusPrecomputeCompressionProgressWithFile:
+      "Precomputing compressed cache {current}/{total} (rendered {rendered}, cached {cached}, failed {failed}) - {file}",
     statusPrecomputeCompressionDone:
       "Compressed cache complete. Rendered {rendered}, already cached {cached}, failed {failed}.",
     statusPrecomputeCompressionFailed: "Compressed cache failed: {message}",
@@ -818,6 +820,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     statusIssue: "Problema",
     statusOk: "OK",
     statusPreparingScan: "Preparando escaneo...",
+    statusPrecomputeCompressionProgressWithFile:
+      "Precomputando cache comprimida {current}/{total} (renderizados {rendered}, en cache {cached}, fallidos {failed}) - {file}",
     statusScanInProgress: "El escaneo ya esta en curso.",
     statusScanning: "Escaneando...",
     statusScanProgress: "Escaneando {current}/{total} ({root})",
@@ -1251,6 +1255,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     statusIssue: "Probleme",
     statusOk: "OK",
     statusPreparingScan: "Preparation du scan...",
+    statusPrecomputeCompressionProgressWithFile:
+      "Precalcul du cache compresse {current}/{total} (rendus {rendered}, en cache {cached}, echecs {failed}) - {file}",
     statusScanInProgress: "Un scan est deja en cours.",
     statusScanning: "Scan en cours...",
     statusScanProgress: "Scan {current}/{total} ({root})",
@@ -1685,6 +1691,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     statusIssue: "Problem",
     statusOk: "OK",
     statusPreparingScan: "Scan vorbereiten...",
+    statusPrecomputeCompressionProgressWithFile:
+      "Komprimierten Cache vorberechnen {current}/{total} (gerendert {rendered}, im Cache {cached}, fehlgeschlagen {failed}) - {file}",
     statusScanInProgress: "Scan lauft bereits.",
     statusScanning: "Scanne...",
     statusScanProgress: "Scan {current}/{total} ({root})",
@@ -2119,6 +2127,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     statusIssue: "Problema",
     statusOk: "OK",
     statusPreparingScan: "Preparando scan...",
+    statusPrecomputeCompressionProgressWithFile:
+      "Precomputando cache comprimido {current}/{total} (renderizados {rendered}, em cache {cached}, falhados {failed}) - {file}",
     statusScanInProgress: "O scan ja esta em andamento.",
     statusScanning: "Escaneando...",
     statusScanProgress: "Scan {current}/{total} ({root})",
@@ -2553,6 +2563,8 @@ export const translations: Record<LanguageKey, Record<string, string>> = {
     statusIssue: "Problema",
     statusOk: "OK",
     statusPreparingScan: "Preparazione scansione...",
+    statusPrecomputeCompressionProgressWithFile:
+      "Precalcolo cache compressa {current}/{total} (renderizzati {rendered}, in cache {cached}, falliti {failed}) - {file}",
     statusScanInProgress: "Scansione gia in corso.",
     statusScanning: "Scansione...",
     statusScanProgress: "Scansione {current}/{total} ({root})",

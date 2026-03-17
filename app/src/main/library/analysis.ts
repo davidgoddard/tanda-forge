@@ -402,6 +402,16 @@ const clamp = (value: number, min: number, max: number) =>
 
 const dbToLinear = (db: number) => Math.pow(10, db / 20);
 
+const quoteShellArg = (value: string) => {
+  if (/^[A-Za-z0-9_./:=+-]+$/.test(value)) {
+    return value;
+  }
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+};
+
+export const buildCommandLine = (command: string, args: string[]) =>
+  [command, ...args].map(quoteShellArg).join(" ");
+
 const buildCompressionFilter = (request: OfflineCompressionRequest) => {
   // Fixed, strongly audible profile tuned for clear quiet-part lift.
   // Single compressor path: no runtime mode switching or per-parameter tuning.
@@ -413,7 +423,7 @@ const buildCompressionFilter = (request: OfflineCompressionRequest) => {
 };
 
 export const buildCompressedRenderTempPath = (outputPath: string) =>
-  `${outputPath}.${process.pid}.tmp`;
+  `${outputPath}.${process.pid}.tmp.wav`;
 
 export const hasUsableCompressedRender = (outputPath: string) => {
   try {
@@ -487,8 +497,12 @@ export const renderCompressedAudio = async (
     "2",
     "-c:a",
     "pcm_s16le",
+    "-f",
+    "wav",
     buildCompressedRenderTempPath(outputPath),
   ];
+  const primaryCommandLine = buildCommandLine(binary, renderArgs);
+  const fallbackCommandLine = buildCommandLine(fallback, renderArgs);
   const tempOutputPath = renderArgs[renderArgs.length - 1];
   if (typeof tempOutputPath !== "string") {
     throw new Error("Compressed render output path missing");
@@ -502,10 +516,27 @@ export const renderCompressedAudio = async (
     await runCommand(binary, renderArgs);
     fs.renameSync(tempOutputPath, outputPath);
     return;
-  } catch {
+  } catch (primaryError) {
     try {
       await runCommand(fallback, renderArgs);
       fs.renameSync(tempOutputPath, outputPath);
+    } catch (fallbackError) {
+      const primaryMessage =
+        primaryError instanceof Error ? primaryError.message.trim() : "Primary render failed";
+      const fallbackMessage =
+        fallbackError instanceof Error ? fallbackError.message.trim() : "Fallback render failed";
+      throw new Error(
+        [
+          fallbackMessage,
+          `Primary command: ${primaryCommandLine}`,
+          `Fallback command: ${fallbackCommandLine}`,
+          primaryMessage && primaryMessage !== fallbackMessage
+            ? `Primary error: ${primaryMessage}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      );
     } finally {
       try {
         fs.rmSync(tempOutputPath, { force: true });

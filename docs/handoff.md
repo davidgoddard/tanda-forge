@@ -5,6 +5,118 @@
 - Version: `0.1.1` (from `package.json`)
 
 ### What I was doing last
+- Added a visual pulse highlight for the System -> Precompute shortcut target:
+  - after opening Settings, switching to Library, and scrolling to `Derived Caches`,
+    the target section now gets a temporary pulsing border/background treatment
+    to draw attention to the relevant controls
+- Updated files:
+  - `app/src/renderer/styles.css`
+  - `app/src/renderer/renderer.ts`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - result: 70 test files passed / 324 tests passed
+- Applied user decisions from the code/spec assessment:
+  - Live guarded playlist click-start is the intended behavior; spec updated to match code.
+  - Loudness target remains fixed rather than configurable; spec updated to match code.
+  - Auto-play / unattended mode is no longer relevant and has been explicitly deferred in the spec/matrix.
+  - Full renderer/playback refactor is now the preferred next engineering workstream.
+- Updated:
+  - `design/02-functional-requirements.md`
+  - `design/05-ui-principles-and-components.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/outstanding-work-worksheet.md`
+- Fixed the System-tab precompute shortcut visibility behavior properly:
+  - it now opens Settings first, switches to the Library tab, waits for layout
+    to settle, then scrolls the `Derived Caches` section into view before
+    starting precompute
+  - previous behavior could activate the tab without the Library section being
+    visibly shown to the user
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - result: 70 test files passed / 324 tests passed
+- Completed a code/spec assessment pass and created a worksheet at
+  `docs/outstanding-work-worksheet.md`.
+- The worksheet separates:
+  - spec-behind-code items
+  - code-behind-spec gaps
+  - structural quality risks
+- Highest-signal review conclusions from this pass:
+  - Live-mode click-start behavior has outgrown some older `UI-001` / `UI-002`
+    wording and needs a spec decision/update.
+  - Configurable target loudness (`FR-002.2.R3`) is still not implemented; the
+    app still normalizes to a fixed `-16`.
+  - Auto-play/unattended mode (`FR-022`) remains unimplemented.
+  - Export/import expectations for playlists/tandas remain unresolved in the
+    spec/matrix.
+  - `renderer.ts` remains a major maintainability hotspot (~16k LOC), and the
+    codebase still has an unused main-process playback-engine stub.
+- Verification re-run after this documentation/review change:
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - result: 70 test files passed / 324 tests passed
+- Fixed prep-mode playlist click-start behavior for later tandas:
+  - clicking the first track of a later tanda in Preparation mode now starts
+    that clicked track directly even if another playlist track is already
+    playing
+  - lead-in cortinas for selected-start clicks are now suppressed outside Live
+    mode, instead of only when the playlist was idle
+- Added regression coverage:
+  - `tests/playlist-flow.test.ts` updated for selected-start skip logic
+  - `tests/e2e/workflows.e2e.ts` expanded so prep-mode playlist click-start
+    also covers starting a later tanda while the first tanda is already playing
+- Updated docs:
+  - `design/03-audio-playback-and-timing-model.md`
+  - `docs/user-guide.md`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - result: 70 test files passed / 324 tests passed
+- Expanded the user guide tanda workflow coverage:
+  - added an explicit `Working With Tandas` section to `docs/user-guide.md`
+  - documented all main tanda creation paths (existing tanda -> clipboard/playlist/designer,
+    building tandas from individual tracks, and playlist auto-fill)
+  - documented tanda editing, track reordering inside tandas, playlist/collection removal,
+    and safe deletion via `T` -> Tanda Designer -> `Delete`
+- Verification re-run after this documentation change:
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - result: 70 test files passed / 324 tests passed
+- Updated compression mix behavior so it is always a deliberate per-item choice:
+  - main-output compression mix now resets to `0%` whenever a new track or
+    cortina starts
+  - playback automatically returns the mix to `0%` in roughly the last 20
+    seconds before the effective end of the item, so natural fade-outs are not
+    lifted by compression
+- Added shared helper coverage for:
+  - per-track compression mix reset
+  - end-of-item automatic compression mix reset threshold
+- Updated docs:
+  - `design/02-functional-requirements.md`
+  - `design/03-audio-playback-and-timing-model.md`
+  - `docs/user-guide.md`
+  - `README.md`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - result: 70 test files passed / 324 tests passed
+- Added a dedicated precompute progress block in Library settings under
+  `Precompute compressed cache`, matching the scan-progress presentation instead
+  of reusing the scan progress area.
+- Precompute progress now includes the currently processed track path relative to
+  its configured music/cortina root, so progress text shows a useful title/path
+  rather than only counts.
+- The System-tab precompute shortcut now switches to the Library tab and scrolls
+  directly to the `Derived Caches` section before starting the run, rather than
+  just jumping to the bottom of settings.
+- Streaming precompute diagnostics remain live in Diagnostics while the run is in
+  progress; the Library tab now has its own progress bar/label for precompute.
+- Updated renderer i18n strings for the new progress label variant with file path.
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - result: 70 test files passed / 322 tests passed
 - Implemented cortina-specific display-board behavior in renderer:
   - added cortina display phases (`about`, `playing`, `after`) around
     pre-cortina gap, cortina playback, and immediate post-cortina gap
@@ -258,6 +370,195 @@
    visible-tab dirty-flag rendering to defer expensive list rebuilds when hidden.
 3) Tune display text sizing/contrast for projector readability and long artist/title wrapping.
 
+### Latest update
+- User prompt: Asked to keep going.
+- Assistant response:
+  - Continued with the adjacent renderer settings seam: search/default-size/trim/gap/audio-dynamics wiring.
+  - Added `app/src/renderer/controllers/settings-search-audio-controller.ts` to own repetitive `localStorage` + DOM input wiring for:
+    - default tanda size,
+    - clipboard new-collection limit,
+    - search min score,
+    - tanda-search size filter,
+    - BPM range,
+    - trim padding,
+    - track/tanda/cortina gap settings,
+    - stop fade,
+    - cortina level percent,
+    - audio-dynamics settings.
+  - Simplified `app/src/renderer/renderer.ts` by moving that entire block out, leaving the renderer responsible only for now-playing compression mix controls and the stateful callbacks it still owns.
+  - Added `tests/settings-search-audio-controller.test.ts` covering:
+    - clipboard limit clamping/persistence,
+    - tanda-search size persistence/finalization,
+    - dynamics enable toggle behavior.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (74 files, 338 tests).
+- Files changed:
+  - `app/src/renderer/controllers/settings-search-audio-controller.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/settings-search-audio-controller.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked to keep going.
+- Assistant response:
+  - Continued with the next renderer seam: playlist/display settings input wiring.
+  - Added `app/src/renderer/controllers/settings-playlist-controller.ts` to own the repetitive settings event wiring for:
+    - playlist last-tanda toggle,
+    - cortina set + cortina duration,
+    - display background/image/font/padding settings,
+    - playlist start/end time,
+    - playlist artist repeat gap.
+  - Simplified `app/src/renderer/renderer.ts` by moving that block of `localStorage` + DOM event logic into the controller and leaving only stateful callbacks in the renderer.
+  - Added `tests/settings-playlist-controller.test.ts` covering:
+    - playlist last-tanda toggle persistence,
+    - display background interval clamping/persistence.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (73 files, 335 tests).
+- Files changed:
+  - `app/src/renderer/controllers/settings-playlist-controller.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/settings-playlist-controller.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked to keep going until the project is coherent and maintainable.
+- Assistant response:
+  - Completed two more refactor passes around diagnostics:
+    - renderer-side Diagnostics settings behavior now lives in `app/src/renderer/controllers/settings-diagnostics-controller.ts`,
+    - main-process diagnostics mechanics now live in `app/src/main/diagnostics.ts`.
+  - Renderer-side extraction now localizes:
+    - diagnostics path rendering,
+    - playback-log load/clear,
+    - diagnostics data-readiness rendering,
+    - legacy readiness verification,
+    - audio-output probe execution.
+  - Main-process extraction now localizes:
+    - diagnostics path calculation,
+    - log append/rotation,
+    - log tail reads,
+    - diagnostics log clearing,
+    - cache verification,
+    - diagnostics data-readiness summary generation.
+  - `renderer.ts` and `main.ts` were both simplified to delegate to those localized modules.
+  - Added/expanded tests:
+    - `tests/settings-diagnostics-controller.test.ts`
+    - `tests/main-diagnostics.test.ts`
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (72 files, 333 tests).
+- Files changed:
+  - `app/src/renderer/controllers/settings-diagnostics-controller.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/main/diagnostics.ts`
+  - `app/src/main/main.ts`
+  - `tests/settings-diagnostics-controller.test.ts`
+  - `tests/main-diagnostics.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked to keep going until the project is coherent and maintainable.
+- Assistant response:
+  - Continued the refactor with the next coherent renderer seam: the Settings -> Diagnostics behavior.
+  - Expanded `app/src/renderer/controllers/settings-diagnostics-controller.ts` so it now owns:
+    - diagnostics path rendering,
+    - playback-log loading,
+    - playback-log clearing,
+    - data-readiness rendering,
+    - legacy readiness verification,
+    - audio-output probe execution.
+  - Simplified `app/src/renderer/renderer.ts` so it now mostly wires the Diagnostics UI to that controller instead of keeping those behaviors inline.
+  - Expanded `tests/settings-diagnostics-controller.test.ts` to cover:
+    - path rendering,
+    - playback-log rendering,
+    - data-readiness rendering,
+    - audio-output probe behavior.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (71 files, 328 tests).
+- Files changed:
+  - `app/src/renderer/controllers/settings-diagnostics-controller.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/settings-diagnostics-controller.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked whether the obvious items from the outstanding-work worksheet could just be actioned directly.
+- Assistant response:
+  - Took the obvious documentation cleanup items immediately.
+  - Updated `design/08-storage-and-data-model.md` so it now reflects the actual configurable data-root model:
+    - SQLite/database/filesystem caches now live in the configured data root,
+    - custom locations normalize to `_tp_data`,
+    - platform user-data paths are described as defaults only,
+    - old `last_seen_at` / unavailable-track wording was removed in favor of the actual root-availability behavior,
+    - section numbering was cleaned up.
+  - Updated `design/tracking-and-feature-matrix.md` to remove stale “reported unreliable” notes for `UI-014` and `UI-016`, replacing them with the real remaining polish gaps.
+  - Updated `docs/outstanding-work-worksheet.md` to mark those doc-drift items resolved and to shift the triage focus back to the remaining refactor/persistence risks.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (71 files, 328 tests).
+- Files changed:
+  - `design/08-storage-and-data-model.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/outstanding-work-worksheet.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked for another full review and for `docs/outstanding-work-worksheet.md` to be updated again to reflect the current state after the recent decisions.
+- Assistant response:
+  - Re-reviewed the current code and docs with emphasis on what is still genuinely outstanding rather than what has already been resolved.
+  - Identified three main current findings:
+    - the storage/data-model doc is still behind the code and still describes fixed app-data paths and old availability fields, while the app now uses a configurable data root with `_tp_data`,
+    - the tracking matrix still contains stale “reported unreliable” notes for some clipboard/tanda flows that now have passing E2E coverage,
+    - the main-process entrypoint has become a secondary structural refactor target alongside the renderer.
+  - Rewrote `docs/outstanding-work-worksheet.md` so it now focuses on:
+    - remaining spec-behind-code items (`A-01` to `A-03`),
+    - still-optional/future product items (`B-01` to `B-03`),
+    - structural risks (`C-01` to `C-05`), including both `renderer.ts` and `main.ts`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (71 files, 328 tests).
+- Files changed:
+  - `docs/outstanding-work-worksheet.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Reviewed the worksheet item-by-item and resolved the direction:
+  - current app behavior is correct for the A-section items,
+  - old USB-mount behavior can be removed,
+  - rerun-and-skip analysis/precompute is acceptable,
+  - tanda export/import is a future idea only,
+  - tanda jump index is not needed,
+  - orchestra alias storage can remain where it is,
+  - obsolete requirements should be removed,
+  - the playback stub should be removed if it is no longer relevant,
+  - portability should trend toward keeping app data together with the library/data root,
+  - the refactor and requirement matrix update should continue.
+- Assistant response:
+  - Updated the design docs and matrix to reflect the accepted current behavior:
+    - `design/02-functional-requirements.md`
+    - `design/04-resilience-and-persistence.md`
+    - `design/05-ui-principles-and-components.md`
+    - `design/06-search-and-similarity.md`
+    - `design/07-electron-architecture-and-structure.md`
+    - `design/tracking-and-feature-matrix.md`
+  - Updated `docs/outstanding-work-worksheet.md` so the resolved items are marked as accepted, old USB-specific behavior is removed from active scope, and the main remaining work is now renderer refactor and persistence consolidation.
+  - Removed the unused playback stub file `app/src/main/playback/engine.ts`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (71 files, 328 tests).
+- Files changed:
+  - `design/02-functional-requirements.md`
+  - `design/04-resilience-and-persistence.md`
+  - `design/05-ui-principles-and-components.md`
+  - `design/06-search-and-similarity.md`
+  - `design/07-electron-architecture-and-structure.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/outstanding-work-worksheet.md`
+  - `app/src/main/playback/engine.ts` (deleted)
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
 ### Latest update
 - Display board/config UX refinement:
   - restored additional display text safe padding in `display.css` so large
@@ -6757,3 +7058,123 @@
   - `docs/dialogue.md`
   - `docs/handoff.md`
   - `tests/e2e/workflows.e2e.ts`
+### Latest update
+- User prompt: Reported that `Precomputing compressed cache ... failed 32` gave no visible details in Diagnostics, and noted those failures were not appearing in the recent scan issues list.
+- Assistant response:
+  - Confirmed that compressed-cache precompute failures were only being counted in progress/status text; they were not being collected into the issue list that the Diagnostics page renders.
+  - Updated the precompute IPC path to return per-file compression errors alongside the rendered/cached/failed counts.
+  - Updated the renderer to feed those returned compression errors into the same recent-issues list used by Diagnostics, so failed precompute runs now show file paths and failure messages instead of only a count.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (69 files, 321 tests).
+- Files changed:
+  - `app/src/main/main.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/types.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked for an example command line so the failed compressed render could be tried manually.
+- Assistant response:
+  - Added shell-ready command-line formatting to the compressed render pipeline and included the exact ffmpeg command(s) in failed render errors.
+  - Failed precompute entries can now surface the actual primary/fallback ffmpeg invocations used for that file, making manual reproduction possible from the diagnostics issue text.
+  - Added a unit test covering command-line quoting for paths with spaces and apostrophes.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (70 files, 322 tests).
+- Files changed:
+  - `app/src/main/library/analysis.ts`
+  - `tests/analysis-command-line.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Pointed out that a system should log errors as they happen rather than only after the precompute pass finishes.
+- Assistant response:
+  - Updated the compressed-precompute progress event to carry the latest per-file failure in addition to the running counts.
+  - Updated the renderer to append those failures into the Diagnostics issue list immediately during the run, while keeping the final result as a backstop for any failures not already streamed.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (70 files, 322 tests).
+- Files changed:
+  - `app/src/main/main.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/types.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Reported that, even with streamed failures, the Library tab still showed only counts and no useful detail where the precompute action was running.
+- Assistant response:
+  - Added a live precompute failure panel directly to the Library tab’s `Derived Caches` section.
+  - The renderer now maintains a per-run precompute failure list and renders recent file-path/message lines there while the run is active, instead of requiring a switch to the Diagnostics tab to see useful detail.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (70 files, 322 tests).
+- Files changed:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/renderer.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Shared a concrete ffmpeg failure showing the temp output path ended with `.wav.<pid>.tmp`, and asked what had changed.
+- Assistant response:
+  - Identified the actual render bug: ffmpeg could not infer the WAV muxer from the temp-file suffix `.tmp`.
+  - Fixed the compressed render path so the temp file now ends with `.tmp.wav` and the ffmpeg command explicitly sets `-f wav`, removing dependence on filename inference.
+  - Updated the temp-path unit test accordingly.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (70 files, 322 tests).
+- Files changed:
+  - `app/src/main/library/analysis.ts`
+  - `tests/audio-compression-cache.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked for repeated refactor passes until `renderer.ts` becomes logical and localized, with logical areas pulled into dedicated files.
+- Assistant response:
+  - Extracted settings-shell tab activation and section pulse behavior into `app/src/renderer/modules/settings-view.ts` so those UI behaviors are no longer hard-coded inside `renderer.ts`.
+  - Added a new `app/src/renderer/controllers/settings-library-controller.ts` to own Library maintenance concerns: scan/precompute progress rendering, Diagnostics issue accumulation, compressed-cache failure rendering, scan execution, precompute execution, verify-cached-files, and clear-cached-files actions.
+  - Rewired `renderer.ts` to use the new controller/module for those paths, removing a dense block of settings/library orchestration from the renderer entrypoint while preserving current behavior.
+  - Added unit coverage for the new controller and expanded settings-view tests to cover tab activation and pulsed section highlighting.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-view.test.ts tests/settings-library-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (71 files, 328 tests).
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/modules/settings-view.ts`
+  - `app/src/renderer/controllers/settings-library-controller.ts`
+  - `tests/settings-view.test.ts`
+  - `tests/settings-library-controller.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Reported that destructive buttons such as `Erase Database` had poor contrast, with dark text on dark red, and asked for white or at least contrasting text.
+- Assistant response:
+  - Updated the shared destructive button styling so `button.danger` now uses a light foreground color by default and on hover, improving contrast across all red destructive buttons.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (71 files, 328 tests).
+- Files changed:
+  - `app/src/renderer/styles.css`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked for a full assessment of code quality and current behavioral differences from the spec, with a worksheet to work through outstanding work.
+- Assistant response:
+  - Reviewed the current design docs against the implementation and refreshed the outstanding-work worksheet so it now separates:
+    - spec drift that should be updated to match current behavior,
+    - genuine implementation gaps behind the current spec,
+    - ongoing quality risks.
+  - The updated worksheet highlights the largest current mismatches:
+    - architecture docs still say playback control belongs to the main process while real playback remains renderer-owned,
+    - UI spec still says only the playback controls may initiate playback in Live mode even though guarded idle-only playlist click-start is now intentional,
+    - waveform/live-mode wording and settings/gain-target wording are stale,
+    - USB-primary recovery/snapshot requirements do not match the current desktop app behavior.
+  - Replaced `docs/outstanding-work-worksheet.md` with a cleaner decision-oriented worksheet and recommended triage order.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (71 files, 328 tests).
+- Files changed:
+  - `docs/outstanding-work-worksheet.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`

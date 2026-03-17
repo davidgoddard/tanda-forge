@@ -1149,6 +1149,8 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator('button[data-tab="search-tandas"]').click();
       await runSearch(page, "Tango Trio");
       await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await runSearch(page, "Canaro Milonga Pack A");
+      await clickRowAction(searchTandaRow(page, "Canaro Milonga Pack A"), "add-playlist-tanda");
       await confirmIfPrompted(page);
       await ensurePlaylistTab(page);
       const playlistRow = playlistTandaRow(page, "Tango Trio");
@@ -1162,6 +1164,18 @@ test.describe("Electron app end-to-end workflows", () => {
         .poll(async () => await detailLine.count(), { timeout: 10_000 })
         .toBeGreaterThan(0);
       await clickPlaylistTrackUntilNowPlaying(page, detailLine, "Tango Dos");
+
+      const secondTandaRow = playlistTandaRow(page, "Canaro Milonga Pack A");
+      await expect(secondTandaRow).toBeVisible();
+      await secondTandaRow.locator(".tanda-summary").first().click();
+      const secondTandaFirstTrack = secondTandaRow
+        .locator(".tanda-detail-line")
+        .filter({ hasText: "Canaro Milonga Uno" })
+        .first();
+      await expect
+        .poll(async () => await secondTandaFirstTrack.count(), { timeout: 10_000 })
+        .toBeGreaterThan(0);
+      await clickPlaylistTrackUntilNowPlaying(page, secondTandaFirstTrack, "Milonga Uno");
     } finally {
       await launched.close();
     }

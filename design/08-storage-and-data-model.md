@@ -7,14 +7,22 @@ identified as `DATA-<section>.R<n>` in order under each section. Sub-bullets use
 ## DATA-001 — Storage Stack
 
 - DATA-001.R1: Local-only storage, no network dependency.
-- DATA-001.R2: Primary store: SQLite database in the app data directory.
+- DATA-001.R2: Primary store: SQLite database in the configured data root.
 - DATA-001.R3: Large blobs (waveforms, cached previews) stored as files referenced by DB.
 
-## DATA-002 — App Data Locations
+## DATA-002 — Data Root Locations
 
-- DATA-002.R1: macOS: `~/Library/Application Support/Tanda Forge/`
-- DATA-002.R2: Windows: `%APPDATA%\\Tanda Forge\\`
-- DATA-002.R3: Linux: `~/.config/Tanda Forge/`
+- DATA-002.R1: The app has a configurable data root that contains the SQLite database,
+  waveform cache, compressed-audio cache, and diagnostics logs.
+- DATA-002.R2: By default, the data root is the platform user-data location returned
+  by Electron.
+- DATA-002.R3: If the user selects a custom data location, the app stores its data
+  in a `_tp_data` folder inside the selected directory.
+- DATA-002.R4: `TANDA_DATA_ROOT` may override the data root for development or
+  controlled deployments.
+- DATA-002.R5: Platform user-data examples remain relevant only as defaults:
+  macOS `~/Library/Application Support/<app>/`, Windows `%APPDATA%\\<app>\\`,
+  Linux `~/.config/<app>/`.
 
 ## DATA-003 — Database Files
 
@@ -112,7 +120,8 @@ Fields:
 - DATA-005.R4: `genre` is normalized on scan to prevent case-duplicate styles.
 - DATA-005.R5: Artist normalization is based on legacy `similar.js` noise removal and
   abbreviation expansion to yield a consistent primary artist string.
-- DATA-005.R6: Missing roots set `last_seen_at` and mark tracks as unavailable.
+- DATA-005.R6: Missing or unavailable roots are surfaced to the UI as root-level
+  availability problems during startup and scan/use-time checks.
 - DATA-005.R7: Deleting a track in the filesystem does not delete historical usage records.
 - DATA-005.R8: Resume logic uses `file_size` and `file_mtime_ms` to skip unchanged files.
 - DATA-005.R9: Missing tracks are removed from the database, and dependent tandas/playlists
@@ -127,17 +136,20 @@ Fields:
 - DATA-006.R1: The current playlist is stored in local UI storage for fast recovery.
 - DATA-006.R2: Playlist slots persist as references to track IDs or tanda IDs, plus mismatch flags.
 - DATA-006.R3: The single unnamed playlist auto-restores on app launch.
+- DATA-006.R4: Some renderer-local preferences still use browser `localStorage`;
+  this is current implementation, not the desired long-term persistence endpoint
+  for all non-trivial settings.
 
-## DATA-006 — Migrations
+## DATA-007 — Migrations
 
-- DATA-006.R1: No versioned migration system yet.
-- DATA-006.R2: Schema changes are applied with best-effort `alter table` statements in
+- DATA-007.R1: No versioned migration system yet.
+- DATA-007.R2: Schema changes are applied with best-effort `alter table` statements in
   `app/src/main/db.ts`.
 
-## DATA-007 — Legacy Import
+## DATA-008 — Legacy Import
 
-- DATA-007.R1: The app must support importing legacy Tanda Player USB data files.
-- DATA-007.R2: Import reconstructs tandas and playlists and reuses any compatible track data.
-- DATA-007.R3: File references are matched against the new library roots by relative path
+- DATA-008.R1: The app must support importing legacy Tanda Player USB data files.
+- DATA-008.R2: Import reconstructs tandas and playlists and reuses any compatible track data.
+- DATA-008.R3: File references are matched against the new library roots by relative path
   and content hash where available.
-- DATA-007.R4: Unmatched items are surfaced as missing and can be resolved by the user.
+- DATA-008.R4: Unmatched items are surfaced as missing and can be resolved by the user.

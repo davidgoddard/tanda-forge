@@ -226,6 +226,8 @@ Requirements:
 - FR-094.R2: Multiple aliases per canonical name.
 - FR-094.R3: Aliases included in search matching and ranking.
 - FR-094.R4: Canonical name displayed in UI by default (configurable).
+- FR-094.R5: User-edited orchestra alias metadata may be stored as
+  machine-local application preference data.
 
 This improves spelling tolerance, variant naming across different sources/files,
 and consistent clustering in results.
@@ -284,9 +286,10 @@ Track search results must provide a quick navigation index aligned to the
 current sort column.
 
 ### FR-097.1 Index Coverage
-FR-097.1.R1: The quick navigation index must represent the entire result set, not only the
-currently loaded/visible window. It must be obtainable from the local data
-service (main process) even if the UI only has a small subset of rows loaded.
+FR-097.1.R1: The quick navigation index must represent the entire track-search
+result set, not only the currently loaded/visible window. It must be
+obtainable from the local data service (main process) even if the UI only has
+a small subset of rows loaded.
 
 ### FR-097.2 Ordering of Index Keys
 The index key ordering must be:

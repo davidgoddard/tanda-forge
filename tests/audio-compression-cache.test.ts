@@ -10,7 +10,7 @@ import {
 describe("compressed render cache helpers", () => {
   it("derives a temp path beside the final cache target", () => {
     expect(buildCompressedRenderTempPath("/tmp/cache/output.wav")).toMatch(
-      /\/tmp\/cache\/output\.wav\.\d+\.tmp$/,
+      /\/tmp\/cache\/output\.wav\.\d+\.tmp\.wav$/,
     );
   });
 

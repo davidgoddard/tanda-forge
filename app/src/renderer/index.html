@@ -799,7 +799,7 @@
                 <progress id="scan-progress-settings" value="0" max="1"></progress>
               </div>
             </div>
-            <div class="settings-section">
+            <div id="derived-caches-section" class="settings-section">
               <h3 data-i18n="derivedCacheTitle">Derived Caches</h3>
               <div class="settings-actions">
                 <button id="verify-cached-files" data-i18n="verifyCachedFiles">
@@ -815,7 +815,19 @@
               <p class="settings-note" data-i18n="precomputeCompressionHelp">
                 Optional: pre-renders compressed versions for tracks and cortinas. Only needed if compression will be used.
               </p>
+              <div class="settings-progress">
+                <div class="progress-row">
+                  <div id="precompute-progress-label-settings" class="progress-label" data-i18n="idle">
+                    Idle
+                  </div>
+                  <button id="open-diagnostics-precompute" data-i18n="viewScanIssues">
+                    View scan issues
+                  </button>
+                </div>
+                <progress id="precompute-progress-settings" value="0" max="1"></progress>
+              </div>
               <div id="cache-verify-result" class="diagnostics-result"></div>
+              <div id="precompute-compressed-result" class="diagnostics-result diagnostics-log"></div>
             </div>
             <div class="settings-section">
               <h3 data-i18n="libraryMaintenanceTitle">Library Maintenance</h3>

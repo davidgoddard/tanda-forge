@@ -28,6 +28,33 @@ export const isCompressionControlLockedForPrep = (params: {
   usingCompressedSource: boolean;
 }) => false;
 
+export const COMPRESSION_TAIL_RESET_LEAD_SECONDS = 20;
+
+export const shouldResetCompressionMixForNewTrack = (params: {
+  channel: "main" | "headphone";
+  nextTrackId: string;
+  previousTrackId?: string;
+}) => params.channel === "main" && params.previousTrackId !== params.nextTrackId;
+
+export const shouldAutoResetCompressionMixNearEnd = (params: {
+  enabled: boolean;
+  depthPercent: number;
+  currentTimeSeconds: number;
+  startAtSeconds: number;
+  effectiveEndSeconds: number | null;
+  leadSeconds?: number;
+}) => {
+  if (!params.enabled || params.depthPercent <= 0 || params.effectiveEndSeconds === null) {
+    return false;
+  }
+  const leadSeconds = params.leadSeconds ?? COMPRESSION_TAIL_RESET_LEAD_SECONDS;
+  const resetThresholdSeconds = Math.max(
+    params.startAtSeconds,
+    params.effectiveEndSeconds - Math.max(0, leadSeconds),
+  );
+  return params.currentTimeSeconds >= resetThresholdSeconds;
+};
+
 export type CompressionProofState =
   | "disabled"
   | "zero_mix"

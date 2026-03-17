@@ -34,7 +34,7 @@ Silent corruption is unacceptable.
 
 ---
 
-## NFR-003 — USB as Primary State Store
+## NFR-003 — Portable Data Root
 
 ### Rationale
 Tanda Forge operates in environments where:
@@ -45,44 +45,43 @@ Tanda Forge operates in environments where:
 
 Therefore:
 
-- NFR-003.R5: All *authoritative state* resides on the USB device.
-- NFR-003.R6: The Raspberry Pi is treated as a disposable compute node.
-- NFR-003.R7: Removing the USB removes the identity of the system.
+- NFR-003.R5: All authoritative application state must live together in the
+  configured data root so it can be moved between machines.
+- NFR-003.R6: The host machine is replaceable if the data root and media
+  folders are available.
+- NFR-003.R7: USB-hosted media and/or a USB-hosted data root are normal
+  supported setups, but the application is not defined solely by USB presence.
 
 Authoritative state includes:
 - NFR-003.R8: Track metadata and analysis.
 - NFR-003.R9: Tandas.
 - NFR-003.R10: Playlists.
 - NFR-003.R11: Configuration.
-- NFR-003.R12: Rolling backups and recovery logs.
+- NFR-003.R12: Logs and any future backup/snapshot data.
 
 ---
 
-## FR-080 — USB Health Checks
+## FR-080 — Data Root and Media Availability Checks
 
 Before entering normal operation, the system must:
 
-- FR-080.R1: Verify that the USB device is mounted read/write.
-- FR-080.R2: Detect filesystem errors or read-only mounts.
-- FR-080.R3: Verify required directory structure exists.
-- FR-080.R4: Verify that required state files are readable.
-
-If checks fail:
-- FR-080.R5: The system must not start live playback.
-- FR-080.R6: The UI must enter **Recovery / Maintenance Mode**.
-- FR-080.R7: Clear, actionable instructions must be presented.
+- FR-080.R1: Verify that the configured data root is readable and writable.
+- FR-080.R2: Verify that required application state files and directories are accessible.
+- FR-080.R3: Surface missing library roots clearly to the user.
+- FR-080.R4: Keep the app usable for setup and maintenance even when some roots are unavailable.
 
 ---
 
-## FR-081 — Rolling State Snapshots (Round-Robin Backups)
+## FR-081 — Rolling State Snapshots (Future)
 
 ### Purpose
 Protect against dirty unmounts, partial writes, accidental corruption, and user
 error.
 
 ### Requirements
-- FR-081.R1: On each successful boot, the system creates a snapshot of all critical state.
-- FR-081.R2: Snapshots are stored on the USB device.
+- FR-081.R1: Future enhancement: the app may create snapshots of critical state
+  on startup or by explicit maintenance action.
+- FR-081.R2: If implemented, snapshots are stored in or alongside the configured data root.
 - FR-081.R3: A fixed number of snapshot folders is maintained (e.g. `backup1` … `backupN`).
 - FR-081.R4: Old snapshots are overwritten in round-robin fashion.
 
@@ -98,9 +97,9 @@ Snapshots must exclude:
 
 ---
 
-## FR-082 — Explicit Recovery Workflow
+## FR-082 — Explicit Recovery Workflow (Future)
 
-The system must support **manual recovery by a non-technical DJ**.
+The system may later support **manual recovery by a non-technical DJ**.
 
 This implies:
 - FR-082.R1: Snapshot folders are human-readable and clearly named.
@@ -122,7 +121,8 @@ No specialist tools should be required.
   - FR-083.R3.b: Incomplete migrations.
   - FR-083.R3.c: Incompatible versions.
 
-FR-083.R4: If detection fails, the system must fall back to the last known good snapshot.
+FR-083.R4: If snapshot-based recovery is implemented, detection failures should
+be able to fall back to the last known good snapshot.
 
 ---
 
@@ -134,7 +134,7 @@ FR-083.R4: If detection fails, the system must fall back to the last known good 
 
 Migration behavior must be:
 - FR-084.R4: Logged.
-- FR-084.R5: Recoverable via snapshots.
+- FR-084.R5: Recoverable via snapshots if snapshot support is enabled.
 - FR-084.R6: Testable.
 
 ---
@@ -167,12 +167,12 @@ Transient state:
 The system must support explicit startup modes:
 
 - FR-086.R1: **Normal Mode**
-  - FR-086.R1.a: USB healthy.
+  - FR-086.R1.a: data root healthy.
   - FR-086.R1.b: State valid.
   - FR-086.R1.c: Full functionality enabled.
 
 - FR-086.R2: **Maintenance / Recovery Mode**
-  - FR-086.R2.a: USB unhealthy or state inconsistent.
+  - FR-086.R2.a: data root unhealthy or state inconsistent.
   - FR-086.R2.b: Playback disabled.
   - FR-086.R2.c: UI restricted to diagnostics and recovery.
 
@@ -182,7 +182,7 @@ FR-086.R3: Mode selection must be automatic and visible.
 
 ## FR-087 — Logging and Diagnostics
 
-- FR-087.R1: Logs must be written to the USB device.
+- FR-087.R1: Logs must be written to the configured data root.
 - FR-087.R2: Logs must survive reboot.
 - FR-087.R3: Logs must be human-readable.
 - FR-087.R4: Logs must include:

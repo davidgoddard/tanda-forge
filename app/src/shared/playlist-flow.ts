@@ -30,14 +30,12 @@ export const shouldInsertCortinaBeforeTanda = (
 export const shouldSkipLeadInCortinaForSelectedStart = (
   suppressLeadInCortinaForSelectedStart: boolean,
   isResume: boolean,
-  startFromIdle: boolean,
   currentIndex: number,
   currentTrackIndex: number,
   selectedStartIndex: number | null,
 ) =>
   suppressLeadInCortinaForSelectedStart &&
   isResume &&
-  startFromIdle &&
   currentTrackIndex === 0 &&
   selectedStartIndex !== null &&
   currentIndex === selectedStartIndex;

@@ -255,13 +255,22 @@ export type AppApi = {
     gateThresholdDb: number;
     limiterCeilingDb: number;
     limiterReleaseMs: number;
-  }) => Promise<{ ok: boolean; rendered: number; cached: number; failed: number; error?: string }>;
+  }) => Promise<{
+    ok: boolean;
+    rendered: number;
+    cached: number;
+    failed: number;
+    errors?: { filePath: string; message: string }[];
+    error?: string;
+  }>;
   onPrecomputeCompressedProgress: (handler: (progress: {
     current: number;
     total: number;
     rendered: number;
     cached: number;
     failed: number;
+    currentFile?: string | null;
+    latestError?: { filePath: string; message: string } | null;
     done: boolean;
   }) => void) => () => void;
   getSearchDiversityStats: () => Promise<{
