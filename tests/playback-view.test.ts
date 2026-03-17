@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildTrackLabel, getNowPlayingState } from "../app/src/renderer/modules/playback-view";
+import {
+  buildTrackLabel,
+  getDisplayBoardPlayingState,
+  getNowPlayingState,
+} from "../app/src/renderer/modules/playback-view";
 
 describe("playback view helpers", () => {
   it("builds artist-title label", () => {
@@ -19,5 +23,14 @@ describe("playback view helpers", () => {
     });
     expect(result?.channel).toBe("headphone");
     expect(result?.state.track?.title).toBe("H");
+  });
+
+  it("prefers main state for the display board when both channels are active", () => {
+    const result = getDisplayBoardPlayingState({
+      headphone: { active: { paused: false }, track: { title: "H" } },
+      main: { active: { paused: false }, track: { title: "M" } },
+    });
+    expect(result?.channel).toBe("main");
+    expect(result?.state.track?.title).toBe("M");
   });
 });

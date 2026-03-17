@@ -67,6 +67,12 @@ const api: AppApi = {
     ipcRenderer.invoke("stats:getSearchDiversity"),
   getDiagnosticsPaths: async () =>
     ipcRenderer.invoke("diagnostics:getPaths"),
+  pickFfmpegToolsDir: async () =>
+    ipcRenderer.invoke("diagnostics:pickFfmpegToolsDir"),
+  getFfmpegToolsDir: async () =>
+    ipcRenderer.invoke("diagnostics:getFfmpegToolsDir"),
+  setFfmpegToolsDir: async (dirPath) =>
+    ipcRenderer.invoke("diagnostics:setFfmpegToolsDir", dirPath),
   verifyCachedFiles: async () =>
     ipcRenderer.invoke("diagnostics:verifyCaches"),
   getDiagnosticsLogs: async (params) =>

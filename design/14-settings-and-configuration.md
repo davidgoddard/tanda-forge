@@ -151,6 +151,11 @@ Board, Diagnostics, System).
 - CFG-DIAG-004: Diagnostics list the resolved user data, waveforms, ffmpeg, and ffprobe
   paths for troubleshooting.
 - CFG-DIAG-004.a: Diagnostics also list the compressed-audio cache path.
+- CFG-DIAG-004.b: Diagnostics show whether ffmpeg/ffprobe were resolved from bundled
+  app resources, a user-configured custom tools folder, or the system PATH.
+- CFG-DIAG-004.c: Users can configure an optional custom FFmpeg tools folder in
+  Diagnostics. Resolution order is bundled binaries first, then the custom tools
+  folder, then the system PATH.
 - CFG-DIAG-005: Diagnostics provide a "Generate waveform for current track" action to
   validate waveform tooling.
 - CFG-DIAG-005.a: The Library tab separates scan actions from derived-cache actions so

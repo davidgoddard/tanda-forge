@@ -7419,3 +7419,20 @@
   - `docs/outstanding-work-worksheet.md`
   - `docs/dialogue.md`
   - `docs/handoff.md`
+- Audited new user feedback. Fixed display-board routing so audience-facing display now follows main playback only and never headphone preview, even when both channels are active. Added a dedicated display-board playback selector in `app/src/renderer/modules/playback-view.ts`, wired `renderer.ts` external-display updates through it, and added unit coverage in `tests/playback-view.test.ts`.
+- Fixed legacy import handling for unclassified tracks so entries with no classifier style now carry legacy genre `?`, allowing stored legacy `?` mappings to apply during import and subsequent rescans. Added regression coverage in `tests/legacy-import-gain.test.ts`.
+- Clarified library scan UX in UI copy and user guide: rerunning music or cortina scans skips unchanged files, so adding new songs only requires rescanning the relevant root.
+- Audited the Windows ffmpeg packaging report. Current source tree contains `app/resources/ffmpeg/win32/` as an empty directory, so Windows installers built from this workspace will not include `ffmpeg.exe` or `ffprobe.exe` unless those binaries are staged before packaging. No code-path change was made in this pass because the missing installer payload is a build-artifact issue rather than a proven runtime path bug.
+- Implemented supported FFmpeg resolution policy instead of relying on users to patch installed app folders manually. The app now resolves binaries in this order: bundled resources, user-configured custom FFmpeg tools folder, then system `PATH`. Main-process resolution lives in `app/src/main/library/analysis.ts`, the custom tools folder is persisted in `app_state`, new IPC was added in `app/src/main/main.ts` / `app/src/preload/preload.ts`, and Diagnostics now exposes choose/clear controls plus source reporting in `app/src/renderer/controllers/settings-diagnostics-controller.ts`.
+- Updated `README.md` to match the current FFmpeg policy. It no longer claims end users must pre-install ffmpeg, now explains bundled/custom-folder/PATH resolution, and clarifies that rescans skip unchanged files when adding new music.
+- Persisted playlist cortina slot assignments with the saved playlist, not just manual replacements. Playlist storage now records playlist items, the active cortina set, and every currently assigned cortina slot track id. On startup those saved slot assignments are restored only when the saved cortina set still matches the active one; otherwise the playlist drops the saved assignments and re-plans cortinas from the newly selected set. As the playlist grows later, only new cortina rows are assigned from the current set while existing assigned rows remain unchanged. The shared playlist storage schema/helpers live in `app/src/shared/playlist-storage.ts`, renderer save/load wiring is in `app/src/renderer/renderer.ts`, and coverage was expanded in `tests/playlist-storage.test.ts`.
+- Updated docs to reflect the new cortina-override persistence rule:
+  - `design/05-ui-principles-and-components.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/user-guide.md`
+- Hardened the shared Playwright helper `expectClickStartsTrackSoon(...)` in `tests/e2e/workflows.e2e.ts` so it retries the exact click dispatch when the target row is attached but the click fails to register, which should reduce the remaining intermittent failure in workflow `38`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-storage.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (81 files, 364 tests).
+  - Playwright was not rerun in this environment after the latest E2E helper tweak.

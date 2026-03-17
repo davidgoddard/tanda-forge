@@ -33,12 +33,18 @@ const createController = () =>
   createSettingsDiagnosticsController({
     translate: (key, params) =>
       params ? `${key}:${JSON.stringify(params)}` : key,
+    pickFfmpegToolsDir: async () => "/custom/tools",
+    getFfmpegToolsDir: async () => ({ path: "/custom/tools" }),
+    setFfmpegToolsDir: async (path) => ({ path: path ?? "" }),
     getDiagnosticsPaths: async () => ({
       userData: "/data",
       waveformsDir: "/data/waveforms",
       compressedCacheDir: "/data/compressed",
       ffmpegPath: "/tools/ffmpeg",
+      ffmpegSource: "bundled",
       ffprobePath: "/tools/ffprobe",
+      ffprobeSource: "path",
+      ffmpegToolsDir: "/custom/tools",
       playbackLogPath: "/data/playback.log",
     }),
     getDiagnosticsLogs: async () => ({ lines: ["a", "b"] }),
@@ -87,6 +93,19 @@ describe("settings diagnostics controller", () => {
     expect(target.textContent).toContain("diagnosticsPathsUserData");
     expect(target.textContent).toContain("/data/waveforms");
     expect(target.textContent).toContain("/data/playback.log");
+    expect(target.textContent).toContain("diagnosticsBinarySourceBundled");
+    expect(target.textContent).toContain("diagnosticsBinarySourcePath");
+  });
+
+  it("renders and updates ffmpeg tools folder state", async () => {
+    const target = createFakeElement() as unknown as HTMLElement;
+    const controller = createController();
+
+    await controller.renderFfmpegToolsDir(target);
+    expect(target.textContent).toContain("/custom/tools");
+
+    await controller.clearFfmpegToolsDir(target);
+    expect(target.textContent).toContain("diagnosticsFfmpegToolsDirUnset");
   });
 
   it("renders diagnostics readiness summary rows", async () => {
@@ -105,12 +124,18 @@ describe("settings diagnostics controller", () => {
     const controller = createSettingsDiagnosticsController({
       translate: (key, params) =>
         params ? `${key}:${JSON.stringify(params)}` : key,
+      pickFfmpegToolsDir: async () => null,
+      getFfmpegToolsDir: async () => ({ path: "" }),
+      setFfmpegToolsDir: async (path) => ({ path: path ?? "" }),
       getDiagnosticsPaths: async () => ({
         userData: "/data",
         waveformsDir: "/data/waveforms",
         compressedCacheDir: "/data/compressed",
         ffmpegPath: "/tools/ffmpeg",
+        ffmpegSource: "bundled",
         ffprobePath: "/tools/ffprobe",
+        ffprobeSource: "bundled",
+        ffmpegToolsDir: "",
         playbackLogPath: "/data/playback.log",
       }),
       getDiagnosticsLogs: async () => ({ lines: [] }),

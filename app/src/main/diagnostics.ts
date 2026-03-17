@@ -83,16 +83,20 @@ export const readLogTail = (
 
 export const getDiagnosticsPaths = (
   getDataPaths: () => DataPaths,
-  ffmpegPath: string,
-  ffprobePath: string,
+  ffmpeg: { path: string; source: "bundled" | "override" | "path" },
+  ffprobe: { path: string; source: "bundled" | "override" | "path" },
+  ffmpegToolsDir: string | null,
 ) => {
   const paths = getDataPaths();
   return {
     userData: paths.root,
     waveformsDir: paths.waveformsDir,
     compressedCacheDir: paths.compressedCacheDir,
-    ffmpegPath,
-    ffprobePath,
+    ffmpegPath: ffmpeg.path,
+    ffmpegSource: ffmpeg.source,
+    ffprobePath: ffprobe.path,
+    ffprobeSource: ffprobe.source,
+    ffmpegToolsDir: ffmpegToolsDir ?? "",
     playbackLogPath: path.join(paths.logDir, PLAYBACK_DIAGNOSTIC_LOG),
   };
 };

@@ -3,6 +3,9 @@ import type { AppApi } from "../../shared/types.js";
 
 export type DiagnosticsControllerDeps = {
   translate: (key: string, params?: Record<string, string | number>) => string;
+  pickFfmpegToolsDir: () => Promise<string | null>;
+  getFfmpegToolsDir: () => Promise<{ path: string }>;
+  setFfmpegToolsDir: (path: string | null) => Promise<{ path: string }>;
   getDiagnosticsLogs: (params: { kind: "playback"; limit: number }) => Promise<{ lines: string[] }>;
   clearDiagnosticsLogs: () => Promise<unknown>;
   getDiagnosticsPaths: () => Promise<{
@@ -10,7 +13,10 @@ export type DiagnosticsControllerDeps = {
     waveformsDir: string;
     compressedCacheDir: string;
     ffmpegPath: string;
+    ffmpegSource: "bundled" | "override" | "path";
     ffprobePath: string;
+    ffprobeSource: "bundled" | "override" | "path";
+    ffmpegToolsDir: string;
     playbackLogPath: string;
   }>;
   getDiagnosticsDataReadiness: () => Promise<{
@@ -35,8 +41,14 @@ export const createSettingsDiagnosticsController = (deps: DiagnosticsControllerD
         { label: deps.translate("diagnosticsPathsUserData"), value: paths.userData },
         { label: deps.translate("diagnosticsPathsWaveforms"), value: paths.waveformsDir },
         { label: deps.translate("diagnosticsPathsCompressedCache"), value: paths.compressedCacheDir },
-        { label: deps.translate("diagnosticsPathsFfmpeg"), value: paths.ffmpegPath },
-        { label: deps.translate("diagnosticsPathsFfprobe"), value: paths.ffprobePath },
+        {
+          label: deps.translate("diagnosticsPathsFfmpeg"),
+          value: `${paths.ffmpegPath} (${deps.translate(`diagnosticsBinarySource${paths.ffmpegSource[0].toUpperCase()}${paths.ffmpegSource.slice(1)}`)})`,
+        },
+        {
+          label: deps.translate("diagnosticsPathsFfprobe"),
+          value: `${paths.ffprobePath} (${deps.translate(`diagnosticsBinarySource${paths.ffprobeSource[0].toUpperCase()}${paths.ffprobeSource.slice(1)}`)})`,
+        },
         { label: deps.translate("diagnosticsPathsPlaybackLog"), value: paths.playbackLogPath },
       ];
       rows.forEach((row) => {
@@ -50,6 +62,54 @@ export const createSettingsDiagnosticsController = (deps: DiagnosticsControllerD
       });
     } catch (error) {
       target.textContent = deps.translate("diagnosticsPlaybackLogFailed", {
+        message: error instanceof Error ? error.message : deps.translate("statusUnknownError"),
+      });
+    }
+  };
+
+  const renderFfmpegToolsDir = async (target: HTMLElement) => {
+    try {
+      const result = await deps.getFfmpegToolsDir();
+      target.textContent = result.path
+        ? deps.translate("diagnosticsFfmpegToolsDirSet", { path: result.path })
+        : deps.translate("diagnosticsFfmpegToolsDirUnset");
+    } catch (error) {
+      target.textContent = deps.translate("diagnosticsFfmpegToolsDirFailed", {
+        message: error instanceof Error ? error.message : deps.translate("statusUnknownError"),
+      });
+    }
+  };
+
+  const chooseFfmpegToolsDir = async (target: HTMLElement, refreshPaths?: () => Promise<void>) => {
+    target.textContent = deps.translate("statusWaveformLoading");
+    try {
+      const selected = await deps.pickFfmpegToolsDir();
+      if (!selected) {
+        await renderFfmpegToolsDir(target);
+        return;
+      }
+      const result = await deps.setFfmpegToolsDir(selected);
+      target.textContent = deps.translate("diagnosticsFfmpegToolsDirSet", { path: result.path });
+      if (refreshPaths) {
+        await refreshPaths();
+      }
+    } catch (error) {
+      target.textContent = deps.translate("diagnosticsFfmpegToolsDirFailed", {
+        message: error instanceof Error ? error.message : deps.translate("statusUnknownError"),
+      });
+    }
+  };
+
+  const clearFfmpegToolsDir = async (target: HTMLElement, refreshPaths?: () => Promise<void>) => {
+    target.textContent = deps.translate("statusWaveformLoading");
+    try {
+      await deps.setFfmpegToolsDir(null);
+      target.textContent = deps.translate("diagnosticsFfmpegToolsDirUnset");
+      if (refreshPaths) {
+        await refreshPaths();
+      }
+    } catch (error) {
+      target.textContent = deps.translate("diagnosticsFfmpegToolsDirFailed", {
         message: error instanceof Error ? error.message : deps.translate("statusUnknownError"),
       });
     }
@@ -203,6 +263,9 @@ export const createSettingsDiagnosticsController = (deps: DiagnosticsControllerD
 
   return {
     renderDiagnosticsPaths,
+    renderFfmpegToolsDir,
+    chooseFfmpegToolsDir,
+    clearFfmpegToolsDir,
     renderPlaybackDiagnosticsLog,
     clearPlaybackDiagnosticsLog,
     renderDiagnosticsDataReadiness,

@@ -50,6 +50,17 @@ describe("loadLegacyLibrary gain parsing", () => {
     expect(explicit?.gainDb).toBeCloseTo(-4);
   });
 
+  it("marks tracks with no classifier style as ? so legacy mappings can be applied", () => {
+    const legacyPath = writeLegacyFile({
+      "/music/unclassified.mp3": {
+        track: { title: "Unclassified", artist: "Artist", genre: "Tango" },
+      },
+    });
+
+    const entries = loadLegacyLibrary(legacyPath);
+    expect(entries.get("music/unclassified.mp3")?.genre).toBe("?");
+  });
+
   it("lists distinct legacy styles with counts", () => {
     const legacyPath = writeLegacyFile({
       "/music/a.mp3": {

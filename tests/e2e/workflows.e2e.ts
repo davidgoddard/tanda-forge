@@ -503,8 +503,8 @@ const expectClickStartsTrackSoon = async (
       await page.waitForTimeout(50);
       await clickTarget.scrollIntoViewIfNeeded();
       await dispatchExactClick(clickTarget);
-      lastError = null;
-      break;
+      await expectNowPlayingContainsSoon(page, expectedToken, timeout);
+      return;
     } catch (error) {
       lastError = error;
     }
@@ -512,7 +512,6 @@ const expectClickStartsTrackSoon = async (
   if (lastError) {
     throw lastError;
   }
-  await expectNowPlayingContainsSoon(page, expectedToken, timeout);
 };
 
 const expectClickIgnoredWhileLiveActive = async (
@@ -914,9 +913,10 @@ test.describe("Electron app end-to-end workflows", () => {
     try {
       await runSearch(page, "Tempo 72 Test");
       await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "add-clip");
-      await selectClipboardCollection(page, "general");
       await page.locator('button[data-tab="clip-tracks"]').click();
+      await selectClipboardCollection(page, "general");
       const clipRow = clipboardTrackRow(page, "Tempo 72 Test");
+      await expect(clipRow).toBeVisible();
       await clickRowAction(clipRow, "remove-clip");
       await expect(clipboardTrackRow(page, "Tempo 72 Test")).toHaveCount(0);
     } finally {

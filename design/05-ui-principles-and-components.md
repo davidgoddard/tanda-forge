@@ -406,6 +406,12 @@ Behavior:
   before the first tanda, between tandas, and after the final tanda.
 - UI-012.R9.b: Clicking a cortina row opens the cortina picker to replace the
   upcoming cortina.
+- UI-012.R9.c: Playlist cortina assignments persist with the saved playlist,
+  whether they were auto-planned or manually replaced. They are restored on
+  startup when the active cortina set is still the same. If the cortina set
+  changes, those persisted slot assignments are dropped and replacement
+  cortinas are re-planned from the new set, while newly added playlist slots
+  continue to draw from the current cortina set.
 - UI-012.R10: In Live mode, played tandas are visually muted and their slots are locked
   against edits, swaps, or drops while playback is active.
 - UI-012.R11: In Preparation mode, clicking a playlist track starts playback from that
@@ -576,6 +582,9 @@ Features:
 - UI-060.R15: After the final cortina of a marked-last tanda ends and playback
   stops, the display remains on the farewell cortina state (does not revert to
   generic "Cortina" idle text) until superseded by later playback/display updates.
+- UI-060.R16: The display board reflects main-output playback only. Headphone
+  preview must never replace the audience-facing title or artist shown on the
+  display board.
 
 Rules:
 - UI-060.R4: No control affordances.

@@ -147,7 +147,10 @@ import { computeScaledPercent } from "../shared/chart-scale.js";
 import { basenameForDisplay } from "../shared/path-display.js";
 import {
   collectStoredPlaylistTrackIds,
+  parseStoredPlaylistState,
   type PlaylistTandaSnapshot,
+  serializeStoredPlaylistState,
+  type StoredCortinaAssignment,
   type StoredPlaylistItem,
 } from "../shared/playlist-storage.js";
 import {
@@ -181,6 +184,7 @@ import { resolveTrackEditorPathLines } from "./track-editor-path.js";
 import { setSearchUiState as setSearchUiStateView } from "./modules/search-view.js";
 import {
   buildTrackLabel as buildTrackLabelView,
+  getDisplayBoardPlayingState as getDisplayBoardPlayingStateView,
   getNowPlayingState as getNowPlayingStateView,
 } from "./modules/playback-view.js";
 import { createWaveformController } from "./modules/waveform-view.js";
@@ -258,6 +262,12 @@ const derivedCachesSection = document.querySelector<HTMLElement>("#derived-cache
 const errorList = document.querySelector<HTMLUListElement>("#error-list");
 const diagnosticsPathsEl =
   document.querySelector<HTMLDivElement>("#diagnostics-paths");
+const diagnosticsFfmpegToolsPickBtn =
+  document.querySelector<HTMLButtonElement>("#diagnostics-ffmpeg-tools-pick");
+const diagnosticsFfmpegToolsClearBtn =
+  document.querySelector<HTMLButtonElement>("#diagnostics-ffmpeg-tools-clear");
+const diagnosticsFfmpegToolsResult =
+  document.querySelector<HTMLDivElement>("#diagnostics-ffmpeg-tools-result");
 const diagnosticsWaveformBtn =
   document.querySelector<HTMLButtonElement>("#diagnostics-waveform");
 const diagnosticsWaveformResult =
@@ -2405,6 +2415,12 @@ const resolveNowPlayingState = () =>
     main: playback.main,
   });
 
+const resolveDisplayBoardPlayingState = () =>
+  getDisplayBoardPlayingStateView({
+    headphone: playback.headphone,
+    main: playback.main,
+  });
+
 const applyPulseToRow = <T,>(row: HTMLElement, set: Set<T>, key: T) => {
   if (!set.has(key)) {
     return;
@@ -2591,7 +2607,7 @@ const updateExternalDisplay = () => {
     void window.tanda.updateDisplay(payload);
     return;
   }
-  const active = resolveNowPlayingState();
+  const active = resolveDisplayBoardPlayingState();
   if (!active) {
     if (holdCortinaDisplayWhenIdle) {
       const payload: DisplayUpdatePayload = {
@@ -7631,11 +7647,28 @@ const serializePlaylistItems = (items: (PlaylistItem | null)[]) => {
       snapshot,
     };
   });
-  return JSON.stringify(serialized);
+  return serialized;
+};
+
+const serializePlaylistState = () => {
+  const validCortinaIndices = new Set(getCortinaRowIndices(playlistItems));
+  const cortinaAssignments: StoredCortinaAssignment[] = [...validCortinaIndices]
+    .map((index) => {
+      const track = getCortinaRowTrack(index);
+      return track?.id ? { index, trackId: track.id } : null;
+    })
+    .filter((entry): entry is StoredCortinaAssignment => Boolean(entry))
+    .sort((a, b) => a.index - b.index);
+  return serializeStoredPlaylistState({
+    version: 2,
+    items: serializePlaylistItems(playlistItems),
+    cortinaSet: getCortinaSet() || undefined,
+    cortinaAssignments,
+  });
 };
 
 const savePlaylistToStorage = () => {
-  const serialized = serializePlaylistItems(playlistItems);
+  const serialized = serializePlaylistState();
   if (serialized === playlistSaveSnapshot) {
     return;
   }
@@ -7651,20 +7684,12 @@ const loadPlaylistFromStorage = async () => {
   if (!raw) {
     return;
   }
-  let parsed: StoredPlaylistItem[] = [];
-  try {
-    const data = JSON.parse(raw) as StoredPlaylistItem[];
-    if (Array.isArray(data)) {
-      parsed = data;
-    }
-  } catch {
-    parsed = [];
-  }
-  if (parsed.length === 0) {
+  const storedState = parseStoredPlaylistState(raw);
+  if (!storedState || storedState.items.length === 0) {
     return;
   }
-  const trackIds = collectStoredPlaylistTrackIds(parsed);
-  const tandaIds = parsed
+  const trackIds = collectStoredPlaylistTrackIds(storedState);
+  const tandaIds = storedState.items
     .filter((item): item is { kind: "tanda"; id: string } =>
       Boolean(item && item.kind === "tanda"),
     )
@@ -7675,7 +7700,7 @@ const loadPlaylistFromStorage = async () => {
   const tandaMap = new Map(tandas.map((tanda) => [tanda.id, tanda]));
   tandas.forEach((tanda) => upsertTandaCache(tanda));
   tracks.forEach((track) => trackCache.set(track.id, track));
-  playlistItems = parsed.map((item) => {
+  playlistItems = storedState.items.map((item) => {
     if (!item) {
       return null;
     }
@@ -7704,10 +7729,19 @@ const loadPlaylistFromStorage = async () => {
     }
     return null;
   });
-  maybeRepairLeadingPlaylistSlot();
-  playlistSaveSnapshot = serializePlaylistItems(playlistItems);
-  clearPlaylistTarget();
+  cortinaOverrideByIndex.clear();
   resetCortinaPlans();
+  if (storedState.cortinaSet === getCortinaSet()) {
+    storedState.cortinaAssignments?.forEach((entry) => {
+      const track = trackMap.get(entry.trackId);
+      if (track) {
+        cortinaPlannedByIndex.set(entry.index, track);
+      }
+    });
+  }
+  maybeRepairLeadingPlaylistSlot();
+  playlistSaveSnapshot = serializePlaylistState();
+  clearPlaylistTarget();
 };
 
 const renderPlaylist = () => {
@@ -12258,6 +12292,9 @@ const getSettingsDiagnosticsController = () => {
   }
   if (
     !window.tanda?.getDiagnosticsPaths ||
+    !window.tanda?.pickFfmpegToolsDir ||
+    !window.tanda?.getFfmpegToolsDir ||
+    !window.tanda?.setFfmpegToolsDir ||
     !window.tanda?.getDiagnosticsLogs ||
     !window.tanda?.clearDiagnosticsLogs ||
     !window.tanda?.getDiagnosticsDataReadiness
@@ -12266,6 +12303,9 @@ const getSettingsDiagnosticsController = () => {
   }
   settingsDiagnosticsController = createSettingsDiagnosticsController({
     translate: t,
+    pickFfmpegToolsDir: window.tanda.pickFfmpegToolsDir,
+    getFfmpegToolsDir: window.tanda.getFfmpegToolsDir,
+    setFfmpegToolsDir: window.tanda.setFfmpegToolsDir,
     getDiagnosticsPaths: window.tanda.getDiagnosticsPaths,
     getDiagnosticsLogs: window.tanda.getDiagnosticsLogs,
     clearDiagnosticsLogs: window.tanda.clearDiagnosticsLogs,
@@ -12289,6 +12329,17 @@ const renderDiagnosticsPaths = async () => {
     return;
   }
   await controller.renderDiagnosticsPaths(diagnosticsPathsEl);
+};
+
+const renderFfmpegToolsDir = async () => {
+  if (!diagnosticsFfmpegToolsResult) {
+    return;
+  }
+  const controller = getSettingsDiagnosticsController();
+  if (!controller) {
+    return;
+  }
+  await controller.renderFfmpegToolsDir(diagnosticsFfmpegToolsResult);
 };
 
 const renderPlaybackDiagnosticsLog = async () => {
@@ -14265,6 +14316,26 @@ const init = async () => {
   diagnosticsPlaybackLogBtn?.addEventListener("click", () => {
     void renderPlaybackDiagnosticsLog();
   });
+  diagnosticsFfmpegToolsPickBtn?.addEventListener("click", () => {
+    if (!diagnosticsFfmpegToolsResult) {
+      return;
+    }
+    const controller = getSettingsDiagnosticsController();
+    if (!controller) {
+      return;
+    }
+    void controller.chooseFfmpegToolsDir(diagnosticsFfmpegToolsResult, renderDiagnosticsPaths);
+  });
+  diagnosticsFfmpegToolsClearBtn?.addEventListener("click", () => {
+    if (!diagnosticsFfmpegToolsResult) {
+      return;
+    }
+    const controller = getSettingsDiagnosticsController();
+    if (!controller) {
+      return;
+    }
+    void controller.clearFfmpegToolsDir(diagnosticsFfmpegToolsResult, renderDiagnosticsPaths);
+  });
   diagnosticsClearLogsBtn?.addEventListener("click", () => {
     void clearDiagnosticsLogs();
   });
@@ -14356,6 +14427,8 @@ const init = async () => {
     await renderRoots();
     await renderDataLocation();
     await updateLegacyImport(result.path);
+    await renderDiagnosticsPaths();
+    await renderFfmpegToolsDir();
     await renderDiagnosticsDataReadiness();
     renderClipboard();
     renderPlaylist();
@@ -14480,6 +14553,7 @@ const init = async () => {
   renderOrchestraRegistry();
   ensureCortinaDurationDefault();
   await renderDiagnosticsPaths();
+  await renderFfmpegToolsDir();
   await renderPlaybackDiagnosticsLog();
   await renderDiagnosticsDataReadiness();
   updateSearchTabVisibility();

@@ -52,6 +52,14 @@ The playlist timing values affect how one item leads into the next:
 - Zero: immediate handover with no added silence.
 - Negative value: overlap/crossfade.  The next item starts before the current one ends, and the absolute value of the number is used as the overlap duration.  For example `-2` means about a two-second mix.
 
+Once cortinas have been assigned to playlist slots, those slot choices are
+saved with the playlist and restored the next time the app opens, whether they
+came from auto-planning or from a manual replacement. If you later change the
+selected cortina set in Playlist settings, those saved slot assignments are
+cleared and the playlist reassigns cortinas from the newly selected set. If you
+extend the playlist with more tandas, only the new cortina rows are filled from
+the current set; already assigned cortina rows stay as they were.
+
 ![Tanda Sequence](../images/user-guide/04-tanda-sequence.png)
 
 The sequence also supports grouped alternatives with independent sizes, for example:
@@ -81,7 +89,7 @@ on headphones to help choose.
 
 To build tandas, the DJ can pick ready made tandas from one of the built-in collections in the clipboard or start building a tanda, either straight into the playlist or using a tanda designer tab in the right hand column.  
 
-In the top right the DJ can click the display board button and a pop-out window will appear which shows the current playing track information and tanda information.  This can
+In the top right the DJ can click the display board button and a pop-out window will appear which shows the current playing track information and tanda information from the main output only. Headphone preview is never shown on the audience-facing display board. This can
 be dragged to another window to show on a connected TV or Projector.  Background images for this can be configured using the background images folder set in the library tab.
 If no images are set up then a simple set of coloured dots will come and go on the screen in the background instead.  Images work better.
 
@@ -356,6 +364,7 @@ Although the old legacy data does include some information to help normalise the
 In **Settings -> Library**, the buttons are grouped by purpose:
 
 - **Library Scan** refreshes the database, analysis, and waveform PNG cache from the music and cortina folders.
+- Re-running **Scan Music** or **Scan Cortinas** skips unchanged files, so adding new songs normally just means copying them into an existing root and scanning that root again.
 - **Derived Caches** manages the expensive on-disk cache files.
 - **Library Maintenance** contains database-only cleanup.
 
@@ -364,6 +373,13 @@ If **compression** (dynamic range reduction) is enabled, the system can generate
 If you want to keep the cache files on disk but do not fully trust them, use **Verify cached files**. This checks waveform PNGs and compressed cache files, removes broken or incomplete entries, and leaves valid cached files in place. Use **Erase Cached Files** only if you want to remove those derived files entirely and force them to be rebuilt later.
 
 **Erase Database** now removes only the database records. It does not remove waveform or compressed cache files.
+
+In **Settings -> Diagnostics**, the app shows the actual `ffmpeg` and `ffprobe` paths it is using and whether each one came from the bundled app resources, a custom tools folder, or the system `PATH`.
+
+- Normal behavior is to use the bundled binaries shipped with the app.
+- If that is not possible on a particular machine, use **Choose FFmpeg tools folder** and select a folder containing `ffmpeg` and `ffprobe` (or `ffmpeg.exe` and `ffprobe.exe` on Windows).
+- Resolution order is: bundled binaries, custom tools folder, then system `PATH`.
+- You do not need to patch files directly into the installed app folder.
 
 ## Tips and Good Practices
 

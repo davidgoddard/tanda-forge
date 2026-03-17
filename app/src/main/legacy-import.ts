@@ -210,7 +210,7 @@ export const loadLegacyLibrary = (libraryPath: string) => {
     const title = track.title?.trim() ?? "";
     const artist = track.artist?.trim() ?? "";
     const album = track.album?.trim() ?? "";
-    const genre = buildLegacyClassifierStyle(classifiers);
+    const genre = buildLegacyClassifierStyle(classifiers) || "?";
     const bpm = typeof classifiers.bpm === "number" ? classifiers.bpm : null;
     const notes = (classifiers.notes ?? "").toString().trim();
     let year =

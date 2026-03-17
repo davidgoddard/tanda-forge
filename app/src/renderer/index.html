@@ -1234,6 +1234,21 @@
               <div id="diagnostics-paths" class="diagnostics-paths"></div>
             </div>
             <div class="settings-section">
+              <h3 data-i18n="diagnosticsFfmpegToolsTitle">FFmpeg Tools</h3>
+              <p data-i18n="diagnosticsFfmpegToolsHelp">
+                Bundled FFmpeg is used first. If needed, choose a custom folder containing ffmpeg and ffprobe. System PATH is the final fallback.
+              </p>
+              <div class="settings-inline">
+                <button id="diagnostics-ffmpeg-tools-pick" data-i18n="diagnosticsFfmpegToolsPick">
+                  Choose FFmpeg tools folder
+                </button>
+                <button id="diagnostics-ffmpeg-tools-clear" data-i18n="diagnosticsFfmpegToolsClear">
+                  Clear custom folder
+                </button>
+              </div>
+              <div id="diagnostics-ffmpeg-tools-result" class="diagnostics-result"></div>
+            </div>
+            <div class="settings-section">
               <h3 data-i18n="diagnosticsWaveform">Waveform</h3>
               <button id="diagnostics-waveform" data-i18n="diagnosticsWaveformRun">
                 Generate waveform for current track

@@ -296,9 +296,15 @@ export type AppApi = {
     waveformsDir: string;
     compressedCacheDir: string;
     ffmpegPath: string;
+    ffmpegSource: "bundled" | "override" | "path";
     ffprobePath: string;
+    ffprobeSource: "bundled" | "override" | "path";
+    ffmpegToolsDir: string;
     playbackLogPath: string;
   }>;
+  pickFfmpegToolsDir: () => Promise<string | null>;
+  getFfmpegToolsDir: () => Promise<{ path: string }>;
+  setFfmpegToolsDir: (path: string | null) => Promise<{ path: string }>;
   verifyCachedFiles: () => Promise<{
     ok: boolean;
     waveformFiles: number;

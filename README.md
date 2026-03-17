@@ -8,7 +8,13 @@ See [User Guide](docs/user-guide.md)
 
 ## Note
 
-This app requires **ffmpeg** to be installed before it can be used.  See instructions below.
+This app uses `ffmpeg` / `ffprobe` for analysis, waveform generation, and compressed-cache rendering. It now resolves those tools in this order:
+
+- bundled app binaries
+- user-configured custom tools folder
+- system `PATH`
+
+So end users do not normally need to install ffmpeg separately or patch files into the installed app folder.
 
 ## Background
 
@@ -72,9 +78,26 @@ For first launch:
 
 The app requires `ffmpeg` and `ffprobe` for analysis and waveform generation.
 
-### Option A: bundled binaries (recommended)
+### End users
 
-Place binaries at:
+The normal expectation is that releases include bundled binaries. If a particular machine cannot use those, go to:
+
+- `Settings -> Diagnostics`
+
+and use:
+
+- `Choose FFmpeg tools folder`
+
+to point the app at a folder containing:
+
+- `ffmpeg` and `ffprobe`
+- or `ffmpeg.exe` and `ffprobe.exe` on Windows
+
+If neither bundled binaries nor a custom tools folder are available, the app falls back to `PATH`.
+
+### Release/build inputs
+
+Bundled binaries should be staged at:
 
 - `app/resources/ffmpeg/darwin/ffmpeg`
 - `app/resources/ffmpeg/darwin/ffprobe`
@@ -89,9 +112,9 @@ Helper script:
 scripts/fetch-ffmpeg.sh [macos|windows|linux|all]
 ```
 
-### Option B: system PATH fallback
+### PATH fallback
 
-If `ffmpeg` and `ffprobe` are available in `PATH`, the app uses those automatically.
+If `ffmpeg` and `ffprobe` are available in `PATH`, the app uses those automatically as the last fallback.
 
 ## First-time setup
 
@@ -107,7 +130,7 @@ Settings -> **Library**
 6. Add Background folders (optional).
 7. Add images folders (optional).
 8. Import legacy data (optional, if detected - System is ready to use with some limitations).
-9. Scan music/cortinas. This builds or refreshes the library database, analysis, and waveform cache.
+9. Scan music/cortinas. This builds or refreshes the library database, analysis, and waveform cache. Re-running a scan skips unchanged files, so adding new songs normally just means rescanning the relevant root.
 10. If compression will be used, optionally precompute compressed versions of tracks. This takes a long time.
 11. If needed, use `Verify cached files` to prune broken waveform/compressed cache files without deleting the valid ones.
 12. `Erase Database` clears the database only. `Erase Cached Files` clears the waveform/compressed caches.

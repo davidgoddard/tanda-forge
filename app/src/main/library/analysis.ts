@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 import { spawn } from "child_process";
 
+type BinarySource = "bundled" | "override" | "path";
+
 export type TrackAnalysis = {
   durationMs: number;
   startOffsetMs: number;
@@ -167,9 +169,25 @@ const runCommandAllowFailure = (command: string, args: string[]) =>
     });
   });
 
-const resolveBinary = (candidate: string, fallbackName: string) => {
+let customFfmpegToolsDir: string | null = null;
+
+export const setCustomFfmpegToolsDir = (dirPath: string | null) => {
+  const trimmed = dirPath?.trim() ?? "";
+  customFfmpegToolsDir = trimmed ? path.resolve(trimmed) : null;
+};
+
+export const getCustomFfmpegToolsDir = () => customFfmpegToolsDir;
+
+const resolveBinary = (
+  candidate: string,
+  fallbackName: string,
+  overrideCandidate?: string | null,
+) => {
+  if (overrideCandidate && fs.existsSync(overrideCandidate)) {
+    return { binary: overrideCandidate, source: "override" as const };
+  }
   if (fs.existsSync(candidate)) {
-    return candidate;
+    return { binary: candidate, source: "bundled" as const };
   }
   const platform = process.platform;
   const commonPaths =
@@ -183,10 +201,10 @@ const resolveBinary = (candidate: string, fallbackName: string) => {
   for (const base of commonPaths) {
     const alt = path.join(base, fallbackName);
     if (fs.existsSync(alt)) {
-      return alt;
+      return { binary: alt, source: "path" as const };
     }
   }
-  return fallbackName;
+  return { binary: fallbackName, source: "path" as const };
 };
 
 const resolveFfmpeg = () => {
@@ -201,7 +219,11 @@ const resolveFfmpeg = () => {
         ? "ffmpeg"
         : "ffmpeg";
   const candidate = path.join(base, platform, binary);
-  return { binary: resolveBinary(candidate, binary), fallback: "ffmpeg" };
+  const overrideCandidate = customFfmpegToolsDir
+    ? path.join(customFfmpegToolsDir, binary)
+    : null;
+  const resolved = resolveBinary(candidate, binary, overrideCandidate);
+  return { binary: resolved.binary, source: resolved.source, fallback: "ffmpeg" };
 };
 
 const resolveFfprobe = () => {
@@ -216,12 +238,26 @@ const resolveFfprobe = () => {
         ? "ffprobe"
         : "ffprobe";
   const candidate = path.join(base, platform, binary);
-  return { binary: resolveBinary(candidate, binary), fallback: "ffprobe" };
+  const overrideCandidate = customFfmpegToolsDir
+    ? path.join(customFfmpegToolsDir, binary)
+    : null;
+  const resolved = resolveBinary(candidate, binary, overrideCandidate);
+  return { binary: resolved.binary, source: resolved.source, fallback: "ffprobe" };
 };
 
 export const getResolvedFfmpegPath = () => resolveFfmpeg().binary;
 
 export const getResolvedFfprobePath = () => resolveFfprobe().binary;
+
+export const getResolvedFfmpegInfo = () => {
+  const resolved = resolveFfmpeg();
+  return { path: resolved.binary, source: resolved.source as BinarySource };
+};
+
+export const getResolvedFfprobeInfo = () => {
+  const resolved = resolveFfprobe();
+  return { path: resolved.binary, source: resolved.source as BinarySource };
+};
 
 const sanitizeFfmpegError = (stderr: string) => {
   const lower = stderr.toLowerCase();

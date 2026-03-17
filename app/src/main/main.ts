@@ -24,10 +24,14 @@ import type { LibraryRoot } from "./library/scan";
 import {
   hasUsableCompressedRender,
   hasUsableWaveformPng,
+  getCustomFfmpegToolsDir,
+  getResolvedFfmpegInfo,
   getResolvedFfmpegPath,
+  getResolvedFfprobeInfo,
   getResolvedFfprobePath,
   renderCompressedAudio,
   renderWaveformPng,
+  setCustomFfmpegToolsDir,
 } from "./library/analysis";
 import {
   buildJumpIndex,
@@ -87,6 +91,7 @@ if (forcedUserDataRoot) {
 let scanInProgress = false;
 let legacyOverridesByRootId = new Map<string, Map<string, LegacyTrackOverride>>();
 const LEGACY_OVERRIDES_STATE_KEY = "legacy-overrides-v1";
+const FFMPEG_TOOLS_DIR_STATE_KEY = "ffmpeg-tools-dir-v1";
 const closeStateByWebContentsId = new Map<
   number,
   { allowClose: boolean; closeRequested: boolean }
@@ -308,14 +313,43 @@ const saveLegacyOverrides = () => {
   );
 };
 
-const loadLegacyOverrides = () => {
+const getAppStateValue = (key: string) => {
   const db = getDb();
   const row = db
     .prepare("select value from app_state where key = ?")
-    .get(LEGACY_OVERRIDES_STATE_KEY) as { value?: string } | undefined;
+    .get(key) as { value?: string } | undefined;
+  return typeof row?.value === "string" ? row.value : null;
+};
+
+const setAppStateValue = (key: string, value: string | null) => {
+  const db = getDb();
+  if (!value?.trim()) {
+    db.prepare("delete from app_state where key = ?").run(key);
+    return;
+  }
+  const now = new Date().toISOString();
+  db.prepare(
+    `insert into app_state (key, value, updated_at)
+     values (?, ?, ?)
+     on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at`,
+  ).run(key, value.trim(), now);
+};
+
+const loadLegacyOverrides = () => {
   legacyOverridesByRootId = deserializeLegacyOverrides(
-    typeof row?.value === "string" ? row.value : null,
+    getAppStateValue(LEGACY_OVERRIDES_STATE_KEY),
   );
+};
+
+const loadFfmpegToolsDir = () => {
+  setCustomFfmpegToolsDir(getAppStateValue(FFMPEG_TOOLS_DIR_STATE_KEY));
+};
+
+const persistFfmpegToolsDir = (dirPath: string | null) => {
+  const trimmed = dirPath?.trim() ?? "";
+  setAppStateValue(FFMPEG_TOOLS_DIR_STATE_KEY, trimmed || null);
+  setCustomFfmpegToolsDir(trimmed || null);
+  return { path: trimmed };
 };
 
 const setDockIcon = () => {
@@ -536,8 +570,28 @@ const registerIpc = () => {
     legacyOverridesByRootId = new Map();
     reopenDb();
     loadLegacyOverrides();
+    loadFfmpegToolsDir();
     return { path: next };
   });
+
+  ipcMain.handle("diagnostics:pickFfmpegToolsDir", async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory"],
+      title: "Select FFmpeg Tools Folder",
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle("diagnostics:getFfmpegToolsDir", async () => ({
+    path: getCustomFfmpegToolsDir() ?? "",
+  }));
+
+  ipcMain.handle("diagnostics:setFfmpegToolsDir", async (_event, dirPath: string | null) =>
+    persistFfmpegToolsDir(dirPath),
+  );
 
   ipcMain.handle(
     "library:addRoot",
@@ -1661,8 +1715,9 @@ const registerIpc = () => {
   ipcMain.handle("diagnostics:getPaths", () => {
     return getDiagnosticsPaths(
       getDataPaths,
-      getResolvedFfmpegPath(),
-      getResolvedFfprobePath(),
+      getResolvedFfmpegInfo(),
+      getResolvedFfprobeInfo(),
+      getCustomFfmpegToolsDir(),
     );
   });
 
@@ -2051,6 +2106,7 @@ app.whenReady().then(() => {
   try {
     initDb();
     loadLegacyOverrides();
+    loadFfmpegToolsDir();
   } catch (error) {
     dialog.showErrorBox(
       "Database Error",

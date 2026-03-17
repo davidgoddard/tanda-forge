@@ -20,13 +20,21 @@ const createDataPaths = (root: string) => () => ({
 describe("main diagnostics helpers", () => {
   it("reports diagnostics paths from the active data root", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "tanda-diag-"));
-    const paths = getDiagnosticsPaths(createDataPaths(root), "/ffmpeg", "/ffprobe");
+    const paths = getDiagnosticsPaths(
+      createDataPaths(root),
+      { path: "/ffmpeg", source: "bundled" },
+      { path: "/ffprobe", source: "path" },
+      "/custom/tools",
+    );
     expect(paths).toEqual({
       userData: root,
       waveformsDir: path.join(root, "waveforms"),
       compressedCacheDir: path.join(root, "compressed-audio-cache"),
       ffmpegPath: "/ffmpeg",
+      ffmpegSource: "bundled",
       ffprobePath: "/ffprobe",
+      ffprobeSource: "path",
+      ffmpegToolsDir: "/custom/tools",
       playbackLogPath: path.join(root, PLAYBACK_DIAGNOSTIC_LOG),
     });
   });
