@@ -187,6 +187,7 @@ const clipboardCollectionTandaIds = async (page: Page, collectionId: string) => 
 };
 
 const ensurePlaylistTab = async (page: Page) => {
+  await closeTrackEditorIfOpen(page);
   await page.locator('button[data-tab="playlist-tab"]').click();
   await expect(page.locator('button[data-tab="playlist-tab"]')).toHaveClass(/active/);
 };
@@ -809,6 +810,8 @@ test.describe("Electron app end-to-end workflows", () => {
       await runSearch(page, "Busqueda Artistica");
       const row = searchTrackRow(page, "Busqueda Artistica");
       await clickRowAction(row, "add-clip");
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await selectClipboardCollection(page, "general");
       await expect(clipboardTrackRow(page, "Busqueda Artistica")).toBeVisible();
     } finally {
       await launched.close();
@@ -880,6 +883,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await runSearch(page, "Milonga Trio");
       const row = searchTandaRow(page, "Milonga Trio");
       await clickRowAction(row, "add-clip-tanda");
+      await selectClipboardCollection(page, "general");
       await page.locator('button[data-tab="clip-tandas"]').click();
       await expect(clipboardTandaRow(page, "Milonga Trio")).toBeVisible();
     } finally {
@@ -1698,6 +1702,93 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  test("37 - lead-in cortina display shows the clicked tanda style, not the following tanda", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await installAutoEndingMediaStub(page, 1200);
+
+      await page.locator("#mode-select").selectOption("live");
+      await openSettings(page);
+      await page.locator('button[data-tab="playlist"]').click();
+      await page.locator("#gap-between-tracks").fill("0");
+      await page.locator("#gap-before-tanda").fill("0");
+      await page.locator("#gap-before-cortina").fill("0");
+      await page.locator("#playlist-cortina-duration").fill("2");
+      const setValue = await waitForFirstNamedCortinaSetValue(page);
+      await page.locator("#playlist-cortina-set").selectOption(setValue);
+      await closeSettings(page);
+
+      await clearPlaylistViaUi(page);
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+      await runSearch(page, "Milonga Trio");
+      await clickRowAction(searchTandaRow(page, "Milonga Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+      await runSearch(page, "Waltz Trio");
+      await clickRowAction(searchTandaRow(page, "Waltz Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+
+      await ensurePlaylistTab(page);
+      const milongaRow = playlistTandaRow(page, "Milonga Trio");
+      await expect(milongaRow).toBeVisible();
+      await milongaRow.locator(".tanda-summary").first().click();
+      const milongaFirstTrack = milongaRow
+        .locator(".tanda-detail-line", { hasText: "Milonga de Prueba" })
+        .first();
+      await expect(milongaFirstTrack).toBeVisible();
+
+      await page.locator("#open-display").click();
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(async () => {
+              if (!window.tanda?.getDisplayStatus) {
+                return false;
+              }
+              const status = await window.tanda.getDisplayStatus();
+              return status.open;
+            }),
+          { timeout: 10_000 },
+        )
+        .toBe(true);
+
+      await milongaFirstTrack.click();
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(async () => {
+              if (!window.tanda?.getDisplayStatus) {
+                return "";
+              }
+              const status = await window.tanda.getDisplayStatus();
+              const title = (status.lastPayload?.title ?? "").toLowerCase();
+              const artist = (status.lastPayload?.artist ?? "").toLowerCase();
+              return `${title} | ${artist}`;
+            }),
+          { timeout: 10_000 },
+        )
+        .toContain("milonga");
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(async () => {
+              if (!window.tanda?.getDisplayStatus) {
+                return "";
+              }
+              const status = await window.tanda.getDisplayStatus();
+              return (status.lastPayload?.artist ?? "").toLowerCase();
+            }),
+          { timeout: 10_000 },
+        )
+        .not.toContain("waltz");
+    } finally {
+      await launched.close();
+    }
+  });
+
   test("38 - track clicks start within half a second in prep across search, clipboard, and playlist surfaces", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
@@ -1895,6 +1986,8 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator('button[data-tab="search-tandas"]').click();
       await runSearch(page, "Tango Trio");
       await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+      await ensurePlaylistTab(page);
 
       const playlistRow = playlistTandaRow(page, "Tango Trio");
       await expect(playlistRow).toBeVisible();

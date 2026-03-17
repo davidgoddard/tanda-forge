@@ -7436,14 +7436,26 @@
   - `actions/setup-node@v5`
   - `actions/upload-artifact@v5`
   This should remove the GitHub Actions Node 20 deprecation warnings on the build jobs.
+- Added `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` at workflow level in `.github/workflows/release.yml` because GitHub was still warning that `actions/upload-artifact@v5` was running on the deprecated Node 20 JavaScript action runtime. This opts the workflow into Node 24 now instead of waiting for GitHub’s default switch.
 - Tightened display-board playback selection so audience-facing display never reflects headphone preview, even when main output is idle. `getDisplayBoardPlayingState(...)` in `app/src/renderer/modules/playback-view.ts` now returns only active main playback (or `null`), and `tests/playback-view.test.ts` now includes a regression asserting that headphone-only playback does not populate the display board.
 - Fixed a search-ranking bug where very short query tokens such as `a` and `la` were matching arbitrary substrings and swamping exact title relevance. `scoreText(...)` in `app/src/main/library/fuzzy-search.ts` now requires whole-token matches for very short query tokens, which stops queries like `A La Gran Muñeca` from surfacing large numbers of unrelated tracks before the exact title. Added a regression in `tests/library-search.test.ts` and documented the rule in `design/06-search-and-similarity.md`.
 - Improved scan feedback wording so the UI now makes clear that rescans are checking files rather than blindly rebuilding them. `app/src/renderer/controllers/settings-library-controller.ts` now reports `checked`, `reused`, `added`, `updated`, and `removed` counts on completion, and `app/src/renderer/i18n.ts` now uses “checking” language for scan progress labels. Added a controller regression in `tests/settings-library-controller.test.ts`.
+- Fixed display-board next-style resolution during lead-in cortinas when starting playback from a tanda’s first track. `resolveNextTandaStyle(...)` in `app/src/renderer/modules/display-view.ts` now supports using the current playlist index as the upcoming tanda during cortina display phases, and `renderer.ts` passes that flag when `cortinaDisplayPhase` is active. Added a unit regression in `tests/display-view.test.ts` and a new Electron workflow regression in `tests/e2e/workflows.e2e.ts` covering a three-tanda live playlist where starting the second tanda from its first track must show `This tanda: Milonga`, not the following Waltz style, on the display board.
+- After the first local Playwright rerun, fixed two E2E flow issues in `tests/e2e/workflows.e2e.ts`:
+  - workflow `15` now explicitly selects the `general` clipboard collection before asserting that a tanda added from search appears in `clip-tandas`
+  - workflow `37` now calls `confirmIfPrompted(page)` after each `add-playlist-tanda` action so an open confirmation modal cannot block the next search-button click
 - Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/display-view.test.ts` passed.
   - `source ~/.nvm/nvm.sh && npm test -- tests/settings-library-controller.test.ts` passed.
   - `source ~/.nvm/nvm.sh && npm test -- tests/library-search.test.ts` passed.
-  - `source ~/.nvm/nvm.sh && npm test -- tests/playback-view.test.ts` passed.
   - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-storage.test.ts` passed.
   - `source ~/.nvm/nvm.sh && npm run build` passed.
-  - `source ~/.nvm/nvm.sh && npm test` passed (81 files, 367 tests).
-  - Playwright was not rerun in this environment after the latest E2E helper tweak.
+  - `source ~/.nvm/nvm.sh && npm test` passed (81 files, 368 tests).
+  - Playwright was not rerun in this environment after the latest E2E test-flow fixes.
+- After a later user Playwright run exposed new workflow regressions, tightened `tests/e2e/workflows.e2e.ts` again:
+  - `ensurePlaylistTab(page)` now closes an open track editor before trying to switch tabs, preventing the Edit-mode fixture setup from getting stuck behind `#track-editor`.
+  - workflow `11` now switches to `clip-tracks` and selects the `general` collection before asserting the newly added track is visible.
+  - workflow `36` now confirms any playlist-add prompt and explicitly switches to the playlist tab before asserting the newly added playlist tanda is present.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed.

@@ -75,6 +75,26 @@ describe("display view helpers", () => {
     expect(label).toBe("LAST");
   });
 
+  it("uses the current tanda style during a lead-in cortina", () => {
+    const style = resolveNextTandaStyle({
+      isMarkedLast: false,
+      isFinalCortinaPhase: false,
+      useCurrentIndexAsNext: true,
+      playbackStatus: "playing",
+      resumeItemIndex: null,
+      currentIndex: 1,
+      playlistItems: [
+        { kind: "tanda", tandaId: "td1" },
+        { kind: "tanda", tandaId: "td2" },
+        { kind: "tanda", tandaId: "td3" },
+      ],
+      resolveTandaStyle: (id) =>
+        id === "td2" ? "milonga" : id === "td3" ? "waltz" : "tango",
+      shouldShowDisplayNextTanda: () => true,
+    });
+    expect(style).toBe("Milonga");
+  });
+
   it("uses explicit last-tanda label override when requested", () => {
     const label = resolveNextTandaLabel({
       isMarkedLast: false,

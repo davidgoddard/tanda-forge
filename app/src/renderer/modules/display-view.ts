@@ -31,6 +31,7 @@ export const resolveCurrentProgressText = (params: {
 export const resolveNextTandaStyle = (params: {
   isMarkedLast: boolean;
   isFinalCortinaPhase?: boolean;
+  useCurrentIndexAsNext?: boolean;
   playbackStatus: PlaylistPlaybackStatus;
   resumeItemIndex: number | null;
   currentIndex: number;
@@ -46,7 +47,7 @@ export const resolveNextTandaStyle = (params: {
   }
   let startIndex = 0;
   if (params.playbackStatus === "playing") {
-    startIndex = params.currentIndex + 1;
+    startIndex = params.useCurrentIndexAsNext ? params.currentIndex : params.currentIndex + 1;
   } else if (params.playbackStatus === "paused" && params.resumeItemIndex !== null) {
     startIndex = params.resumeItemIndex;
   }

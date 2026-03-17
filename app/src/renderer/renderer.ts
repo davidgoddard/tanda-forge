@@ -2527,6 +2527,7 @@ const getNextTandaStyle = () =>
     isFinalCortinaPhase:
       isMarkedLastFinalCortinaActive &&
       (cortinaDisplayPhase !== "none" || holdCortinaDisplayWhenIdle),
+    useCurrentIndexAsNext: cortinaDisplayPhase !== "none",
     playbackStatus: playlistPlayback.status,
     resumeItemIndex: playlistPlayback.resume?.itemIndex ?? null,
     currentIndex: playlistPlayback.currentIndex,
