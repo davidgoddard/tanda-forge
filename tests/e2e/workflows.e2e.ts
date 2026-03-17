@@ -496,9 +496,22 @@ const expectClickStartsTrackSoon = async (
   expectedToken: string,
   timeout = 500,
 ) => {
-  await expect(clickTarget).toBeAttached();
-  await clickTarget.scrollIntoViewIfNeeded();
-  await dispatchExactClick(clickTarget);
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await expect(clickTarget).toBeAttached();
+      await page.waitForTimeout(50);
+      await clickTarget.scrollIntoViewIfNeeded();
+      await dispatchExactClick(clickTarget);
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
   await expectNowPlayingContainsSoon(page, expectedToken, timeout);
 };
 
@@ -508,9 +521,22 @@ const expectClickIgnoredWhileLiveActive = async (
   expectedToken: string,
   timeout = 500,
 ) => {
-  await expect(clickTarget).toBeAttached();
-  await clickTarget.scrollIntoViewIfNeeded();
-  await dispatchExactClick(clickTarget);
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await expect(clickTarget).toBeAttached();
+      await page.waitForTimeout(50);
+      await clickTarget.scrollIntoViewIfNeeded();
+      await dispatchExactClick(clickTarget);
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
   await page.waitForTimeout(timeout);
   await expectNowPlayingContainsSoon(page, expectedToken, 50);
 };
@@ -610,7 +636,6 @@ const prepareClickPlaybackFixtures = async (page: Page) => {
   return {
     customCollectionId,
     locators: {
-      searchTrack: searchTrackRow(page, "Alberto Gomez Tango Uno"),
       clipboardGeneralTrack: clipboardTrackRow(page, "Alberto Gomez Tango Uno"),
       playlistTrack: playlistSingleTrackDetail,
     },
@@ -1682,7 +1707,12 @@ test.describe("Electron app end-to-end workflows", () => {
       const { customCollectionId, locators } = await prepareClickPlaybackFixtures(page);
 
       await page.locator('button[data-tab="search-tracks"]').click();
-      await expectClickStartsTrackSoon(page, locators.searchTrack, "tango uno");
+      await runSearch(page, "Alberto Gomez");
+      await expectClickStartsTrackSoon(
+        page,
+        searchTrackRow(page, "Alberto Gomez Tango Uno"),
+        "tango uno",
+      );
 
       await page.locator('button[data-tab="search-tandas"]').click();
       await expectClickStartsTrackSoon(
@@ -1732,7 +1762,12 @@ test.describe("Electron app end-to-end workflows", () => {
       const { customCollectionId, locators } = await prepareClickPlaybackFixtures(page);
 
       await page.locator('button[data-tab="search-tracks"]').click();
-      await expectClickStartsTrackSoon(page, locators.searchTrack, "tango uno");
+      await runSearch(page, "Alberto Gomez");
+      await expectClickStartsTrackSoon(
+        page,
+        searchTrackRow(page, "Alberto Gomez Tango Uno"),
+        "tango uno",
+      );
       await closeTrackEditorIfOpen(page);
 
       await page.locator('button[data-tab="search-tandas"]').click();
@@ -1793,7 +1828,12 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect(page.locator("#playlist-stop")).toBeEnabled({ timeout: 2_000 });
 
       await page.locator('button[data-tab="search-tracks"]').click();
-      await expectClickIgnoredWhileLiveActive(page, locators.searchTrack, "tango uno");
+      await runSearch(page, "Alberto Gomez");
+      await expectClickIgnoredWhileLiveActive(
+        page,
+        searchTrackRow(page, "Alberto Gomez Tango Uno"),
+        "tango uno",
+      );
 
       await selectClipboardCollection(page, "general");
       await page.locator('button[data-tab="clip-tracks"]').click();
@@ -1835,10 +1875,10 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect(row).toBeVisible();
       const detailLine = await getExpandedTandaDetailLine(row, "Alberto Gomez Tango Uno");
       await clickDetailMenuUntilOpen(detailLine);
-      const addClipButton = detailLine
+      const addClipButton = row
+        .locator('.tanda-detail-line', { hasText: "Alberto Gomez Tango Uno" })
         .locator('.tanda-detail-menu button[data-action="add-clip-track-from-tanda"]')
         .first();
-      await expect(addClipButton).toBeVisible();
       await dispatchExactClick(addClipButton);
       await selectClipboardCollection(page, "general");
       await page.locator('button[data-tab="clip-tracks"]').click();

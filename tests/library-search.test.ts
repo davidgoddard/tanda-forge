@@ -188,6 +188,105 @@ describe("fuzzy search helpers", () => {
     expect(result[0].track.id).toBe("title-match");
   });
 
+  it("prioritizes exact multi-token artist coverage over title and genre partials", () => {
+    const artistExact = buildTrack({
+      id: "artist-exact",
+      artist: "Orquesta Color Tango",
+      artist_summary: "Color Tango",
+      title: "Emancipacion",
+      genre: "Tango",
+    });
+    const titleExact = buildTrack({
+      id: "title-exact",
+      artist: "One Hundred Tandas",
+      title: "Yunta de oro Color Tango",
+      genre: "Tango",
+    });
+    const partial = buildTrack({
+      id: "partial",
+      artist: "Julio De Caro",
+      title: "Color De Rosa",
+      genre: "Tango",
+    });
+    const result = filterAndScoreTracks([partial, titleExact, artistExact], {
+      query: "Color Tango",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("artist-exact");
+    expect(result[0].score).toBeGreaterThan(result[1].score);
+  });
+
+  it("keeps exact artist token coverage above partial title matches with extra words", () => {
+    const exactArtist = buildTrack({
+      id: "exact-artist",
+      title: "La mariposa",
+      artist: "Color Tango",
+    });
+    const partialTitle = buildTrack({
+      id: "partial-title",
+      title: "Pasion Y Tango",
+      artist: "Sexteto Mayor",
+      album: "Tango Soho",
+    });
+    const result = filterAndScoreTracks([partialTitle, exactArtist], {
+      query: "color tango",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("exact-artist");
+    expect(result[0].score).toBeGreaterThan(result[1].score);
+  });
+
+  it("rewards full multi-token title coverage over partial title matches", () => {
+    const exactTitle = buildTrack({
+      id: "exact-title",
+      title: "Nada Mas Corazon",
+      artist: "Some Artist",
+    });
+    const partialTitle = buildTrack({
+      id: "partial-title",
+      title: "Nada de Ayer",
+      artist: "Different Artist",
+    });
+    const result = filterAndScoreTracks([partialTitle, exactTitle], {
+      query: "Nada Mas Corazon",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("exact-title");
+  });
+
+  it("treats typed style words as normal text terms, not hidden style intent", () => {
+    const textualMatch = buildTrack({
+      id: "textual-match",
+      title: "Yunta de oro",
+      artist: "Color Tango",
+      genre: "Milonga",
+    });
+    const genreOnly = buildTrack({
+      id: "genre-only",
+      title: "Color De Rosa",
+      artist: "Julio De Caro",
+      genre: "Tango",
+    });
+    const result = filterAndScoreTracks([genreOnly, textualMatch], {
+      query: "color tango",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("textual-match");
+    expect(result[0].score).toBeGreaterThan(result[1].score);
+  });
+
   it("uses similarity mode when numeric tokens are present and favors close year/tempo", () => {
     const close = buildTrack({
       id: "close",
@@ -309,29 +408,6 @@ describe("fuzzy search helpers", () => {
       sortDir: "desc",
     });
     expect(result[0].track.id).toBe("notes-phrase");
-  });
-
-  it("ignores style tokens in query text so style stays filter-driven", () => {
-    const base = buildTrack({
-      id: "base",
-      title: "Recuerdo",
-      artist: "Juan D'Arienzo",
-    });
-    const withStyleWord = filterAndScoreTracks([base], {
-      query: "tango recuerdo",
-      minScore: 0,
-      bpmRange: 5,
-      sortBy: "score",
-      sortDir: "desc",
-    })[0].score;
-    const withoutStyleWord = filterAndScoreTracks([base], {
-      query: "recuerdo",
-      minScore: 0,
-      bpmRange: 5,
-      sortBy: "score",
-      sortDir: "desc",
-    })[0].score;
-    expect(withStyleWord).toBe(withoutStyleWord);
   });
 
   it("matches canonical orchestra query against alias-only artist metadata", () => {

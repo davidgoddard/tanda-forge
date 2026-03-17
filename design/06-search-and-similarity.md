@@ -91,11 +91,16 @@ Search must tolerate:
 
 FR-091.1.R4: The search algorithm must produce a relevance score and rank results by score.
 
-FR-091.1.R5: The fuzzy matcher uses normalized trigram (3-gram) overlap across all
-textual fields (title, artist, singer, album, genre, notes).
+FR-091.1.R5: For text queries, field scoring is primarily token-based: query tokens
+are matched against field tokens using fuzzy token similarity, normalized by the
+number of tokens in the candidate field so longer noisier fields are penalized.
 FR-091.1.R6: A configurable minimum score determines which matches are returned.
-FR-091.1.R7: When trigram scores are close, apply a token-level edit-distance bonus
-to prefer the closest word match (e.g., `francico` → `Francisco`).
+FR-091.1.R7: Fuzzy token similarity uses normalized trigram overlap and token-level
+edit-distance similarity to prefer close word matches (e.g., `francico` → `Francisco`).
+FR-091.1.R8: Weak fuzzy token pairs below a minimum similarity threshold must not
+contribute to ranking, so unrelated tokens do not inflate results.
+FR-091.1.R9: Text ranking must reward cleaner full-query coverage and penalize
+noisier partial matches with extra unmatched field tokens.
 
 ### FR-091.4 Implicit Query Parsing and Profiles
 
@@ -105,17 +110,17 @@ to prefer the closest word match (e.g., `francico` → `Francisco`).
   as year intent.
 - FR-091.4.R3: Two- or three-digit numeric tokens that are not valid years are
   treated as tempo intent.
-- FR-091.4.R4: Style tokens (`Tango`, `Milonga`, `Vals`/`Waltz`) are treated as
-  style intent.
+- FR-091.4.R4: Style words typed into the query box remain normal text terms for
+  ranking and matching; they are not converted into implicit style intent.
 - FR-091.4.R5: Remaining tokens are treated as text intent.
-- FR-091.4.R6: If year/tempo/style intent exists, use a similarity ranking
+- FR-091.4.R6: If year or tempo intent exists, use a similarity ranking
   profile; otherwise use a lookup ranking profile.
 - FR-091.4.R7: Only requested intent dimensions are weighted; weights are
   renormalized per-query.
 - FR-091.4.R8: Year and tempo intent use proximity scoring curves and configurable
   missing-metadata fallback scores.
-- FR-091.4.R9: Style chip selection remains a hard filter gate; style text tokens
-  in the query must not influence ranking.
+- FR-091.4.R9: Style chip selection remains the only hard style filter gate; style
+  words typed into the query box still participate in normal text ranking.
 - FR-091.4.R10: Quoted phrases in the query are treated as explicit phrase intent
   and boost lookup ranking for matching title/artist text.
 - FR-091.4.R11: Text-only queries default to lookup profile; similarity profile
@@ -125,6 +130,12 @@ to prefer the closest word match (e.g., `francico` → `Francisco`).
 - FR-091.4.R13: Artist/orchestra matching must expand canonical names with alias
   and variant metadata during scoring so canonical and alias queries rank
   equivalently (e.g. canonical↔nickname matching in both directions).
+- FR-091.4.R14: In lookup profile, token-coverage scoring applies across artist,
+  title, and supporting metadata groups rather than only a single field, so
+  multi-token whole-field matches rise above sparse cross-field partial matches.
+- FR-091.4.R15: A small whole-field fuzzy backstop may assist single-token typo
+  recovery, but it must not dominate multi-token ranking over the normalized
+  per-token field score.
 
 ## FR-092 — Similarity Search Shortcuts
 

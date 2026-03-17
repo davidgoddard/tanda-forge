@@ -524,6 +524,140 @@
   - `docs/dialogue.md`
   - `docs/handoff.md`
 ### Latest update
+- User prompt: Asked for the multi-token search-coverage improvement to apply to all fields, not only artist.
+- Assistant response:
+  - Updated `app/src/main/library/fuzzy-search.ts` so lookup-mode token-coverage scoring is applied across all scored text groups rather than only artist-like fields.
+  - Added `tests/library-search.test.ts` coverage proving:
+    - exact multi-token artist coverage outranks title/genre partials,
+    - full multi-token title coverage outranks partial title matches.
+  - Updated `design/06-search-and-similarity.md` to document token-coverage scoring and the cleaner full-query-coverage rule for lookup ranking.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/library-search.test.ts` passed.
+- Files changed:
+  - `app/src/main/library/fuzzy-search.ts`
+  - `tests/library-search.test.ts`
+  - `design/06-search-and-similarity.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Confirmed the end-to-end tests are still passing and asked to keep refactoring the renderer toward a more manageable structure.
+- Assistant response:
+  - Added `app/src/renderer/controllers/playlist-interactions-controller.ts` and moved the remaining dense playlist interaction wiring out of `app/src/renderer/renderer.ts`.
+  - The new controller now owns:
+    - playlist panel drag/drop handling,
+    - add-tanda button behavior,
+    - delegated playlist row click routing for cortinas, track/tanda actions, playlist target marking/swapping, and prep/edit playback start behavior.
+  - Added `tests/playlist-interactions-controller.test.ts` covering:
+    - add-tanda draft creation,
+    - prep-mode tanda detail click playback start,
+    - playlist target marking and rerender flow.
+  - Reduced `app/src/renderer/renderer.ts` to `14,532` lines after this extraction.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-interactions-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/controllers/playlist-interactions-controller.ts`
+  - `tests/playlist-interactions-controller.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Clarified that style pills are the correct way to filter style, but words such as `tango` or `waltz` typed into the query box should still behave as normal search terms.
+- Assistant response:
+  - Updated `app/src/main/library/fuzzy-search.ts` so typed style words are no longer stripped from query text during parsing.
+  - Kept style pills as the only hard style filter while allowing typed style words to participate in normal text ranking.
+  - Tightened text-component weighting so a notes-only text match is not discarded when artist/title contribute nothing.
+  - Updated `design/06-search-and-similarity.md` to reflect that typed style words remain text terms and only year/tempo trigger similarity mode.
+  - Added/updated `tests/library-search.test.ts` coverage for:
+    - `color tango` textual ranking over genre-only partials,
+    - notes-only text matches still being returned.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/library-search.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+- Files changed:
+  - `app/src/main/library/fuzzy-search.ts`
+  - `tests/library-search.test.ts`
+  - `design/06-search-and-similarity.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Challenged the remaining `color tango` ranking and proposed a normalized per-token field-scoring model where compact exact field matches should beat partial longer-field matches such as `Pasion Y Tango`.
+- Assistant response:
+  - Reworked lookup text ranking in `app/src/main/library/fuzzy-search.ts` so field relevance is now primarily based on per-token fuzzy matching normalized by the number of tokens in the candidate field.
+  - Added a minimum token-similarity threshold so weak unrelated token pairs do not inflate scores.
+  - Kept only a small single-token whole-field fuzzy backstop for typo recovery.
+  - Added/updated `tests/library-search.test.ts` coverage for:
+    - exact artist token coverage outranking `Pasion Y Tango`,
+    - notes-only text matches still being returned,
+    - existing typo-oriented token matching still passing.
+  - Updated `design/06-search-and-similarity.md` to document the normalized per-token ranking model and the limited single-token backstop.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/library-search.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+- Files changed:
+  - `app/src/main/library/fuzzy-search.ts`
+  - `tests/library-search.test.ts`
+  - `design/06-search-and-similarity.md`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked to resume renderer maintainability work after the search ranking fixes.
+- Assistant response:
+  - Added `app/src/renderer/controllers/app-runtime-controller.ts` and moved low-cohesion runtime/listener wiring out of `app/src/renderer/renderer.ts`.
+  - The new controller now owns:
+    - search input/button/sort wiring,
+    - search-result scroll handling,
+    - clipboard panel drag/drop wiring,
+    - media-device change refresh,
+    - global user-interaction tracking listeners,
+    - the `beforeunload` playback guard.
+  - Added `tests/app-runtime-controller.test.ts` covering search-sort toggling and unload blocking.
+  - Reduced `app/src/renderer/renderer.ts` to `14,502` lines.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/app-runtime-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/controllers/app-runtime-controller.ts`
+  - `tests/app-runtime-controller.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Reported new Playwright failures in workflows `35`, `38`, `39`, and `40` after the search-model changes.
+- Assistant response:
+  - Updated `tests/e2e/workflows.e2e.ts` so the click-speed workflows no longer rely on a stale search-track locator from fixture setup.
+  - The workflows now explicitly restore the expected search context (`search-tracks` + `Alberto Gomez`) before asserting search-surface click speed.
+  - Stabilized the old tanda-detail clipboard-action workflow by re-resolving the `add-clip-track-from-tanda` button after the detail menu opens instead of asserting visibility on a stale hidden locator.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (81 files, 357 tests).
+- Files changed:
+  - `tests/e2e/workflows.e2e.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Reported that after the first E2E harness fix only workflow `38` still failed, with the clicked locator detaching during `scrollIntoViewIfNeeded()`.
+- Assistant response:
+  - Hardened the shared Playwright helpers in `tests/e2e/workflows.e2e.ts` so `expectClickStartsTrackSoon(...)` and `expectClickIgnoredWhileLiveActive(...)` now retry through transient detach/rerender during the scroll-and-click sequence instead of failing immediately on a single unstable locator.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (81 files, 357 tests).
+- Files changed:
+  - `tests/e2e/workflows.e2e.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Reported that workflow `38` still failed after the retry hardening, now with a 500ms timeout while the prep search-row click left now-playing at `idle`.
+- Assistant response:
+  - Added a short settle delay inside the shared Playwright click helpers in `tests/e2e/workflows.e2e.ts` after attachment but before scroll-and-click, so the helper targets the final row instance after the search rerender stabilizes.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (81 files, 357 tests).
+- Files changed:
+  - `tests/e2e/workflows.e2e.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
 - User prompt: Reviewed the worksheet item-by-item and resolved the direction:
   - current app behavior is correct for the A-section items,
   - old USB-mount behavior can be removed,
@@ -7145,6 +7279,113 @@
   - `app/src/renderer/controllers/settings-library-controller.ts`
   - `tests/settings-view.test.ts`
   - `tests/settings-library-controller.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked to keep going on reducing the renderer size.
+- Assistant response:
+  - Added `app/src/renderer/controllers/panel-interactions-controller.ts` and moved another cohesive block out of `app/src/renderer/renderer.ts`.
+  - The new controller now owns:
+    - duplicated tanda-designer/playlist-editor track-click playback wiring,
+    - dragover/drop wiring for tanda editor surfaces,
+    - global outside-click menu closing,
+    - panel tab switching and related active-tab callbacks.
+  - This reduced renderer size further from about `15,124` lines to `15,043` lines.
+  - Added `tests/panel-interactions-controller.test.ts` covering representative track-row playback and global menu-close behavior.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/panel-interactions-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (79 files, 349 tests).
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/controllers/panel-interactions-controller.ts`
+  - `tests/panel-interactions-controller.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked to keep pushing the renderer down to a manageable size.
+- Assistant response:
+  - Added `app/src/renderer/controllers/library-list-interactions-controller.ts` and moved four large list-click handlers out of `app/src/renderer/renderer.ts`:
+    - search track rows,
+    - search tanda rows,
+    - clipboard track rows,
+    - clipboard tanda rows.
+  - This localized a substantial chunk of interaction routing that was previously inline in the renderer and reduced renderer size from about `15,518` lines to `15,124` lines.
+  - Added `tests/library-list-interactions-controller.test.ts` covering representative search/clipboard interaction routing.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/library-list-interactions-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (78 files, 347 tests).
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/controllers/library-list-interactions-controller.ts`
+  - `tests/library-list-interactions-controller.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Asked whether a ~15.5k-line renderer file is typical, pointed out deprecated `event.returnValue` usage in the renderer, and asked for code improvement.
+- Assistant response:
+  - Confirmed that a renderer of this size is still a maintainability smell rather than a good steady state.
+  - Removed deprecated `event.returnValue` usage from the `beforeunload` guard in `app/src/renderer/renderer.ts`; the handler now relies on `event.preventDefault()` only.
+  - Added `app/src/renderer/controllers/settings-catalog-controller.ts` and moved the orchestra/style-family settings wiring out of `renderer.ts`.
+  - The new controller now owns:
+    - orchestra add/reset/save/filter event bindings,
+    - style-family add button handling,
+    - Enter-key submission for style-family inputs.
+  - Added `tests/settings-catalog-controller.test.ts` covering orchestra filter updates and style-family submission via click and Enter.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-catalog-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (77 files, 345 tests).
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/controllers/settings-catalog-controller.ts`
+  - `tests/settings-catalog-controller.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Confirmed end-to-end tests were passing and asked to keep going on the maintainability refactor.
+- Assistant response:
+  - Added `app/src/renderer/controllers/settings-shell-controller.ts` and moved the settings-shell/navigation wiring out of `app/src/renderer/renderer.ts`.
+  - The new controller now owns:
+    - theme initialization and cycling,
+    - settings open/close buttons,
+    - fullscreen and external-display button behavior,
+    - diagnostics shortcut buttons,
+    - settings-tab button activation.
+  - Simplified `renderer.ts` so it now passes the stateful callbacks into the controller instead of carrying the shell wiring inline.
+  - Added `tests/settings-shell-controller.test.ts` covering theme cycling, diagnostics shortcut activation, and fullscreen error reporting.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-shell-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (76 files, 343 tests).
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/controllers/settings-shell-controller.ts`
+  - `tests/settings-shell-controller.test.ts`
+  - `docs/dialogue.md`
+  - `docs/handoff.md`
+### Latest update
+- User prompt: Confirmed that all end-to-end tests are now passing and asked to keep going with the maintainability refactor.
+- Assistant response:
+  - Extracted the remaining general settings/output-selector wiring from `app/src/renderer/renderer.ts` into a dedicated controller at `app/src/renderer/controllers/settings-general-controller.ts`.
+  - Moved the following behaviors into that controller:
+    - language select initialization and persistence,
+    - mode select initialization and mode-change routing,
+    - main output selection verification and headphone reset handling,
+    - headphone output selection verification/clearing.
+  - Kept renderer ownership only for the stateful callbacks that still need direct access to playback/UI orchestration.
+  - Added `tests/settings-general-controller.test.ts` to cover:
+    - language persistence and callback invocation,
+    - main-output changes clearing conflicting headphone output selections and refreshing audio outputs.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-general-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (75 files, 340 tests).
+- Files changed:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/controllers/settings-general-controller.ts`
+  - `tests/settings-general-controller.test.ts`
   - `docs/dialogue.md`
   - `docs/handoff.md`
 ### Latest update

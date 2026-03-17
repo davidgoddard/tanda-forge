@@ -229,7 +229,6 @@ const ARTIST_FIELD_VARIANT_CACHE = new Map<string, string>();
 
 type SearchMode = "lookup" | "similarity";
 type SearchScope = "all" | "artist";
-type StyleToken = "" | "tango" | "milonga" | "waltz";
 type ScopedSearchQuery = {
   scope: SearchScope;
   query: string;
@@ -242,28 +241,6 @@ type ParsedQuery = {
   hasQuotedPhrase: boolean;
   yearTokens: number[];
   tempoTokens: number[];
-};
-
-const normalizeStyleToken = (token: string): StyleToken => {
-  const normalized = normalizeSearchText(token);
-  if (!normalized) {
-    return "";
-  }
-  if (normalized === "tango") {
-    return "tango";
-  }
-  if (normalized === "milonga") {
-    return "milonga";
-  }
-  if (
-    normalized === "vals" ||
-    normalized === "valz" ||
-    normalized === "waltz" ||
-    normalized === "walz"
-  ) {
-    return "waltz";
-  }
-  return "";
 };
 
 const extractQuotedPhrases = (query: string) => {
@@ -311,11 +288,6 @@ const parseQuery = (query: string): ParsedQuery => {
   const textTokens: string[] = [];
   tokens.forEach((token) => {
     if (STOPWORDS.has(token)) {
-      return;
-    }
-    const style = normalizeStyleToken(token);
-    if (style) {
-      // Style is controlled via style pills/filter, not query scoring text.
       return;
     }
     if (/^\d{4}$/.test(token)) {
@@ -482,6 +454,39 @@ const scoreFieldText = (queryText: string, candidateField: string) =>
     bestTokenSimilarity(queryText, [candidateField]),
   );
 
+const scoreTokenPair = (queryToken: string, candidateToken: string) =>
+  {
+    const similarity = Math.max(
+    scoreText(queryToken, candidateToken),
+    bestTokenSimilarity(queryToken, [candidateToken]),
+  );
+    return similarity >= 0.55 ? similarity : 0;
+  };
+
+const scoreQueryTokensAgainstField = (
+  queryTokens: string[],
+  field: string,
+  options?: { ignoreStopwords?: boolean },
+) => {
+  if (queryTokens.length === 0 || !field) {
+    return null;
+  }
+  const fieldTokens = getTokens(field).filter((token) =>
+    options?.ignoreStopwords ? !STOPWORDS.has(token) : true,
+  );
+  if (fieldTokens.length === 0) {
+    return 0;
+  }
+  const uniqueQueryTokens = Array.from(new Set(queryTokens));
+  const total = uniqueQueryTokens.reduce((sum, queryToken) => {
+    const best = fieldTokens.reduce((bestScore, candidateToken) => {
+      return Math.max(bestScore, scoreTokenPair(queryToken, candidateToken));
+    }, 0);
+    return sum + best;
+  }, 0);
+  return total / fieldTokens.length;
+};
+
 const scoreTermsAgainstField = (terms: string[], field: string) => {
   if (terms.length === 0 || !field) {
     return null;
@@ -580,8 +585,8 @@ const scoreTrackWithBreakdown = (
   const parsed = parseQuery(trimmed);
   const components: Array<{ score: number; weight: number }> = [];
   const lookupWeights = {
-    title: 0.4,
-    artist: 0.32,
+    title: 0.3,
+    artist: 0.42,
     year: 0.1,
     tempo: 0.05,
     notes: 0.1,
@@ -595,6 +600,11 @@ const scoreTrackWithBreakdown = (
   };
   const weights = parsed.mode === "similarity" ? similarityWeights : lookupWeights;
   const textTerms = [...parsed.phraseTokens, ...parsed.textTokens];
+  const queryCoverageTokens = Array.from(
+    new Set(
+      textTerms.flatMap((term) => getTokens(term)).filter((token) => token.length > 0),
+    ),
+  );
   const artistField = [
     track.artist_summary || "",
     track.artist || "",
@@ -606,6 +616,10 @@ const scoreTrackWithBreakdown = (
   const titleField = track.title || "";
   const artistTermScore = scoreTermsAgainstField(textTerms, expandedArtistField);
   const titleTermScore = scoreTermsAgainstField(textTerms, titleField);
+  const artistCoverageScore = scoreQueryTokensAgainstField(queryCoverageTokens, artistField, {
+    ignoreStopwords: true,
+  });
+  const titleCoverageScore = scoreQueryTokensAgainstField(queryCoverageTokens, titleField);
   const phraseBoost = parsed.hasQuotedPhrase && parsed.phraseTokens.length > 0
     ? Math.max(
         ...parsed.phraseTokens.map((phrase) =>
@@ -616,12 +630,29 @@ const scoreTrackWithBreakdown = (
         ),
       )
     : 0;
+  const allowWholeFieldBackstop = queryCoverageTokens.length <= 1;
   const artistScore = artistTermScore === null
     ? 0
-    : Math.min(1, artistTermScore + (parsed.mode === "similarity" ? 0.05 * phraseBoost : 0));
+    : Math.min(
+        1,
+        Math.max(
+          (artistCoverageScore ?? 0) +
+            (allowWholeFieldBackstop ? 0.15 * artistTermScore : 0),
+          artistCoverageScore ?? 0,
+        ) +
+          (parsed.mode === "similarity" ? 0.05 * phraseBoost : 0),
+      );
   const titleScore = titleTermScore === null
     ? 0
-    : Math.min(1, titleTermScore + (parsed.mode === "lookup" ? 0.15 * phraseBoost : 0));
+    : Math.min(
+        1,
+        Math.max(
+          (titleCoverageScore ?? 0) +
+            (allowWholeFieldBackstop ? 0.15 * titleTermScore : 0),
+          titleCoverageScore ?? 0,
+        ) +
+          (parsed.mode === "lookup" ? 0.15 * phraseBoost : 0),
+      );
   if (textTerms.length > 0) {
     components.push({ score: artistScore, weight: weights.artist });
     components.push({ score: titleScore, weight: weights.title });
@@ -635,14 +666,30 @@ const scoreTrackWithBreakdown = (
     components.push({ score: tempoScore, weight: weights.tempo });
   }
   const notesScoreBase = scoreNotesText(textTerms, track);
+  const notesField = [track.notes || "", track.album || "", track.genre || ""]
+    .filter(Boolean)
+    .join(" ");
+  const notesCoverageScore = scoreQueryTokensAgainstField(queryCoverageTokens, notesField);
   const notesPhraseBoost = parsed.hasQuotedPhrase && parsed.phraseTokens.length > 0
     ? Math.max(...parsed.phraseTokens.map((phrase) => scorePhraseInQuery(phrase, track.notes || "")))
     : 0;
   const notesScore = notesScoreBase === null
     ? null
-    : Math.min(1, notesScoreBase + (parsed.mode === "lookup" ? 0.2 * notesPhraseBoost : 0));
+    : Math.min(
+        1,
+        Math.max(
+          (notesCoverageScore ?? 0) +
+            (allowWholeFieldBackstop ? 0.15 * notesScoreBase : 0),
+          notesCoverageScore ?? 0,
+        ) +
+          (parsed.mode === "lookup" ? 0.2 * notesPhraseBoost : 0),
+      );
   if (notesScore !== null && weights.notes > 0) {
     components.push({ score: notesScore, weight: weights.notes });
+  }
+  if (textTerms.length > 0 && artistScore <= 0 && titleScore <= 0 && (notesScore ?? 0) > 0) {
+    components.length = 0;
+    components.push({ score: notesScore ?? 0, weight: 1 });
   }
   if (components.length === 0) {
     const fields = [

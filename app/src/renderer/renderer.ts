@@ -190,10 +190,17 @@ import {
   resolveNextTandaStyle,
 } from "./modules/display-view.js";
 import { createSearchController } from "./controllers/search-controller.js";
+import { createSettingsCatalogController } from "./controllers/settings-catalog-controller.js";
 import { createSettingsDiagnosticsController } from "./controllers/settings-diagnostics-controller.js";
+import { createSettingsGeneralController } from "./controllers/settings-general-controller.js";
+import { createAppRuntimeController } from "./controllers/app-runtime-controller.js";
+import { createLibraryListInteractionsController } from "./controllers/library-list-interactions-controller.js";
+import { createPanelInteractionsController } from "./controllers/panel-interactions-controller.js";
+import { createPlaylistInteractionsController } from "./controllers/playlist-interactions-controller.js";
 import { createSettingsLibraryController } from "./controllers/settings-library-controller.js";
 import { createSettingsPlaylistController } from "./controllers/settings-playlist-controller.js";
 import { createSettingsSearchAudioController } from "./controllers/settings-search-audio-controller.js";
+import { createSettingsShellController } from "./controllers/settings-shell-controller.js";
 import { createPlaybackCompressionController } from "./controllers/playback-compression-controller.js";
 import { createPlaylistRuntimeController } from "./controllers/playlist-runtime-controller.js";
 import { computeTapTempoBpm } from "./modules/track-editor-view.js";
@@ -13260,6 +13267,474 @@ const init = async () => {
       normalizeTandaSearchSizeInput,
     },
   });
+  const settingsGeneralController = createSettingsGeneralController({
+    storage: localStorage,
+    elements: {
+      languageSelect,
+      modeSelect,
+      mainOutputSelect,
+      headphoneOutputSelect,
+    },
+    keys: {
+      language: "tanda-language",
+      mode: "tanda-mode",
+      headphoneOutput: "tanda-headphone-output",
+      headphoneOutputLabel: "tanda-headphone-output-label",
+      headphoneOutputGroup: "tanda-headphone-output-group",
+    },
+    readers: {
+      getLanguage,
+      getAppMode: () => appMode,
+      getMainOutputValue: () => mainOutputSelect?.value ?? null,
+    },
+    actions: {
+      applyLanguageChange: async (language) => {
+        applyTranslations();
+        ensureDefaultCollection();
+        ensureNewCollection();
+        ensureTopCollection();
+        ensureLeastCollection();
+        ensureAvailableCollection();
+        saveClipboardCollections();
+        renderClipboardCollections();
+        renderOrchestraRegistry();
+        await renderDiagnosticsPaths();
+        await ensureDefaultStyles("language");
+        await loadStyles();
+        renderAllLists();
+        updateExternalDisplay();
+        setStatus(t("statusLanguageSet", { language }));
+      },
+      applyModeChange: (nextMode, previousMode) => {
+        const next = resolveOutputModeValue(nextMode);
+        setAppModeState(next);
+        document.body.classList.toggle("mode-live", appMode === "live");
+        if (previousMode !== "live" && appMode === "live") {
+          attachActivePlaylistTrackToRun();
+        }
+        if (appMode === "edit") {
+          setTrackEditorOpen(false);
+          trackEditorState.track = null;
+          setCortinaModalVisible(false);
+        }
+        updateTrackEditorPresentation();
+        renderPlaylist();
+        renderTandaDesigner();
+        updatePlaylistControls();
+      },
+      verifyOutputSelection,
+      ensureAudioOutputs,
+      renderAllLists,
+    },
+  });
+  const settingsCatalogController = createSettingsCatalogController({
+    elements: {
+      orchestraAddBtn,
+      orchestraResetBtn,
+      orchestraSaveBtn,
+      orchestraFilterInput,
+      styleFamilyAddBtn,
+      styleFamilyCodeInput,
+      styleFamilyBaseInput,
+      styleFamilyVariantsInput,
+    },
+    actions: {
+      addOrchestraEntry: () => {
+        orchestraRegistry.push(
+          normalizeRegistryEntry({
+            canonical: "",
+            aliases: [],
+            related: [],
+          }),
+        );
+        renderOrchestraRegistry();
+      },
+      resetOrchestraRegistry: async () => {
+        const confirmed = await showConfirmModal(t("confirmOrchestraRegistryReset"));
+        if (!confirmed) {
+          return;
+        }
+        orchestraRegistry = convertSeedToRegistry(ORCHESTRA_SEED_DATA);
+        saveOrchestraRegistry();
+        renderOrchestraRegistry();
+        setStatus(t("statusOrchestraRegistryReset"));
+      },
+      saveOrchestraRegistry: () => {
+        const hasInvalid = orchestraRegistry.some((entry) => !entry.canonical.trim());
+        if (hasInvalid) {
+          setStatus(t("statusOrchestraRegistryInvalid"));
+          return;
+        }
+        orchestraRegistry = orchestraRegistry.map((entry) =>
+          normalizeRegistryEntry(entry),
+        );
+        saveOrchestraRegistry();
+        renderOrchestraRegistry();
+        setStatus(t("statusOrchestraRegistrySaved"));
+      },
+      setOrchestraFilter: (value) => {
+        orchestraFilterText = value;
+        renderOrchestraRegistry();
+      },
+      addStyleFamily: async () => {
+        const code = styleFamilyCodeInput?.value?.trim().toUpperCase() ?? "";
+        const base = styleFamilyBaseInput?.value?.trim() ?? "";
+        const variants = (styleFamilyVariantsInput?.value ?? "")
+          .split(/[;,/]+/)
+          .map((value) => value.trim())
+          .filter(Boolean);
+        if (!code || !base) {
+          return false;
+        }
+        const next = styleFamilies.filter((family) => family.code !== code);
+        next.push({ code, base, variants });
+        await setStyleFamilies(next);
+        if (styleFamilyCodeInput) {
+          styleFamilyCodeInput.value = "";
+        }
+        if (styleFamilyBaseInput) {
+          styleFamilyBaseInput.value = "";
+        }
+        if (styleFamilyVariantsInput) {
+          styleFamilyVariantsInput.value = "";
+        }
+        recomputePlaylistMismatches();
+        renderPlaylist();
+        updateExternalDisplay();
+        setStatus(t("statusStyleAdded", { style: base }));
+        return true;
+      },
+    },
+  });
+  const libraryListInteractionsController = createLibraryListInteractionsController({
+    elements: {
+      clipTandasEl,
+      searchTracksEl,
+      searchTandasEl,
+      clipTracksEl,
+    },
+    readers: {
+      getClipboardTandas: () => clipboardTandas,
+      getClipboardTracks: () => clipboardTracks,
+      getActiveCollectionId: () => getActiveCollection()?.id ?? null,
+      getAppMode: () => appMode,
+      isHeadphoneAvailable: () => headphoneAvailable,
+      isTrackEditorOpen,
+      getTrackDataFromRow,
+      getTrackById: resolveTrackById,
+      getTrackFromCache: (id) => trackCache.get(id) ?? null,
+      resolveTandaForSearch,
+      getClipboardMoveTargets,
+    },
+    actions: {
+      handleDuplicateJump,
+      toggleTandaRow,
+      closeDetailMenus,
+      closeRowMenus,
+      toggleRowMenu,
+      openTrackEditor,
+      runSearchForTrack,
+      runSearchForTanda,
+      playOnChannel,
+      playTrackForMode,
+      updateHeadphoneButtonIndicators,
+      addTrackToClipboard,
+      addTandaToClipboard,
+      openTandaInDesigner,
+      addTrackToActiveTanda,
+      appendTrackToPlaylist,
+      addTandaToPlaylist,
+      moveTrackBetweenClipboardCollections,
+      moveTandaBetweenClipboardCollections,
+      openTrackMoveTargetMenu,
+      openTandaMoveTargetMenu,
+      removeClipboardTrack,
+      removeClipboardTanda,
+      activateClipboardTab: (tabId) => activatePanelTab(clipPanel, tabId),
+      setSelectedClipboardTrackId: (trackId) => {
+        selectedClipboardTrackId = trackId;
+      },
+      setSelectedClipboardTandaId: (tandaId) => {
+        selectedClipboardTandaId = tandaId;
+      },
+      renderClipboard,
+      setStatusNoTandaSelected: () => {
+        setStatus(t("statusNoTandaSelected"));
+      },
+    },
+  });
+  const panelInteractionsController = createPanelInteractionsController({
+    elements: {
+      tandaListEl,
+      playlistTandaEditorEl,
+      panelTabButtons,
+      documentBody: document,
+    },
+    readers: {
+      getTrackFromCache: (trackId) => trackCache.get(trackId) ?? null,
+    },
+    actions: {
+      handleTandaAction,
+      playTrackForMode,
+      handleDropToTanda,
+      closeRowMenus,
+      closeDetailMenus,
+      closeStyleVariantMenu,
+      closeCollectionTargetMenu,
+      setActiveSearchTab: (tabId) => {
+        setActiveSearchTabState(tabId as SearchTab);
+      },
+      updateSearchTabVisibility,
+      setActiveRightTab: (tabId) => {
+        setActiveRightTabState(tabId as RightPanelTab);
+      },
+      renderTandaDesigner,
+    },
+  });
+  const playlistInteractionsController = createPlaylistInteractionsController({
+    elements: {
+      playlistPanel: playlistPanel as HTMLElement | null,
+      playlistListEl,
+      addTandaBtn,
+    },
+    readers: {
+      getHeadphoneAvailable: () => headphoneAvailable,
+      getTrackDataFromRow,
+      getTrackFromCache: (trackId) => trackCache.get(trackId) ?? null,
+      getTrackById: resolveTrackById,
+      resolveTandaForSearch,
+      resolvePlaylistRowIndex,
+      resolveSearchStylesForPlaylistIndex,
+      isCortinaIndexEditable,
+      isPlaylistIndexLocked,
+      isPlaylistTandaSlotLocked,
+      getPlaylistTargetIndex,
+      getPlaylistTrackTargetIndex,
+      getPlaylistItems: () => playlistItems,
+      getPlaylistOpenTandaIndex: () => playlistOpenTandaIndex,
+      getRuleForSlot,
+      getPlaylistStyleMap,
+      getSelectedTandaId: () => selectedTandaId,
+      getSelectedClipboardTandaId: () => selectedClipboardTandaId,
+      getSelectedClipboardTrackId: () => selectedClipboardTrackId,
+      getClipboardTandas: () => clipboardTandas,
+      getClipboardTracks: () => clipboardTracks,
+      getActiveCollection,
+      getAppMode: () => appMode,
+      isMainPlaying: () => !!playback.main.active && !playback.main.active.paused,
+      shouldStartPlaylistFromClick: (mode, isMainPlaying) =>
+        shouldStartPlaylistFromClick(
+          mode as "prep" | "live" | "edit",
+          isMainPlaying,
+        ),
+      resolveTandaDraft,
+    },
+    actions: {
+      handleDropToPlaylist,
+      createEmptyTanda,
+      appendTandaDraft: (draft) => {
+        tandaDrafts = [...tandaDrafts, draft];
+      },
+      setActiveTanda,
+      openCortinaModal,
+      toggleTandaRow,
+      closeDetailMenus,
+      closeRowMenus,
+      openTrackEditor,
+      playOnChannel,
+      runSearchForTanda,
+      runSearchForTrack,
+      toggleRowMenu,
+      clearPlaylistTarget,
+      retainPlaylistTargetAtIndex,
+      retainPlaylistTrackTargetAtIndex,
+      applyPlaylistTargetStyles,
+      setPlaylistTargetIndex: (index) => {
+        playlistTargetIndex = index;
+      },
+      setCenterPlaylistTargetOnNextRender: (value) => {
+        centerPlaylistTargetOnNextRender = value;
+      },
+      renderPlaylist,
+      setStatusPlaylistLocked: () => {
+        setStatus(t("statusPlaylistLocked"));
+      },
+      setStatusPlaylistSwapInvalid: () => {
+        setStatus(t("statusPlaylistSwapInvalid"));
+      },
+      setStatusClipboardReadonlyRemove: () => {
+        setStatus(t("statusClipboardReadonlyRemove"));
+      },
+      setStatusCortinaLocked: () => {
+        setStatus(t("statusCortinaLocked"));
+      },
+      markPlaylistPulse,
+      validateTandaForSlot,
+      confirmPlaylistCountOverride: (ruleLabel, expected, count, onConfirm) => {
+        showAlertAction(
+          t("confirmPlaylistSequenceOverride", {
+            rule: ruleLabel,
+            expected,
+            count,
+          }),
+          t("allowOverride"),
+          onConfirm,
+        );
+      },
+      confirmPlaylistStyleOverride: (ruleLabel, tandaLabel, onConfirm) => {
+        showAlertAction(
+          t("confirmPlaylistSequenceStyleOverride", {
+            rule: ruleLabel,
+            tanda: tandaLabel,
+          }),
+          t("allowOverride"),
+          onConfirm,
+        );
+      },
+      setPlaylistItem: (index, item) => {
+        playlistItems[index] = item;
+      },
+      setPlaylistOpenTandaIndex: (index) => {
+        playlistOpenTandaIndex = index;
+      },
+      ensurePlaylistEditableTanda,
+      createPlaceholderTanda,
+      openTandaInDesigner,
+      addTandaToActiveCollection,
+      addTrackToActiveCollection,
+      normalizePlaylist,
+      renderClipboard,
+      setSelectedStylesFromRule: (styles) => {
+        selectedStyles = toBaseStyleFilters(styles);
+        loadStyles();
+        updateSearchTabVisibility();
+        refreshSearch();
+        activatePanelTab(getSearchPanel(), "search-tracks");
+        setActiveSearchTabState("search-tracks");
+      },
+      createPlaylistTandaForSlot,
+      ensureTandaDraft,
+      startPlaylistFrom,
+      setSelectedClipboardTandaId: (tandaId) => {
+        selectedClipboardTandaId = tandaId;
+      },
+      setSelectedClipboardTrackId: (trackId) => {
+        selectedClipboardTrackId = trackId;
+      },
+      saveClipboardCollections,
+      placeTandaInPlaylistSlot,
+      playTrackForMode,
+      refreshPlaylistTandaStyles: (tanda) => {
+        const tracks = tanda.trackSlots.map((id: string | null) =>
+          id ? trackCache.get(id) ?? null : null,
+        );
+        const derivedStyles = collectStylesFromTracks(tracks, availableStyles);
+        const normalizedExisting = tanda.styles
+          .map((style: string) => normalizeStyleName(style))
+          .map((normalized: string) =>
+            availableStyles.find(
+              (style) => normalizeStyleName(style) === normalized,
+            ),
+          )
+          .filter(Boolean) as string[];
+        tanda.styles = Array.from(new Set([...normalizedExisting, ...derivedStyles]));
+        if (selectedTandaId === tanda.id) {
+          selectedStyles = toBaseStyleFilters(tanda.styles);
+          loadStyles();
+          updateSearchTabVisibility();
+          refreshSearch();
+        }
+      },
+      setTrackInCache: (track) => {
+        trackCache.set(track.id, track);
+      },
+      updateHeadphoneButtonIndicators,
+      getSequenceLabel,
+      getTandaSequenceLabel,
+    },
+  });
+  const appRuntimeController = createAppRuntimeController({
+    elements: {
+      searchInput,
+      searchButton,
+      searchSortButtons,
+      searchListBody,
+      clipPanel: clipPanel as HTMLElement | null,
+      playlistListEl,
+      documentBody: document,
+      windowObject: window,
+      mediaDevices: navigator.mediaDevices,
+    },
+    readers: {
+      getSearchState: () => searchState,
+      shouldBlockBeforeUnload: () => {
+        if (allowAppClose) {
+          return false;
+        }
+        const isHeadphonePlaying =
+          playback.headphone.active && !playback.headphone.active.paused;
+        const isMainPlaying = playback.main.active && !playback.main.active.paused;
+        return !!isHeadphonePlaying || !!isMainPlaying;
+      },
+    },
+    actions: {
+      scheduleSearch,
+      refreshSearch,
+      patchSearchState: (patch) => {
+        patchSearchState(patch);
+      },
+      updateSortButtons,
+      handleSearchScroll,
+      handleDropToClipboard,
+      ensureAudioOutputs,
+      renderAllLists,
+      markUserInteraction,
+    },
+  });
+  const settingsShellController = createSettingsShellController({
+    storage: localStorage,
+    body: document.body,
+    elements: {
+      themeToggle,
+      closeSettingsBtn,
+      openSettingsBtn,
+      fullscreenToggle,
+      openDisplayBtn,
+      openDiagnosticsMain,
+      openDiagnosticsSettings,
+      openDiagnosticsPrecompute,
+      tabButtons,
+      tabPanels,
+    },
+    actions: {
+      setSettingsOpen,
+      activateSettingsTab: (tab) => activateSettingsTab(tabButtons, tabPanels, tab),
+      toggleFullscreen: async () => {
+        if (!window.tanda?.toggleFullscreen) {
+          throw new Error(t("statusFullscreenUnavailable"));
+        }
+        await window.tanda.toggleFullscreen();
+      },
+      openDisplay: async () => {
+        if (!window.tanda?.openDisplay) {
+          throw new Error(t("statusNoApi"));
+        }
+        await window.tanda.openDisplay();
+      },
+      updateExternalDisplay,
+      setStatus,
+    },
+    labels: {
+      fullscreenUnavailable: t("statusFullscreenUnavailable"),
+      fullscreenFailed: t("statusFullscreenFailed"),
+      fullscreenFailedDetail: (message) =>
+        t("statusFullscreenFailedDetail", { message }),
+      noApi: t("statusNoApi"),
+    },
+  });
+  const savedMode = (localStorage.getItem("tanda-mode") ?? "prep") as OutputMode;
+  setAppModeState(resolveOutputModeValue(savedMode));
+  document.body.classList.toggle("mode-live", appMode === "live");
 
   window.addEventListener("error", (event) => {
     const message =
@@ -13302,41 +13777,6 @@ const init = async () => {
   await refreshNewCollectionTracks();
   renderClipboardCollections();
   await renderClipboard();
-
-  if (themeToggle) {
-    const themeOrder = [
-      "dark-alt",
-      "dark-red",
-      "dark-green",
-      "dark-classic",
-      "dark",
-      "light",
-      "light-alt",
-    ] as const;
-    const applyTheme = (theme: (typeof themeOrder)[number]) => {
-      document.body.classList.toggle("theme-light", theme === "light");
-      document.body.classList.toggle("theme-dark", theme === "dark");
-      document.body.classList.toggle("theme-dark-alt", theme === "dark-alt");
-      document.body.classList.toggle("theme-dark-red", theme === "dark-red");
-      document.body.classList.toggle("theme-dark-green", theme === "dark-green");
-      document.body.classList.toggle("theme-dark-classic", theme === "dark-classic");
-      document.body.classList.toggle("theme-light-alt", theme === "light-alt");
-      localStorage.setItem("tanda-theme", theme);
-    };
-    const savedTheme = localStorage.getItem("tanda-theme") as
-      | (typeof themeOrder)[number]
-      | null;
-    applyTheme(savedTheme && themeOrder.includes(savedTheme) ? savedTheme : "dark-alt");
-    themeToggle.addEventListener("click", () => {
-      const current =
-        themeOrder.find((theme) =>
-          document.body.classList.contains(`theme-${theme}`),
-        ) ?? "dark-alt";
-      const next =
-        themeOrder[(themeOrder.indexOf(current) + 1) % themeOrder.length];
-      applyTheme(next);
-    });
-  }
 
   if (closeAppBtn) {
     closeAppBtn.addEventListener("click", async () => {
@@ -13520,30 +13960,13 @@ const init = async () => {
     void window.tanda?.respondToCloseRequest(true);
   });
 
-  if (languageSelect) {
-    const savedLanguage = getLanguage();
-    languageSelect.value = savedLanguage;
-    languageSelect.addEventListener("change", async () => {
-      localStorage.setItem("tanda-language", languageSelect.value);
-      applyTranslations();
-      ensureDefaultCollection();
-      ensureNewCollection();
-      ensureTopCollection();
-      ensureLeastCollection();
-      ensureAvailableCollection();
-      saveClipboardCollections();
-      renderClipboardCollections();
-      renderOrchestraRegistry();
-      await renderDiagnosticsPaths();
-      await ensureDefaultStyles("language");
-      await loadStyles();
-      renderAllLists();
-      updateExternalDisplay();
-      setStatus(
-        t("statusLanguageSet", { language: languageSelect.value }),
-      );
-    });
-  }
+  settingsGeneralController.initialize();
+  settingsCatalogController.initialize();
+  libraryListInteractionsController.initialize();
+  panelInteractionsController.initialize();
+  playlistInteractionsController.initialize();
+  appRuntimeController.initialize();
+  settingsShellController.initialize();
 
   settingsSearchAudioController.initialize();
   renderNowPlayingDynamicsControl();
@@ -13584,84 +14007,6 @@ const init = async () => {
       return;
     }
     clearPlayCounts();
-  });
-
-  orchestraAddBtn?.addEventListener("click", () => {
-    orchestraRegistry.push(
-      normalizeRegistryEntry({
-        canonical: "",
-        aliases: [],
-        related: [],
-      }),
-    );
-    renderOrchestraRegistry();
-  });
-  orchestraResetBtn?.addEventListener("click", async () => {
-    const confirmed = await showConfirmModal(t("confirmOrchestraRegistryReset"));
-    if (!confirmed) {
-      return;
-    }
-    orchestraRegistry = convertSeedToRegistry(ORCHESTRA_SEED_DATA);
-    saveOrchestraRegistry();
-    renderOrchestraRegistry();
-    setStatus(t("statusOrchestraRegistryReset"));
-  });
-  orchestraSaveBtn?.addEventListener("click", () => {
-    const hasInvalid = orchestraRegistry.some((entry) => !entry.canonical.trim());
-    if (hasInvalid) {
-      setStatus(t("statusOrchestraRegistryInvalid"));
-      return;
-    }
-    orchestraRegistry = orchestraRegistry.map((entry) =>
-      normalizeRegistryEntry(entry),
-    );
-    saveOrchestraRegistry();
-    renderOrchestraRegistry();
-    setStatus(t("statusOrchestraRegistrySaved"));
-  });
-  orchestraFilterInput?.addEventListener("input", () => {
-    orchestraFilterText = orchestraFilterInput.value;
-    renderOrchestraRegistry();
-  });
-
-  if (styleFamilyAddBtn) {
-    styleFamilyAddBtn.addEventListener("click", async () => {
-      const code = styleFamilyCodeInput?.value?.trim().toUpperCase() ?? "";
-      const base = styleFamilyBaseInput?.value?.trim() ?? "";
-      const variants = (styleFamilyVariantsInput?.value ?? "")
-        .split(/[;,/]+/)
-        .map((value) => value.trim())
-        .filter(Boolean);
-      if (!code || !base) {
-        return;
-      }
-      const next = styleFamilies.filter((family) => family.code !== code);
-      next.push({ code, base, variants });
-      await setStyleFamilies(next);
-      if (styleFamilyCodeInput) {
-        styleFamilyCodeInput.value = "";
-      }
-      if (styleFamilyBaseInput) {
-        styleFamilyBaseInput.value = "";
-      }
-      if (styleFamilyVariantsInput) {
-        styleFamilyVariantsInput.value = "";
-      }
-      recomputePlaylistMismatches();
-      renderPlaylist();
-      updateExternalDisplay();
-      setStatus(t("statusStyleAdded", { style: base }));
-    });
-  }
-
-  [styleFamilyCodeInput, styleFamilyBaseInput, styleFamilyVariantsInput].forEach((input) => {
-    input?.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") {
-        return;
-      }
-      event.preventDefault();
-      styleFamilyAddBtn?.click();
-    });
   });
 
   clipboardCollectionAddBtn?.addEventListener("click", () => {
@@ -13770,80 +14115,6 @@ const init = async () => {
     void renderCortinaResults();
   });
 
-  if (modeSelect) {
-    const savedMode = (localStorage.getItem("tanda-mode") ??
-      "prep") as OutputMode;
-    setAppModeState(resolveOutputModeValue(savedMode));
-    modeSelect.value = appMode;
-    document.body.classList.toggle("mode-live", appMode === "live");
-    modeSelect.addEventListener("change", () => {
-      const previousMode = appMode;
-      const nextMode = resolveOutputModeValue(modeSelect.value);
-      setAppModeState(nextMode);
-      localStorage.setItem("tanda-mode", appMode);
-      document.body.classList.toggle("mode-live", appMode === "live");
-      if (previousMode !== "live" && appMode === "live") {
-        attachActivePlaylistTrackToRun();
-      }
-      if (appMode === "edit") {
-        setTrackEditorOpen(false);
-        trackEditorState.track = null;
-        setCortinaModalVisible(false);
-      }
-      updateTrackEditorPresentation();
-      renderPlaylist();
-      renderTandaDesigner();
-      updatePlaylistControls();
-    });
-  }
-
-  if (mainOutputSelect) {
-    mainOutputSelect.addEventListener("change", async () => {
-      const selected = mainOutputSelect.value || DEFAULT_OUTPUT_ID;
-      const verified = await verifyOutputSelection("main", selected);
-      if (!verified) {
-        await ensureAudioOutputs();
-        renderAllLists();
-        return;
-      }
-      if (
-        headphoneOutputSelect &&
-        headphoneOutputSelect.value === mainOutputSelect.value
-      ) {
-        localStorage.removeItem("tanda-headphone-output");
-        localStorage.removeItem("tanda-headphone-output-label");
-        localStorage.removeItem("tanda-headphone-output-group");
-        await ensureAudioOutputs();
-        renderAllLists();
-      }
-    });
-  }
-
-  if (headphoneOutputSelect) {
-    headphoneOutputSelect.addEventListener("change", async () => {
-      if (
-        headphoneOutputSelect.value &&
-        headphoneOutputSelect.value !== mainOutputSelect?.value
-      ) {
-        const verified = await verifyOutputSelection(
-          "headphone",
-          headphoneOutputSelect.value,
-        );
-        if (!verified) {
-          await ensureAudioOutputs();
-          renderAllLists();
-          return;
-        }
-      } else {
-        localStorage.removeItem("tanda-headphone-output");
-        localStorage.removeItem("tanda-headphone-output-label");
-        localStorage.removeItem("tanda-headphone-output-group");
-        await ensureAudioOutputs();
-        renderAllLists();
-      }
-    });
-  }
-
   trackEditorTapBtn?.addEventListener("click", () => {
     handleTapTempo();
   });
@@ -13933,35 +14204,6 @@ const init = async () => {
     settingsLibraryController.handlePrecomputeProgress(progress);
   });
 
-  closeSettingsBtn?.addEventListener("click", () => {
-    void setSettingsOpen(false);
-  });
-  openSettingsBtn?.addEventListener("click", () => {
-    void setSettingsOpen(true);
-  });
-  fullscreenToggle?.addEventListener("click", async () => {
-    if (!window.tanda?.toggleFullscreen) {
-      setStatus(t("statusFullscreenUnavailable"));
-      return;
-    }
-    try {
-      await window.tanda.toggleFullscreen();
-    } catch (error) {
-      setStatus(
-        error instanceof Error
-          ? t("statusFullscreenFailedDetail", { message: error.message })
-          : t("statusFullscreenFailed"),
-      );
-    }
-  });
-  openDisplayBtn?.addEventListener("click", async () => {
-    if (!window.tanda?.openDisplay) {
-      setStatus(t("statusNoApi"));
-      return;
-    }
-    await window.tanda.openDisplay();
-    updateExternalDisplay();
-  });
   nowPlayingSection?.addEventListener("click", async (event) => {
     const target = event.target as HTMLElement;
     if (
@@ -13997,19 +14239,6 @@ const init = async () => {
     event.stopPropagation();
     seekToWaveformPosition(event, trackEditorWaveformContainer);
   });
-  openDiagnosticsMain?.addEventListener("click", () => {
-    void setSettingsOpen(true);
-    activateSettingsTab(tabButtons, tabPanels, "diagnostics");
-  });
-  openDiagnosticsSettings?.addEventListener("click", () => {
-    void setSettingsOpen(true);
-    activateSettingsTab(tabButtons, tabPanels, "diagnostics");
-  });
-  openDiagnosticsPrecompute?.addEventListener("click", () => {
-    void setSettingsOpen(true);
-    activateSettingsTab(tabButtons, tabPanels, "diagnostics");
-  });
-
   diagnosticsWaveformBtn?.addEventListener("click", async () => {
     if (!diagnosticsWaveformResult) {
       return;
@@ -14041,16 +14270,6 @@ const init = async () => {
   });
   diagnosticsOutputProbeBtn?.addEventListener("click", () => {
     void runAudioOutputProbe();
-  });
-
-  tabButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const tab = button.dataset.tab;
-      if (!tab) {
-        return;
-      }
-      activateSettingsTab(tabButtons, tabPanels, tab);
-    });
   });
 
   playlistStartBtn?.addEventListener("click", () => {
@@ -14254,1286 +14473,6 @@ const init = async () => {
     }
   });
 
-  searchInput?.addEventListener("input", () => {
-    scheduleSearch();
-  });
-
-  searchButton?.addEventListener("click", () => {
-    refreshSearch();
-  });
-
-  searchSortButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const sort = button.dataset.sort;
-      if (!sort) {
-        return;
-      }
-      if (searchState.sortBy === sort) {
-        patchSearchState({
-          sortDir: searchState.sortDir === "asc" ? "desc" : "asc",
-        });
-      } else {
-        patchSearchState({ sortBy: sort, sortDir: "asc" });
-      }
-      patchSearchState({ sortMode: "manual" });
-      updateSortButtons();
-      refreshSearch();
-    });
-  });
-
-  searchListBody?.addEventListener("scroll", () => {
-    handleSearchScroll();
-  });
-  searchListBody?.addEventListener("wheel", () => {
-    handleSearchScroll();
-  });
-
-  clipPanel?.addEventListener("dragover", (event) => {
-    event.preventDefault();
-  });
-  clipPanel?.addEventListener("drop", (event) => {
-    handleDropToClipboard(event as DragEvent);
-  });
-
-  clipTandasEl?.addEventListener("click", async (event) => {
-    const target = event.target as HTMLElement;
-    const row = target.closest<HTMLElement>(".list-row");
-    if (handleDuplicateJump(target)) {
-      return;
-    }
-    const tandaId = row?.dataset.tandaId;
-    if (!tandaId) {
-      return;
-    }
-    if (
-      target.closest(".tanda-summary") ||
-      target.classList.contains("tanda-style-badge")
-    ) {
-      if (row) {
-        toggleTandaRow(row);
-      }
-      return;
-    }
-    const editTrackId = target
-      .closest<HTMLElement>(".tanda-detail-line")
-      ?.dataset.trackId;
-    const editAction =
-      (target.closest("button[data-action]") as HTMLButtonElement | null)
-        ?.dataset.action ?? null;
-    if (editAction === "detail-menu") {
-      const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
-      if (detailLine) {
-        if (detailLine.classList.contains("detail-menu-open")) {
-          detailLine.classList.remove("detail-menu-open");
-        } else {
-          closeDetailMenus();
-          detailLine.classList.add("detail-menu-open");
-        }
-      }
-      return;
-    }
-    if (editAction === "edit-track" && editTrackId) {
-      openTrackEditor(editTrackId);
-      closeRowMenus();
-      return;
-    }
-    if (editAction === "search-track" && editTrackId) {
-      const track = trackCache.get(editTrackId);
-      if (track) {
-        runSearchForTrack(track);
-      }
-      closeRowMenus();
-      return;
-    }
-    if (editAction === "headphone" && headphoneAvailable && editTrackId) {
-      const track = trackCache.get(editTrackId);
-      if (track) {
-        await playOnChannel(
-          "headphone",
-          track.full_path,
-          track.id,
-          track,
-          track.gain_db ?? null,
-        );
-      }
-      closeRowMenus();
-      return;
-    }
-    if (editTrackId) {
-      const track = trackCache.get(editTrackId);
-      if (track) {
-        await playTrackForMode(track, {
-          filePath: track.full_path,
-          trackId: track.id,
-          gainDb: track.gain_db ?? null,
-        });
-      }
-      return;
-    }
-    const action =
-      (target.closest("button[data-action]") as HTMLButtonElement | null)
-        ?.dataset.action ?? null;
-    if (action === "detail-menu") {
-      const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
-      if (detailLine) {
-        if (detailLine.classList.contains("detail-menu-open")) {
-          detailLine.classList.remove("detail-menu-open");
-        } else {
-          closeDetailMenus();
-          detailLine.classList.add("detail-menu-open");
-        }
-      }
-      return;
-    }
-    if (action === "tanda-toggle" && row) {
-      toggleTandaRow(row);
-      closeRowMenus();
-      return;
-    }
-    if (action === "tanda-edit") {
-      const source = clipboardTandas.find((item) => item.id === tandaId) ?? null;
-      openTandaInDesigner(tandaId, source, "playlist-tab");
-      closeRowMenus();
-      return;
-    }
-    if (action === "search-tanda") {
-      const tanda = resolveTandaForSearch(tandaId);
-      if (tanda) {
-        runSearchForTanda(tanda);
-      }
-      closeRowMenus();
-      return;
-    }
-    if (action === "row-menu") {
-      toggleRowMenu(row);
-      return;
-    }
-    if (action === "add-playlist-tanda") {
-      const found = clipboardTandas.find((item) => item.id === tandaId) ?? null;
-      addTandaToPlaylist(tandaId, found);
-      closeRowMenus();
-      return;
-    }
-    if (action === "move-clip-tanda-collection") {
-      const targets = getClipboardMoveTargets(getActiveCollection()?.id ?? null);
-      if (targets.length === 0) {
-        closeRowMenus();
-        return;
-      }
-      if (targets.length === 1) {
-        moveTandaBetweenClipboardCollections(tandaId, targets[0].id);
-        closeRowMenus();
-        return;
-      }
-      const actionButton = target.closest<HTMLButtonElement>(
-        'button[data-action="move-clip-tanda-collection"]',
-      );
-      if (actionButton) {
-        const rect = actionButton.getBoundingClientRect();
-        openTandaMoveTargetMenu(rect.left, rect.bottom + 4, tandaId, targets);
-      } else {
-        openTandaMoveTargetMenu(event.clientX, event.clientY, tandaId, targets);
-      }
-      closeRowMenus();
-      return;
-    }
-    if (action === "remove-clip-tanda") {
-      removeClipboardTanda(tandaId);
-      renderClipboard();
-      closeRowMenus();
-      return;
-    }
-    const found = clipboardTandas.find((item) => item.id === tandaId);
-    if (!found) {
-      return;
-    }
-    selectedClipboardTandaId = tandaId;
-    selectedClipboardTrackId = null;
-    renderClipboard();
-  });
-
-  playlistPanel?.addEventListener("dragover", (event) => {
-    event.preventDefault();
-  });
-  playlistPanel?.addEventListener("drop", (event) => {
-    handleDropToPlaylist(event as DragEvent);
-  });
-
-  addTandaBtn?.addEventListener("click", () => {
-    const draft = createEmptyTanda();
-    tandaDrafts = [...tandaDrafts, draft];
-    setActiveTanda(draft.id);
-  });
-
-  tandaListEl?.addEventListener("click", (event) => {
-    void handleTandaAction(event);
-  });
-  playlistTandaEditorEl?.addEventListener("click", (event) => {
-    void handleTandaAction(event);
-  });
-  tandaListEl?.addEventListener("click", async (event) => {
-    const target = event.target as HTMLElement;
-    if (target.closest("button")) {
-      return;
-    }
-    const row = target.closest<HTMLElement>(".tanda-track-row");
-    const trackId = row?.dataset.trackId;
-    if (!trackId) {
-      return;
-    }
-    const track = trackCache.get(trackId);
-    if (!track) {
-      return;
-    }
-    await playTrackForMode(track, {
-      filePath: track.full_path,
-      trackId: track.id,
-      gainDb: track.gain_db ?? null,
-    });
-  });
-  playlistTandaEditorEl?.addEventListener("click", async (event) => {
-    const target = event.target as HTMLElement;
-    if (target.closest("button")) {
-      return;
-    }
-    const row = target.closest<HTMLElement>(".tanda-track-row");
-    const trackId = row?.dataset.trackId;
-    if (!trackId) {
-      return;
-    }
-    const track = trackCache.get(trackId);
-    if (!track) {
-      return;
-    }
-    await playTrackForMode(track, {
-      filePath: track.full_path,
-      trackId: track.id,
-      gainDb: track.gain_db ?? null,
-    });
-  });
-
-  tandaListEl?.addEventListener("dragover", (event) => {
-    event.preventDefault();
-  });
-  tandaListEl?.addEventListener("drop", (event) => {
-    handleDropToTanda(event as DragEvent);
-  });
-  playlistTandaEditorEl?.addEventListener("dragover", (event) => {
-    event.preventDefault();
-  });
-  playlistTandaEditorEl?.addEventListener("drop", (event) => {
-    handleDropToTanda(event as DragEvent);
-  });
-
-  document.addEventListener("click", (event) => {
-    const target = event.target as HTMLElement | null;
-    if (target?.closest(".row-actions") || target?.closest(".tanda-detail-actions-right")) {
-      return;
-    }
-    closeRowMenus();
-    closeDetailMenus();
-    if (!target?.closest(".style-variant-menu")) {
-      closeStyleVariantMenu();
-      closeCollectionTargetMenu();
-    }
-  });
-
-  panelTabButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const tabId = button.dataset.tab;
-      if (!tabId) {
-        return;
-      }
-      const panel = button.closest(".panel");
-      if (!panel) {
-        return;
-      }
-      const tabBar = button.closest(".tab-bar");
-      tabBar
-        ?.querySelectorAll<HTMLButtonElement>("button")
-        .forEach((btn) => btn.classList.remove("active"));
-      panel
-        .querySelectorAll<HTMLElement>(".tab-panel, .list-rows")
-        .forEach((list) => list.classList.remove("active"));
-      button.classList.add("active");
-      const targetPanel = panel.querySelector<HTMLElement>(`#${tabId}`);
-      if (targetPanel) {
-        targetPanel.classList.add("active");
-        if (targetPanel.classList.contains("tab-panel")) {
-          targetPanel
-            .querySelectorAll<HTMLElement>(".list-rows")
-            .forEach((list) => list.classList.add("active"));
-        }
-      }
-      if (tabId === "search-tracks" || tabId === "search-tandas") {
-        setActiveSearchTabState(tabId as SearchTab);
-        updateSearchTabVisibility();
-      }
-      if (tabId === "tanda-designer-tab" || tabId === "playlist-tab") {
-        setActiveRightTabState(tabId as RightPanelTab);
-        renderTandaDesigner();
-      }
-    });
-  });
-
-  searchTracksEl?.addEventListener("click", async (event) => {
-    const target = event.target as HTMLElement;
-    const row = target.closest<HTMLElement>(".list-row");
-    if (!row) {
-      return;
-    }
-    if (handleDuplicateJump(target)) {
-      return;
-    }
-    const data = getTrackDataFromRow(row);
-    if (!data) {
-      return;
-    }
-    const track = resolveTrackById(data.trackId);
-    if (!track) {
-      return;
-    }
-    const action =
-      (target.closest("button[data-action]") as HTMLButtonElement | null)
-        ?.dataset.action ?? null;
-    if (action === "edit-track") {
-      openTrackEditor(data.trackId);
-      closeRowMenus();
-      return;
-    }
-    if (action === "search-track") {
-      runSearchForTrack(track);
-      closeRowMenus();
-      return;
-    }
-    if (action === "headphone" && headphoneAvailable) {
-      await playOnChannel(
-        "headphone",
-        data.filePath,
-        data.trackId,
-        track,
-        data.gainDb,
-      );
-      updateHeadphoneButtonIndicators();
-      closeRowMenus();
-      return;
-    }
-    if (action === "row-menu") {
-      toggleRowMenu(row);
-      return;
-    }
-    if (action === "add-clip") {
-      addTrackToClipboard(track);
-      activatePanelTab(clipPanel, "clip-tracks");
-      closeRowMenus();
-      return;
-    }
-    if (action === "add-playlist-track") {
-      appendTrackToPlaylist(track);
-      closeRowMenus();
-      return;
-    }
-    if (action === "add-tanda") {
-      const added = addTrackToActiveTanda(track);
-      if (!added) {
-        setStatus(t("statusNoTandaSelected"));
-      }
-      closeRowMenus();
-      return;
-    }
-    await playTrackForMode(track, {
-      filePath: data.filePath,
-      trackId: data.trackId,
-      gainDb: data.gainDb,
-    });
-  });
-
-  searchTandasEl?.addEventListener("click", (event) => {
-    const target = event.target as HTMLElement;
-    const row = target.closest<HTMLElement>(".list-row");
-    if (!row) {
-      return;
-    }
-    if (handleDuplicateJump(target)) {
-      return;
-    }
-    if (
-      target.closest(".tanda-summary") ||
-      target.classList.contains("tanda-style-badge")
-    ) {
-      toggleTandaRow(row);
-      return;
-    }
-    const editTrackId = target
-      .closest<HTMLElement>(".tanda-detail-line")
-      ?.dataset.trackId;
-    const editAction =
-      (target.closest("button[data-action]") as HTMLButtonElement | null)
-        ?.dataset.action ?? null;
-    if (editAction === "detail-menu") {
-      const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
-      if (detailLine) {
-        if (detailLine.classList.contains("detail-menu-open")) {
-          detailLine.classList.remove("detail-menu-open");
-        } else {
-          closeDetailMenus();
-          detailLine.classList.add("detail-menu-open");
-        }
-      }
-      return;
-    }
-    if (editAction === "edit-track" && editTrackId) {
-      openTrackEditor(editTrackId);
-      return;
-    }
-    if (editAction === "search-track" && editTrackId) {
-      const track = trackCache.get(editTrackId);
-      if (track) {
-        runSearchForTrack(track);
-      }
-      return;
-    }
-    if (editAction === "add-clip-track-from-tanda" && editTrackId) {
-      const track = trackCache.get(editTrackId);
-      if (track) {
-        addTrackToClipboard(track);
-        activatePanelTab(clipPanel, "clip-tracks");
-      }
-      closeRowMenus();
-      return;
-    }
-    if (editAction === "headphone" && headphoneAvailable && editTrackId) {
-      const track = trackCache.get(editTrackId);
-      if (track) {
-        void playOnChannel(
-          "headphone",
-          track.full_path,
-          track.id,
-          track,
-          track.gain_db ?? null,
-        );
-      }
-      return;
-    }
-    if (editTrackId && appMode !== "live") {
-      const track = trackCache.get(editTrackId);
-      if (track) {
-        void playOnChannel(
-          "main",
-          track.full_path,
-          track.id,
-          track,
-          track.gain_db ?? null,
-        ).then((started) => {
-          if (started && isTrackEditorOpen()) {
-            openTrackEditor(track.id);
-          }
-        });
-      }
-      return;
-    }
-    const tandaId = row.dataset.tandaId;
-    if (!tandaId) {
-      return;
-    }
-    const action =
-      (target.closest("button[data-action]") as HTMLButtonElement | null)
-        ?.dataset.action ?? null;
-    if (action === "tanda-edit") {
-      const source = resolveTandaForSearch(tandaId);
-      openTandaInDesigner(tandaId, source);
-      closeRowMenus();
-      return;
-    }
-    if (action === "search-tanda") {
-      const tanda = resolveTandaForSearch(tandaId);
-      if (tanda) {
-        runSearchForTanda(tanda);
-      }
-      closeRowMenus();
-      return;
-    }
-    if (action === "add-clip-tanda") {
-      addTandaToClipboard(tandaId);
-      activatePanelTab(clipPanel, "clip-tandas");
-      closeRowMenus();
-      return;
-    }
-    if (action === "add-playlist-tanda") {
-      const source = resolveTandaForSearch(tandaId);
-      addTandaToPlaylist(tandaId, source);
-      closeRowMenus();
-      return;
-    }
-    if (action === "row-menu") {
-      toggleRowMenu(row);
-      return;
-    }
-  });
-
-  clipTracksEl?.addEventListener("click", async (event) => {
-    const target = event.target as HTMLElement;
-    const row = target.closest<HTMLElement>(".list-row");
-    if (!row) {
-      return;
-    }
-    if (handleDuplicateJump(target)) {
-      return;
-    }
-    const data = getTrackDataFromRow(row);
-    if (!data) {
-      return;
-    }
-    const clipTrack = resolveTrackById(data.trackId);
-    if (!clipTrack) {
-      return;
-    }
-    const action =
-      (target.closest("button[data-action]") as HTMLButtonElement | null)
-        ?.dataset.action ?? null;
-    if (action === "edit-track") {
-      openTrackEditor(data.trackId);
-      closeRowMenus();
-      return;
-    }
-    if (action === "search-track") {
-      runSearchForTrack(clipTrack);
-      closeRowMenus();
-      return;
-    }
-    if (action === "headphone" && headphoneAvailable) {
-      await playOnChannel(
-        "headphone",
-        data.filePath,
-        data.trackId,
-        clipTrack,
-        data.gainDb,
-      );
-      updateHeadphoneButtonIndicators();
-      closeRowMenus();
-      return;
-    }
-    if (action === "row-menu") {
-      toggleRowMenu(row);
-      return;
-    }
-    if (action === "add-tanda") {
-      const added = addTrackToActiveTanda(clipTrack);
-      if (!added) {
-        setStatus(t("statusNoTandaSelected"));
-      }
-      closeRowMenus();
-      return;
-    }
-    if (action === "add-playlist-track") {
-      appendTrackToPlaylist(clipTrack);
-      closeRowMenus();
-      return;
-    }
-    if (action === "move-clip-track-collection") {
-      const targets = getClipboardMoveTargets(getActiveCollection()?.id ?? null);
-      if (targets.length === 0) {
-        closeRowMenus();
-        return;
-      }
-      if (targets.length === 1) {
-        moveTrackBetweenClipboardCollections(clipTrack.id, targets[0].id);
-        closeRowMenus();
-        return;
-      }
-      const actionButton = target.closest<HTMLButtonElement>(
-        'button[data-action="move-clip-track-collection"]',
-      );
-      if (actionButton) {
-        const rect = actionButton.getBoundingClientRect();
-        openTrackMoveTargetMenu(rect.left, rect.bottom + 4, clipTrack.id, targets);
-      } else {
-        openTrackMoveTargetMenu(event.clientX, event.clientY, clipTrack.id, targets);
-      }
-      closeRowMenus();
-      return;
-    }
-    if (action === "remove-clip") {
-      removeClipboardTrack(clipTrack.id);
-      renderClipboard();
-      closeRowMenus();
-      return;
-    }
-    const index = clipboardTracks.findIndex((item) => item.id === data.trackId);
-    if (index >= 0) {
-      selectedClipboardTrackId = data.trackId;
-      selectedClipboardTandaId = null;
-      renderClipboard();
-    }
-    await playTrackForMode(clipTrack, {
-      filePath: data.filePath,
-      trackId: data.trackId,
-      gainDb: data.gainDb,
-    });
-  });
-
-  playlistListEl?.addEventListener("click", async (event) => {
-    const target = event.target as HTMLElement;
-    const row = target.closest<HTMLElement>(".list-row");
-    if (!row) {
-      return;
-    }
-    if (target.closest("#playlist-tanda-editor")) {
-      return;
-    }
-    if (row.classList.contains("cortina-row")) {
-      const action =
-        (target.closest("button[data-action]") as HTMLButtonElement | null)
-          ?.dataset.action ?? null;
-      if (action === "headphone" && headphoneAvailable) {
-        const data = getTrackDataFromRow(row);
-        if (data) {
-          const track = resolveTrackById(data.trackId);
-          if (track) {
-            await playOnChannel(
-              "headphone",
-              data.filePath,
-              data.trackId,
-              track,
-              data.gainDb,
-            );
-          }
-        }
-        return;
-      }
-      const index = row.dataset.cortinaIndex
-        ? Number.parseInt(row.dataset.cortinaIndex, 10)
-        : null;
-      if (!isCortinaIndexEditable(index)) {
-        setStatus(t("statusCortinaLocked"));
-        return;
-      }
-      openCortinaModal(Number.isNaN(index ?? NaN) ? null : index);
-      return;
-    }
-    if (
-      target.closest(".tanda-summary") ||
-      target.classList.contains("tanda-style-badge")
-    ) {
-      toggleTandaRow(row);
-      return;
-    }
-    const detailAction =
-      (target.closest("button[data-action]") as HTMLButtonElement | null)
-        ?.dataset.action ?? null;
-    if (detailAction === "detail-menu") {
-      const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
-      if (detailLine) {
-        if (detailLine.classList.contains("detail-menu-open")) {
-          detailLine.classList.remove("detail-menu-open");
-        } else {
-          closeDetailMenus();
-          detailLine.classList.add("detail-menu-open");
-        }
-      }
-      return;
-    }
-    const action =
-      (target.closest("button[data-action]") as HTMLButtonElement | null)
-        ?.dataset.action ?? null;
-    if (action === "edit-track") {
-      const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
-      const detailTrackId = detailLine?.dataset.trackId;
-      const trackId = detailTrackId ?? row.dataset.trackId;
-      if (trackId) {
-        openTrackEditor(trackId);
-      }
-      closeRowMenus();
-      return;
-    }
-    if (action === "headphone" && headphoneAvailable) {
-      const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
-      const detailTrackId = detailLine?.dataset.trackId;
-      if (detailTrackId) {
-        const track = trackCache.get(detailTrackId);
-        if (track) {
-          await playOnChannel(
-            "headphone",
-            track.full_path,
-            track.id,
-            track,
-            track.gain_db ?? null,
-          );
-        }
-        closeRowMenus();
-        return;
-      }
-    }
-    if (action === "search-tanda") {
-      const tandaId = row.dataset.tandaId;
-      if (tandaId) {
-        const tanda = resolveTandaForSearch(tandaId);
-        if (tanda) {
-          const playlistIndex = resolvePlaylistRowIndex(row);
-          const preferredStyles =
-            playlistIndex >= 0 ? resolveSearchStylesForPlaylistIndex(playlistIndex) : undefined;
-          runSearchForTanda(tanda, preferredStyles);
-        }
-      }
-      closeRowMenus();
-      return;
-    }
-    if (action === "search-track") {
-      const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
-      const detailTrackId = detailLine?.dataset.trackId ?? null;
-      const playlistIndex = resolvePlaylistRowIndex(row);
-      const data = getTrackDataFromRow(row);
-      const track = detailTrackId
-        ? trackCache.get(detailTrackId) ?? resolveTrackById(detailTrackId)
-        : data
-          ? resolveTrackById(data.trackId)
-          : null;
-      if (track) {
-        const preferredStyles =
-          playlistIndex >= 0 ? resolveSearchStylesForPlaylistIndex(playlistIndex) : undefined;
-        runSearchForTrack(track, preferredStyles);
-      }
-      closeRowMenus();
-      return;
-    }
-    if (action === "row-menu") {
-      toggleRowMenu(row);
-      return;
-    }
-    if (action === "playlist-target-cancel") {
-      clearPlaylistTarget();
-      renderPlaylist();
-      return;
-    }
-    if (action === "tanda-toggle") {
-      toggleTandaRow(row);
-      closeRowMenus();
-      return;
-    }
-    if (action === "mark-playlist-target") {
-      const index = resolvePlaylistRowIndex(row);
-      if (index < 0) {
-        setStatus(t("statusPlaylistSwapInvalid"));
-        return;
-      }
-      if (isPlaylistIndexLocked(index)) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
-      if (getPlaylistTargetIndex() === index) {
-        clearPlaylistTarget();
-      } else {
-        if (retainPlaylistTargetAtIndex(index) !== null) {
-          applyPlaylistTargetStyles(index);
-          centerPlaylistTargetOnNextRender = true;
-        }
-      }
-      renderPlaylist();
-      closeRowMenus();
-      return;
-    }
-    if (action === "mark-playlist-track-target") {
-      const index = resolvePlaylistRowIndex(row);
-      if (index < 0) {
-        return;
-      }
-      if (isPlaylistIndexLocked(index)) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
-      if (getPlaylistTrackTargetIndex() === index) {
-        clearPlaylistTarget();
-      } else {
-        if (retainPlaylistTrackTargetAtIndex(index) !== null) {
-          applyPlaylistTargetStyles(index);
-          centerPlaylistTargetOnNextRender = true;
-        }
-      }
-      renderPlaylist();
-      closeRowMenus();
-      return;
-    }
-    if (action === "swap-playlist-target") {
-      const index = resolvePlaylistRowIndex(row);
-      const targetIndex = getPlaylistTargetIndex();
-      if (index < 0 || targetIndex === null || targetIndex === index) {
-        setStatus(t("statusPlaylistSwapInvalid"));
-        return;
-      }
-      if (isPlaylistIndexLocked(index) || isPlaylistIndexLocked(targetIndex)) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
-      const attemptSwap = (
-        options?: { allowStyleMismatch?: boolean; allowCountMismatch?: boolean },
-      ) => {
-        const currentItem = playlistItems[index];
-        const targetItem = playlistItems[targetIndex];
-        if (!currentItem || !targetItem) {
-          setStatus(t("statusPlaylistSwapInvalid"));
-          return;
-        }
-        if (currentItem.kind !== "tanda" || targetItem.kind !== "tanda") {
-          setStatus(t("statusPlaylistSwapInvalid"));
-          return;
-        }
-        const currentTanda = resolveTandaDraft(currentItem.tandaId);
-        const targetTanda = resolveTandaDraft(targetItem.tandaId);
-        if (!currentTanda || !targetTanda) {
-          setStatus(t("statusPlaylistSwapInvalid"));
-          return;
-        }
-        const currentValidation = validateTandaForSlot(currentTanda, targetIndex);
-        const targetValidation = validateTandaForSlot(targetTanda, index);
-        const countIssue =
-          currentValidation.reason === "count" || targetValidation.reason === "count";
-        if (countIssue && !options?.allowCountMismatch) {
-          const ruleForCount = currentValidation.rule ?? targetValidation.rule;
-          showAlertAction(
-            t("confirmPlaylistSequenceOverride", {
-              rule: ruleForCount ? getSequenceLabel(ruleForCount) : "?",
-              expected: ruleForCount?.count ?? 0,
-              count:
-                currentValidation.trackCount ?? targetValidation.trackCount ?? 0,
-            }),
-            t("allowOverride"),
-            () => {
-              attemptSwap({ ...options, allowCountMismatch: true });
-            },
-          );
-          return;
-        }
-        const styleIssue =
-          currentValidation.reason === "style" || targetValidation.reason === "style";
-        if (styleIssue && !options?.allowStyleMismatch) {
-          const ruleForStyle = currentValidation.rule ?? targetValidation.rule;
-          showAlertAction(
-            t("confirmPlaylistSequenceStyleOverride", {
-              rule: ruleForStyle ? getSequenceLabel(ruleForStyle) : "?",
-              tanda: getTandaSequenceLabel(currentTanda),
-            }),
-            t("allowOverride"),
-            () => {
-              attemptSwap({ ...options, allowStyleMismatch: true });
-            },
-          );
-          return;
-        }
-        const currentMismatch =
-          currentValidation.reason === "style"
-            ? "style"
-            : currentValidation.reason === "count"
-              ? "count"
-              : undefined;
-        const targetMismatch =
-          targetValidation.reason === "style"
-            ? "style"
-            : targetValidation.reason === "count"
-              ? "count"
-              : undefined;
-        playlistItems[index] = { ...targetItem, mismatch: targetMismatch };
-        playlistItems[targetIndex] = { ...currentItem, mismatch: currentMismatch };
-        if (playlistOpenTandaIndex === index) {
-          playlistOpenTandaIndex = targetIndex;
-        } else if (playlistOpenTandaIndex === targetIndex) {
-          playlistOpenTandaIndex = index;
-        }
-        retainPlaylistTargetAtIndex(targetIndex);
-        centerPlaylistTargetOnNextRender = true;
-        markPlaylistPulse(index);
-        markPlaylistPulse(targetIndex);
-        renderPlaylist();
-        closeRowMenus();
-      };
-      attemptSwap();
-      return;
-    }
-    if (action === "tanda-edit") {
-      const tandaId = row.dataset.tandaId;
-      if (!tandaId) {
-        return;
-      }
-      const index = row.dataset.index ? Number.parseInt(row.dataset.index, 10) : -1;
-      const isLocked = index >= 0 ? isPlaylistIndexLocked(index) : false;
-      if (isLocked) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
-      const source =
-        index >= 0
-          ? ensurePlaylistEditableTanda(tandaId, index)
-          : resolveTandaDraft(tandaId) ?? createPlaceholderTanda(tandaId);
-      if (!source) {
-        return;
-      }
-      if (index >= 0) {
-        playlistOpenTandaIndex = index;
-      }
-      const effectiveId = source.id;
-      openTandaInDesigner(effectiveId, source, "playlist-tab");
-      closeRowMenus();
-      return;
-    }
-    const data = getTrackDataFromRow(row);
-    if (action === "headphone" && headphoneAvailable && data) {
-      const playlistTrack = resolveTrackById(data.trackId);
-      await playOnChannel(
-        "headphone",
-        data.filePath,
-        data.trackId,
-        playlistTrack,
-        data.gainDb,
-      );
-      updateHeadphoneButtonIndicators();
-      closeRowMenus();
-      return;
-    }
-    const index = row.dataset.index ? Number.parseInt(row.dataset.index, 10) : -1;
-    const isLocked = index >= 0 ? isPlaylistIndexLocked(index) : false;
-    if (index < 0) {
-      return;
-    }
-    const playlistItem = playlistItems[index] ?? null;
-    if (!playlistItem) {
-      if (isLocked) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
-      const rule = getRuleForSlot(index);
-      if (rule?.code) {
-        const mappedStyles = getPlaylistStyleMap()[rule.code] ?? [];
-        selectedStyles = toBaseStyleFilters(mappedStyles);
-        loadStyles();
-        updateSearchTabVisibility();
-        refreshSearch();
-        activatePanelTab(getSearchPanel(), "search-tracks");
-        setActiveSearchTabState("search-tracks");
-      }
-      const tanda = createPlaylistTandaForSlot(index);
-      ensureTandaDraft(tanda);
-      playlistItems[index] = { kind: "tanda", tandaId: tanda.id };
-      normalizePlaylist();
-      playlistOpenTandaIndex = index;
-      openTandaInDesigner(tanda.id, tanda, "playlist-tab");
-      markPlaylistPulse(index);
-      renderPlaylist();
-      closeRowMenus();
-      return;
-    }
-    if (action === "remove-playlist-tanda") {
-      if (isLocked) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
-      const tandaId = row.dataset.tandaId;
-      if (!tandaId) {
-        return;
-      }
-      if (!addTandaToActiveCollection(tandaId)) {
-        closeRowMenus();
-        return;
-      }
-      playlistItems[index] = null;
-      normalizePlaylist();
-      renderPlaylist();
-      renderClipboard();
-      closeRowMenus();
-      return;
-    }
-    if (action === "send-playlist-tanda") {
-      if (isLocked) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
-      const tandaId = row.dataset.tandaId;
-      if (!tandaId) {
-        return;
-      }
-      if (!addTandaToActiveCollection(tandaId)) {
-        closeRowMenus();
-        return;
-      }
-      playlistItems[index] = null;
-      normalizePlaylist();
-      renderPlaylist();
-      renderClipboard();
-      closeRowMenus();
-      return;
-    }
-    if (action === "send-playlist-track") {
-      if (isLocked) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
-      if (!data) {
-        return;
-      }
-      const track = resolveTrackById(data.trackId);
-      if (!track) {
-        return;
-      }
-      if (!addTrackToActiveCollection(track)) {
-        closeRowMenus();
-        return;
-      }
-      playlistItems[index] = null;
-      // Keep this slot as the next single-track replacement target.
-      retainPlaylistTrackTargetAtIndex(index);
-      normalizePlaylist();
-      renderPlaylist();
-      renderClipboard();
-      closeRowMenus();
-      return;
-    }
-    if (action === "send-playlist-tanda-track") {
-      const tandaId = row.dataset.tandaId;
-      if (!tandaId) {
-        return;
-      }
-      const index = row.dataset.index ? Number.parseInt(row.dataset.index, 10) : -1;
-      const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
-      const slotIndexRaw = detailLine?.dataset.slotIndex;
-      const slotIndex = slotIndexRaw ? Number.parseInt(slotIndexRaw, 10) : -1;
-      if (slotIndex < 0) {
-        return;
-      }
-      if (isPlaylistTandaSlotLocked(index, slotIndex)) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
-      const resolvedIndex =
-        row.dataset.index ? Number.parseInt(row.dataset.index, 10) : -1;
-      const tanda =
-        resolvedIndex >= 0
-          ? ensurePlaylistEditableTanda(tandaId, resolvedIndex)
-          : resolveTandaDraft(tandaId);
-      if (!tanda) {
-        return;
-      }
-      const trackId = tanda.trackSlots[slotIndex];
-      if (trackId) {
-        const track = trackCache.get(trackId);
-        if (track) {
-          if (!addTrackToActiveCollection(track)) {
-            closeRowMenus();
-            return;
-          }
-        }
-      }
-      tanda.trackSlots[slotIndex] = null;
-      const tracks = tanda.trackSlots.map((id) =>
-        id ? trackCache.get(id) ?? null : null,
-      );
-      const derivedStyles = collectStylesFromTracks(tracks, availableStyles);
-      const normalizedExisting = tanda.styles
-        .map((style) => normalizeStyleName(style))
-        .map((normalized) =>
-          availableStyles.find(
-            (style) => normalizeStyleName(style) === normalized,
-          ),
-        )
-        .filter(Boolean) as string[];
-      tanda.styles = Array.from(new Set([...normalizedExisting, ...derivedStyles]));
-      if (selectedTandaId === tanda.id) {
-        selectedStyles = toBaseStyleFilters(tanda.styles);
-        loadStyles();
-        updateSearchTabVisibility();
-        refreshSearch();
-      }
-      if (resolvedIndex >= 0) {
-        playlistTargetIndex = resolvedIndex;
-        playlistOpenTandaIndex = resolvedIndex;
-        applyPlaylistTargetStyles(resolvedIndex);
-        openTandaInDesigner(tanda.id, tanda, "playlist-tab");
-      }
-      renderPlaylist();
-      renderClipboard();
-      closeRowMenus();
-      return;
-    }
-    const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
-    const detailTrackId = detailLine?.dataset.trackId ?? null;
-    if (appMode === "prep") {
-      if (detailTrackId) {
-        startPlaylistFrom(index, detailTrackId);
-        return;
-      }
-      if (playlistItem?.kind === "track" && data) {
-        startPlaylistFrom(index, data.trackId);
-        return;
-      }
-    }
-    if (selectedClipboardTandaId && !detailLine) {
-      if (isLocked) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
-      const activeCollection = getActiveCollection();
-      if (!activeCollection?.tandaIds.includes(selectedClipboardTandaId)) {
-        setStatus(t("statusClipboardReadonlyRemove"));
-        return;
-      }
-      const selectedTanda =
-        clipboardTandas.find((item) => item.id === selectedClipboardTandaId) ??
-        null;
-      if (!selectedTanda) {
-        selectedClipboardTandaId = null;
-        renderClipboard();
-        return;
-      }
-      if (!tandaDrafts.some((item) => item.id === selectedTanda.id)) {
-        tandaDrafts = [...tandaDrafts, selectedTanda];
-      }
-      const replaced = playlistItems[index];
-      const placed = placeTandaInPlaylistSlot(selectedTanda.id, index);
-      if (!placed) {
-        return;
-      }
-      if (replaced?.kind === "tanda") {
-        if (!activeCollection.tandaIds.includes(replaced.tandaId)) {
-          activeCollection.tandaIds.push(replaced.tandaId);
-        }
-      } else if (replaced?.kind === "track") {
-        if (!activeCollection.trackIds.includes(replaced.track.id)) {
-          activeCollection.trackIds.push(replaced.track.id);
-        }
-      } else {
-        activeCollection.tandaIds = activeCollection.tandaIds.filter(
-          (id) => id !== selectedTanda.id,
-        );
-      }
-      selectedClipboardTandaId = null;
-      saveClipboardCollections();
-      renderClipboard();
-      renderPlaylist();
-      return;
-    }
-    if (appMode === "edit") {
-      if (detailTrackId) {
-        const track = trackCache.get(detailTrackId);
-        if (track) {
-          await playTrackForMode(track, {
-            filePath: track.full_path,
-            trackId: track.id,
-            gainDb: track.gain_db ?? null,
-          });
-        }
-        return;
-      }
-      if (playlistItem?.kind === "track" && data) {
-        await playTrackForMode(playlistItem.track, {
-          filePath: data.filePath,
-          trackId: data.trackId,
-          gainDb: data.gainDb,
-        });
-        return;
-      }
-    }
-    if (selectedClipboardTrackId && detailLine && playlistItem?.kind === "tanda") {
-      const slotIndexRaw = detailLine.dataset.slotIndex ?? "";
-      const slotIndex = Number.parseInt(slotIndexRaw, 10);
-      if (!Number.isFinite(slotIndex) || slotIndex < 0) {
-        return;
-      }
-      if (isPlaylistTandaSlotLocked(index, slotIndex)) {
-        setStatus(t("statusPlaylistLocked"));
-        return;
-      }
-      const activeCollection = getActiveCollection();
-      const clipTrack = clipboardTracks.find(
-        (track) => track.id === selectedClipboardTrackId,
-      );
-      if (!clipTrack || !activeCollection?.trackIds.includes(clipTrack.id)) {
-        setStatus(t("statusClipboardReadonlyRemove"));
-        return;
-      }
-      const tanda = ensurePlaylistEditableTanda(playlistItem.tandaId, index);
-      if (!tanda || slotIndex >= tanda.trackSlots.length) {
-        return;
-      }
-      const replacedTrackId = tanda.trackSlots[slotIndex] ?? null;
-      tanda.trackSlots[slotIndex] = clipTrack.id;
-      const tracks = tanda.trackSlots.map((id) =>
-        id ? trackCache.get(id) ?? null : null,
-      );
-      const derivedStyles = collectStylesFromTracks(tracks, availableStyles);
-      const normalizedExisting = tanda.styles
-        .map((style) => normalizeStyleName(style))
-        .map((normalized) =>
-          availableStyles.find(
-            (style) => normalizeStyleName(style) === normalized,
-          ),
-        )
-        .filter(Boolean) as string[];
-      tanda.styles = Array.from(new Set([...normalizedExisting, ...derivedStyles]));
-      const selectedIndex = activeCollection.trackIds.indexOf(clipTrack.id);
-      if (selectedIndex >= 0) {
-        if (replacedTrackId && !activeCollection.trackIds.includes(replacedTrackId)) {
-          activeCollection.trackIds[selectedIndex] = replacedTrackId;
-        } else {
-          activeCollection.trackIds = activeCollection.trackIds.filter(
-            (id) => id !== clipTrack.id,
-          );
-        }
-      }
-      trackCache.set(clipTrack.id, clipTrack);
-      selectedClipboardTrackId = null;
-      saveClipboardCollections();
-      markPlaylistPulse(index);
-      renderClipboard();
-      renderPlaylist();
-      return;
-    }
-    const mainActive = playback.main.active;
-    const isMainPlaying = !!mainActive && !mainActive.paused;
-    if (!selectedClipboardTrackId || detailLine) {
-      if (!shouldStartPlaylistFromClick(appMode, isMainPlaying)) {
-        return;
-      }
-      startPlaylistFrom(index, detailTrackId);
-      return;
-    }
-    if (isLocked) {
-      setStatus(t("statusPlaylistLocked"));
-      return;
-    }
-    const clipTrack = clipboardTracks.find(
-      (track) => track.id === selectedClipboardTrackId,
-    );
-    if (!clipTrack) {
-      return;
-    }
-    if (playlistItem?.kind === "tanda") {
-      return;
-    }
-    const activeCollection = getActiveCollection();
-    if (!activeCollection || !activeCollection.trackIds.includes(clipTrack.id)) {
-      setStatus(t("statusClipboardReadonlyRemove"));
-      return;
-    }
-    const selectedIndex = activeCollection.trackIds.indexOf(clipTrack.id);
-    if (playlistItem?.kind === "track") {
-      if (activeCollection.trackIds.includes(playlistItem.track.id)) {
-        activeCollection.trackIds = activeCollection.trackIds.filter(
-          (id) => id !== clipTrack.id,
-        );
-      } else if (selectedIndex >= 0) {
-        activeCollection.trackIds[selectedIndex] = playlistItem.track.id;
-      }
-      playlistItems[index] = { kind: "track", track: clipTrack };
-    } else {
-      playlistItems[index] = { kind: "track", track: clipTrack };
-      activeCollection.trackIds = activeCollection.trackIds.filter(
-        (id) => id !== clipTrack.id,
-      );
-    }
-    markPlaylistPulse(index);
-    selectedClipboardTrackId = null;
-    saveClipboardCollections();
-    renderClipboard();
-    renderPlaylist();
-  });
-
   applyTranslations();
   if (orchestraFilterInput) {
     orchestraFilterInput.value = orchestraFilterText;
@@ -15545,36 +14484,6 @@ const init = async () => {
   await renderDiagnosticsDataReadiness();
   updateSearchTabVisibility();
   await ensureAudioOutputs();
-  if (navigator.mediaDevices?.addEventListener) {
-    navigator.mediaDevices.addEventListener("devicechange", async () => {
-      await ensureAudioOutputs();
-      renderAllLists();
-    });
-  }
-  document.addEventListener("pointerdown", markUserInteraction, {
-    passive: true,
-  });
-  document.addEventListener("keydown", markUserInteraction);
-  document.addEventListener("wheel", markUserInteraction, { passive: true });
-  document.addEventListener("touchstart", markUserInteraction, {
-    passive: true,
-  });
-  playlistListEl?.addEventListener("scroll", markUserInteraction, {
-    passive: true,
-  });
-  window.addEventListener("beforeunload", (event) => {
-    if (allowAppClose) {
-      return;
-    }
-    const isHeadphonePlaying =
-      playback.headphone.active && !playback.headphone.active.paused;
-    const isMainPlaying = playback.main.active && !playback.main.active.paused;
-    if (!isHeadphonePlaying && !isMainPlaying) {
-      return;
-    }
-    event.preventDefault();
-    event.returnValue = "";
-  });
   await renderRoots();
   await renderDataLocation();
   await updateLegacyImport();
