@@ -583,8 +583,9 @@ Features:
   stops, the display remains on the farewell cortina state (does not revert to
   generic "Cortina" idle text) until superseded by later playback/display updates.
 - UI-060.R16: The display board reflects main-output playback only. Headphone
-  preview must never replace the audience-facing title or artist shown on the
-  display board.
+  preview must never replace or populate the audience-facing title or artist
+  shown on the display board. If main output is idle, headphone-only preview
+  must not appear there.
 
 Rules:
 - UI-060.R4: No control affordances.

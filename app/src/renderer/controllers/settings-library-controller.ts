@@ -250,9 +250,11 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
         deps.setStatus(deps.translate("statusScanInProgress"));
         return;
       }
+      const reused = Math.max(0, summary.scanned - summary.added - summary.updated);
       deps.setStatus(
         deps.translate("statusScanComplete", {
-          scanned: summary.scanned,
+          checked: summary.scanned,
+          reused,
           added: summary.added,
           updated: summary.updated,
           removed: summary.removed,

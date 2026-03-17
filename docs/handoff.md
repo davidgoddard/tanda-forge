@@ -7431,8 +7431,19 @@
   - `design/tracking-and-feature-matrix.md`
   - `docs/user-guide.md`
 - Hardened the shared Playwright helper `expectClickStartsTrackSoon(...)` in `tests/e2e/workflows.e2e.ts` so it retries the exact click dispatch when the target row is attached but the click fails to register, which should reduce the remaining intermittent failure in workflow `38`.
+- Updated `.github/workflows/release.yml` to use the current JavaScript action major versions:
+  - `actions/checkout@v5`
+  - `actions/setup-node@v5`
+  - `actions/upload-artifact@v5`
+  This should remove the GitHub Actions Node 20 deprecation warnings on the build jobs.
+- Tightened display-board playback selection so audience-facing display never reflects headphone preview, even when main output is idle. `getDisplayBoardPlayingState(...)` in `app/src/renderer/modules/playback-view.ts` now returns only active main playback (or `null`), and `tests/playback-view.test.ts` now includes a regression asserting that headphone-only playback does not populate the display board.
+- Fixed a search-ranking bug where very short query tokens such as `a` and `la` were matching arbitrary substrings and swamping exact title relevance. `scoreText(...)` in `app/src/main/library/fuzzy-search.ts` now requires whole-token matches for very short query tokens, which stops queries like `A La Gran Muñeca` from surfacing large numbers of unrelated tracks before the exact title. Added a regression in `tests/library-search.test.ts` and documented the rule in `design/06-search-and-similarity.md`.
+- Improved scan feedback wording so the UI now makes clear that rescans are checking files rather than blindly rebuilding them. `app/src/renderer/controllers/settings-library-controller.ts` now reports `checked`, `reused`, `added`, `updated`, and `removed` counts on completion, and `app/src/renderer/i18n.ts` now uses “checking” language for scan progress labels. Added a controller regression in `tests/settings-library-controller.test.ts`.
 - Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-library-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm test -- tests/library-search.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playback-view.test.ts` passed.
   - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-storage.test.ts` passed.
   - `source ~/.nvm/nvm.sh && npm run build` passed.
-  - `source ~/.nvm/nvm.sh && npm test` passed (81 files, 364 tests).
+  - `source ~/.nvm/nvm.sh && npm test` passed (81 files, 367 tests).
   - Playwright was not rerun in this environment after the latest E2E helper tweak.

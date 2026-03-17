@@ -35,13 +35,23 @@ const getTrigrams = (value: string) => {
 };
 
 const scoreText = (query: string, candidate: string) => {
+  const normalizedQueryWords = getTokens(query);
+  const normalizedCandidateWords = getTokens(candidate);
   const normalizedQuery = normalizeNgramText(query);
   const normalizedCandidate = normalizeNgramText(candidate);
-  if (!normalizedQuery || !normalizedCandidate) {
+  if (
+    !normalizedQuery ||
+    !normalizedCandidate ||
+    normalizedQueryWords.length === 0 ||
+    normalizedCandidateWords.length === 0
+  ) {
     return 0;
   }
   if (normalizedQuery.length < 3) {
-    return normalizedCandidate.includes(normalizedQuery) ? 1 : 0;
+    if (normalizedQueryWords.length === 1) {
+      return normalizedCandidateWords.includes(normalizedQueryWords[0]!) ? 1 : 0;
+    }
+    return normalizeSearchText(candidate).includes(normalizeSearchText(query)) ? 1 : 0;
   }
   const queryGrams = getTrigrams(normalizedQuery);
   const candidateGrams = new Set(getTrigrams(normalizedCandidate));

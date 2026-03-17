@@ -195,4 +195,59 @@ describe("settings library controller", () => {
     expect(elements.precomputeCompressedResult.textContent).toContain("ffmpeg failed");
     expect(elements.errorList.querySelectorAll("li")).toHaveLength(1);
   });
+
+  it("reports checked and reused counts when a scan completes", async () => {
+    (globalThis as { document?: { createElement: () => FakeElement } }).document = {
+      createElement: () => new FakeElement(),
+    };
+    const elements = createElements();
+    const setStatus = vi.fn();
+    const onScanCompleted = vi.fn(async () => {});
+    const controller = createSettingsLibraryController({
+      translate: (key, params) => `${key}:${params ? JSON.stringify(params) : ""}`,
+      basenameForDisplay: (filePath) => filePath ?? "",
+      api: {
+        scanKind: vi.fn(async () => ({
+          scanned: 12,
+          added: 2,
+          updated: 1,
+          removed: 3,
+          errors: [],
+        })),
+        precomputeCompressedTracks: vi.fn(async () => ({
+          ok: true,
+          rendered: 0,
+          cached: 0,
+          failed: 0,
+          errors: [],
+        })),
+        verifyCachedFiles: vi.fn(),
+        clearCachedFiles: vi.fn(),
+      },
+      elements,
+      setStatus,
+      clearAlert: vi.fn(),
+      getCompressionConfig: () => ({
+        mode: "upward",
+        liftThresholdDb: -24,
+        maxLiftDb: 8,
+        ratio: 4,
+        attackMs: 5,
+        releaseMs: 250,
+        gateThresholdDb: -50,
+        limiterCeilingDb: -1,
+        limiterReleaseMs: 150,
+      }),
+      scheduleCompressionPrefetch: vi.fn(),
+      onScanCompleted,
+      onCachedFilesCleared: vi.fn(async () => {}),
+    });
+
+    await controller.runScan("music");
+
+    expect(setStatus).toHaveBeenCalledWith(
+      'statusScanComplete:{"checked":12,"reused":9,"added":2,"updated":1,"removed":3}',
+    );
+    expect(onScanCompleted).toHaveBeenCalled();
+  });
 });

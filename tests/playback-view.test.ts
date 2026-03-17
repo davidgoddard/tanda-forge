@@ -33,4 +33,12 @@ describe("playback view helpers", () => {
     expect(result?.channel).toBe("main");
     expect(result?.state.track?.title).toBe("M");
   });
+
+  it("does not fall back to headphone-only playback for the display board", () => {
+    const result = getDisplayBoardPlayingState({
+      headphone: { active: { paused: false }, track: { title: "H" } },
+      main: { active: { paused: true }, track: { title: "M" } },
+    });
+    expect(result).toBeNull();
+  });
 });

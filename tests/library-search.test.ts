@@ -263,6 +263,36 @@ describe("fuzzy search helpers", () => {
     expect(result[0].track.id).toBe("exact-title");
   });
 
+  it("does not let short article tokens overwhelm an exact title match", () => {
+    const exactTitle = buildTrack({
+      id: "exact-title",
+      title: "A La Gran Muñeca",
+      artist: "Carlos Di Sarli",
+      genre: "Tango",
+    });
+    const unrelatedA = buildTrack({
+      id: "unrelated-a",
+      title: "Lullaby",
+      artist: "Sigala & Paloma Faith",
+      album: "Lullaby - Single",
+    });
+    const unrelatedLa = buildTrack({
+      id: "unrelated-la",
+      title: "Alexanderplatz Tango",
+      artist: "Tanghetto",
+      genre: "Tango",
+    });
+    const result = filterAndScoreTracks([unrelatedA, unrelatedLa, exactTitle], {
+      query: "A La Gran Muñeca",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("exact-title");
+    expect(result[0].score).toBeGreaterThan(result[1].score);
+  });
+
   it("treats typed style words as normal text terms, not hidden style intent", () => {
     const textualMatch = buildTrack({
       id: "textual-match",

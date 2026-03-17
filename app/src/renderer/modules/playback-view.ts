@@ -51,8 +51,5 @@ export const getDisplayBoardPlayingState = <
   if (params.main.active && !params.main.active.paused) {
     return { channel: "main" as const, state: params.main };
   }
-  if (params.headphone.active && !params.headphone.active.paused) {
-    return { channel: "headphone" as const, state: params.headphone };
-  }
   return null;
 };

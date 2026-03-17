@@ -101,6 +101,9 @@ FR-091.1.R8: Weak fuzzy token pairs below a minimum similarity threshold must no
 contribute to ranking, so unrelated tokens do not inflate results.
 FR-091.1.R9: Text ranking must reward cleaner full-query coverage and penalize
 noisier partial matches with extra unmatched field tokens.
+FR-091.1.R10: Very short query tokens (for example `a` or `la`) must match whole
+normalized tokens rather than arbitrary substrings, so common article words do
+not swamp ranking for unrelated titles.
 
 ### FR-091.4 Implicit Query Parsing and Profiles
 
