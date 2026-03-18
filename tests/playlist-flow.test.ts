@@ -4,8 +4,10 @@ import {
   resolveContinuationIndexAfterEndCortina,
   resolveOverlapFadeMs,
   resolveScheduledTransitionTimeSeconds,
+  shouldEnablePlaylistStart,
   shouldPauseAfterMarkedPerformanceStop,
   shouldPlayStandaloneTrackFromClick,
+  shouldPreservePausedPerformanceResumeOnStop,
   shouldContinueAfterEndCortina,
   shouldEnablePlaylistStop,
   shouldInsertCortinaBeforeTanda,
@@ -113,6 +115,51 @@ describe("shouldEnablePlaylistStop", () => {
   it("disables stop only when nothing is actively playing", () => {
     expect(shouldEnablePlaylistStop("idle", false)).toBe(false);
     expect(shouldEnablePlaylistStop("paused", false)).toBe(false);
+  });
+});
+
+describe("shouldEnablePlaylistStart", () => {
+  it("disables play whenever main output is already active", () => {
+    expect(shouldEnablePlaylistStart("idle", true, true, false)).toBe(false);
+    expect(shouldEnablePlaylistStart("paused", true, true, true)).toBe(false);
+    expect(shouldEnablePlaylistStart("playing", true, true, true)).toBe(false);
+  });
+
+  it("disables play when the playlist is already playing", () => {
+    expect(shouldEnablePlaylistStart("playing", false, true, true)).toBe(false);
+  });
+
+  it("enables resume only when paused with resume state and no active output", () => {
+    expect(shouldEnablePlaylistStart("paused", false, true, true)).toBe(true);
+    expect(shouldEnablePlaylistStart("paused", false, true, false)).toBe(false);
+  });
+
+  it("enables idle play only when the playlist has content and nothing is active", () => {
+    expect(shouldEnablePlaylistStart("idle", false, true, false)).toBe(true);
+    expect(shouldEnablePlaylistStart("idle", false, false, false)).toBe(false);
+  });
+});
+
+describe("shouldPreservePausedPerformanceResumeOnStop", () => {
+  it("preserves paused performance-stop resume state when stopping a one-off live track", () => {
+    expect(
+      shouldPreservePausedPerformanceResumeOnStop("paused", true, true, true),
+    ).toBe(true);
+  });
+
+  it("does not preserve state for normal idle or non-performance-stop cases", () => {
+    expect(
+      shouldPreservePausedPerformanceResumeOnStop("paused", true, false, true),
+    ).toBe(false);
+    expect(
+      shouldPreservePausedPerformanceResumeOnStop("paused", false, true, true),
+    ).toBe(false);
+    expect(
+      shouldPreservePausedPerformanceResumeOnStop("idle", true, true, true),
+    ).toBe(false);
+    expect(
+      shouldPreservePausedPerformanceResumeOnStop("paused", true, true, false),
+    ).toBe(false);
   });
 });
 

@@ -107,4 +107,16 @@ describe("renderer i18n", () => {
       }
     }
   });
+
+  it("uses the expected German wording for readiness and legacy-import labels", () => {
+    expect(translations.de.legacyImportButton).toBe("Legacy-Bibliothek importieren");
+    expect(translations.de.legacyReadinessButton).toBe("Bibliotheksbereitschaft pruefen");
+    expect(translations.de.legacyImportDetected).toContain("library.dat und cortinas.dat importieren");
+    expect(translations.de.diagnosticsReadinessTotalTracks).toBe("Titel");
+    expect(translations.de.diagnosticsReadinessMissingDuration).toBe("Dauer fehlt");
+    expect(translations.de.diagnosticsReadinessMissingLoudness).toBe("Lautheit/Gain fehlt");
+    expect(translations.de.diagnosticsReadinessMissingTrimSignals).toBe("Keine Trim-Signale");
+    expect(translations.de.diagnosticsReadinessAnalysisErrors).toBe("Analysefehler");
+    expect(translations.de.diagnosticsReadinessMissingWaveforms).toBe("Wellenformen fehlen");
+  });
 });

@@ -661,10 +661,31 @@ const expectLiveStandaloneTrackPromptAndPlaySoon = async (
   expectedToken: string,
   timeout = 500,
 ) => {
-  await expect(clickTarget).toBeAttached();
-  await clickTarget.scrollIntoViewIfNeeded();
-  await dispatchExactClick(clickTarget);
-  await expect(page.locator(".confirm-modal:not(.hidden) .confirm-ok")).toBeVisible();
+  let lastError: unknown = null;
+  const confirmOk = page.locator(".confirm-modal:not(.hidden) .confirm-ok");
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      await expect(clickTarget).toBeAttached();
+      await page.waitForTimeout(50);
+      await clickTarget.scrollIntoViewIfNeeded();
+      await dispatchExactClick(clickTarget);
+      try {
+        await expect(confirmOk).toBeVisible({ timeout: 750 });
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        await page.waitForTimeout(200);
+      }
+    } catch (error) {
+      lastError = error;
+      await page.waitForTimeout(100);
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
+  await expect(confirmOk).toBeVisible();
   await confirmIfPrompted(page);
   await expectNowPlayingContainsSoon(page, expectedToken, timeout);
 };
@@ -2108,7 +2129,7 @@ test.describe("Electron app end-to-end workflows", () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
-      await installVariableEndingMediaStub(page, 2_000, 4_000);
+      await installVariableEndingMediaStub(page, 4_000, 4_000);
 
       await page.locator("#mode-select").selectOption("live");
       await openSettings(page);
@@ -2144,7 +2165,7 @@ test.describe("Electron app end-to-end workflows", () => {
         )
         .toContain("tango uno");
 
-      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 8_000 });
+      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 15_000 });
       await page.locator("#cortina-play").click();
       await expect(page.locator("#cortina-play")).toBeDisabled();
       await page.waitForTimeout(1_500);
@@ -2204,11 +2225,63 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  test("45 - live one-off show collection playback disables play and keeps stop available", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await installAutoEndingMediaStub(page, 2_000);
+      await page.locator("#mode-select").selectOption("live");
+      await clearPlaylistViaUi(page);
+
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      const showCollectionId = await createClipboardCollection(page, "Show");
+      await selectClipboardCollection(page, showCollectionId);
+
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await runSearch(page, "Busqueda Artistica");
+      await clickRowAction(searchTrackRow(page, "Busqueda Artistica"), "add-clip");
+
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await selectClipboardCollection(page, showCollectionId);
+      const showTrack = clipboardTrackRow(page, "Busqueda Artistica");
+      await expect(showTrack).toBeVisible();
+
+      await expect(page.locator("#playlist-start")).toBeDisabled();
+      await expect(page.locator("#playlist-stop")).toBeDisabled();
+
+      await expectLiveStandaloneTrackPromptAndPlaySoon(page, showTrack, "busqueda artistica", 2_000);
+      await expect(page.locator("#playlist-start")).toBeDisabled({ timeout: 2_000 });
+      await expect(page.locator("#playlist-stop")).toBeEnabled({ timeout: 2_000 });
+
+      await page.locator("#playlist-stop").click();
+      await expect
+        .poll(
+          async () => ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
+          { timeout: 5_000 },
+        )
+        .toContain("idle");
+      await expect(page.locator("#playlist-stop")).toBeDisabled({ timeout: 2_000 });
+
+      await expectLiveStandaloneTrackPromptAndPlaySoon(page, showTrack, "busqueda artistica", 2_000);
+      await expect(page.locator("#playlist-start")).toBeDisabled({ timeout: 2_000 });
+      await expect(page.locator("#playlist-stop")).toBeEnabled({ timeout: 2_000 });
+
+      await page.locator("#playlist-start").click({ force: true });
+      await expect(
+        ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
+      ).toContain("busqueda artistica");
+      await expect(page.locator("#playlist-start")).toBeDisabled();
+      await expect(page.locator("#playlist-stop")).toBeEnabled();
+    } finally {
+      await launched.close();
+    }
+  });
+
   test("43 - performance stop pauses after tanda, blanks display text, and resumes via the same cortina", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
-      await installVariableEndingMediaStub(page, 1200, 1200);
+      await installVariableEndingMediaStub(page, 6000, 1200);
       await page.locator("#mode-select").selectOption("live");
       await openSettings(page);
       await page.locator('button[data-tab="playlist"]').click();
@@ -2248,23 +2321,41 @@ test.describe("Electron app end-to-end workflows", () => {
         )
         .toBe("");
 
+      await expectNowPlayingContainsSoon(page, "tango uno", 8_000);
+
       let finalCortinaLabel = "";
       await expect
         .poll(
           async () => {
-            const activeMeta = page.locator("#playlist-list .cortina-row.active .cortina-meta").first();
-            const text = ((await activeMeta.textContent().catch(() => "")) ?? "").trim();
-            if (text) {
-              finalCortinaLabel = text;
+            const payload = await page.evaluate(() => {
+              return (
+                window as Window & {
+                  __e2eRuntimeSnapshot?: {
+                    pausedForPerformanceStop?: boolean;
+                    performanceStopCortinaLabel?: string;
+                    playlistStartDisabled?: boolean;
+                    playlistStopDisabled?: boolean;
+                  };
+                }
+              ).__e2eRuntimeSnapshot ?? null;
+            });
+            if (
+              payload?.pausedForPerformanceStop &&
+              payload.performanceStopCortinaLabel &&
+              payload.playlistStartDisabled === false &&
+              payload.playlistStopDisabled === true
+            ) {
+              finalCortinaLabel = payload.performanceStopCortinaLabel;
             }
-            return text;
+            return finalCortinaLabel;
           },
-          { timeout: 8_000 },
+          { timeout: 30_000 },
         )
         .not.toBe("");
 
-      await expect(page.locator("#playlist-start")).toBeEnabled({ timeout: 8_000 });
-      await expect(page.locator("#playlist-stop")).toBeDisabled({ timeout: 4_000 });
+      await expect(
+        ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
+      ).not.toContain("milonga de prueba");
 
       await page.locator('button[data-tab="search-tracks"]').click();
       await runSearch(page, "Busqueda Artistica");
@@ -2272,7 +2363,35 @@ test.describe("Electron app end-to-end workflows", () => {
         page,
         searchTrackRow(page, "Busqueda Artistica"),
         "busqueda artistica",
+        15_000,
       );
+      await expect(page.locator("#playlist-start")).toBeDisabled({ timeout: 2_000 });
+      await expect(page.locator("#playlist-stop")).toBeEnabled({ timeout: 2_000 });
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(() => {
+              const payload = (
+                window as Window & {
+                  __e2eDisplaySnapshot?: { title?: string; artist?: string; mode?: string };
+                }
+              ).__e2eDisplaySnapshot;
+              return {
+                title: payload?.title ?? "",
+                artist: payload?.artist ?? "",
+                mode: payload?.mode ?? "",
+              };
+            }),
+          { timeout: 5_000 },
+        )
+        .toMatchObject({
+          title: "Busqueda Artistica",
+          artist: "Juan D'Arienzo",
+          mode: "normal",
+        });
+      await page.locator("#playlist-stop").click();
+      await expect(page.locator("#playlist-start")).toBeEnabled({ timeout: 15_000 });
+      await expect(page.locator("#playlist-stop")).toBeDisabled({ timeout: 15_000 });
       await expect
         .poll(
           async () => ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),

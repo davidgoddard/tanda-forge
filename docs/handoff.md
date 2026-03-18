@@ -7459,6 +7459,84 @@
 - Verification:
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed.
+- Stabilized workflow `43 - performance stop pauses after tanda, blanks display text, and resumes via the same cortina`.
+  - The failure was not another generic timing flake: the workflow was treating any post-`tango uno` now-playing text as the final cortina, so on longer media stubs it could capture later tanda tracks instead and then incorrectly expect the playlist to already be paused.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `43` now waits for the real paused performance-stop transport state first (`#playlist-start` enabled, `#playlist-stop` disabled), then captures the final cortina label from the settled active cortina row and continues with the one-off performance-track assertions.
+- Fixed a real runtime bug in performance-stop + one-off Live playback.
+  - `#playlist-stop` was always zeroing the entire playlist state, so in the performance-stop flow it destroyed the paused resume marker when the DJ stopped a one-off performance track.
+  - Added `shouldPreservePausedPerformanceResumeOnStop(...)` in `app/src/shared/playlist-flow.ts` with unit coverage in `tests/playlist-flow.test.ts`.
+  - Updated `app/src/renderer/renderer.ts` so stopping a standalone Live track while paused for performance stop now preserves the paused playlist resume state and restores the blank performance-stop display hold instead of resetting the playlist to the beginning.
+- Added an explicit renderer E2E runtime snapshot for performance-stop state.
+  - `app/src/renderer/renderer.ts` now publishes `window.__e2eRuntimeSnapshot` with:
+    - `pausedForPerformanceStop`
+    - `performanceStopCortinaLabel`
+    - playlist transport disabled states
+  - Workflow `43` in `tests/e2e/workflows.e2e.ts` now waits on that explicit state instead of scraping transient `.cortina-row.active` DOM classes.
+- Corrected workflow `43`'s one-off display assertion to match the seeded E2E data.
+  - In `tests/e2e/support/seed-data.ts`, `Busqueda Artistica` belongs to `Juan D'Arienzo`.
+  - Workflow `43` had been asserting `artist: "Busqueda Artist"`, which was simply wrong and made the display assertion look like a mixed-metadata bug.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `390` tests).
+- Tightened two remaining Live/cortina Playwright workflows to wait for the real post-transition states.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `41` now uses a longer music-track stub so the tanda after the second cortina stop remains visible long enough to assert reliably.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `43` now waits for the now-playing panel to return to `idle` before asserting that the paused performance-stop state has re-enabled `#playlist-start`.
+- Tightened the final two Playwright waits again to align with the actual transition points.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `41` now gives the second cortina controls longer to appear before asserting the `Play` override path.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `43` now waits directly for the paused performance-stop transport state (`#playlist-start` enabled and `#playlist-stop` disabled) instead of waiting on the now-playing text to read `idle` first.
+- Stabilized the remaining performance-stop display workflow.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `43` now uses a longer one-off music stub so the external-display assertion observes the standalone performance track while it is still active instead of racing the fallback to idle.
+- Tightened workflow `43` to wait for the actual paused-after-cortina transition.
+  - In `tests/e2e/workflows.e2e.ts`, the performance-stop workflow now waits for `#cortina-controls` to become hidden before asserting that `#playlist-start` is enabled and `#playlist-stop` is disabled.
+- Refocused workflow `43` on the actual user-facing paused-performance-stop behavior.
+  - In `tests/e2e/workflows.e2e.ts`, the workflow no longer blocks on an intermediate `#playlist-start` enablement check before attempting the one-off performance track.
+  - Instead, it now proves the paused state by successfully launching the one-off Live track from Search, checks the expected transport states during that one-off playback, then stops it and asserts that the playlist transport returns to the resumable paused state before continuing through the saved cortina into the next tanda.
+- Hardened the shared one-off Live playback E2E helper against rerender detaches.
+  - In `tests/e2e/workflows.e2e.ts`, `expectLiveStandaloneTrackPromptAndPlaySoon(...)` now retries the attach/scroll/click sequence across brief DOM replacement windows, instead of failing immediately when the clicked search row is re-rendered between attachment and `scrollIntoViewIfNeeded()`.
+- Tightened the same helper to survive transition-timing clicks.
+  - In `tests/e2e/workflows.e2e.ts`, `expectLiveStandaloneTrackPromptAndPlaySoon(...)` now also retries when the click lands just before the Live one-off confirmation modal becomes eligible to appear, which stabilizes the paused-performance-stop workflow.
+- Aligned workflow `43` with the already-passing paused-state check used by workflow `44`.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `43` now waits for the same settled paused performance-stop conditions as workflow `44` (`#playlist-start` enabled, `#playlist-stop` disabled, and the next tanda not yet started) before attempting the one-off Live track branch.
+- Corrected the ordering bug in workflow `43`.
+  - In `tests/e2e/workflows.e2e.ts`, the performance-stop workflow now explicitly waits for the first tanda track (`tango uno`) before it starts looking for the post-tanda cortina/pause state, so it no longer mistakes the initial lead-in cortina for the final performance-stop cortina.
+- Replaced the brittle final-cortina row probe in workflow `43`.
+  - In `tests/e2e/workflows.e2e.ts`, the workflow now captures the final cortina label from `#now-playing-track` rather than from the transient `.cortina-row.active .cortina-meta` marker in the playlist DOM.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed.
+- Fixed cortina control dismissal and stabilized the one-off performance-display workflow.
+  - In `app/src/renderer/renderer.ts`, clicking the cortina `Stop` button now hides the cortina control cluster immediately instead of keeping it visible while the stop fade completes.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `43` now uses a longer music-track stub so the external display assertion runs while the one-off performance track is still active instead of racing the return to idle.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed.
+- Tightened German UI wording for the readiness and legacy-import screens.
+  - In `app/src/renderer/i18n.ts`, the German map now uses clearer readiness labels (`Titel`, `Dauer fehlt`, `Lautheit/Gain fehlt`, `Wellenformen fehlen`) and more natural legacy-import actions/prompts (`Legacy-Bibliothek importieren`, `Bibliotheksbereitschaft pruefen`, and a prompt that explicitly mentions `library.dat` and `cortinas.dat` without a full scan).
+  - In `tests/i18n.test.ts`, added a German-specific regression for those readiness and legacy-import keys so these strings cannot silently fall back or drift to awkward wording again.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/i18n.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed.
+- Fixed transport-button refresh for standalone Live playback outside the playlist.
+  - In `app/src/renderer/renderer.ts`, `updateNowPlayingDisplay()` now refreshes playlist transport controls whenever now-playing state changes, both on active playback and when returning to idle.
+  - This ensures `#playlist-start` becomes disabled and `#playlist-stop` enabled as soon as a one-off Live track starts, and that the buttons revert correctly once playback stops.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed.
+- Updated transport enablement for standalone Live playback and added dedicated E2E coverage.
+  - In `app/src/shared/playlist-flow.ts`, added `shouldEnablePlaylistStart(...)` so the Play button follows the same explicit rule everywhere: disabled whenever main output is already active or the playlist itself is already playing, enabled only for true idle starts or valid paused resumes.
+  - In `app/src/renderer/renderer.ts`, `updatePlaylistControls()` now uses that helper, which keeps `#playlist-start` disabled during one-off Live tracks as required.
+  - In `tests/playlist-flow.test.ts`, added unit coverage for the new Play-button enablement helper.
+  - In `tests/e2e/workflows.e2e.ts`, added workflow `45 - live one-off show collection playback disables play and keeps stop available`, covering: add a search track to a `Show` collection, play it from the collection in Live mode, stop it, play it again, and confirm that Play stays disabled while any song is active and Stop stays available whenever anything is playing.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed.
+- Fixed a live-performance display-state regression for standalone tracks.
+  - In `app/src/renderer/renderer.ts`, the confirmed standalone Live playback path now clears held cortina/performance-stop display state before starting the selected one-off track, so the external display switches back to normal track metadata instead of remaining on the cortina screen.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `43` now asserts that the external display snapshot changes to the standalone track title/artist in normal mode when a performance track is played from Search during a performance stop.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed.
 - Clarified the Search-column tanda-size control in `docs/user-guide.md`.
   - Added a short explanation that the control filters tanda results by size only, and that setting it to `Any` removes the size filter so tandas of all lengths can appear.
 - Restored live/prep playlist tanda-summary click-start behavior and aligned transport state.
@@ -7480,6 +7558,19 @@
   - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-interactions-controller.test.ts` passed.
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `380` tests).
+- Re-enabled the transport `Stop` button for standalone Live playback on the main output.
+  - In `app/src/shared/playlist-flow.ts`, added `shouldEnablePlaylistStop(...)` so stop-button availability is based on actual main-output playback as well as playlist state.
+  - In `app/src/renderer/renderer.ts`, `updatePlaylistControls()` now keeps `#playlist-stop` enabled while a standalone Live track is playing outside the playlist.
+  - In `tests/playlist-flow.test.ts`, added unit coverage for the new stop-enable rule.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `42` now verifies that a confirmed standalone Live track enables `#playlist-stop` and can be stopped manually.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-flow.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `383` tests).
+- Updated the display-board defaults.
+  - In `app/src/renderer/renderer.ts`, the default base display font scale is now `1.15` (`115%`) and the default edge padding is now `8 vmin`.
+  - In `app/src/renderer/display.css`, the fallback CSS custom properties now match those defaults so the display window starts with the same values before its first runtime payload.
+  - In `design/14-settings-and-configuration.md`, the default base display font scale and edge-padding defaults are now documented.
 - Tightened E2E workflow `41` for cortina controls.
   - In `tests/e2e/workflows.e2e.ts`, the workflow now sets `#stop-fade-duration` to `0` before exercising the cortina stop/continue behavior, so it measures the cortina control semantics directly instead of depending on the default stop-fade timing.
   - Also widened the post-stop now-playing assertions in that workflow from `4s` to `8s`, because manual cortina stop still uses the controlled cortina fade path with a built-in minimum and can take longer than `4s` to hand off into the next track on slower runs.

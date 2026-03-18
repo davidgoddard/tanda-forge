@@ -1789,8 +1789,8 @@ export const translations = {
     dataLocationHelp:
       "Daten werden im Ordner _tp_data am gewahlten Ort gespeichert.",
     legacyImportTitle: "Legacy-Import",
-    legacyImportButton: "Legacy-Tandas importieren",
-    legacyReadinessButton: "Bibliothek-Bereitschaft pruefen",
+    legacyImportButton: "Legacy-Bibliothek importieren",
+    legacyReadinessButton: "Bibliotheksbereitschaft pruefen",
     legacyStylesButton: "Legacy-Stile anzeigen",
     legacyStylesLoading: "Unterschiedliche Stile aus legacy library.dat werden gelesen...",
     legacyStylesUnavailable: "Legacy-Stile konnten nicht gelesen werden.",
@@ -2050,12 +2050,12 @@ export const translations = {
     diagnosticsWaveformSuccess: "Wellenform erzeugt: {path}",
     diagnosticsWaveformFailed: "Wellenform fehlgeschlagen: {message}",
     diagnosticsDataReadiness: "Datenbereitschaft",
-    diagnosticsReadinessTotalTracks: "Tracks",
-    diagnosticsReadinessMissingDuration: "Fehlende Dauer",
-    diagnosticsReadinessMissingLoudness: "Fehlende Lautheit+Gain",
+    diagnosticsReadinessTotalTracks: "Titel",
+    diagnosticsReadinessMissingDuration: "Dauer fehlt",
+    diagnosticsReadinessMissingLoudness: "Lautheit/Gain fehlt",
     diagnosticsReadinessMissingTrimSignals: "Keine Trim-Signale",
     diagnosticsReadinessAnalysisErrors: "Analysefehler",
-    diagnosticsReadinessMissingWaveforms: "Fehlende Wellenformen",
+    diagnosticsReadinessMissingWaveforms: "Wellenformen fehlen",
     eraseDatabase: "Datenbank loschen",
     eraseDatabaseHelp:
       "Entfernt nur Datenbankeintrage. Wellenform- und komprimierte Cache-Dateien bleiben erhalten, bis sie separat geloscht werden.",
@@ -2095,7 +2095,7 @@ export const translations = {
     statusDataLocationDuringPlayback:
       "Wiedergabe stoppen, bevor der Datenspeicherort geandert wird.",
     legacyImportDetected:
-      "Legacy-Dateien in {path} erkannt. Tandas und Metadaten importieren?",
+      "Legacy-Dateien unter {path} erkannt. library.dat und cortinas.dat importieren (ohne Vollscan)?",
     statusLegacyImportDone:
       "{tandas} Tandas importiert. {tracks} Titel aktualisiert. {missing} fehlen.",
     statusMissingRoots:

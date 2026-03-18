@@ -89,7 +89,7 @@ Board, Diagnostics, System).
 - CFG-DSP-003: Users can configure display-image darkening percentage.
 - CFG-DSP-004: Users can configure display background rotation interval in seconds.
 - CFG-DSP-005: Users can configure a base display font-size scale (%), applied to all
-  display-board text for venue-distance readability.
+  display-board text for venue-distance readability. The default is `115%`.
 - CFG-DSP-006: Users can configure an independent cortina font-size scale (%) so
   cortina headline sizing can be tuned separately from normal title/artist text.
 - CFG-DSP-007: Display-board text sizing must remain responsive to the actual
@@ -99,6 +99,8 @@ Board, Diagnostics, System).
 - CFG-DSP-008: Title, artist, and lower-right tanda text should prefer up to
   two visible lines each; when text still does not fit, the display may shrink
   it further and then truncate with an ellipsis.
+- CFG-DSP-009: Display-board edge padding is configurable in `vmin`, with a
+  default of `8`.
 
 ## Playlist Configuration
 

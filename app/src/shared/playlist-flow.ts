@@ -70,6 +70,32 @@ export const shouldEnablePlaylistStop = (
   isMainChannelActivelyPlaying: boolean,
 ) => playbackStatus === "playing" || isMainChannelActivelyPlaying;
 
+export const shouldEnablePlaylistStart = (
+  playbackStatus: "idle" | "paused" | "playing",
+  isMainChannelActivelyPlaying: boolean,
+  hasItems: boolean,
+  hasResume: boolean,
+) => {
+  if (playbackStatus === "playing" || isMainChannelActivelyPlaying) {
+    return false;
+  }
+  if (playbackStatus === "paused") {
+    return hasResume;
+  }
+  return hasItems;
+};
+
+export const shouldPreservePausedPerformanceResumeOnStop = (
+  playbackStatus: "idle" | "paused" | "playing",
+  hasResume: boolean,
+  pausedForPerformanceStop: boolean,
+  isMainChannelActivelyPlaying: boolean,
+) =>
+  playbackStatus === "paused" &&
+  hasResume &&
+  pausedForPerformanceStop &&
+  isMainChannelActivelyPlaying;
+
 export const shouldUseOverlapForGapMs = (gapMs: number) => gapMs < 0;
 
 export const resolveOverlapFadeMs = (gapMs: number) =>
