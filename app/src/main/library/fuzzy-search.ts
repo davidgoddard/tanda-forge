@@ -336,6 +336,8 @@ const scoreArtistScopedQuery = (query: string, track: TrackRow): ScoreBreakdown 
       yearScore: null,
       tempoScore: null,
       notesScore: null,
+      textMatchedTerms: 0,
+      textUnmatchedFieldTokens: 0,
     };
   }
   const artistField = [track.artist_summary || "", track.artist || ""]
@@ -360,16 +362,18 @@ const scoreArtistScopedQuery = (query: string, track: TrackRow): ScoreBreakdown 
     const fieldScore = scoreFieldText(trimmed, expandedArtistField);
     artistScore = Math.max(termScore, fieldScore);
   }
-  return {
-    score: artistScore,
-    mode: "lookup",
-    artistScore,
-    titleScore: 0,
-    yearScore: null,
-    tempoScore: null,
-    notesScore: null,
+    return {
+      score: artistScore,
+      mode: "lookup",
+      artistScore,
+      titleScore: 0,
+      yearScore: null,
+      tempoScore: null,
+      notesScore: null,
+      textMatchedTerms: 0,
+      textUnmatchedFieldTokens: 0,
+    };
   };
-};
 
 const scoreYearProximity = (diff: number) => {
   if (diff <= 0) {
@@ -473,11 +477,20 @@ const scoreTokenPair = (queryToken: string, candidateToken: string) =>
     return similarity >= 0.55 ? similarity : 0;
   };
 
-const scoreQueryTokensAgainstField = (
+type TokenMatchMetrics = {
+  matchedCount: number;
+  unmatchedFieldTokens: number;
+  averageSimilarity: number;
+  queryCoverage: number;
+  fieldPurity: number;
+  score: number;
+};
+
+const buildTokenMatchMetrics = (
   queryTokens: string[],
   field: string,
   options?: { ignoreStopwords?: boolean },
-) => {
+): TokenMatchMetrics | null => {
   if (queryTokens.length === 0 || !field) {
     return null;
   }
@@ -485,16 +498,58 @@ const scoreQueryTokensAgainstField = (
     options?.ignoreStopwords ? !STOPWORDS.has(token) : true,
   );
   if (fieldTokens.length === 0) {
-    return 0;
+    return {
+      matchedCount: 0,
+      unmatchedFieldTokens: 0,
+      averageSimilarity: 0,
+      queryCoverage: 0,
+      fieldPurity: 0,
+      score: 0,
+    };
   }
   const uniqueQueryTokens = Array.from(new Set(queryTokens));
-  const total = uniqueQueryTokens.reduce((sum, queryToken) => {
-    const best = fieldTokens.reduce((bestScore, candidateToken) => {
-      return Math.max(bestScore, scoreTokenPair(queryToken, candidateToken));
-    }, 0);
-    return sum + best;
-  }, 0);
-  return total / fieldTokens.length;
+  const candidates: Array<{ queryIndex: number; fieldIndex: number; similarity: number }> = [];
+  uniqueQueryTokens.forEach((queryToken, queryIndex) => {
+    fieldTokens.forEach((candidateToken, fieldIndex) => {
+      const similarity = scoreTokenPair(queryToken, candidateToken);
+      if (similarity > 0) {
+        candidates.push({ queryIndex, fieldIndex, similarity });
+      }
+    });
+  });
+  candidates.sort((left, right) => right.similarity - left.similarity);
+  const usedQueries = new Set<number>();
+  const usedFields = new Set<number>();
+  let matchedCount = 0;
+  let similarityTotal = 0;
+  candidates.forEach((candidate) => {
+    if (usedQueries.has(candidate.queryIndex) || usedFields.has(candidate.fieldIndex)) {
+      return;
+    }
+    usedQueries.add(candidate.queryIndex);
+    usedFields.add(candidate.fieldIndex);
+    matchedCount += 1;
+    similarityTotal += candidate.similarity;
+  });
+  const averageSimilarity = matchedCount > 0 ? similarityTotal / matchedCount : 0;
+  const queryCoverage = matchedCount / uniqueQueryTokens.length;
+  const fieldPurity = matchedCount / fieldTokens.length;
+  return {
+    matchedCount,
+    unmatchedFieldTokens: Math.max(0, fieldTokens.length - matchedCount),
+    averageSimilarity,
+    queryCoverage,
+    fieldPurity,
+    score: queryCoverage * fieldPurity * averageSimilarity,
+  };
+};
+
+const scoreQueryTokensAgainstField = (
+  queryTokens: string[],
+  field: string,
+  options?: { ignoreStopwords?: boolean },
+) => {
+  return buildTokenMatchMetrics(queryTokens, field, options)?.score ?? null;
 };
 
 const scoreTermsAgainstField = (terms: string[], field: string) => {
@@ -524,6 +579,8 @@ type ScoreBreakdown = {
   yearScore: number | null;
   tempoScore: number | null;
   notesScore: number | null;
+  textMatchedTerms: number;
+  textUnmatchedFieldTokens: number;
 };
 
 export type FuzzySearchConfig = {
@@ -572,6 +629,8 @@ const scoreTrackWithBreakdown = (
       yearScore: null,
       tempoScore: null,
       notesScore: null,
+      textMatchedTerms: 0,
+      textUnmatchedFieldTokens: 0,
     };
   }
   if (scoped.scope === "artist") {
@@ -590,6 +649,8 @@ const scoreTrackWithBreakdown = (
       yearScore: trimmed.length === 4 ? score : null,
       tempoScore: trimmed.length === 4 ? null : score,
       notesScore: null,
+      textMatchedTerms: 0,
+      textUnmatchedFieldTokens: 0,
     };
   }
   const parsed = parseQuery(trimmed);
@@ -641,26 +702,27 @@ const scoreTrackWithBreakdown = (
       )
     : 0;
   const allowWholeFieldBackstop = queryCoverageTokens.length <= 1;
+  const applyFieldScore = (coverageScore: number | null, termScore: number | null) => {
+    if (termScore === null) {
+      return 0;
+    }
+    if (allowWholeFieldBackstop) {
+      return Math.max(coverageScore ?? 0, termScore);
+    }
+    return coverageScore ?? 0;
+  };
   const artistScore = artistTermScore === null
     ? 0
     : Math.min(
         1,
-        Math.max(
-          (artistCoverageScore ?? 0) +
-            (allowWholeFieldBackstop ? 0.15 * artistTermScore : 0),
-          artistCoverageScore ?? 0,
-        ) +
+        applyFieldScore(artistCoverageScore, artistTermScore) +
           (parsed.mode === "similarity" ? 0.05 * phraseBoost : 0),
       );
   const titleScore = titleTermScore === null
     ? 0
     : Math.min(
         1,
-        Math.max(
-          (titleCoverageScore ?? 0) +
-            (allowWholeFieldBackstop ? 0.15 * titleTermScore : 0),
-          titleCoverageScore ?? 0,
-        ) +
+        applyFieldScore(titleCoverageScore, titleTermScore) +
           (parsed.mode === "lookup" ? 0.15 * phraseBoost : 0),
       );
   if (textTerms.length > 0) {
@@ -679,6 +741,8 @@ const scoreTrackWithBreakdown = (
   const notesField = [track.notes || "", track.album || "", track.genre || ""]
     .filter(Boolean)
     .join(" ");
+  const combinedTextField = [titleField, expandedArtistField, notesField].filter(Boolean).join(" ");
+  const combinedTextMetrics = buildTokenMatchMetrics(queryCoverageTokens, combinedTextField);
   const notesCoverageScore = scoreQueryTokensAgainstField(queryCoverageTokens, notesField);
   const notesPhraseBoost = parsed.hasQuotedPhrase && parsed.phraseTokens.length > 0
     ? Math.max(...parsed.phraseTokens.map((phrase) => scorePhraseInQuery(phrase, track.notes || "")))
@@ -687,17 +751,19 @@ const scoreTrackWithBreakdown = (
     ? null
     : Math.min(
         1,
-        Math.max(
-          (notesCoverageScore ?? 0) +
-            (allowWholeFieldBackstop ? 0.15 * notesScoreBase : 0),
-          notesCoverageScore ?? 0,
-        ) +
+        applyFieldScore(notesCoverageScore, notesScoreBase) +
           (parsed.mode === "lookup" ? 0.2 * notesPhraseBoost : 0),
       );
   if (notesScore !== null && weights.notes > 0) {
     components.push({ score: notesScore, weight: weights.notes });
   }
-  if (textTerms.length > 0 && artistScore <= 0 && titleScore <= 0 && (notesScore ?? 0) > 0) {
+  if (
+    textTerms.length > 0 &&
+    queryCoverageTokens.length <= 1 &&
+    artistScore <= 0 &&
+    titleScore <= 0 &&
+    (notesScore ?? 0) > 0
+  ) {
     components.length = 0;
     components.push({ score: notesScore ?? 0, weight: 1 });
   }
@@ -726,6 +792,8 @@ const scoreTrackWithBreakdown = (
       yearScore,
       tempoScore,
       notesScore,
+      textMatchedTerms: combinedTextMetrics?.matchedCount ?? 0,
+      textUnmatchedFieldTokens: combinedTextMetrics?.unmatchedFieldTokens ?? 0,
     };
   }
   const totalWeight = components.reduce((sum, component) => sum + component.weight, 0);
@@ -741,6 +809,8 @@ const scoreTrackWithBreakdown = (
     yearScore,
     tempoScore,
     notesScore,
+    textMatchedTerms: combinedTextMetrics?.matchedCount ?? 0,
+    textUnmatchedFieldTokens: combinedTextMetrics?.unmatchedFieldTokens ?? 0,
   };
 };
 
@@ -774,8 +844,14 @@ export const filterAndScoreTracks = (
   };
   scored.sort((a, b) => {
     if (sortBy === "score") {
+      if (b.breakdown.textMatchedTerms !== a.breakdown.textMatchedTerms) {
+        return b.breakdown.textMatchedTerms - a.breakdown.textMatchedTerms;
+      }
       if (b.breakdown.score !== a.breakdown.score) {
         return b.breakdown.score - a.breakdown.score;
+      }
+      if (a.breakdown.textUnmatchedFieldTokens !== b.breakdown.textUnmatchedFieldTokens) {
+        return a.breakdown.textUnmatchedFieldTokens - b.breakdown.textUnmatchedFieldTokens;
       }
       if (b.breakdown.artistScore !== a.breakdown.artistScore) {
         return b.breakdown.artistScore - a.breakdown.artistScore;

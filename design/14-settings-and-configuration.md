@@ -54,7 +54,7 @@ Board, Diagnostics, System).
 - CFG-SYS-002: The dialog explains the consequences and cannot be bypassed.
 - CFG-SYS-003: Users can select their preferred UI language.
 - CFG-SYS-003.a: Supported languages include English, Spanish, French, German,
-  Portuguese, and Italian.
+  Portuguese, Italian, and Icelandic.
 - CFG-SYS-004: Users assign output devices for main and headphone playback.
 - CFG-SYS-005: Output selection persists across sessions and reuses the preferred device
   when available (matching by device ID, label, or group); it falls back gracefully

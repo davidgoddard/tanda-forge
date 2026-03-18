@@ -92,8 +92,10 @@ Search must tolerate:
 FR-091.1.R4: The search algorithm must produce a relevance score and rank results by score.
 
 FR-091.1.R5: For text queries, field scoring is primarily token-based: query tokens
-are matched against field tokens using fuzzy token similarity, normalized by the
-number of tokens in the candidate field so longer noisier fields are penalized.
+are matched against field tokens using fuzzy token similarity, and ranking must
+consider both query coverage and candidate-field purity so that partial
+multi-token matches (for example `1/2`) stay materially below exact full-field
+coverage (for example `2/2`).
 FR-091.1.R6: A configurable minimum score determines which matches are returned.
 FR-091.1.R7: Fuzzy token similarity uses normalized trigram overlap and token-level
 edit-distance similarity to prefer close word matches (e.g., `francico` → `Francisco`).
@@ -104,6 +106,9 @@ noisier partial matches with extra unmatched field tokens.
 FR-091.1.R10: Very short query tokens (for example `a` or `la`) must match whole
 normalized tokens rather than arbitrary substrings, so common article words do
 not swamp ranking for unrelated titles.
+FR-091.1.R11: For non-empty text queries sorted by relevance, ordering must first
+prefer results that match more of the query terms, then prefer stronger weighted
+field relevance, and only then prefer candidates with fewer unmatched field tokens.
 
 ### FR-091.4 Implicit Query Parsing and Profiles
 

@@ -242,6 +242,31 @@ describe("fuzzy search helpers", () => {
     expect(result[0].score).toBeGreaterThan(result[1].score);
   });
 
+  it("penalizes single-token partial matches strongly for two-token queries", () => {
+    const exactArtist = buildTrack({
+      id: "exact-artist",
+      title: "La mariposa",
+      artist: "Color Tango",
+    });
+    const partialTitle = buildTrack({
+      id: "partial-title",
+      title: "Pasion Y Tango",
+      artist: "Sexteto Mayor",
+      album: "Tango Soho",
+    });
+    const result = filterAndScoreTracks([partialTitle, exactArtist], {
+      query: "color tango",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("exact-artist");
+    expect(result[1].track.id).toBe("partial-title");
+    expect(result[0].score).toBeGreaterThan(0.35);
+    expect(result[1].score).toBeLessThan(0.15);
+  });
+
   it("rewards full multi-token title coverage over partial title matches", () => {
     const exactTitle = buildTrack({
       id: "exact-title",
@@ -315,6 +340,31 @@ describe("fuzzy search helpers", () => {
     });
     expect(result[0].track.id).toBe("textual-match");
     expect(result[0].score).toBeGreaterThan(result[1].score);
+  });
+
+  it("does not let a metadata-only single-word partial dominate a two-word query", () => {
+    const exactArtist = buildTrack({
+      id: "exact-artist",
+      title: "La mariposa",
+      artist: "Color Tango",
+      genre: "Milonga",
+    });
+    const genreOnly = buildTrack({
+      id: "genre-only",
+      title: "El Choclo",
+      artist: "Julio Iglesias",
+      genre: "Tango",
+    });
+    const result = filterAndScoreTracks([genreOnly, exactArtist], {
+      query: "color tango",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("exact-artist");
+    expect(result[0].score).toBeGreaterThan(result[1].score);
+    expect(result[1].score).toBeLessThan(0.1);
   });
 
   it("uses similarity mode when numeric tokens are present and favors close year/tempo", () => {

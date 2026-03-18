@@ -93,6 +93,16 @@ describe("display view helpers", () => {
       shouldShowDisplayNextTanda: () => true,
     });
     expect(style).toBe("Milonga");
+
+    const label = resolveNextTandaLabel({
+      isMarkedLast: false,
+      nextStyle: style,
+      useCurrentLabel: true,
+      translateLast: () => "LAST",
+      translateCurrent: (s) => `This ${s}`,
+      translateNext: (s) => `Next ${s}`,
+    });
+    expect(label).toBe("This Milonga");
   });
 
   it("uses explicit last-tanda label override when requested", () => {

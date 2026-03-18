@@ -69,7 +69,9 @@ export const resolveNextTandaLabel = (params: {
   isMarkedLast: boolean;
   nextStyle: string;
   forceLastLabel?: boolean;
+  useCurrentLabel?: boolean;
   translateLast: () => string;
+  translateCurrent?: (style: string) => string;
   translateNext: (style: string) => string;
 }) => {
   if (params.forceLastLabel) {
@@ -79,6 +81,9 @@ export const resolveNextTandaLabel = (params: {
     return params.translateLast();
   }
   if (params.nextStyle) {
+    if (params.useCurrentLabel && params.translateCurrent) {
+      return params.translateCurrent(params.nextStyle);
+    }
     return params.translateNext(params.nextStyle);
   }
   return "";

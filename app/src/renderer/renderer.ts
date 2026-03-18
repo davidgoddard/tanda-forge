@@ -2558,6 +2558,8 @@ const getNextTandaLabel = () =>
       nextStyle,
       forceLastLabel,
       translateLast: () => t("displayThisIsLastTanda"),
+      useCurrentLabel: cortinaDisplayPhase !== "none" || holdCortinaDisplayWhenIdle,
+      translateCurrent: (style) => t("displayThisTanda", { style }),
       translateNext: (style) => t("displayNextTanda", { style }),
     });
   })();

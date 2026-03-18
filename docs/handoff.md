@@ -7459,3 +7459,73 @@
 - Verification:
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed.
+- Tightened lookup search scoring for multi-token queries in `app/src/main/library/fuzzy-search.ts`.
+  - Field token scoring now combines query coverage and candidate-field purity, so partial multi-token matches like `1/2` are penalized much more strongly relative to exact `2/2` matches.
+  - Kept a stronger whole-field fuzzy backstop only for single-token queries so typo recovery such as `cumprasita` still works.
+- Removed the bad metadata-only fallback for multi-token queries. A weak notes/album/genre hit like `genre = Tango` no longer gets promoted to the whole score when a query such as `color tango` fails to match `color` in title or artist.
+- Added a regression in `tests/library-search.test.ts` asserting that for `color tango`, a single-token partial such as `Pasion Y Tango` stays materially below an exact `Color Tango` artist match.
+- Added a second regression in `tests/library-search.test.ts` asserting that a metadata-only `Tango` match (for example `Julio Iglesias` with `genre = Tango`) does not dominate a two-word query like `color tango`.
+- Refined relevance sorting to follow the simpler rule the user asked for:
+  - first sort by how many distinct query terms were actually matched,
+  - then by weighted field relevance,
+  - then by how many unmatched field tokens remain.
+  This keeps exact artist/title coverage ahead of partial matches while still preserving title-vs-artist weighting among equally complete matches.
+- Updated `design/06-search-and-similarity.md` to document that ranking must reflect both query coverage and field purity for multi-token text queries, and that relevance ordering prefers more matched terms before unmatched-token cleanup.
+- Added Icelandic as a supported UI language in `app/src/renderer/i18n.ts`.
+  - `LanguageKey` / `SUPPORTED_LANGUAGES` now include `is`.
+  - Existing language maps now include `lang_is` labels so Icelandic appears in the picker regardless of the current UI language.
+  - Added an Icelandic language map seeded from English fallback text with Icelandic overrides for core visible UI labels, tabs, scan statuses, display-board labels, and common actions so the app can be switched to Icelandic immediately without missing-key regressions.
+- After user feedback about untranslated Icelandic boilerplate, expanded the Icelandic map in `app/src/renderer/i18n.ts` with the missing settings/system/search/diagnostics/action labels, common status text, hover/action strings, and short action letters that were still falling back to English.
+- Audited one-letter popup action labels for ambiguity across all supported languages.
+  - Adjusted Icelandic short labels in `app/src/renderer/i18n.ts` to remove collisions inside actual popup-menu contexts (`actionAddPlaylistShort`, `actionSendClipboardShort`, `actionMoveCollectionShort`).
+  - Added a regression in `tests/i18n.test.ts` that checks popup short-label uniqueness by menu context for every supported language.
+- Followed up on additional screenshot-reported Icelandic fallback gaps in `app/src/renderer/i18n.ts`.
+  - Added missing Icelandic strings for playlist/search diversity chart headings (`playlistStatsTitle`, `playlistStatsOrchestra`, `playlistStatsYear`, `playlistStatsTempo`, `searchDiversityTitle`, `searchDiversityOrchestraStyle`, `searchDiversityYear`, `searchDiversityTempo`, `searchDiversityStyleBreakdown`).
+  - Added missing Icelandic strings for legacy import UI (`legacyImportTitle`, `legacyImportDetected`, `legacyImportButton`, `legacyReadinessButton`).
+  - Added missing Icelandic strings for playlist sequence and validation text (`playlistSequenceLabel`, `playlistSequencePlaceholder`, `playlistSequenceHelp`, `playlistSequenceInvalidSyntax`, `playlistSequenceUnknownCodes`).
+  - Added missing Icelandic strings for orchestra/style registry UI (`orchestraRegistryTitle`, `orchestraRegistryHelp`, `orchestraFilterPlaceholder`, `orchestraCanonicalLabel`, `orchestraAliasesLabel`, `orchestraRelatedLabel`, `orchestraAdd`, `orchestraReset`, `orchestraSave`, `orchestraDelete`, `styleFamilyCodePlaceholder`, `styleFamilyBasePlaceholder`, `styleFamilyVariantsPlaceholder`, `styleFamilyAdd`, `styleFamilyEdit`, `styleRemove`, `styleRemoveLabel`).
+  - Fixed icon tooltip localization wiring in `app/src/renderer/index.html` so `#theme-toggle` and `#close-app` now localize both `title` and `aria-label` instead of only `aria-label`.
+- Performed a follow-up HTML i18n audit after the user asked whether any rendered HTML text remained untranslated.
+  - Fixed remaining icon/button wiring in `app/src/renderer/index.html` so `#open-settings`, `#fullscreen-toggle`, and `#search-button` now localize both `title` and `aria-label`, not just `aria-label`.
+  - Localized the playlist transport container accessibility label via new `playlistControlsLabel` entries in every supported language in `app/src/renderer/i18n.ts`.
+  - Audit result: the remaining English literals in `index.html` are default fallback values on elements already wired through `data-i18n` / `data-i18n-attr`; no additional forgotten HTML-only boilerplate strings were found in that template during this pass.
+- Completed a broader translation-completeness pass in `app/src/renderer/i18n.ts`.
+  - Filled the previously missing late-added keys across Spanish, French, German, Portuguese, and Italian for:
+    - legacy style-mapping UI,
+    - playlist artist-gap labels,
+    - playlist diversity headings,
+    - collection-diversity headings and opportunity labels,
+    - playlist filter empty-state text,
+    - playback diagnostics / output-probe / playback-log labels,
+    - play-count controls,
+    - orchestra-registry UI and reset/save statuses,
+    - precompute-compression progress/status strings,
+    - renderer swap/error status strings,
+    - live audio-compression labels and proof text,
+    - compressed-track path label.
+  - Added the missing Icelandic legacy-style mapping strings so the Icelandic map no longer leaves that section in English.
+  - Added a stricter regression in `tests/i18n.test.ts` that asserts every supported language map defines every English key, preventing future missing-key regressions.
+- Fixed a remaining Icelandic confirmation-dialog fallback in `app/src/renderer/i18n.ts`.
+  - Added Icelandic `confirmCloseWhilePlaying` so the close-while-playing warning message no longer appears in English.
+  - Added Icelandic `cancel` so the shared confirmation modal cancel button no longer falls back to English.
+- Fixed the remaining Icelandic playlist-clear modal labels in `app/src/renderer/i18n.ts`.
+  - Added Icelandic `playlistClearTitle`, `playlistClearOnly`, and `playlistClearAutofill`.
+  - Added the nearby shared Icelandic playlist-modal strings that were still missing from that same block (`statusPlaylistAutofillRunning`, `statusPlaylistAutofillDone`, `statusPlaylistAutofillPartial`, `confirmPlaylistClear`, `confirmDiscardTrackEdits`, `outputSelectionFailed`, `outputSelectionFailedDetail`).
+- Fixed the remaining Icelandic clipboard-clear modal labels in `app/src/renderer/i18n.ts`.
+  - Added Icelandic `clipboardClearTitle`, `clipboardClearConfirm`, and `clipboardClearRemoveEmpty`.
+- Fixed the remaining Icelandic collection-diversity labels and summary text in `app/src/renderer/i18n.ts`.
+  - Added the missing Icelandic `searchDiversity*` keys for the opportunity summary, table column headings, opportunity/suggestion text, year-gap labels, and the runtime summary sentence.
+  - Strengthened `tests/i18n.test.ts` so the diversity keys must be genuinely translated in non-English maps rather than merely present through English fallback spreads.
+- Updated display-board tanda labeling and stabilized the related E2E workflows.
+  - `app/src/renderer/modules/display-view.ts` now supports a current-tanda label override, and `app/src/renderer/renderer.ts` uses the localized `displayThisTanda` label whenever the display logic is resolving the upcoming tanda from the current playlist index during cortina display handling.
+  - Added a unit assertion in `tests/display-view.test.ts` covering the lead-in-cortina `"This tanda"` label path.
+  - Hardened `tests/e2e/workflows.e2e.ts` by adding a retry helper for opening the track editor from row menus and by explicitly selecting the intended clipboard destination before add-to-clipboard flows, including the click-playback fixture setup.
+- Updated `design/14-settings-and-configuration.md` so the supported-language requirement now includes Icelandic.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/i18n.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (81 files, 372 tests).
+  - `source ~/.nvm/nvm.sh && npm test -- tests/i18n.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm test -- tests/library-search.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (81 files, 370 tests).

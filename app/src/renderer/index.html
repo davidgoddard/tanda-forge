@@ -32,7 +32,7 @@
           <button
             id="open-settings"
             class="icon-button settings-button"
-            data-i18n-attr="aria-label"
+            data-i18n-attr="title,aria-label"
             data-i18n="openSettings"
             aria-label="Open Settings"
             title="Open Settings"
@@ -42,7 +42,7 @@
           <button
             id="fullscreen-toggle"
             class="icon-button fullscreen-button"
-            data-i18n-attr="aria-label"
+            data-i18n-attr="title,aria-label"
             data-i18n="toggleFullscreen"
             aria-label="Toggle fullscreen"
             title="Toggle fullscreen"
@@ -85,7 +85,7 @@
           <button
             id="theme-toggle"
             class="icon-button"
-            data-i18n-attr="aria-label"
+            data-i18n-attr="title,aria-label"
             data-i18n="toggleTheme"
             aria-label="Toggle theme"
             title="Toggle theme"
@@ -95,7 +95,7 @@
           <button
             id="close-app"
             class="icon-button close-button has-glyph"
-            data-i18n-attr="aria-label"
+            data-i18n-attr="title,aria-label"
             data-i18n="closeApp"
             aria-label="Close app"
             title="Close app"
@@ -211,7 +211,7 @@
               <button
                 id="search-button"
                 class="icon-button search-button has-glyph"
-                data-i18n-attr="aria-label"
+                data-i18n-attr="title,aria-label"
                 data-i18n="searchButton"
                 aria-label="Search"
                 title="Search"
@@ -361,7 +361,12 @@
                   <rect x="11.5" y="6" width="2.5" height="8" rx="1" />
                 </svg>
               </button>
-              <div class="playlist-controls" aria-label="Playlist controls">
+              <div
+                class="playlist-controls"
+                data-i18n-attr="aria-label"
+                data-i18n="playlistControlsLabel"
+                aria-label="Playlist controls"
+              >
                 <button
                   id="playlist-start"
                   class="icon-button has-glyph playlist-transport-btn"

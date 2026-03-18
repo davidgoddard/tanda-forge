@@ -277,6 +277,23 @@ const clickRowAction = async (row: Locator, action: string) => {
   await row.locator(`button[data-action="${action}"]`).first().click({ force: true });
 };
 
+const openTrackEditorFromRow = async (page: Page, row: Locator) => {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      await clickRowAction(row, "edit-track");
+      await expect(page.locator("#track-editor")).toHaveAttribute("aria-hidden", "false");
+      return;
+    } catch (error) {
+      lastError = error;
+      await closeTrackEditorIfOpen(page);
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
+};
+
 const openSettings = async (page: Page) => {
   await page.locator("#open-settings").click();
   await expect(page.locator("#settings-panel")).toHaveAttribute("aria-hidden", "false");
@@ -589,6 +606,8 @@ const clickDetailMenuUntilOpen = async (detailLine: Locator) => {
 const prepareClickPlaybackFixtures = async (page: Page) => {
   await clearPlaylistViaUi(page);
 
+  await page.locator('button[data-tab="clip-tracks"]').click();
+  await selectClipboardCollection(page, "general");
   await page.locator('button[data-tab="search-tracks"]').click();
   await runSearch(page, "Alberto Gomez");
   await expect(searchTrackRow(page, "Alberto Gomez Tango Uno")).toBeVisible();
@@ -773,8 +792,7 @@ test.describe("Electron app end-to-end workflows", () => {
     try {
       await runSearch(page, "Alberto Gomez Tango Uno");
       const row = searchTrackRow(page, "Alberto Gomez Tango Uno");
-      await clickRowAction(row, "edit-track");
-      await expect(page.locator("#track-editor")).toHaveAttribute("aria-hidden", "false");
+      await openTrackEditorFromRow(page, row);
       await page.locator("#track-editor-close").click();
       await confirmIfPrompted(page);
       await expect(page.locator("#track-editor")).toHaveAttribute("aria-hidden", "true");
@@ -807,6 +825,9 @@ test.describe("Electron app end-to-end workflows", () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="search-tracks"]').click();
       await runSearch(page, "Busqueda Artistica");
       const row = searchTrackRow(page, "Busqueda Artistica");
       await clickRowAction(row, "add-clip");
