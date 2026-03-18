@@ -176,6 +176,95 @@ describe("playlist interactions controller", () => {
     expect(startPlaylistFrom).toHaveBeenCalledWith(0, "track-2");
   });
 
+  it("starts playlist playback from a live-idle playlist track click instead of one-off playback", async () => {
+    const startPlaylistFrom = vi.fn();
+    const playTrackForMode = vi.fn(async () => true);
+    const { playlistListEl, deps } = createBaseDeps();
+    deps.readers.getAppMode = () => "live";
+    deps.readers.isMainPlaying = () => false;
+    deps.actions.startPlaylistFrom = startPlaylistFrom;
+    deps.actions.playTrackForMode = playTrackForMode;
+    deps.readers.getPlaylistItems = () => [{ kind: "tanda", tandaId: "tg1" }];
+    const row = {
+      dataset: { index: "0", tandaId: "tg1" },
+      classList: { contains: () => false },
+      closest: () => null,
+    } as unknown as HTMLElement;
+    const detailLine = {
+      dataset: { trackId: "track-2", slotIndex: "1" },
+      classList: { contains: () => false, add: () => {}, remove: () => {} },
+    } as unknown as HTMLElement;
+    const target = {
+      closest: (selector: string) => {
+        if (selector === ".list-row") {
+          return row;
+        }
+        if (selector === "#playlist-tanda-editor") {
+          return null;
+        }
+        if (selector === ".tanda-detail-line") {
+          return detailLine;
+        }
+        if (selector === "button[data-action]") {
+          return null;
+        }
+        if (selector === ".tanda-summary") {
+          return null;
+        }
+        return null;
+      },
+      classList: { contains: () => false },
+    };
+
+    const controller = createPlaylistInteractionsController(deps as any);
+    controller.initialize();
+    await (playlistListEl as unknown as FakeClickable).dispatch("click", { target });
+
+    expect(startPlaylistFrom).toHaveBeenCalledWith(0, "track-2");
+    expect(playTrackForMode).not.toHaveBeenCalled();
+  });
+
+  it("toggles a tanda row from summary click without starting playback", async () => {
+    const startPlaylistFrom = vi.fn();
+    const toggleTandaRow = vi.fn();
+    const { playlistListEl, deps } = createBaseDeps();
+    deps.readers.getAppMode = () => "live";
+    deps.readers.isMainPlaying = () => false;
+    deps.actions.startPlaylistFrom = startPlaylistFrom;
+    deps.actions.toggleTandaRow = toggleTandaRow;
+    deps.readers.getPlaylistItems = () => [{ kind: "tanda", tandaId: "tg1" }];
+    const row = {
+      dataset: { index: "0", tandaId: "tg1" },
+      classList: { contains: () => false },
+      closest: () => null,
+    } as unknown as HTMLElement;
+    const target = {
+      closest: (selector: string) => {
+        if (selector === ".list-row") {
+          return row;
+        }
+        if (selector === "#playlist-tanda-editor") {
+          return null;
+        }
+        if (selector === ".tanda-summary") {
+          return {} as HTMLElement;
+        }
+        if (selector === ".tanda-detail-line" || selector === "button[data-action]") {
+          return null;
+        }
+        return null;
+      },
+      classList: { contains: () => false },
+    };
+
+    const controller = createPlaylistInteractionsController(deps as any);
+    controller.initialize();
+    await (playlistListEl as unknown as FakeClickable).dispatch("click", { target });
+
+    expect(startPlaylistFrom).not.toHaveBeenCalled();
+    expect(toggleTandaRow).toHaveBeenCalledWith(row);
+  });
+
   it("marks a playlist target and requests rerender", async () => {
     const applyPlaylistTargetStyles = vi.fn();
     const setCenterPlaylistTargetOnNextRender = vi.fn();

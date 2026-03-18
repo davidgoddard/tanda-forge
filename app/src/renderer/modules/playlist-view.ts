@@ -5,6 +5,10 @@ export const resetPlaylistLastTandaState = (storage: Pick<Storage, "setItem">, k
   storage.setItem(key, "0");
 };
 
+export const resetPlaylistToggleState = (storage: Pick<Storage, "setItem">, key: string) => {
+  storage.setItem(key, "0");
+};
+
 export const resolvePlaylistWindowMs = (params: {
   startInput: string;
   endInput: string;

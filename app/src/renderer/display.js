@@ -31,6 +31,49 @@ let edgePaddingVmin = 5;
 let pointerDown = null;
 let ambientTimer = null;
 let activeOrbIndex = 0;
+let fitTimer = null;
+
+const setFitScale = (nextScale, isCortina) => {
+  if (!contentEl) {
+    return;
+  }
+  contentEl.style.setProperty(
+    isCortina ? "--display-fit-scale-cortina" : "--display-fit-scale-normal",
+    nextScale.toFixed(3),
+  );
+};
+
+const applyDisplayTextFit = () => {
+  if (!contentEl) {
+    return;
+  }
+  const isCortina = mode === "cortina";
+  const minScale = isCortina ? 0.68 : 0.72;
+  setFitScale(1, isCortina);
+  let nextScale = 1;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    if (contentEl.scrollHeight <= contentEl.clientHeight + 2) {
+      break;
+    }
+    nextScale = Math.max(minScale, nextScale - 0.04);
+    setFitScale(nextScale, isCortina);
+    if (nextScale <= minScale + 0.0001) {
+      break;
+    }
+  }
+};
+
+const scheduleDisplayTextFit = () => {
+  if (fitTimer) {
+    window.cancelAnimationFrame(fitTimer);
+  }
+  fitTimer = window.requestAnimationFrame(() => {
+    fitTimer = window.requestAnimationFrame(() => {
+      fitTimer = null;
+      applyDisplayTextFit();
+    });
+  });
+};
 
 const hasAnyBackgroundImages = () =>
   useBackgroundImages && (normalImages.length > 0 || cortinaImages.length > 0);
@@ -339,6 +382,7 @@ const applyDisplayUpdate = (payload) => {
   if (contentEl) {
     contentEl.classList.toggle("cortina-mode", mode === "cortina");
   }
+  scheduleDisplayTextFit();
 };
 
 window.tanda?.onDisplayUpdate?.((payload) => {
@@ -370,6 +414,10 @@ window.addEventListener("pointerup", (event) => {
     return;
   }
   window.close();
+});
+
+window.addEventListener("resize", () => {
+  scheduleDisplayTextFit();
 });
 
 void refreshImages();

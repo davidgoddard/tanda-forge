@@ -2,6 +2,7 @@ type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
 type PlaylistSettingsElements = {
   playlistLastTandaToggle?: HTMLInputElement | null;
+  playlistPerformanceStopToggle?: HTMLInputElement | null;
   playlistCortinaSetSelect?: HTMLSelectElement | null;
   playlistCortinaDurationInput?: HTMLInputElement | null;
   displayBackgroundIntervalInput?: HTMLInputElement | null;
@@ -20,6 +21,7 @@ export type SettingsPlaylistControllerDeps = {
   elements: PlaylistSettingsElements;
   keys: {
     playlistLastTanda: string;
+    playlistPerformanceStop: string;
     cortinaSet: string;
     cortinaDuration: string;
     displayBackgroundInterval: string;
@@ -47,6 +49,7 @@ export type SettingsPlaylistControllerDeps = {
   };
   actions: {
     resetPlaylistLastTandaState: () => void;
+    resetPlaylistPerformanceStopState: () => void;
     updateExternalDisplay: () => void;
     onCortinaSetChanged: (value: string) => Promise<void>;
     onCortinaDurationChanged: () => void;
@@ -118,6 +121,7 @@ export const createSettingsPlaylistController = (deps: SettingsPlaylistControlle
   const initialize = () => {
     const {
       playlistLastTandaToggle,
+      playlistPerformanceStopToggle,
       playlistCortinaSetSelect,
       playlistCortinaDurationInput,
       displayBackgroundIntervalInput,
@@ -135,9 +139,29 @@ export const createSettingsPlaylistController = (deps: SettingsPlaylistControlle
       deps.actions.resetPlaylistLastTandaState();
       playlistLastTandaToggle.checked = false;
       playlistLastTandaToggle.addEventListener("change", () => {
+        if (playlistLastTandaToggle.checked && playlistPerformanceStopToggle) {
+          playlistPerformanceStopToggle.checked = false;
+          deps.storage.setItem(deps.keys.playlistPerformanceStop, "0");
+        }
         deps.storage.setItem(
           deps.keys.playlistLastTanda,
           playlistLastTandaToggle.checked ? "1" : "0",
+        );
+        deps.actions.updateExternalDisplay();
+      });
+    }
+
+    if (playlistPerformanceStopToggle) {
+      deps.actions.resetPlaylistPerformanceStopState();
+      playlistPerformanceStopToggle.checked = false;
+      playlistPerformanceStopToggle.addEventListener("change", () => {
+        if (playlistPerformanceStopToggle.checked && playlistLastTandaToggle) {
+          playlistLastTandaToggle.checked = false;
+          deps.storage.setItem(deps.keys.playlistLastTanda, "0");
+        }
+        deps.storage.setItem(
+          deps.keys.playlistPerformanceStop,
+          playlistPerformanceStopToggle.checked ? "1" : "0",
         );
         deps.actions.updateExternalDisplay();
       });

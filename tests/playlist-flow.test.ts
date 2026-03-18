@@ -4,7 +4,10 @@ import {
   resolveContinuationIndexAfterEndCortina,
   resolveOverlapFadeMs,
   resolveScheduledTransitionTimeSeconds,
+  shouldPauseAfterMarkedPerformanceStop,
+  shouldPlayStandaloneTrackFromClick,
   shouldContinueAfterEndCortina,
+  shouldEnablePlaylistStop,
   shouldInsertCortinaBeforeTanda,
   shouldSkipLeadInCortinaForSelectedStart,
   shouldStartPlaylistFromClick,
@@ -87,6 +90,32 @@ describe("shouldStartPlaylistFromClick", () => {
   });
 });
 
+describe("shouldPlayStandaloneTrackFromClick", () => {
+  it("allows standalone track clicks only in live mode while main output is idle", () => {
+    expect(shouldPlayStandaloneTrackFromClick("live", false)).toBe(true);
+    expect(shouldPlayStandaloneTrackFromClick("live", true)).toBe(false);
+    expect(shouldPlayStandaloneTrackFromClick("prep", false)).toBe(false);
+    expect(shouldPlayStandaloneTrackFromClick("edit", false)).toBe(false);
+  });
+});
+
+describe("shouldEnablePlaylistStop", () => {
+  it("keeps stop enabled while playlist playback is active", () => {
+    expect(shouldEnablePlaylistStop("playing", true)).toBe(true);
+    expect(shouldEnablePlaylistStop("playing", false)).toBe(true);
+  });
+
+  it("keeps stop enabled for standalone main-output playback", () => {
+    expect(shouldEnablePlaylistStop("idle", true)).toBe(true);
+    expect(shouldEnablePlaylistStop("paused", true)).toBe(true);
+  });
+
+  it("disables stop only when nothing is actively playing", () => {
+    expect(shouldEnablePlaylistStop("idle", false)).toBe(false);
+    expect(shouldEnablePlaylistStop("paused", false)).toBe(false);
+  });
+});
+
 describe("overlap helpers", () => {
   it("treats only negative gaps as overlap", () => {
     expect(shouldUseOverlapForGapMs(-1500)).toBe(true);
@@ -114,6 +143,17 @@ describe("shouldStopAfterMarkedLastTanda", () => {
   it("does not stop for tracks or when not marked", () => {
     expect(shouldStopAfterMarkedLastTanda("track", true)).toBe(false);
     expect(shouldStopAfterMarkedLastTanda("tanda", false)).toBe(false);
+  });
+});
+
+describe("shouldPauseAfterMarkedPerformanceStop", () => {
+  it("pauses after tanda when marked for performance stop", () => {
+    expect(shouldPauseAfterMarkedPerformanceStop("tanda", true)).toBe(true);
+  });
+
+  it("does not pause for tracks or when not marked", () => {
+    expect(shouldPauseAfterMarkedPerformanceStop("track", true)).toBe(false);
+    expect(shouldPauseAfterMarkedPerformanceStop("tanda", false)).toBe(false);
   });
 });
 

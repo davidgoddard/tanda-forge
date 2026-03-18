@@ -31,7 +31,7 @@ The app is organized into three main columns plus a settings area:
 The application is in effect a single page application where the DJ can build and play a playlist.  A playlist in this context is a pre-defined
 sequence of tandas optionally separated by cortinas.
 
-![Config](../images/user-guide/03-main-buttons.png)
+<img src="../images/user-guide/03-main-buttons.png" width="200px">
 
 The buttons are:
 - Congiguration/Setup
@@ -60,7 +60,7 @@ cleared and the playlist reassigns cortinas from the newly selected set. If you
 extend the playlist with more tandas, only the new cortina rows are filled from
 the current set; already assigned cortina rows stay as they were.
 
-![Tanda Sequence](../images/user-guide/04-tanda-sequence.png)
+<img src="../images/user-guide/04-tanda-sequence.png" width="200px">
 
 The sequence also supports grouped alternatives with independent sizes, for example:
 `3T 3T 3W 3T 3T (2C 3M)`.
@@ -81,7 +81,7 @@ Cortinas if used will be displayed between tandas and if clicked on will open th
 
 Tandas show their overall style letter and then the name of the tanda if specified followed by a summary of the artist composition, whether sung, the years of the tracks in the tanda, the range of tempos in the tanda and the duration of the tanda.
 
-![Playlist](../images/user-guide/05-playlist.png)
+<img src="../images/user-guide/05-playlist.png" width="400px">
 
 Cortinas are optional and if used, the DJ can set up sets of tracks such as Salsa, Swing, Blues or whatever and then choose which set to use for the playlist.
 Once chosen, each new tanda is automatically allocated a track from that set.  Individual cortinas can be changed for any track from any set and the DJ can listen
@@ -100,14 +100,19 @@ In the top right there is a graph button which opens a view that shows the diver
 The system is given a number of single letter styles such as **T** or **W** or **M**.  Each one has a name such as "Tango". Then zero or more sub-styles can be added such as "Alternative", "Contemporary", "Traditional".  The system allows tandas that match any of the sub-styles or the
 main style name as valid for a playlist position marked with the single letter such as "T".
 
-![Styles](../images/user-guide/06-styles.png)
+<img src="../images/user-guide/06-styles.png" width="100%">
 
 The style names are shown as search filter buttons and all matching tracks and tandas are then shown in the search results and the clipboard.
+
+The **Tanda size** control in the Search column affects tanda results only. It
+lets the DJ limit the tanda search to tandas of a specific size such as `3` or
+`4`. Setting it to **Any** removes that size filter, so tandas of all lengths
+can appear in the search results.
 
 Right Clicking (or press and hold) a style pill button will show the sub-styles if available allowing specific searches for "alternative" tracks and tandas.
 Long-pressing a style pill (about 1 second) opens the same sub-style menu.
 
-![Styles](../images/user-guide/07-search-styles.png)
+<img src="../images/user-guide/07-search-styles.png" width="400px">
 
 Note, that the sub-styles can be used not only for "Nuevo" or "Traditional" or "Contemporary" but could be "Stompy" and "Lyrical" and "Slow" or "Fast" or whatever might be useful.  The DJ just decides whether to use named collections to track say Lyrical tandas or whether to use styles and then use the search filters.  Whichever works for them.
 
@@ -116,7 +121,8 @@ Note, that the sub-styles can be used not only for "Nuevo" or "Traditional" or "
 
 The system uses modes of operation to make the application easy to use or safe.
 
-![Modes](../images/user-guide/08-mode.png)
+<img src="../images/user-guide/08-mode.png" width="200px">
+
 - **Live** is for DJing on the night.  The only music that will play is what's next in the playlist.
 - **Preparation** is for exploring your collection whilst building tandas or playlists.  Clicking on a song plays it immediately.
 - **Edit** similar to "Preparation" mode but the editor window stays open allowing the DJ to click a song and quickly adjust the data or see the album it's from etc.
@@ -125,8 +131,20 @@ The system uses modes of operation to make the application easy to use or safe.
 
 See playlist image above.
 
-In live mode, to start playing, the DJ can click the small "play" button at the top or click on any song in the playlist.  If the song clicked on happens to be the first
-of the tanda, and if cortinas are in use, the system will play the cortina just before this tanda first otherwise it will simply play the track.
+In live mode, to start the playlist, the DJ can click the small "play" button at the top or click a tanda summary in the playlist.  If the chosen tanda starts with a
+cortina, and if cortinas are in use, the system will play that cortina before the tanda begins.
+
+If the DJ clicks an individual track in **Search** or **Clipboard** while
+nothing is playing in **Live** mode, Tanda Forge asks for confirmation and
+then plays that track as a one-off item only.  It does **not** continue
+through the playlist afterwards.  This is intended for ad-hoc performance
+songs or announcements.
+
+If the DJ clicks an individual **playlist** track while nothing is playing in
+**Live** mode, playlist playback starts from that track using the normal
+playlist rules.  That means the track starts immediately unless it is the
+first track of a tanda with a lead-in cortina, in which case the lead-in
+cortina still plays first.
 
 In **Preparation** mode, clicking any playlist track always starts that exact
 track immediately, even if another playlist track is currently playing.  It
@@ -145,7 +163,7 @@ still possible to set both to the same output but hopefully the DJ knows they ha
 The compression slider when available will mix the reduced "dynamic range" version of the song with the normal track allowing some or all of the compression to be used.  Under 
 normal use the DJ should set this to 0%.
 
-![Now Playing](../images/user-guide/09-now-playing.png)
+<img src="../images/user-guide/09-now-playing.png" width="500px">
 
 When the DJ is playing the last tanda of the evening they can click on the "This is the last tanda" check-box and this will ensure that the music stops after this tanda has played
 completely and, if using cortinas, the final cortina has played.  Display behavior is:
@@ -154,7 +172,24 @@ completely and, if using cortinas, the final cortina has played.  Display behavi
 - the final cortina after that tanda shows only "That's all folks";
 - after that final cortina ends and playback stops, the display remains on "That's all folks" until new playback/display state replaces it.
 
-![Now Playing](../images/user-guide/10-last-tanda.png)
+<img src="../images/user-guide/10-last-tanda.png" width="500px">
+
+For live performances, there is a second playlist checkbox: "Stop after this tanda for a live performance".  This behaves differently from the "last tanda" option:
+- the tanda plays normally;
+- the following cortina plays normally;
+- during that tanda and cortina, the display board shows no bottom-right tanda text;
+- after the cortina finishes, the playlist pauses instead of ending;
+- the DJ can then click confirmed one-off tracks from Search or Clipboard for the performance itself;
+- when the DJ later presses Playlist **Play**, Tanda Forge replays that same cortina and then continues into the next tanda/item in the playlist.
+
+That checkbox can be turned on before the tanda starts or while that tanda is
+already playing. If it is enabled during the tanda, the stop still applies
+after that tanda's following cortina.
+
+Tip: create a named clipboard collection such as `Show`, `Performance`, or the
+name of the act, and put the required performance tracks into it ahead of time.
+Then, when the moment comes, the DJ can switch straight to that collection and
+the required one-off tracks are immediately available.
 
 ### Menus
 
@@ -180,17 +215,21 @@ field in the search column.  Clicking more "S" buttons adds more text allowing t
 In addition, the menu buttons - circles with the elipsis in it ("...") - can be coloured white which indicates either a full or partial overlap with the current playlist.  Clicking the button 
 opens the menu as normal but also causes the playlist to scroll to the first instance of the track or tanda that overlaps.
 
-Playlists:
-![Playlist tanda](../images/user-guide/13-menu-playlist-tanda.png)
-![Playlist track](../images/user-guide/12-menu-playlist-track.png)
+Within Playlists:
 
-Collections:
-![Collection tanda](../images/user-guide/14-menu-collection-tanda.png)
+<img src="../images/user-guide/13-menu-playlist-tanda.png" width="500px">
+
+<img src="../images/user-guide/12-menu-playlist-track.png" width="500px">
+
+Within Collections:
+
+<img src="../images/user-guide/14-menu-collection-tanda.png" width="500px">
 
 
 ### Collections
 
-![Collections](../images/user-guide/11-collections.png)
+<img src="../images/user-guide/11-collections.png" width="500px">
+
 All collections can hold tracks and tandas.  The DJ can add any named collection in addition to the built-in ones and can view any combination of them at the same time. 
 The music style such as Tango or Vals can be controlled through the "Search" column's style options and can be set to "Any" or any combination of styles.  The DJ can add
 more styles into the configuration page and then classify songs or tandas using the new styles for use later.
@@ -285,7 +324,7 @@ Any track data can be modified by using the **E** menu option which opens the ed
 
 Each field can be modified and can also be used to add to a search for similar items using the **S** button next to each field - the current field value is appended to the search
 
-![Editor](../images/user-guide/16-editor.png)
+<img src="../images/user-guide/16-editor.png" width="400px">
 
 ## Initial Setup
 

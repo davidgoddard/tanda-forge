@@ -92,6 +92,13 @@ Board, Diagnostics, System).
   display-board text for venue-distance readability.
 - CFG-DSP-006: Users can configure an independent cortina font-size scale (%) so
   cortina headline sizing can be tuned separately from normal title/artist text.
+- CFG-DSP-007: Display-board text sizing must remain responsive to the actual
+  display window size. User-configured font scales act as base multipliers, but
+  the rendered text must expand and contract with the window and shrink further
+  if needed to fit.
+- CFG-DSP-008: Title, artist, and lower-right tanda text should prefer up to
+  two visible lines each; when text still does not fit, the display may shrink
+  it further and then truncate with an ellipsis.
 
 ## Playlist Configuration
 

@@ -866,8 +866,16 @@ body.theme-dark-classic .panel {
 }
 
 .style-variant-menu-item:hover {
-  border-color: var(--border);
-  background: var(--accent-soft);
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--panel);
+}
+
+.style-variant-menu-item:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--panel);
+  outline: none;
 }
 
 .tab-bar {
@@ -3135,6 +3143,15 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
 
 .cortina-controls .icon-button .icon .icon-inner {
   fill: var(--panel-solid);
+}
+
+.cortina-controls .icon-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.cortina-controls .icon-button:disabled .icon .icon-inner {
+  fill: color-mix(in srgb, var(--panel-solid) 70%, transparent);
 }
 
 .icon-button.has-glyph::before {

@@ -40,6 +40,7 @@ export const translations = {
     playlistHint:
       "Use a tanda menu to mark a playlist slot for replacement, then choose a track/tanda from Clipboard or Search. Without a marked slot, sent tracks/tandas go to the first free slot.",
     playlistCurrentIsLast: "Current tanda is the last tanda",
+    playlistCurrentPerformanceStop: "Stop after this tanda for a live performance",
     playlistClear: "Clear",
     tandasEmpty: "Tandas coming soon.",
     playlistEmptySlot: "Empty tanda",
@@ -121,6 +122,9 @@ export const translations = {
     cancelTarget: "Cancel target",
     cancel: "Cancel",
     confirmOk: "OK",
+    playNow: "Play now",
+    confirmLivePerformanceTrackPlay:
+      "Play \"{title}\" now as a one-off live performance track?",
     actionSearch: "Search similar",
     actionSearchShort: "S",
     actionMore: "More actions",
@@ -598,6 +602,7 @@ export const translations = {
     playlistHint:
       "Usa el menu de tanda para marcar un hueco de la lista para reemplazo y luego elige una pista/tanda desde Portapapeles o Busqueda. Sin hueco marcado, los envios van al primer hueco libre.",
     playlistCurrentIsLast: "La tanda actual es la ultima tanda",
+    playlistCurrentPerformanceStop: "Detener despues de esta tanda para una actuacion en vivo",
     playlistClear: "Limpiar",
     tandasEmpty: "Tandas pronto.",
     playlistEmptySlot: "Tanda vacia",
@@ -680,6 +685,9 @@ export const translations = {
     cancelTarget: "Cancelar objetivo",
     cancel: "Cancelar",
     confirmOk: "OK",
+    playNow: "Reproducir ahora",
+    confirmLivePerformanceTrackPlay:
+      "¿Reproducir ahora \"{title}\" como pista unica para una actuacion en vivo?",
     actionSearch: "Buscar similares",
     actionSearchShort: "S",
     actionMore: "Mas acciones",
@@ -1172,6 +1180,8 @@ export const translations = {
     playlistHint:
       "Utilisez le menu de tanda pour marquer un emplacement a remplacer, puis choisissez une piste/tanda depuis le presse-papiers ou la recherche. Sans emplacement marque, les envois vont dans le premier emplacement libre.",
     playlistCurrentIsLast: "La tanda en cours est la derniere",
+    playlistCurrentPerformanceStop:
+      "Arreter apres cette tanda pour une performance live",
     playlistClear: "Vider",
     tandasEmpty: "Tandas bientot.",
     playlistEmptySlot: "Tanda vide",
@@ -1254,6 +1264,9 @@ export const translations = {
     cancelTarget: "Annuler la cible",
     cancel: "Annuler",
     confirmOk: "OK",
+    playNow: "Lire maintenant",
+    confirmLivePerformanceTrackPlay:
+      "Lire maintenant \"{title}\" comme morceau unique pour une performance live ?",
     actionSearch: "Rechercher similaire",
     actionSearchShort: "S",
     actionMore: "Plus d'actions",
@@ -1754,6 +1767,8 @@ export const translations = {
     playlistHint:
       "Mit dem Tanda-Menue einen Playlist-Slot zum Ersetzen markieren und dann Track/Tanda aus Zwischenablage oder Suche waehlen. Ohne markierten Slot gehen gesendete Tracks/Tandas in den ersten freien Slot.",
     playlistCurrentIsLast: "Aktuelle Tanda ist die letzte Tanda",
+    playlistCurrentPerformanceStop:
+      "Nach dieser Tanda fuer eine Live-Performance anhalten",
     playlistClear: "Leeren",
     tandasEmpty: "Tandas bald verfugbar.",
     playlistEmptySlot: "Leere Tanda",
@@ -1836,6 +1851,9 @@ export const translations = {
     cancelTarget: "Ziel aufheben",
     cancel: "Abbrechen",
     confirmOk: "OK",
+    playNow: "Jetzt spielen",
+    confirmLivePerformanceTrackPlay:
+      "\"{title}\" jetzt als einmaligen Live-Performance-Titel abspielen?",
     actionSearch: "Ahnliches suchen",
     actionSearchShort: "S",
     actionMore: "Mehr Aktionen",
@@ -2338,6 +2356,8 @@ export const translations = {
     playlistHint:
       "Use o menu da tanda para marcar um slot da playlist para substituicao e depois escolha faixa/tanda no Bloco ou na Busca. Sem slot marcado, os envios vao para o primeiro slot livre.",
     playlistCurrentIsLast: "A tanda atual e a ultima tanda",
+    playlistCurrentPerformanceStop:
+      "Parar depois desta tanda para uma apresentacao ao vivo",
     playlistClear: "Limpar",
     tandasEmpty: "Tandas em breve.",
     playlistEmptySlot: "Tanda vazia",
@@ -2420,6 +2440,9 @@ export const translations = {
     cancelTarget: "Cancelar alvo",
     cancel: "Cancelar",
     confirmOk: "OK",
+    playNow: "Tocar agora",
+    confirmLivePerformanceTrackPlay:
+      "Tocar agora \"{title}\" como faixa avulsa para uma apresentacao ao vivo?",
     actionSearch: "Buscar similares",
     actionSearchShort: "S",
     actionMore: "Mais acoes",
@@ -2922,6 +2945,8 @@ export const translations = {
     playlistHint:
       "Usa il menu della tanda per segnare uno slot playlist da sostituire, poi scegli brano/tanda da Appunti o Ricerca. Senza slot segnato, gli invii vanno al primo slot libero.",
     playlistCurrentIsLast: "La tanda corrente e l'ultima tanda",
+    playlistCurrentPerformanceStop:
+      "Ferma dopo questa tanda per una performance dal vivo",
     playlistClear: "Svuota",
     tandasEmpty: "Tandas in arrivo.",
     playlistEmptySlot: "Tanda vuota",
@@ -3004,6 +3029,9 @@ export const translations = {
     cancelTarget: "Annulla obiettivo",
     cancel: "Annulla",
     confirmOk: "OK",
+    playNow: "Riproduci ora",
+    confirmLivePerformanceTrackPlay:
+      "Riprodurre ora \"{title}\" come brano singolo per una performance dal vivo?",
     actionSearch: "Cerca simili",
     actionSearchShort: "S",
     actionMore: "Altre azioni",
@@ -3509,6 +3537,7 @@ translations.is = {
   playlistTitle: "Spilunarlisti",
   playlistControlsLabel: "Stýringar spilunarlista",
   playlistCurrentIsLast: "Núverandi tanda er síðasta tanda",
+  playlistCurrentPerformanceStop: "Stöðva eftir þessa töndu fyrir lifandi atriði",
   playlistClear: "Hreinsa",
   tandasEmpty: "Töndur koma síðar.",
   playlistEmptySlot: "Tóm tanda",
@@ -3538,6 +3567,9 @@ translations.is = {
   confirmCloseWhilePlaying:
     "Tónlist er enn í spilun. Loka forritinu og stöðva spilun?",
   cancel: "Hætta við",
+  playNow: "Spila núna",
+  confirmLivePerformanceTrackPlay:
+    "Spila \"{title}\" núna sem stakt lag fyrir lifandi atriði?",
   actionAddClipboard: "Bæta á klemmuspjald",
   actionAddClipboardShort: "K",
   actionAddTandaShort: "T",

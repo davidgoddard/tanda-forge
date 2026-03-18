@@ -1,6 +1,6 @@
 # Tanda Forge
 
-![Tanda Forge Icon](images/user-guide/tandaforge_icon_1024.png)
+<img src="images/user-guide/tandaforge_icon_1024.png" width="300px">
 
 ## User Guide
 
@@ -36,6 +36,7 @@ This project is a collaboration between David Goddard (design and requirements) 
 - Normalize playback levels and trim silence automatically.
 - Control cortinas globally or per slot, with fade behavior and manual override.
 - Show dancer-facing display content on a second screen.
+- Support live performances with prepared collections, confirmed one-off Live playback from Search/Clipboard/Collections, and a stop/resume flow that pauses the playlist after a tanda and later resumes where it left off.
 - Cleanly end a session using a single tick-box and get automatic stop after playlist and final 'farewell' cortina.
 - Help dancers hear music over the chatter without use of a volume control.
 

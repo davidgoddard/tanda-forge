@@ -123,6 +123,8 @@ body {
   text-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
   --display-font-scale: 1;
   --display-cortina-font-scale: 1;
+  --display-fit-scale-normal: 1;
+  --display-fit-scale-cortina: 1;
 }
 
 .display-content.cortina-mode {
@@ -133,13 +135,19 @@ body {
 }
 
 .display-content.cortina-mode .display-title {
-  font-size: calc(clamp(150px, 23vmin, 560px) * var(--display-cortina-font-scale));
+  font-size: calc(
+    clamp(60px, 23vmin, 560px) * var(--display-cortina-font-scale) *
+      var(--display-fit-scale-cortina)
+  );
   line-height: 0.95;
   max-width: 98%;
 }
 
 .display-content.cortina-mode .display-artist {
-  font-size: calc(clamp(54px, 7.8vmin, 180px) * var(--display-cortina-font-scale));
+  font-size: calc(
+    clamp(24px, 7.8vmin, 180px) * var(--display-cortina-font-scale) *
+      var(--display-fit-scale-cortina)
+  );
   max-width: 96%;
 }
 
@@ -149,29 +157,65 @@ body {
 }
 
 .display-title {
-  font-size: calc(clamp(108px, 14vmin, 340px) * var(--display-font-scale));
+  font-size: calc(
+    clamp(40px, 14vmin, 340px) * var(--display-font-scale) *
+      var(--display-fit-scale-normal)
+  );
   line-height: 0.98;
   letter-spacing: 0.02em;
   max-width: 96%;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  padding-bottom: 0.12em;
+  max-height: 2.24em;
 }
 
 .display-artist {
-  font-size: calc(clamp(102px, 13.2vmin, 332px) * var(--display-font-scale));
+  font-size: calc(
+    clamp(38px, 13.2vmin, 332px) * var(--display-font-scale) *
+      var(--display-fit-scale-normal)
+  );
   line-height: 1.02;
   opacity: 0.88;
   max-width: 95%;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  padding-bottom: 0.14em;
+  max-height: 2.28em;
 }
 
 .display-progress {
-  font-size: calc(clamp(36px, 4.7vmin, 116px) * var(--display-font-scale));
+  font-size: calc(
+    clamp(18px, 4.7vmin, 116px) * var(--display-font-scale) *
+      var(--display-fit-scale-normal)
+  );
   opacity: 0.75;
   margin-top: 1.2vmin;
 }
 
 .display-next {
-  font-size: calc(clamp(54px, 6.2vmin, 156px) * var(--display-font-scale));
+  font-size: calc(
+    clamp(24px, 6.2vmin, 156px) * var(--display-font-scale) *
+      var(--display-fit-scale-normal)
+  );
   text-align: right;
   opacity: 0.85;
   align-self: flex-end;
   max-width: 74%;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  padding-bottom: 0.12em;
+  max-height: 2.42em;
 }

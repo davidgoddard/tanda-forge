@@ -25,9 +25,13 @@ The system operates in explicit modes (FR-060):
 - UI-001.R2: Mode changes must be explicit.
 - UI-001.R3: UI affordances must change with mode.
 - UI-001.R4: Unsafe actions must be impossible in Performance Mode, not merely discouraged.
-  UI-001.R4.a: Track click actions are disabled in Live mode except for headphone preview.
-  UI-001.R4.b: Playlist track click-start is allowed in Live mode only when the
+  UI-001.R4.a: Free-browsing track click actions are disabled in Live mode except
+  for headphone preview and the guarded one-off playback flow defined in
+  UI-001.R4.c.
+  UI-001.R4.b: Playlist tanda-start click is allowed in Live mode only when the
   main output is idle; this is a guarded start action rather than free browsing.
+  UI-001.R4.c: When main output is idle in Live mode, clicking a track must open
+  an in-app confirmation prompt before a one-off ad-hoc playback starts.
 
 ---
 
@@ -36,8 +40,9 @@ The system operates in explicit modes (FR-060):
 In Performance Mode:
 - UI-002.R1: No action may immediately change playback unless triggered via dedicated controls.
 - UI-002.R2: Clicking or tapping arbitrary content (tracks, tandas) must not
-  start playback, except for the guarded idle-only playlist click-start behavior
-  defined in UI-001.R4.b.
+  start playback, except for the guarded idle-only playlist tanda-start behavior
+  defined in UI-001.R4.b and the guarded confirmed one-off track playback flow
+  defined in UI-001.R4.c.
 - UI-002.R3: Destructive or disruptive actions must be disabled or gated.
   UI-002.R3.a: Any allowed destructive action must present a clear warning and confirmation.
   UI-002.R3.b: Confirmation dialogs must use the app-styled in-app modal system
@@ -415,11 +420,20 @@ Behavior:
 - UI-012.R10: In Live mode, played tandas are visually muted and their slots are locked
   against edits, swaps, or drops while playback is active.
 - UI-012.R11: In Preparation mode, clicking a playlist track starts playback from that
-  track even if another main track is already playing. In Live mode, this only works
-  when the main output is idle.
+  track even if another main track is already playing.
 - UI-012.R11.a: In Preparation mode, playlist-click playback starts immediately
   on the selected track with no lead-in cortina, even when the selected track
   is the first track in a tanda.
+- UI-012.R11.b: In Live mode, clicking a playlist track while main output is
+  idle starts playlist playback from that track using normal playlist rules.
+  If the selected track is the first track of a tanda and a lead-in cortina
+  applies, that cortina still plays first.
+- UI-012.R11.c: In Live mode, clicking a tanda summary while main output is idle
+  starts playlist playback from that tanda, preserving normal cortina behavior.
+- UI-012.R11.d: In Live mode, clicking a track in Search or Clipboard while
+  main output is idle must open a confirmation prompt and, if confirmed, play
+  that track as a one-off standalone item with no automatic run-on into the
+  playlist.
 - UI-012.R12: If main output is playing, playlist clicks are ignored in Live mode.
 - UI-012.R13: Each tanda row shows its total duration and an estimated start time based on
   the configured playlist start time and gap settings.
@@ -440,6 +454,15 @@ Behavior:
 - UI-012.R18: Playlist diversity year and BPM distribution charts must use
   container-fit column sizing so bars scale to fill available chart width
   without requiring horizontal scrolling.
+- UI-012.R19: The playlist footer must provide a second guarded stop-point toggle
+  for live performances. When enabled for the current tanda, playback pauses
+  after that tanda and its following cortina. The DJ can then play confirmed
+  one-off tracks while the playlist remains resumable.
+- UI-012.R19.a: Resuming from that performance stop must replay the same cortina
+  that was used at the pause point before continuing into the next playlist item.
+- UI-012.R19.b: Enabling the live-performance stop toggle during a tanda that is
+  already playing still applies to that currently active tanda and must pause
+  after its following cortina.
 
 ---
 
@@ -586,6 +609,10 @@ Features:
   preview must never replace or populate the audience-facing title or artist
   shown on the display board. If main output is idle, headphone-only preview
   must not appear there.
+- UI-060.R17: When the playlist is paused at the live-performance stop point,
+  the marked tanda's track phase and its final cortina must suppress the
+  bottom-right tanda text entirely instead of showing either "Next tanda" or
+  "This is the last tanda".
 
 Rules:
 - UI-060.R4: No control affordances.

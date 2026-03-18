@@ -7459,6 +7459,31 @@
 - Verification:
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed.
+- Clarified the Search-column tanda-size control in `docs/user-guide.md`.
+  - Added a short explanation that the control filters tanda results by size only, and that setting it to `Any` removes the size filter so tandas of all lengths can appear.
+- Restored live/prep playlist tanda-summary click-start behavior and aligned transport state.
+  - In `app/src/renderer/controllers/playlist-interactions-controller.ts`, clicking a playlist tanda summary now starts playback from that tanda again when the current mode allows click-starts, instead of being swallowed by the expand/collapse toggle handler.
+  - In `app/src/renderer/renderer.ts`, the playlist `Stop` button is now disabled whenever the playlist is not actively playing, which matches the paused-after-performance-stop behavior and the existing Playwright expectations.
+  - In `tests/e2e/workflows.e2e.ts`, Live-mode workflows were updated to account for the current cortina rules: initial tanda starts now wait through the lead-in cortina where appropriate, playlist-track restart after a stop now uses direct playlist click-start rather than the standalone-confirm path, and the cortina control workflow now asserts that the `Play` button becomes disabled after use.
+  - Added unit coverage in `tests/playlist-interactions-controller.test.ts` for live-idle playlist summary click-start.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-interactions-controller.test.ts tests/playlist-runtime-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `380` tests).
+- Updated `README.md` to call out live-performance support explicitly as a feature.
+  - Added a feature bullet covering prepared `Show` collections, confirmed one-off Live playback from Search/Clipboard, and the performance-stop/resume flow that pauses after a tanda and later resumes through the saved cortina.
+- Restored playlist tanda-summary clicks to expand/collapse only.
+  - In `app/src/renderer/controllers/playlist-interactions-controller.ts`, summary and style-badge clicks now always toggle the tanda row again instead of starting playback.
+  - Updated `tests/playlist-interactions-controller.test.ts` to assert the restored summary-toggle behavior.
+  - Updated `tests/e2e/workflows.e2e.ts` so the Live/cortina workflows start playback from actual playlist track lines rather than tanda summaries, and lengthened the variable-duration media stub in the performance-stop workflows so the resumed track is observable.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-interactions-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `380` tests).
+- Tightened E2E workflow `41` for cortina controls.
+  - In `tests/e2e/workflows.e2e.ts`, the workflow now sets `#stop-fade-duration` to `0` before exercising the cortina stop/continue behavior, so it measures the cortina control semantics directly instead of depending on the default stop-fade timing.
+  - Also widened the post-stop now-playing assertions in that workflow from `4s` to `8s`, because manual cortina stop still uses the controlled cortina fade path with a built-in minimum and can take longer than `4s` to hand off into the next track on slower runs.
+  - Lengthened the music-side media stub in that workflow from `600ms` to `2000ms`, so the resumed tanda track is still present long enough for the assertion to see it instead of racing straight through to idle.
 - Tightened lookup search scoring for multi-token queries in `app/src/main/library/fuzzy-search.ts`.
   - Field token scoring now combines query coverage and candidate-field purity, so partial multi-token matches like `1/2` are penalized much more strongly relative to exact `2/2` matches.
   - Kept a stronger whole-field fuzzy backstop only for single-token queries so typo recovery such as `cumprasita` still works.
@@ -7520,6 +7545,16 @@
   - `app/src/renderer/modules/display-view.ts` now supports a current-tanda label override, and `app/src/renderer/renderer.ts` uses the localized `displayThisTanda` label whenever the display logic is resolving the upcoming tanda from the current playlist index during cortina display handling.
   - Added a unit assertion in `tests/display-view.test.ts` covering the lead-in-cortina `"This tanda"` label path.
   - Hardened `tests/e2e/workflows.e2e.ts` by adding a retry helper for opening the track editor from row menus and by explicitly selecting the intended clipboard destination before add-to-clipboard flows, including the click-playback fixture setup.
+- Added end-to-end coverage for cortina now-playing controls in `tests/e2e/workflows.e2e.ts`.
+  - New workflow `41` verifies that the cortina `Stop` button immediately fades/stops the cortina and allows the playlist to continue into the planned tanda.
+  - The same workflow also verifies that the cortina `Play` button overrides the configured cortina duration so playback continues past the normal cutoff until either the cortina ends naturally or the DJ later clicks `Stop`.
+  - Added a variable-duration media stub in the E2E harness so music items end quickly while cortinas remain active long enough to prove the override behavior.
+- Fixed now-playing click routing so waveform seeking and cortina controls cannot be intercepted by the parent stop-on-click handler.
+  - Added `app/src/renderer/modules/now-playing-interactions.ts` with `shouldIgnoreNowPlayingSectionClick(...)`.
+  - `app/src/renderer/renderer.ts` now uses that helper for the parent now-playing click guard and explicitly stops propagation/default handling on waveform and cortina-control button clicks.
+  - Added unit coverage in `tests/now-playing-interactions.test.ts`.
+- Fixed manual cortina stop after a `Play` override so it fades out instead of snapping to the old configured cutoff.
+  - In `app/src/renderer/renderer.ts`, clicking `#cortina-stop` no longer clears `cortinaAllowFull` immediately. That prevents the original max-duration cutoff from reactivating in the live `timeupdate` path before the explicit stop-request fade logic runs.
 - Updated `design/14-settings-and-configuration.md` so the supported-language requirement now includes Icelandic.
 - Verification:
   - `source ~/.nvm/nvm.sh && npm test -- tests/i18n.test.ts` passed.
@@ -7529,3 +7564,88 @@
   - `source ~/.nvm/nvm.sh && npm test -- tests/library-search.test.ts` passed.
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed (81 files, 370 tests).
+- Added live-performance support for idle Live mode track clicks.
+  - In `app/src/renderer/renderer.ts`, clicking a track while Live mode is idle now opens a localized confirmation prompt before one-off playback.
+  - Confirmed playback runs on main output as a standalone track and stops afterward instead of continuing through the playlist.
+  - Added matching i18n keys in `app/src/renderer/i18n.ts`.
+- Added a new playlist footer toggle for live performance stop points.
+  - `app/src/renderer/index.html` now includes `playlistCurrentPerformanceStop`.
+  - `app/src/renderer/controllers/settings-playlist-controller.ts` persists the new toggle and keeps it mutually exclusive with the existing `This is the last tanda` toggle.
+  - `app/src/renderer/modules/playlist-view.ts` now exposes a shared helper for resetting mutually exclusive playlist toggle state.
+- Added resumable performance-stop playlist behavior.
+  - `app/src/shared/playlist-flow.ts` now exports `shouldPlayStandaloneTrackFromClick(...)` and `shouldPauseAfterMarkedPerformanceStop(...)`.
+  - `app/src/renderer/renderer.ts` now pauses after the marked tanda and its following cortina, blanks display text during that stop point, records the exact cortina used, and resumes later by replaying that same cortina before continuing into the next tanda.
+- Updated Live interaction routing for one-off performance playback.
+  - `app/src/renderer/controllers/playlist-interactions-controller.ts` now routes idle Live-mode track-row and tanda-detail track clicks through the standalone confirmation/play path instead of normal playlist progression.
+  - `app/src/renderer/renderer.ts` updated `handleTandaDetailTrackClick(...)` so playlist, search, and clipboard track clicks can all use the confirmed one-off playback path in idle Live mode.
+- Updated display-board handling for performance-stop scenarios.
+  - During a lead-in cortina, the style label now reads `This tanda` rather than `Next tanda`.
+  - During a performance-stop tanda and its following cortina, the lower-right tanda text is intentionally blank.
+  - Added assertions in `tests/display-view.test.ts`.
+- Expanded test coverage.
+  - Added unit coverage in `tests/playlist-flow.test.ts` and `tests/settings-playlist-controller.test.ts`.
+  - Added new E2E workflows in `tests/e2e/workflows.e2e.ts`:
+    - `42 - live idle track clicks confirm one-off playback and stop without playlist continuation`
+    - `43 - performance stop pauses after tanda, blanks display text, and resumes via the same cortina`
+  - Updated the existing live-mode E2E workflows so tanda-summary clicks still start playlist playback while idle Live track clicks now exercise the new one-off confirmation path.
+- Updated documentation.
+  - `design/03-audio-playback-and-timing-model.md` now documents confirmed one-off Live playback and cortina-backed performance-stop resume behavior.
+  - `design/05-ui-principles-and-components.md` now documents the new performance-stop playlist control and `This tanda` cortina labeling.
+  - `design/tracking-and-feature-matrix.md` now reflects the new Live-performance support.
+  - `docs/user-guide.md` now includes the live-performance workflow scenario for ad-hoc performance songs and playlist resume.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-flow.test.ts tests/settings-playlist-controller.test.ts tests/display-view.test.ts tests/playlist-runtime-controller.test.ts tests/now-playing-interactions.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `378` tests).
+- Corrected the Live-mode playlist-click behavior so only Search/Clipboard tracks use confirmed one-off playback.
+  - `app/src/renderer/controllers/playlist-interactions-controller.ts` no longer routes idle Live playlist track clicks through the one-off confirm path.
+  - `app/src/renderer/renderer.ts` now treats playlist tanda-detail track clicks in Live the same as before: they start playlist playback from that track, with normal lead-in cortina behavior when applicable.
+  - Added a regression in `tests/playlist-interactions-controller.test.ts` covering idle Live playlist track clicks starting the playlist instead of one-off playback.
+- Improved display-board text fitting and responsiveness.
+  - `app/src/renderer/display.css` now line-clamps title, artist, and lower-right tanda text to two lines with ellipsis fallback.
+  - `app/src/renderer/display.js` now recalculates a fit scale after content updates and window resizes so the user-configured base font scales still respond to the actual display window size and shrink further when content would overflow.
+  - Normal and cortina modes now maintain separate fit scales.
+- Stabilized the related E2E harness paths in `tests/e2e/workflows.e2e.ts`.
+  - Added a short settle delay in `openTrackEditorFromRow(...)`.
+  - Workflow `11` now explicitly reselects the `general` clipboard collection before the add-to-clipboard action.
+  - Workflow `39` now re-resolves the general clipboard track row instead of depending on a potentially stale fixture locator.
+- Updated documentation for the corrected Live playlist behavior and display sizing.
+  - `docs/user-guide.md` now distinguishes Live idle one-off playback for Search/Clipboard from normal playlist-track start behavior.
+  - `design/03-audio-playback-and-timing-model.md` and `design/05-ui-principles-and-components.md` now reflect that playlist track clicks in Live still follow playlist rules, while Search/Clipboard tracks use confirmed one-off playback.
+  - `design/14-settings-and-configuration.md` now specifies responsive display text sizing and two-line fit/truncation behavior.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-interactions-controller.test.ts tests/display-view.test.ts tests/playlist-flow.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `379` tests).
+- Fixed a live performance-stop runtime bug where toggling the option during an already-playing tanda updated the display but did not actually pause after the following cortina.
+  - In `app/src/renderer/renderer.ts`, the `stopAfterThisTanda` and `pauseAfterThisTandaForPerformance` decisions are now resolved after the tanda finishes rather than being snapshotted before the tanda starts.
+  - This means changing the toggle during the active tanda now affects that currently playing tanda as intended.
+- Added end-to-end coverage in `tests/e2e/workflows.e2e.ts`.
+  - New workflow `44 - enabling performance stop during a live tanda still pauses after its following cortina` covers the exact case of turning the option on while the tanda is already playing, then confirming the playlist pauses after the cortina and later resumes through the same cortina into the next tanda.
+- Updated docs to reflect the clarified behavior.
+  - `docs/user-guide.md` now states that the performance-stop checkbox can be enabled before the tanda starts or while it is already playing.
+  - `design/05-ui-principles-and-components.md` now includes `UI-012.R19.b` requiring the toggle to apply to the currently active tanda when enabled mid-tanda.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playlist-flow.test.ts tests/display-view.test.ts tests/playlist-interactions-controller.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `379` tests).
+- Fixed a resumed-performance display flash between the replayed cortina and the next tanda.
+  - In `app/src/renderer/renderer.ts`, the temporary `holdCortinaDisplayWhenIdle` flag is now cleared at the exact continuation points where playlist playback leaves cortina mode and continues into the next tanda.
+  - This removes the brief flash of the held `Cortina` view after the replayed cortina ends and before the first resumed tanda track display takes over, while still preserving intentional cortina holds for true idle/final states.
+- Expanded the live-performance guidance in `docs/user-guide.md`.
+  - Added an explicit tip recommending a named clipboard collection such as `Show` or `Performance` containing the required tracks in advance, so the DJ can switch directly to that collection when the performance starts.
+- Fixed display-board descender clipping on multi-line text.
+  - In `app/src/renderer/display.css`, the clamped title, artist, and lower-right tanda text boxes now have slightly more bottom padding and taller max-height limits.
+  - This avoids clipping serif descenders such as `g`, `p`, and `q` on the second visible line while preserving the two-line clamp and ellipsis behavior.
+- Fixed the display-board font floors so text keeps shrinking with smaller windows.
+  - In `app/src/renderer/display.css`, the large absolute minimum values in the `clamp(...)` font-size rules were reduced for title, artist, cortina, progress, and lower-right tanda text.
+  - The display still uses the configured font scales as base multipliers, but the viewport-based sizing now continues to shrink on smaller windows instead of stopping early because of oversized pixel minimums.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `379` tests).
+- Refined the cortina overrun controls and style-variant submenu contrast.
+  - In `app/src/renderer/renderer.ts`, the `Play` control in the cortina now-playing cluster now becomes disabled as soon as the DJ allows the cortina to overrun, so the action cannot be triggered repeatedly and is visibly no longer available for the current cortina.
+  - In `app/src/renderer/styles.css`, disabled cortina controls now render with reduced emphasis, and the style-variant long-press submenu now uses an accent background with light text for hover and keyboard focus to keep the active item readable across themes.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed.

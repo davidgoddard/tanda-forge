@@ -133,6 +133,9 @@ import {
   resolveContinuationIndexAfterEndCortina,
   resolveOverlapFadeMs,
   resolveScheduledTransitionTimeSeconds,
+  shouldPauseAfterMarkedPerformanceStop,
+  shouldEnablePlaylistStop,
+  shouldPlayStandaloneTrackFromClick,
   shouldContinueAfterEndCortina,
   shouldInsertCortinaBeforeTanda,
   shouldSkipLeadInCortinaForSelectedStart,
@@ -193,6 +196,7 @@ import {
   resolveNextTandaLabel,
   resolveNextTandaStyle,
 } from "./modules/display-view.js";
+import { shouldIgnoreNowPlayingSectionClick } from "./modules/now-playing-interactions.js";
 import { createSearchController } from "./controllers/search-controller.js";
 import { createSettingsCatalogController } from "./controllers/settings-catalog-controller.js";
 import { createSettingsDiagnosticsController } from "./controllers/settings-diagnostics-controller.js";
@@ -215,6 +219,7 @@ import {
 import {
   matchesPlaylistFilter,
   resetPlaylistLastTandaState,
+  resetPlaylistToggleState,
   resolvePlaylistWindowMs,
 } from "./modules/playlist-view.js";
 import {
@@ -531,6 +536,8 @@ const displayEdgePaddingInput =
   document.querySelector<HTMLInputElement>("#display-edge-padding");
 const playlistLastTandaToggle =
   document.querySelector<HTMLInputElement>("#playlist-last-tanda");
+const playlistPerformanceStopToggle =
+  document.querySelector<HTMLInputElement>("#playlist-performance-stop");
 const searchButton = document.querySelector<HTMLButtonElement>("#search-button");
 const alertBanner = document.querySelector<HTMLDivElement>("#alert-banner");
 const openDiagnosticsMain =
@@ -728,6 +735,7 @@ const DEFAULT_AUDIO_DYNAMICS_LIMITER_RELEASE = 260;
 const DEFAULT_AUDIO_DYNAMICS_RAMP = 800;
 const DEFAULT_CORTINA_LEVEL_PERCENT = 100;
 const PLAYLIST_LAST_TANDA_KEY = "tanda-playlist-current-last";
+const PLAYLIST_PERFORMANCE_STOP_KEY = "tanda-playlist-performance-stop";
 const PLAYLIST_END_TIME_KEY = "tanda-playlist-end-time";
 const DEFAULT_PLAYLIST_END_TIME = "03:00";
 
@@ -786,7 +794,9 @@ let cortinaSetsLoaded = false;
 type CortinaDisplayPhase = "none" | "about" | "playing" | "after";
 let cortinaDisplayPhase: CortinaDisplayPhase = "none";
 let isMarkedLastFinalCortinaActive = false;
+let isPerformanceStopFinalCortinaActive = false;
 let holdCortinaDisplayWhenIdle = false;
+let holdPerformanceStopDisplayBlankWhenIdle = false;
 let lastDisplayPayloadSignature = "";
 const waveformWidgets = [
   {
@@ -2388,6 +2398,29 @@ const syncDynamicsRuntimeForActivePlayback = async () => {
 };
 const isCurrentTandaMarkedLast = () =>
   localStorage.getItem(PLAYLIST_LAST_TANDA_KEY) === "1";
+const isCurrentTandaMarkedPerformanceStop = () =>
+  localStorage.getItem(PLAYLIST_PERFORMANCE_STOP_KEY) === "1";
+
+const isMainPlaybackActive = () => Boolean(playback.main.active && !playback.main.active.paused);
+
+const resolveFirstPlayablePlaylistPosition = (startIndex: number) => {
+  for (let itemIndex = Math.max(0, startIndex); itemIndex < playlistItems.length; itemIndex += 1) {
+    const item = playlistItems[itemIndex];
+    if (!item) {
+      continue;
+    }
+    const tracks = resolvePlaylistTracks(item);
+    if (tracks.length === 0) {
+      continue;
+    }
+    return {
+      itemIndex,
+      trackIndex: 0,
+      trackId: tracks[0].id,
+    };
+  }
+  return null;
+};
 const getPlaylistStartTimeMinutes = () => {
   return parseClockMinutes(
     getPlaylistStartTimeInput().trim() || DEFAULT_PLAYLIST_START_TIME,
@@ -2536,6 +2569,26 @@ const getNextTandaStyle = () =>
     shouldShowDisplayNextTanda: (status) => shouldShowDisplayNextTanda(status),
   });
 
+const shouldSuppressPerformanceStopDisplayText = () => {
+  if (!isCurrentTandaMarkedPerformanceStop()) {
+    return false;
+  }
+  if (holdPerformanceStopDisplayBlankWhenIdle && holdCortinaDisplayWhenIdle && !isMainPlaybackActive()) {
+    return true;
+  }
+  if (
+    isPerformanceStopFinalCortinaActive &&
+    (cortinaDisplayPhase !== "none" || holdCortinaDisplayWhenIdle)
+  ) {
+    return true;
+  }
+  if (playlistPlayback.status !== "playing") {
+    return false;
+  }
+  const activeItem = playlistItems[playlistPlayback.currentIndex];
+  return Boolean(activeItem && activeItem.kind === "tanda" && cortinaDisplayPhase === "none");
+};
+
 const isFinalCortinaForMarkedLast = (isMarkedLast: boolean, nextStyle: string) =>
   isMarkedLast &&
   isMarkedLastFinalCortinaActive &&
@@ -2544,6 +2597,9 @@ const isFinalCortinaForMarkedLast = (isMarkedLast: boolean, nextStyle: string) =
 
 const getNextTandaLabel = () =>
   (() => {
+    if (shouldSuppressPerformanceStopDisplayText()) {
+      return "";
+    }
     const nextStyle = getNextTandaStyle();
     const isMarkedLast = isCurrentTandaMarkedLast();
     const activeItem = playlistItems[playlistPlayback.currentIndex];
@@ -2578,10 +2634,11 @@ const updateExternalDisplay = () => {
   const nextStyle = getNextTandaStyle();
   const isMarkedLast = isCurrentTandaMarkedLast();
   const showFinalCortinaMessage = isFinalCortinaForMarkedLast(isMarkedLast, nextStyle);
+  const suppressPerformanceStopText = shouldSuppressPerformanceStopDisplayText();
   const cortinaHeadline = showFinalCortinaMessage
     ? t("displayNoMoreTandas")
     : t("cortinaRowLabel");
-  const cortinaSubline = showFinalCortinaMessage
+  const cortinaSubline = showFinalCortinaMessage || suppressPerformanceStopText
     ? ""
     : nextStyle
       ? t("displayThisTanda", { style: nextStyle })
@@ -3947,7 +4004,28 @@ const playTrackForMode = async (
   options?: PlayOptions,
 ) => {
   if (appMode === "live") {
-    return false;
+    if (!shouldPlayStandaloneTrackFromClick(appMode, isMainPlaybackActive())) {
+      return false;
+    }
+    const confirmed = await showConfirmModal(
+      t("confirmLivePerformanceTrackPlay", { title: track.title }),
+      t("playNow"),
+    );
+    if (!confirmed) {
+      return false;
+    }
+    holdPerformanceStopDisplayBlankWhenIdle = false;
+    return playOnChannel(
+      "main",
+      data.filePath,
+      data.trackId,
+      track,
+      data.gainDb,
+      {
+        ...options,
+        allowToggle: false,
+      },
+    );
   }
   const started = await playOnChannel(
     "main",
@@ -5355,9 +5433,6 @@ const handleTandaDetailTrackClick = async (
       return;
     }
     startPlaylistFrom(playlistIndex ?? -1, trackId);
-    return;
-  }
-  if (appMode === "live") {
     return;
   }
   await playTrackForMode(track, {
@@ -8052,7 +8127,10 @@ const updatePlaylistControls = () => {
     }
   }
   if (playlistStopBtn) {
-    playlistStopBtn.disabled = false;
+    playlistStopBtn.disabled = !shouldEnablePlaylistStop(
+      playlistPlayback.status,
+      isMainPlaybackActive(),
+    );
   }
   if (playlistClearBtn) {
     playlistClearBtn.disabled = appMode === "live";
@@ -8161,6 +8239,14 @@ const setCortinaControlsVisible = (visible: boolean) => {
     return;
   }
   cortinaControls.classList.toggle("visible", visible);
+  if (cortinaPlayBtn) {
+    cortinaPlayBtn.disabled = !visible || cortinaAllowFull;
+    cortinaPlayBtn.setAttribute("aria-disabled", cortinaPlayBtn.disabled ? "true" : "false");
+  }
+  if (cortinaStopBtn) {
+    cortinaStopBtn.disabled = !visible;
+    cortinaStopBtn.setAttribute("aria-disabled", cortinaStopBtn.disabled ? "true" : "false");
+  }
 };
 
 const pickNextCortina = async (targetIndex: number) => {
@@ -8245,18 +8331,23 @@ const playCortina = async (
     transitionFadeMs?: number;
     allowOverlapIntoNextTanda?: boolean;
   },
-): Promise<{ ok: boolean; overlappedIntoNext: boolean; overlapFadeMs: number | null }> => {
+): Promise<{
+  ok: boolean;
+  overlappedIntoNext: boolean;
+  overlapFadeMs: number | null;
+  track: TrackRow | null;
+}> => {
   if (!isCortinaEnabled()) {
-    return { ok: true, overlappedIntoNext: false, overlapFadeMs: null };
+    return { ok: true, overlappedIntoNext: false, overlapFadeMs: null, track: null };
   }
   const setName = getCortinaSet();
   if (!setName) {
-    return { ok: true, overlappedIntoNext: false, overlapFadeMs: null };
+    return { ok: true, overlappedIntoNext: false, overlapFadeMs: null, track: null };
   }
   const track = await pickNextCortina(targetIndex);
   if (!track) {
     cortinaDisplayPhase = "none";
-    return { ok: true, overlappedIntoNext: false, overlapFadeMs: null };
+    return { ok: true, overlappedIntoNext: false, overlapFadeMs: null, track: null };
   }
   cortinaDisplayPhase = "playing";
   cortinaPlaying = true;
@@ -8292,7 +8383,7 @@ const playCortina = async (
     cortinaActiveIndex = null;
     setCortinaControlsVisible(false);
     renderPlaylist();
-    return { ok: false, overlappedIntoNext: false, overlapFadeMs: null };
+    return { ok: false, overlappedIntoNext: false, overlapFadeMs: null, track };
   }
   // Re-render after playback starts so the active cortina row reflects the
   // actual track now playing instead of any previously active main track.
@@ -8304,7 +8395,7 @@ const playCortina = async (
     cortinaActiveIndex = null;
     setCortinaControlsVisible(false);
     renderPlaylist();
-    return { ok: false, overlappedIntoNext: false, overlapFadeMs: null };
+    return { ok: false, overlappedIntoNext: false, overlapFadeMs: null, track };
   }
   if (options?.allowOverlapIntoNextTanda) {
     const gapBeforeTandaMs = getGapBeforeTanda() * 1000;
@@ -8327,10 +8418,11 @@ const playCortina = async (
         transitionTimeSeconds,
       );
       if (!thresholdReached) {
-        return { ok: false, overlappedIntoNext: false, overlapFadeMs: null };
+        return { ok: false, overlappedIntoNext: false, overlapFadeMs: null, track };
       }
       if (!activeAudio.paused && !activeAudio.ended) {
         cortinaDisplayPhase = "none";
+        holdCortinaDisplayWhenIdle = false;
         cortinaPlaying = false;
         cortinaActiveIndex = null;
         setCortinaControlsVisible(false);
@@ -8339,6 +8431,7 @@ const playCortina = async (
           ok: true,
           overlappedIntoNext: true,
           overlapFadeMs: resolveOverlapFadeMs(gapBeforeTandaMs),
+          track,
         };
       }
     }
@@ -8352,7 +8445,7 @@ const playCortina = async (
       cortinaActiveIndex = null;
       setCortinaControlsVisible(false);
       renderPlaylist();
-      return { ok: true, overlappedIntoNext: false, overlapFadeMs: null };
+      return { ok: true, overlappedIntoNext: false, overlapFadeMs: null, track };
     }
     if (cortinaStopRequested) {
       if (autoStopFadeMs > 0) {
@@ -8367,7 +8460,7 @@ const playCortina = async (
     } else {
       const settled = await waitForGap(Math.max(300, autoStopFadeMs + 250), runId);
       if (!settled) {
-        return { ok: false, overlappedIntoNext: false, overlapFadeMs: null };
+        return { ok: false, overlappedIntoNext: false, overlapFadeMs: null, track };
       }
       if (!activeAudio.paused && !activeAudio.ended) {
         const fadeMs = Math.max(400, getStopFadeSeconds() * 1000);
@@ -8388,7 +8481,7 @@ const playCortina = async (
   cortinaActiveIndex = null;
   setCortinaControlsVisible(false);
   renderPlaylist();
-  return { ok: true, overlappedIntoNext: false, overlapFadeMs: null };
+  return { ok: true, overlappedIntoNext: false, overlapFadeMs: null, track };
 };
 
 const runPlaylistPlayback = async (
@@ -8414,6 +8507,8 @@ const runPlaylistPlayback = async (
   }
   playlistPlayback.status = "playing";
   isMarkedLastFinalCortinaActive = false;
+  isPerformanceStopFinalCortinaActive = false;
+  holdPerformanceStopDisplayBlankWhenIdle = false;
   playlistPlayback.activeTrackId = null;
   playlistPlayback.activeTandaId = null;
   playlistPlayback.liveBaseStartMs = computeLiveBaseStartMs(
@@ -8428,6 +8523,8 @@ const runPlaylistPlayback = async (
     playlistPlayback.activeTandaId = null;
     playlistPlayback.resume = null;
     playlistPlayback.liveBaseStartMs = null;
+    isPerformanceStopFinalCortinaActive = false;
+    holdPerformanceStopDisplayBlankWhenIdle = false;
     renderPlaylist();
     runCompleted = true;
   };
@@ -8508,6 +8605,7 @@ const runPlaylistPlayback = async (
             return;
           }
           cortinaDisplayPhase = "none";
+          holdCortinaDisplayWhenIdle = false;
         }
         leadInCortinaPlayed = true;
       }
@@ -8619,6 +8717,7 @@ const runPlaylistPlayback = async (
           return;
         }
         cortinaDisplayPhase = "none";
+        holdCortinaDisplayWhenIdle = false;
       }
     }
     if (continuedFromEndCortina) {
@@ -8628,6 +8727,7 @@ const runPlaylistPlayback = async (
         return;
       }
       cortinaDisplayPhase = "none";
+      holdCortinaDisplayWhenIdle = false;
     }
     continuedFromEndCortina = false;
     leadInCortinaPlayed = false;
@@ -8644,10 +8744,6 @@ const runPlaylistPlayback = async (
       }
     }
     continuedFromGapOverlap = false;
-    const stopAfterThisTanda = shouldStopAfterMarkedLastTanda(
-      item.kind,
-      isCurrentTandaMarkedLast(),
-    );
     let tailTransitionStartedByOverlap = false;
     for (
       let index = playlistPlayback.currentTrackIndex;
@@ -8699,7 +8795,8 @@ const runPlaylistPlayback = async (
         ? getGapBetweenTracks() * 1000
         : isCortinaEnabled()
           ? getGapBeforeCortina() * 1000
-          : playlistPlayback.currentIndex < playlistItems.length - 1 || stopAfterThisTanda
+          : playlistPlayback.currentIndex < playlistItems.length - 1 ||
+              shouldStopAfterMarkedLastTanda(item.kind, isCurrentTandaMarkedLast())
             ? getGapBeforeTanda() * 1000
             : 0;
       const startAtSeconds =
@@ -8761,15 +8858,26 @@ const runPlaylistPlayback = async (
     if (appMode === "live") {
       savePlayCounts();
     }
+    const stopAfterThisTanda = shouldStopAfterMarkedLastTanda(
+      item.kind,
+      isCurrentTandaMarkedLast(),
+    );
+    const pauseAfterThisTandaForPerformance = shouldPauseAfterMarkedPerformanceStop(
+      item.kind,
+      isCurrentTandaMarkedPerformanceStop(),
+    );
     playlistPlayback.playedThroughIndex = Math.max(
       playlistPlayback.playedThroughIndex,
       playlistPlayback.currentIndex,
     );
-    playlistPlayback.currentIndex += 1;
-    playlistPlayback.currentTrackIndex = 0;
-    playlistPlayback.activeTrackId = null;
-    playlistPlayback.activeTandaId = null;
-    renderPlaylist();
+      playlistPlayback.currentIndex += 1;
+      playlistPlayback.currentTrackIndex = 0;
+      playlistPlayback.activeTrackId = null;
+      playlistPlayback.activeTandaId = null;
+      renderPlaylist();
+      const performanceResume = pauseAfterThisTandaForPerformance
+        ? resolveFirstPlayablePlaylistPosition(playlistPlayback.currentIndex)
+        : null;
     if (stopAfterThisTanda) {
       if (isCortinaEnabled()) {
         isMarkedLastFinalCortinaActive = true;
@@ -8789,6 +8897,52 @@ const runPlaylistPlayback = async (
         }
       }
       finalizeRunAsIdle();
+      return;
+    }
+    if (pauseAfterThisTandaForPerformance) {
+      let finalCortinaTrack: TrackRow | null = null;
+      if (isCortinaEnabled()) {
+        isPerformanceStopFinalCortinaActive = true;
+        cortinaDisplayPhase = "about";
+        if (!tailTransitionStartedByOverlap) {
+          const gapOk = await waitBeforeCortina(runId);
+          if (!gapOk) {
+            return;
+          }
+        }
+        const cortinaResult = await playCortina(runId, playlistPlayback.currentIndex, {
+          transitionFadeMs: pendingTransitionFadeMs ?? undefined,
+        });
+        pendingTransitionFadeMs = null;
+        if (!cortinaResult.ok) {
+          return;
+        }
+        finalCortinaTrack = cortinaResult.track;
+      }
+      playlistPlayback.status = performanceResume ? "paused" : "idle";
+      playlistPlayback.activeTrackId = null;
+      playlistPlayback.activeTandaId = null;
+      playlistPlayback.liveBaseStartMs = null;
+      cortinaDisplayPhase = "none";
+      if (performanceResume) {
+        playlistPlayback.currentIndex = performanceResume.itemIndex;
+        playlistPlayback.currentTrackIndex = performanceResume.trackIndex;
+        playlistPlayback.resume = {
+          itemIndex: performanceResume.itemIndex,
+          trackIndex: performanceResume.trackIndex,
+          trackId: performanceResume.trackId,
+          resumeTime: 0,
+        };
+        if (finalCortinaTrack) {
+          cortinaOverrideByIndex.set(performanceResume.itemIndex, finalCortinaTrack);
+        }
+      } else {
+        playlistPlayback.resume = null;
+      }
+      isPerformanceStopFinalCortinaActive = false;
+      holdPerformanceStopDisplayBlankWhenIdle = true;
+      renderPlaylist();
+      runCompleted = true;
       return;
     }
     }
@@ -8848,6 +9002,8 @@ const stopPlaybackFromPlaylistControls = async () => {
   cortinaStopRequested = false;
   cortinaActiveIndex = null;
   isMarkedLastFinalCortinaActive = false;
+  isPerformanceStopFinalCortinaActive = false;
+  holdPerformanceStopDisplayBlankWhenIdle = false;
   setCortinaControlsVisible(false);
   await Promise.all([
     stopChannelPlayback("main", fadeMs),
@@ -9259,6 +9415,8 @@ const clearPlaylistState = async () => {
   playlistPlayback.playedThroughIndex = -1;
   cortinaDisplayPhase = "none";
   isMarkedLastFinalCortinaActive = false;
+  isPerformanceStopFinalCortinaActive = false;
+  holdPerformanceStopDisplayBlankWhenIdle = false;
   playlistPlayback.activeTrackId = null;
   playlistPlayback.activeTandaId = null;
   playlistPlayback.liveBaseStartMs = null;
@@ -13180,6 +13338,7 @@ const init = async () => {
     storage: localStorage,
     elements: {
       playlistLastTandaToggle,
+      playlistPerformanceStopToggle,
       playlistCortinaSetSelect,
       playlistCortinaDurationInput,
       displayBackgroundIntervalInput,
@@ -13194,6 +13353,7 @@ const init = async () => {
     },
     keys: {
       playlistLastTanda: PLAYLIST_LAST_TANDA_KEY,
+      playlistPerformanceStop: PLAYLIST_PERFORMANCE_STOP_KEY,
       cortinaSet: CORTINA_SET_KEY,
       cortinaDuration: CORTINA_DURATION_KEY,
       displayBackgroundInterval: DISPLAY_BACKGROUND_INTERVAL_KEY,
@@ -13222,6 +13382,8 @@ const init = async () => {
     actions: {
       resetPlaylistLastTandaState: () =>
         resetPlaylistLastTandaState(localStorage, PLAYLIST_LAST_TANDA_KEY),
+      resetPlaylistPerformanceStopState: () =>
+        resetPlaylistToggleState(localStorage, PLAYLIST_PERFORMANCE_STOP_KEY),
       updateExternalDisplay,
       onCortinaSetChanged: async (next) => {
         cortinaQueue = [];
@@ -14140,20 +14302,25 @@ const init = async () => {
     void applySequenceValidationState();
   }
 
-  cortinaStopBtn?.addEventListener("click", () => {
+  cortinaStopBtn?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     if (!cortinaPlaying) {
       return;
     }
-    cortinaAllowFull = false;
     cortinaStopRequested = true;
+    setCortinaControlsVisible(true);
     updateNowPlayingDisplay();
   });
-  cortinaPlayBtn?.addEventListener("click", () => {
+  cortinaPlayBtn?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     if (!cortinaPlaying) {
       return;
     }
     cortinaStopRequested = false;
     cortinaAllowFull = true;
+    setCortinaControlsVisible(true);
     updateNowPlayingDisplay();
   });
   cortinaModalClose?.addEventListener("click", () => {
@@ -14259,13 +14426,7 @@ const init = async () => {
   });
 
   nowPlayingSection?.addEventListener("click", async (event) => {
-    const target = event.target as HTMLElement;
-    if (
-      target.closest("button") ||
-      target.closest(".now-playing-boost") ||
-      target.closest("#waveform-container") ||
-      target.closest("#track-editor-waveform-container")
-    ) {
+    if (shouldIgnoreNowPlayingSectionClick(event.target)) {
       return;
     }
     if (appMode !== "prep" && appMode !== "edit") {
@@ -14286,10 +14447,12 @@ const init = async () => {
     await stopChannelPlayback("main", fadeMs);
   });
   waveformContainer?.addEventListener("click", (event) => {
+    event.preventDefault();
     event.stopPropagation();
     seekToWaveformPosition(event, waveformContainer);
   });
   trackEditorWaveformContainer?.addEventListener("click", (event) => {
+    event.preventDefault();
     event.stopPropagation();
     seekToWaveformPosition(event, trackEditorWaveformContainer);
   });
@@ -14421,6 +14584,8 @@ const init = async () => {
     playlistPlayback.playedThroughIndex = -1;
     cortinaDisplayPhase = "none";
     isMarkedLastFinalCortinaActive = false;
+    isPerformanceStopFinalCortinaActive = false;
+    holdPerformanceStopDisplayBlankWhenIdle = false;
     playlistPlayback.activeTrackId = null;
     playlistPlayback.activeTandaId = null;
     playlistPlayback.liveBaseStartMs = null;

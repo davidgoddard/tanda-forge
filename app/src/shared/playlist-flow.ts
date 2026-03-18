@@ -60,6 +60,16 @@ export const shouldStartPlaylistFromClick = (
   return false;
 };
 
+export const shouldPlayStandaloneTrackFromClick = (
+  appMode: "prep" | "live" | "edit",
+  isMainChannelActivelyPlaying: boolean,
+) => appMode === "live" && !isMainChannelActivelyPlaying;
+
+export const shouldEnablePlaylistStop = (
+  playbackStatus: "idle" | "paused" | "playing",
+  isMainChannelActivelyPlaying: boolean,
+) => playbackStatus === "playing" || isMainChannelActivelyPlaying;
+
 export const shouldUseOverlapForGapMs = (gapMs: number) => gapMs < 0;
 
 export const resolveOverlapFadeMs = (gapMs: number) =>
@@ -80,6 +90,11 @@ export const shouldStopAfterMarkedLastTanda = (
   itemKind: "track" | "tanda",
   markedLast: boolean,
 ) => itemKind === "tanda" && markedLast;
+
+export const shouldPauseAfterMarkedPerformanceStop = (
+  itemKind: "track" | "tanda",
+  markedForPerformanceStop: boolean,
+) => itemKind === "tanda" && markedForPerformanceStop;
 
 export const resolveContinuationIndexAfterEndCortina = (
   currentIndex: number,

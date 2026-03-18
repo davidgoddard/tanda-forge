@@ -121,7 +121,15 @@ When cortinas are enabled, the playlist flow includes:
 Preparation-mode playlist track click always starts playback immediately from
 the selected track (no lead-in cortina), even when another playlist track is
 already playing. Live mode retains guarded start behavior and may still use the
-lead-in cortina when starting at the first track of a tanda.
+lead-in cortina when starting from a tanda summary or a playlist track click.
+Confirmed one-off playback in Live mode applies to direct track clicks from
+Search and Clipboard while main output is idle; playlist track clicks continue
+to follow normal playlist start behavior.
+
+For live performances, the playlist can be marked to pause after the current
+tanda and its following cortina. That stop point preserves a resumable next
+item and the exact cortina used there, so pressing Playlist `Play` later
+replays that cortina and then continues into the next tanda/item.
 
 Compression uses pre-rendered companion audio for main-channel playback, with a
 runtime wet/dry mix slider in the now-playing strip. Companion files are
