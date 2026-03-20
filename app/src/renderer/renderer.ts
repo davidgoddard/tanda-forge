@@ -821,6 +821,7 @@ const waveformWidgets = [
 ];
 
 const updateE2eRuntimeSnapshot = () => {
+  const mainActive = playback.main.active;
   (
     window as Window & {
       __e2eRuntimeSnapshot?: {
@@ -829,6 +830,13 @@ const updateE2eRuntimeSnapshot = () => {
         playlistStatus: "idle" | "paused" | "playing";
         playlistStartDisabled: boolean;
         playlistStopDisabled: boolean;
+        mainSourcePath: string;
+        mainCurrentTime: number;
+        mainPaused: boolean;
+        mainEnded: boolean;
+        mainIsCortinaPlayback: boolean;
+        mainVolume: number;
+        nowPlayingTrack: string;
       };
     }
   ).__e2eRuntimeSnapshot = {
@@ -837,7 +845,42 @@ const updateE2eRuntimeSnapshot = () => {
     playlistStatus: playlistPlayback.status,
     playlistStartDisabled: Boolean(playlistStartBtn?.disabled),
     playlistStopDisabled: Boolean(playlistStopBtn?.disabled),
+    mainSourcePath: playback.main.activeSourcePath ?? "",
+    mainCurrentTime: mainActive?.currentTime ?? 0,
+    mainPaused: mainActive?.paused ?? true,
+    mainEnded: mainActive?.ended ?? false,
+    mainIsCortinaPlayback: Boolean(playback.main.isCortinaPlayback),
+    mainVolume: mainActive ? getAudioLevel(mainActive) : 0,
+    nowPlayingTrack: nowPlayingTrack?.textContent?.trim().toLowerCase() ?? "",
   };
+};
+(
+  window as Window & {
+    __e2eSetMainPlaybackTime?: (seconds: number) => void;
+  }
+).__e2eSetMainPlaybackTime = (seconds: number) => {
+  const active = playback.main.active;
+  if (!active || !Number.isFinite(seconds)) {
+    return;
+  }
+  const targetSeconds = Math.max(0, seconds);
+  active.currentTime = targetSeconds;
+  if (Math.abs((active.currentTime ?? 0) - targetSeconds) > 0.05) {
+    let forcedCurrentTime = targetSeconds;
+    Object.defineProperty(active, "currentTime", {
+      configurable: true,
+      get: () => forcedCurrentTime,
+      set: (value: number) => {
+        forcedCurrentTime = Math.max(0, Number.isFinite(value) ? value : forcedCurrentTime);
+      },
+    });
+    active.currentTime = targetSeconds;
+  }
+  if (playback.main.compressedActive) {
+    playback.main.compressedActive.currentTime = active.currentTime;
+  }
+  active.dispatchEvent(new Event("timeupdate"));
+  updateNowPlayingDisplay();
 };
 let pendingCortinaTargetIndex: number | null = null;
 const pulsePlaylistIndices = new Set<number>();

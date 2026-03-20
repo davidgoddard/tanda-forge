@@ -537,6 +537,206 @@ const installVariableEndingMediaStub = async (
   );
 };
 
+const installAdvancingMediaStub = async (
+  page: Page,
+  musicDurationMs = 6_000,
+  cortinaDurationMs = 4_000,
+  tickMs = 100,
+) => {
+  await page.evaluate(
+    ({ musicDuration, cortinaDuration, tick }) => {
+      const scope = window as unknown as {
+        __e2eAdvancingMediaPatched?: boolean;
+        __e2eAdvancingMediaState?: {
+          activeSource: string;
+          paused: boolean;
+          ended: boolean;
+          currentTime: number;
+          duration: number;
+          volume: number;
+        };
+      };
+      if (scope.__e2eAdvancingMediaPatched) {
+        return;
+      }
+      const proto = HTMLMediaElement.prototype as HTMLMediaElement & {
+        play: () => Promise<void>;
+        pause: () => void;
+        __e2eOriginalPlay?: () => Promise<void>;
+        __e2eOriginalPause?: () => void;
+        __e2eOriginalCurrentTimeDescriptor?: PropertyDescriptor;
+        __e2eOriginalDurationDescriptor?: PropertyDescriptor;
+        __e2eOriginalPausedDescriptor?: PropertyDescriptor;
+        __e2eOriginalEndedDescriptor?: PropertyDescriptor;
+      };
+      const currentTimes = new WeakMap<HTMLMediaElement, number>();
+      const durations = new WeakMap<HTMLMediaElement, number>();
+      const pausedStates = new WeakMap<HTMLMediaElement, boolean>();
+      const endedStates = new WeakMap<HTMLMediaElement, boolean>();
+      type StubMedia = HTMLMediaElement & {
+        __e2eCurrentTime?: number;
+        __e2eDuration?: number;
+        __e2ePaused?: boolean;
+        __e2eEnded?: boolean;
+        __e2eTickTimer?: number;
+        __e2eLastTickAt?: number;
+      };
+      proto.__e2eOriginalCurrentTimeDescriptor = Object.getOwnPropertyDescriptor(proto, "currentTime");
+      proto.__e2eOriginalDurationDescriptor = Object.getOwnPropertyDescriptor(proto, "duration");
+      proto.__e2eOriginalPausedDescriptor = Object.getOwnPropertyDescriptor(proto, "paused");
+      proto.__e2eOriginalEndedDescriptor = Object.getOwnPropertyDescriptor(proto, "ended");
+      Object.defineProperty(proto, "currentTime", {
+        configurable: true,
+        get() {
+          return currentTimes.get(this as HTMLMediaElement) ?? 0;
+        },
+        set(value) {
+          currentTimes.set(this as HTMLMediaElement, Number.isFinite(value) ? Number(value) : 0);
+          (this as HTMLMediaElement).dispatchEvent(new Event("timeupdate"));
+        },
+      });
+      Object.defineProperty(proto, "duration", {
+        configurable: true,
+        get() {
+          return durations.get(this as HTMLMediaElement) ?? 0;
+        },
+      });
+      Object.defineProperty(proto, "paused", {
+        configurable: true,
+        get() {
+          return pausedStates.get(this as HTMLMediaElement) ?? true;
+        },
+      });
+      Object.defineProperty(proto, "ended", {
+        configurable: true,
+        get() {
+          return endedStates.get(this as HTMLMediaElement) ?? false;
+        },
+      });
+      const finishPlayback = (media: StubMedia) => {
+        if (media.__e2eTickTimer) {
+          window.clearInterval(media.__e2eTickTimer);
+          media.__e2eTickTimer = undefined;
+        }
+        media.__e2ePaused = true;
+        media.__e2eEnded = true;
+        media.__e2eCurrentTime = media.__e2eDuration ?? media.__e2eCurrentTime ?? 0;
+        currentTimes.set(media, media.__e2eCurrentTime);
+        durations.set(media, media.__e2eDuration ?? 0);
+        pausedStates.set(media, true);
+        endedStates.set(media, true);
+        scope.__e2eAdvancingMediaState = {
+          activeSource: `${media.currentSrc ?? media.src ?? ""}`,
+          paused: true,
+          ended: true,
+          currentTime: media.__e2eCurrentTime,
+          duration: media.__e2eDuration ?? 0,
+          volume: media.volume,
+        };
+        media.dispatchEvent(new Event("timeupdate"));
+        media.dispatchEvent(new Event("pause"));
+        media.dispatchEvent(new Event("ended"));
+      };
+      const stopPlayback = (media: StubMedia, ended: boolean) => {
+        if (media.__e2eTickTimer) {
+          window.clearInterval(media.__e2eTickTimer);
+          media.__e2eTickTimer = undefined;
+        }
+        media.__e2ePaused = true;
+        media.__e2eEnded = ended;
+        currentTimes.set(media, media.__e2eCurrentTime ?? 0);
+        durations.set(media, media.__e2eDuration ?? 0);
+        pausedStates.set(media, true);
+        endedStates.set(media, ended);
+        scope.__e2eAdvancingMediaState = {
+          activeSource: `${(media as StubMedia & { currentSrc?: string; src?: string }).currentSrc ?? (media as StubMedia & { src?: string }).src ?? ""}`,
+          paused: true,
+          ended,
+          currentTime: media.__e2eCurrentTime ?? 0,
+          duration: media.__e2eDuration ?? 0,
+          volume: media.volume,
+        };
+        media.dispatchEvent(new Event("pause"));
+        if (ended) {
+          media.dispatchEvent(new Event("ended"));
+        }
+      };
+      proto.__e2eOriginalPlay = proto.play.bind(proto);
+      proto.__e2eOriginalPause = proto.pause.bind(proto);
+      proto.play = function playStub() {
+        const media = this as StubMedia & {
+          currentSrc?: string;
+          src?: string;
+        };
+        stopPlayback(media, false);
+        const source = `${media.currentSrc ?? media.src ?? ""}`.toLowerCase();
+        const durationSeconds = (source.includes("cortina")
+          ? Math.max(100, cortinaDuration)
+          : Math.max(100, musicDuration)) / 1000;
+        media.__e2eDuration = durationSeconds;
+        media.__e2eCurrentTime = media.__e2eCurrentTime ?? 0;
+        media.__e2ePaused = false;
+        media.__e2eEnded = false;
+        media.__e2eLastTickAt = performance.now();
+        currentTimes.set(media, media.__e2eCurrentTime);
+        durations.set(media, media.__e2eDuration);
+        pausedStates.set(media, false);
+        endedStates.set(media, false);
+        media.dispatchEvent(new Event("loadedmetadata"));
+        media.dispatchEvent(new Event("durationchange"));
+        media.dispatchEvent(new Event("play"));
+        media.dispatchEvent(new Event("timeupdate"));
+        scope.__e2eAdvancingMediaState = {
+          activeSource: `${media.currentSrc ?? media.src ?? ""}`,
+          paused: false,
+          ended: false,
+          currentTime: media.__e2eCurrentTime ?? 0,
+          duration: media.__e2eDuration ?? 0,
+          volume: media.volume,
+        };
+        media.__e2eTickTimer = window.setInterval(() => {
+          if (media.__e2ePaused) {
+            return;
+          }
+          const now = performance.now();
+          const elapsedSeconds = Math.max(
+            0.02,
+            ((now - (media.__e2eLastTickAt ?? now)) || 0) / 1000,
+          );
+          media.__e2eLastTickAt = now;
+          media.__e2eCurrentTime = Math.min(
+            media.__e2eDuration ?? 0,
+            (media.__e2eCurrentTime ?? 0) + elapsedSeconds,
+          );
+          currentTimes.set(media, media.__e2eCurrentTime);
+          durations.set(media, media.__e2eDuration ?? 0);
+          pausedStates.set(media, false);
+          endedStates.set(media, false);
+          scope.__e2eAdvancingMediaState = {
+            activeSource: `${media.currentSrc ?? media.src ?? ""}`,
+            paused: false,
+            ended: false,
+            currentTime: media.__e2eCurrentTime ?? 0,
+            duration: media.__e2eDuration ?? 0,
+            volume: media.volume,
+          };
+          media.dispatchEvent(new Event("timeupdate"));
+          if ((media.__e2eCurrentTime ?? 0) >= (media.__e2eDuration ?? 0)) {
+            finishPlayback(media);
+          }
+        }, Math.max(20, tick));
+        return Promise.resolve();
+      };
+      proto.pause = function pauseStub() {
+        const media = this as StubMedia;
+        stopPlayback(media, false);
+      };
+      scope.__e2eAdvancingMediaPatched = true;
+    },
+    { musicDuration: musicDurationMs, cortinaDuration: cortinaDurationMs, tick: tickMs },
+  );
+};
+
 const installSlowCompressionRenderStub = async (page: Page, delayMs = 2_000) => {
   await page.evaluate((delay) => {
     const api = window.tanda as
@@ -2239,6 +2439,111 @@ test.describe("Electron app end-to-end workflows", () => {
       ).not.toContain("milonga de prueba");
       await expectNowPlayingContainsSoon(page, "milonga de prueba", 6_000);
       await expect(page.locator("#cortina-controls")).not.toHaveClass(/visible/);
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("47 - cortina play override keeps the cortina playing past the default fade cutoff", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await installVariableEndingMediaStub(page, 6_000, 60_000);
+
+      await page.locator("#mode-select").selectOption("live");
+      await openSettings(page);
+      await page.locator('button[data-tab="playlist"]').click();
+      await page.locator("#gap-between-tracks").fill("0");
+      await page.locator("#gap-before-tanda").fill("0");
+      await page.locator("#gap-before-cortina").fill("0");
+      await page.locator("#stop-fade-duration").fill("20");
+      await page.locator("#playlist-cortina-duration").fill("40");
+      const setValue = await waitForFirstNamedCortinaSetValue(page);
+      await page.locator("#playlist-cortina-set").selectOption(setValue);
+      await closeSettings(page);
+      await clearPlaylistViaUi(page);
+
+      await page.locator('button[data-tab="search-tandas"]').click();
+      for (const tandaName of ["Tango Trio", "Milonga Trio"]) {
+        await runSearch(page, tandaName);
+        await clickRowAction(searchTandaRow(page, tandaName), "add-playlist-tanda");
+        await confirmIfPrompted(page);
+      }
+
+      await ensurePlaylistTab(page);
+      await dispatchExactClick(
+        await getExpandedTandaDetailLine(playlistTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Uno"),
+      );
+
+      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 5_000 });
+      await expectNowPlayingContainsSoon(page, "cortina only track", 2_000);
+
+      await page.evaluate(() => {
+        (
+          window as Window & {
+            __e2eSetMainPlaybackTime?: (seconds: number) => void;
+          }
+        ).__e2eSetMainPlaybackTime?.(25);
+      });
+      await page.waitForTimeout(300);
+      const prePlayState = await page.evaluate(() =>
+        (
+          window as Window & {
+            __e2eRuntimeSnapshot?: {
+              mainSourcePath: string;
+              mainCurrentTime: number;
+              mainPaused: boolean;
+              mainEnded: boolean;
+              mainIsCortinaPlayback: boolean;
+              mainVolume: number;
+              nowPlayingTrack: string;
+            };
+          }
+        ).__e2eRuntimeSnapshot ?? null,
+      );
+      expect(prePlayState?.mainIsCortinaPlayback).toBe(true);
+      expect((prePlayState?.mainSourcePath ?? "").toLowerCase()).toContain("cortina");
+      expect((prePlayState?.nowPlayingTrack ?? "").toLowerCase()).toContain("cortina only track");
+      expect(prePlayState?.mainPaused).toBe(false);
+      expect(prePlayState?.mainEnded).toBe(false);
+      expect(prePlayState?.mainCurrentTime ?? 0).toBeGreaterThan(24.5);
+      await page.locator("#cortina-play").click();
+      await expect(page.locator("#cortina-play")).toBeDisabled();
+      await page.waitForTimeout(300);
+      await page.evaluate(() => {
+        (
+          window as Window & {
+            __e2eSetMainPlaybackTime?: (seconds: number) => void;
+          }
+        ).__e2eSetMainPlaybackTime?.(30);
+      });
+      await page.waitForTimeout(300);
+
+      const runtimeState = await page.evaluate(() =>
+        (
+          window as Window & {
+            __e2eRuntimeSnapshot?: {
+              mainSourcePath: string;
+              mainPaused: boolean;
+              mainEnded: boolean;
+              mainCurrentTime: number;
+              mainVolume: number;
+              mainIsCortinaPlayback: boolean;
+            };
+          }
+        ).__e2eRuntimeSnapshot ?? null,
+      );
+      await expect(
+        ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
+      ).toContain("cortina only track");
+      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/);
+      expect(runtimeState).not.toBeNull();
+      expect(runtimeState?.mainIsCortinaPlayback).toBe(true);
+      expect((runtimeState?.mainSourcePath ?? "").toLowerCase()).toContain("cortina");
+      expect(runtimeState?.mainPaused).toBe(false);
+      expect(runtimeState?.mainEnded).toBe(false);
+      expect(runtimeState?.mainCurrentTime ?? 0).toBeGreaterThan(29.5);
+      expect(runtimeState?.mainVolume ?? 0).toBeGreaterThan(0.1);
     } finally {
       await launched.close();
     }
