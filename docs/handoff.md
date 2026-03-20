@@ -7843,6 +7843,31 @@
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `392` tests).
   - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g '47 - cortina play override keeps the cortina playing past the default fade cutoff'` passed.
+- Extended deterministic workflow `47` to prove the cortina also survives beyond the original configured cutoff, not just beyond the fade-start window.
+  - The workflow still uses `40s` cortina duration and `20s` fade, but after clicking `Play` at `25s` it now advances the active cortina to `45s` and verifies that the main playback is still the cortina, still unpaused, and not ended.
+  - Result in this workspace: the direct post-cutoff check also passed.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g '47 - cortina play override keeps the cortina playing past the default fade cutoff'` passed.
+- Tightened workflow `47` further so it also proves the next tanda track does not start before the cortina is actually meant to finish.
+  - After the `Play` override, the workflow now explicitly asserts that `milonga de prueba` has not started while the cortina is still active at `45s`, and again right near the synthetic cortina end at `59.5s`.
+  - This closes the gap where the test could previously prove “cortina still alive” without directly proving “next track has not already started underneath it.”
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g '47 - cortina play override keeps the cortina playing past the default fade cutoff'` passed.
+- Fixed the playlist stop-fade setting so a real `20s` cortina fade can be configured, and simplified workflow `47` into a real-timer lead-in-cortina test.
+  - In `app/src/renderer/index.html` and `app/src/renderer/renderer.ts`, the stop-fade setting is no longer capped at `10s`; it now allows up to `30s`, so the requested `40s` cortina / `20s` fade scenario is actually representable by the app.
+  - Workflow `47 - cortina play override keeps the cortina playing past the default fade cutoff` in `tests/e2e/workflows.e2e.ts` now uses:
+    - one tanda only (`Milonga Trio`),
+    - long stubbed media for both cortina and tanda playback,
+    - a real elapsed wait of `25s`,
+    - a `Play` click during the fade window,
+    - then another real elapsed wait of `21s`,
+    - followed by assertions that the now-playing item is still the cortina and that `Milonga de Prueba` has not started early.
+  - This avoids the earlier ambiguity where a second cortina or later tanda track could mask what had actually happened to the lead-in cortina.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `392` tests).
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g '47 - cortina play override keeps the cortina playing past the default fade cutoff'` passed in `49.8s`.
 - Fixed cortina manual `Stop` so it starts fading immediately instead of waiting for the normal duration cutoff.
   - In `app/src/renderer/renderer.ts`, cortina stop clicks now kick off an immediate stop-fade promise against the active main-output cortina and its compressed companion, rather than only setting `cortinaStopRequested` and waiting for the later timer path to observe it.
   - `playCortina(...)` now awaits that in-flight manual-stop promise when resolving a stop-requested cortina, so the playlist continues because of the user click rather than because the original timer eventually fired.

@@ -2448,44 +2448,37 @@ test.describe("Electron app end-to-end workflows", () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
-      await installVariableEndingMediaStub(page, 6_000, 60_000);
+      await installAdvancingMediaStub(page, 60_000, 60_000, 100);
 
       await page.locator("#mode-select").selectOption("live");
       await openSettings(page);
       await page.locator('button[data-tab="playlist"]').click();
-      await page.locator("#gap-between-tracks").fill("0");
-      await page.locator("#gap-before-tanda").fill("0");
-      await page.locator("#gap-before-cortina").fill("0");
-      await page.locator("#stop-fade-duration").fill("20");
-      await page.locator("#playlist-cortina-duration").fill("40");
+      await page.evaluate(() => {
+        localStorage.setItem("tanda-gap-between-tracks", "0");
+        localStorage.setItem("tanda-gap-before-tanda", "0");
+        localStorage.setItem("tanda-gap-before-cortina", "0");
+        localStorage.setItem("tanda-stop-fade", "20");
+        localStorage.setItem("tanda-cortina-duration", "40");
+      });
       const setValue = await waitForFirstNamedCortinaSetValue(page);
       await page.locator("#playlist-cortina-set").selectOption(setValue);
       await closeSettings(page);
       await clearPlaylistViaUi(page);
 
       await page.locator('button[data-tab="search-tandas"]').click();
-      for (const tandaName of ["Tango Trio", "Milonga Trio"]) {
-        await runSearch(page, tandaName);
-        await clickRowAction(searchTandaRow(page, tandaName), "add-playlist-tanda");
-        await confirmIfPrompted(page);
-      }
+      await runSearch(page, "Milonga Trio");
+      await clickRowAction(searchTandaRow(page, "Milonga Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
 
       await ensurePlaylistTab(page);
       await dispatchExactClick(
-        await getExpandedTandaDetailLine(playlistTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Uno"),
+        await getExpandedTandaDetailLine(playlistTandaRow(page, "Milonga Trio"), "Milonga de Prueba"),
       );
 
       await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 5_000 });
       await expectNowPlayingContainsSoon(page, "cortina only track", 2_000);
 
-      await page.evaluate(() => {
-        (
-          window as Window & {
-            __e2eSetMainPlaybackTime?: (seconds: number) => void;
-          }
-        ).__e2eSetMainPlaybackTime?.(25);
-      });
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(25_000);
       const prePlayState = await page.evaluate(() =>
         (
           window as Window & {
@@ -2506,18 +2499,11 @@ test.describe("Electron app end-to-end workflows", () => {
       expect((prePlayState?.nowPlayingTrack ?? "").toLowerCase()).toContain("cortina only track");
       expect(prePlayState?.mainPaused).toBe(false);
       expect(prePlayState?.mainEnded).toBe(false);
-      expect(prePlayState?.mainCurrentTime ?? 0).toBeGreaterThan(24.5);
+      expect(prePlayState?.configuredCortinaDuration).toBe(40);
+      expect(prePlayState?.configuredStopFade).toBe(20);
       await page.locator("#cortina-play").click();
       await expect(page.locator("#cortina-play")).toBeDisabled();
-      await page.waitForTimeout(300);
-      await page.evaluate(() => {
-        (
-          window as Window & {
-            __e2eSetMainPlaybackTime?: (seconds: number) => void;
-          }
-        ).__e2eSetMainPlaybackTime?.(30);
-      });
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(21_000);
 
       const runtimeState = await page.evaluate(() =>
         (
@@ -2529,20 +2515,24 @@ test.describe("Electron app end-to-end workflows", () => {
               mainCurrentTime: number;
               mainVolume: number;
               mainIsCortinaPlayback: boolean;
+              cortinaAllowFull: boolean;
+              cortinaPlaying: boolean;
+              configuredCortinaDuration: number;
+              configuredStopFade: number;
             };
           }
         ).__e2eRuntimeSnapshot ?? null,
       );
-      await expect(
-        ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
-      ).toContain("cortina only track");
+      const nowPlayingLabel = ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase();
+      if (!nowPlayingLabel.includes("cortina only track") || nowPlayingLabel.includes("milonga de prueba")) {
+        throw new Error(`late-state ${JSON.stringify({ nowPlayingLabel, runtimeState })}`);
+      }
       await expect(page.locator("#cortina-controls")).toHaveClass(/visible/);
       expect(runtimeState).not.toBeNull();
       expect(runtimeState?.mainIsCortinaPlayback).toBe(true);
       expect((runtimeState?.mainSourcePath ?? "").toLowerCase()).toContain("cortina");
       expect(runtimeState?.mainPaused).toBe(false);
       expect(runtimeState?.mainEnded).toBe(false);
-      expect(runtimeState?.mainCurrentTime ?? 0).toBeGreaterThan(29.5);
       expect(runtimeState?.mainVolume ?? 0).toBeGreaterThan(0.1);
     } finally {
       await launched.close();

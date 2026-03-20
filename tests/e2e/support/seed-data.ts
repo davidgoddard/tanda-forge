@@ -284,7 +284,7 @@ const TRACK_FIXTURES: SeedTrackFixture[] = [
     bpm: 120,
     notes: "cortina only",
     instrumental: 1,
-    durationMs: 25000,
+    durationMs: 60000,
   },
 ];
 

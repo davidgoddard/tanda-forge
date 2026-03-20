@@ -789,6 +789,7 @@ let cortinaPlaying = false;
 let cortinaAllowFull = false;
 let cortinaStopRequested = false;
 let cortinaStopPromise: Promise<void> | null = null;
+let cortinaAutoStopRevision = 0;
 let cortinaActiveIndex: number | null = null;
 let cortinaOverrideTrack: TrackRow | null = null;
 const cortinaOverrideByIndex = new Map<number, TrackRow>();
@@ -837,6 +838,10 @@ const updateE2eRuntimeSnapshot = () => {
         mainIsCortinaPlayback: boolean;
         mainVolume: number;
         nowPlayingTrack: string;
+        cortinaAllowFull: boolean;
+        cortinaPlaying: boolean;
+        configuredCortinaDuration: number;
+        configuredStopFade: number;
       };
     }
   ).__e2eRuntimeSnapshot = {
@@ -852,35 +857,11 @@ const updateE2eRuntimeSnapshot = () => {
     mainIsCortinaPlayback: Boolean(playback.main.isCortinaPlayback),
     mainVolume: mainActive ? getAudioLevel(mainActive) : 0,
     nowPlayingTrack: nowPlayingTrack?.textContent?.trim().toLowerCase() ?? "",
+    cortinaAllowFull,
+    cortinaPlaying,
+    configuredCortinaDuration: getCortinaDuration(),
+    configuredStopFade: getStopFadeSeconds(),
   };
-};
-(
-  window as Window & {
-    __e2eSetMainPlaybackTime?: (seconds: number) => void;
-  }
-).__e2eSetMainPlaybackTime = (seconds: number) => {
-  const active = playback.main.active;
-  if (!active || !Number.isFinite(seconds)) {
-    return;
-  }
-  const targetSeconds = Math.max(0, seconds);
-  active.currentTime = targetSeconds;
-  if (Math.abs((active.currentTime ?? 0) - targetSeconds) > 0.05) {
-    let forcedCurrentTime = targetSeconds;
-    Object.defineProperty(active, "currentTime", {
-      configurable: true,
-      get: () => forcedCurrentTime,
-      set: (value: number) => {
-        forcedCurrentTime = Math.max(0, Number.isFinite(value) ? value : forcedCurrentTime);
-      },
-    });
-    active.currentTime = targetSeconds;
-  }
-  if (playback.main.compressedActive) {
-    playback.main.compressedActive.currentTime = active.currentTime;
-  }
-  active.dispatchEvent(new Event("timeupdate"));
-  updateNowPlayingDisplay();
 };
 let pendingCortinaTargetIndex: number | null = null;
 const pulsePlaylistIndices = new Set<number>();
@@ -2333,7 +2314,7 @@ const getGapBeforeTanda = () =>
 const getGapBeforeCortina = () =>
   parseSettingNumber("tanda-gap-before-cortina", 1, -30, 30);
 const getStopFadeSeconds = () =>
-  parseSettingNumber("tanda-stop-fade", 2, 0, 10);
+  parseSettingNumber("tanda-stop-fade", 2, 0, 30);
 const getCortinaLevelPercent = () =>
   parseSettingNumber(
     CORTINA_LEVEL_PERCENT_KEY,
@@ -3959,11 +3940,14 @@ const playOnChannel = async (
         trackDurationSeconds > 0 &&
         effectiveEndSeconds < Math.max(0, trackDurationSeconds - 0.05);
       const finalize = async () => {
+        const autoStopRevision = cortinaAutoStopRevision;
         const remainingMs = Math.max(
           0,
           (effectiveEndSeconds - next.currentTime) * 1000,
         );
-        const shouldCancelAutoStop = () => autoStopCanBeCancelled && cortinaAllowFull;
+        const shouldCancelAutoStop = () =>
+          (autoStopCanBeCancelled && cortinaAllowFull) ||
+          autoStopRevision !== cortinaAutoStopRevision;
         if (autoStopFadeMs > 0 || isTrimmedEarly) {
           const preferredFadeMs = autoStopFadeMs > 0 ? autoStopFadeMs : 140;
           const fadeMs = computeFadeDurationMs(preferredFadeMs, remainingMs);
@@ -8483,6 +8467,7 @@ const playCortina = async (
   cortinaAllowFull = false;
   cortinaStopRequested = false;
   cortinaStopPromise = null;
+  cortinaAutoStopRevision += 1;
   cortinaActiveIndex = targetIndex;
   const configuredDurationMs = getCortinaDuration() * 1000;
   const effectiveDurationMs =
@@ -8550,7 +8535,9 @@ const playCortina = async (
       if (!thresholdReached) {
         return { ok: false, overlappedIntoNext: false, overlapFadeMs: null, track };
       }
-      if (!activeAudio.paused && !activeAudio.ended) {
+      if (cortinaAllowFull || cortinaStopRequested) {
+        // A DJ override cancels the scheduled handoff into the next tanda.
+      } else if (!activeAudio.paused && !activeAudio.ended) {
         cortinaDisplayPhase = "none";
         holdCortinaDisplayWhenIdle = false;
         cortinaPlaying = false;
@@ -14483,6 +14470,8 @@ const init = async () => {
     }
     cortinaStopRequested = false;
     cortinaAllowFull = true;
+    cortinaAutoStopRevision += 1;
+    applyDynamicLevelToChannel("main");
     setCortinaControlsVisible(true);
     updateNowPlayingDisplay();
   });
