@@ -7804,3 +7804,21 @@
 - Verification:
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `392` tests).
+- Fixed cortina manual `Stop` so it starts fading immediately instead of waiting for the normal duration cutoff.
+  - In `app/src/renderer/renderer.ts`, cortina stop clicks now kick off an immediate stop-fade promise against the active main-output cortina and its compressed companion, rather than only setting `cortinaStopRequested` and waiting for the later timer path to observe it.
+  - `playCortina(...)` now awaits that in-flight manual-stop promise when resolving a stop-requested cortina, so the playlist continues because of the user click rather than because the original timer eventually fired.
+  - Workflow `41 - cortina now-playing controls stop to continue and play to override duration` in `tests/e2e/workflows.e2e.ts` is now stricter: it uses a longer configured cortina duration plus a short stop fade and requires the next tanda to start within `2s` after `Stop`, which would fail again if the app merely waited for the normal cutoff.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `392` tests).
+- Stabilized workflow `46` again after a user run showed it could miss the brief `needle waltz` window and only observe the later `idle` state.
+  - `tests/e2e/workflows.e2e.ts` now uses a longer music-track stub (`6000ms`) for workflow `46`, keeping the continuation track visible long enough to assert reliably after the play-to-end cortina scenario.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `392` tests).
+- Fixed a real full-play cortina continuation bug and slightly widened the second-cortina wait in workflow `41`.
+  - In `app/src/renderer/renderer.ts`, `waitForAudioEnd(...)` now resolves immediately when the audio is already paused or ended, instead of only waiting for a future `ended` event. This prevents the play-to-end cortina path from getting stuck after the audio has already finished and the UI has gone idle.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `41` now allows up to `20s` for the next cortina controls to appear after the first tanda, which keeps the stricter manual-stop assertion while allowing for the full three-track tanda progression.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `392` tests).

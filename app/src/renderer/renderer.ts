@@ -788,6 +788,7 @@ let lastCortinaId: string | null = null;
 let cortinaPlaying = false;
 let cortinaAllowFull = false;
 let cortinaStopRequested = false;
+let cortinaStopPromise: Promise<void> | null = null;
 let cortinaActiveIndex: number | null = null;
 let cortinaOverrideTrack: TrackRow | null = null;
 const cortinaOverrideByIndex = new Map<number, TrackRow>();
@@ -8271,6 +8272,10 @@ const waitBeforeTanda = (runId: number) =>
 
 const waitForAudioEnd = (audio: HTMLAudioElement, runId: number) =>
   new Promise<boolean>((resolve) => {
+    if (audio.paused || audio.ended) {
+      resolve(true);
+      return;
+    }
     const handleEnd = () => {
       cleanup();
       resolve(true);
@@ -8378,6 +8383,33 @@ const waitForCortina = async (
     }, 200);
   });
 
+const requestImmediateCortinaStop = () => {
+  if (cortinaStopPromise) {
+    return cortinaStopPromise;
+  }
+  const activeAudio = playback.main.active;
+  if (!activeAudio || activeAudio.paused || activeAudio.ended) {
+    cortinaStopPromise = Promise.resolve();
+    return cortinaStopPromise;
+  }
+  const activeCompanion = playback.main.compressedActive;
+  const fadeMs = Math.max(0, getStopFadeSeconds() * 1000);
+  cortinaStopPromise = (async () => {
+    if (fadeMs > 0) {
+      await Promise.all([
+        fadeOutAudio(activeAudio, fadeMs),
+        activeCompanion && !activeCompanion.paused
+          ? fadeOutAudio(activeCompanion, fadeMs)
+          : Promise.resolve(),
+      ]);
+    }
+    activeAudio.pause();
+  })().finally(() => {
+    cortinaStopPromise = null;
+  });
+  return cortinaStopPromise;
+};
+
 const playCortina = async (
   runId: number,
   targetIndex: number,
@@ -8407,6 +8439,7 @@ const playCortina = async (
   cortinaPlaying = true;
   cortinaAllowFull = false;
   cortinaStopRequested = false;
+  cortinaStopPromise = null;
   cortinaActiveIndex = targetIndex;
   const configuredDurationMs = getCortinaDuration() * 1000;
   const effectiveDurationMs =
@@ -8502,15 +8535,11 @@ const playCortina = async (
       return { ok: true, overlappedIntoNext: false, overlapFadeMs: null, track };
     }
     if (cortinaStopRequested) {
-      if (autoStopFadeMs > 0) {
-        await Promise.all([
-          fadeOutAudio(activeAudio, autoStopFadeMs),
-          activeCompanion && !activeCompanion.paused
-            ? fadeOutAudio(activeCompanion, autoStopFadeMs)
-            : Promise.resolve(),
-        ]);
+      if (cortinaStopPromise) {
+        await cortinaStopPromise;
+      } else {
+        await requestImmediateCortinaStop();
       }
-      activeAudio.pause();
     } else {
       const settled = await waitForGap(Math.max(300, autoStopFadeMs + 250), runId);
       if (!settled) {
@@ -14391,6 +14420,7 @@ const init = async () => {
       return;
     }
     cortinaStopRequested = true;
+    void requestImmediateCortinaStop();
     setCortinaControlsVisible(false);
     updateNowPlayingDisplay();
   });

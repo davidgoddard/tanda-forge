@@ -2129,7 +2129,7 @@ test.describe("Electron app end-to-end workflows", () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
-      await installVariableEndingMediaStub(page, 4_000, 4_000);
+      await installVariableEndingMediaStub(page, 6_000, 4_000);
 
       await page.locator("#mode-select").selectOption("live");
       await openSettings(page);
@@ -2137,7 +2137,8 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator("#gap-between-tracks").fill("0");
       await page.locator("#gap-before-tanda").fill("0");
       await page.locator("#gap-before-cortina").fill("0");
-      await page.locator("#playlist-cortina-duration").fill("1");
+      await page.locator("#stop-fade-duration").fill("0.2");
+      await page.locator("#playlist-cortina-duration").fill("3");
       const setValue = await waitForFirstNamedCortinaSetValue(page);
       await page.locator("#playlist-cortina-set").selectOption(setValue);
       await closeSettings(page);
@@ -2161,15 +2162,15 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect
         .poll(
           async () => ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
-          { timeout: 8_000 },
+          { timeout: 2_000 },
         )
         .toContain("tango uno");
 
-      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 15_000 });
-      await page.waitForTimeout(750);
+      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 20_000 });
+      await page.waitForTimeout(2_500);
       await page.locator("#cortina-play").click();
       await expect(page.locator("#cortina-play")).toBeDisabled();
-      await page.waitForTimeout(1_500);
+      await page.waitForTimeout(900);
       await expect(page.locator("#cortina-controls")).toHaveClass(/visible/);
       await expect(
         ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
@@ -2180,7 +2181,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect
         .poll(
           async () => ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
-          { timeout: 8_000 },
+          { timeout: 2_000 },
         )
         .toContain("milonga de prueba");
     } finally {
