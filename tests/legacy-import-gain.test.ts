@@ -61,6 +61,40 @@ describe("loadLegacyLibrary gain parsing", () => {
     expect(entries.get("music/unclassified.mp3")?.genre).toBe("?");
   });
 
+  it("imports classifier instrumental, bpm, notes, style, and sub-style fields", () => {
+    const legacyPath = writeLegacyFile({
+      "/music/classified.mp3": {
+        track: { title: "Classified", artist: "Artist" },
+        classifiers: {
+          style: "Tango",
+          "sub-style": "Traditional",
+          instrumental: false,
+          notes: "LoFi Hard",
+          bpm: 55,
+        },
+      },
+      "/music/instrumental.mp3": {
+        track: { title: "Instrumental", artist: "Artist" },
+        classifiers: {
+          style: "Milonga",
+          instrumental: true,
+        },
+      },
+    });
+
+    const entries = loadLegacyLibrary(legacyPath);
+    expect(entries.get("music/classified.mp3")).toMatchObject({
+      genre: "Tango - Traditional",
+      instrumental: false,
+      notes: "LoFi Hard",
+      bpm: 55,
+    });
+    expect(entries.get("music/instrumental.mp3")).toMatchObject({
+      genre: "Milonga",
+      instrumental: true,
+    });
+  });
+
   it("lists distinct legacy styles with counts", () => {
     const legacyPath = writeLegacyFile({
       "/music/a.mp3": {

@@ -30,7 +30,7 @@ export type PlaylistRuntimeControllerDeps = {
   };
   setMainPlayback: (next: Partial<ReturnType<PlaylistRuntimeControllerDeps["getMainPlayback"]>>) => void;
   getStopFadeSeconds: () => number;
-  fadeOutAudio: (audio: HTMLAudioElement, durationMs: number) => Promise<void>;
+  fadeOutAudio: (audio: HTMLAudioElement, durationMs: number) => Promise<boolean | void>;
   releaseAudioDspRuntime: (audio: HTMLAudioElement) => Promise<void>;
   stopCompressedCompanion: () => Promise<void>;
   setCortinaDisplayPhase: (phase: "none" | "about" | "playing" | "after") => void;

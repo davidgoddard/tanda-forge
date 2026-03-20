@@ -74,6 +74,9 @@ Board, Diagnostics, System).
   are rewritten in the new language without altering custom styles.
 - CFG-SYS-013: Users can configure the minimum fuzzy-search score required for a match.
 - CFG-SYS-014: Users can configure the BPM search tolerance range for numeric BPM queries.
+- CFG-SYS-014.a: Search scoring controls are grouped separately from playback-only
+  controls; track trim padding lives in a playback section rather than the
+  search/scoring group.
 - CFG-SYS-015: Users can choose the data storage location for the application.
 - CFG-SYS-015.a: When a custom location is chosen, data is stored in a `_tp_data`
   folder within the selected directory.

@@ -7740,3 +7740,67 @@
 - Verification:
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed.
+- Fixed the cortina cutoff/override race and moved trim padding out of search settings.
+  - In `app/src/renderer/renderer.ts`, the timed cortina auto-stop fade is now cancelable while it is in progress, so clicking `Play` during the pre-cutoff fade window genuinely cancels the duration timer and restores normal playback to the cortina's natural trimmed end.
+  - The cortina auto-stop fade length now uses the configured stop-fade duration directly, so a `20s` cortina with a `4s` fade starts fading at `16s` and completes at the configured cutoff instead of using the previous inflated `stop-fade + 1s` rule.
+  - In `app/src/renderer/index.html` and `app/src/renderer/i18n.ts`, trim padding now lives in a dedicated System `Playback` settings group instead of `Searching / scoring`.
+  - `design/03-audio-playback-and-timing-model.md` and `design/14-settings-and-configuration.md` now document the clarified cortina timer/override behavior and the playback-oriented trim-padding placement.
+  - `tests/e2e/workflows.e2e.ts` now delays the cortina `Play` click deeper into the cutoff window so workflow `41` covers the late-override case rather than only an early click.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `390` tests).
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts --grep "41 - cortina now-playing controls stop to continue and play to override duration"` did not run because Electron failed to launch in this environment (`Process failed to launch!`).
+- Lowered the silence-detection noise floor used for automatic end trims.
+  - In `app/src/main/library/analysis.ts`, FFmpeg silence detection now uses a quieter threshold (`-40dB` instead of `-35dB`) so quiet musical endings are less likely to be misclassified as trailing silence and cut slightly early.
+  - The silence-detect filter is now centralized in named constants/helpers rather than an inline string, which makes future tuning safer.
+  - `tests/analysis-command-line.test.ts` now includes a regression for the exact silence-detect filter setting.
+  - `design/10-audio-pipeline.md` now states that trailing-silence detection should use a conservative noise floor.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test -- tests/analysis-command-line.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `391` tests).
+- Added an end-to-end Cortina workflow that covers all three cutoff paths in one run.
+  - `tests/e2e/workflows.e2e.ts` now includes workflow `46 - cortina scenarios cover timer expiry, manual stop, and play-to-end override`.
+  - The workflow configures a short cortina duration plus a non-zero stop fade, then proves:
+    1. lead-in cortina auto-expires into the first tanda with no DJ action,
+    2. the next cortina advances immediately when the DJ presses `Stop`,
+    3. the following cortina stays alive past the normal cutoff when the DJ presses `Play`, then continues naturally into the next tanda without a second manual stop.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `391` tests).
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts --grep "46 - cortina scenarios cover timer expiry, manual stop, and play-to-end override"` could not run here because Electron failed to launch in this environment (`Process failed to launch!`).
+- Stabilized workflow `46` after a user run showed the natural-end observation window was too short.
+  - The workflow now uses the longer cortina stub duration already proven in workflow `41`, so its post-`Play` assertion checks "still playing past cutoff" before the natural end arrives.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `391` tests).
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts --grep "46 - cortina scenarios cover timer expiry, manual stop, and play-to-end override"` still cannot run here because Electron fails to launch in this environment (`Process failed to launch!`).
+- Simplified workflow `46` further after a user run showed the "controls still visible at 900ms" check was inherently brittle.
+  - The workflow now asserts the user-facing contract instead:
+    - shortly after pressing `Play`, the next tanda must not have started yet,
+    - later, the next tanda must start once the cortina reaches its natural end.
+  - This removes reliance on the exact visibility of the control cluster at one intermediate timestamp.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `391` tests).
+- Corrected workflow `46` to expect the actual seeded Waltz follow-on track.
+  - The first track in seeded `Waltz Trio` is `Osvaldo Pugliese - Needle Waltz`, not `Waltz de Prueba`, so the natural-end assertion now waits for `needle waltz`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `391` tests).
+- Legacy import now preserves classified track metadata more completely.
+  - In `app/src/main/legacy-import.ts`, `loadLegacyLibrary(...)` now reads `classifiers.instrumental` in addition to the existing classifier-driven `bpm`, `notes`, `style`, and `sub-style` fields.
+  - Imported legacy tracks now persist that track-level `instrumental` value instead of always writing `null`.
+  - In `app/src/main/library/scan.ts`, the legacy override merge path now also carries forward `instrumental`, so a later scan does not discard the imported classified value.
+  - In `app/src/shared/legacy-overrides.ts`, persisted legacy overrides now serialize/deserialize `instrumental` alongside the other imported metadata fields.
+  - Added regression coverage in `tests/legacy-import-gain.test.ts` and `tests/legacy-overrides.test.ts`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/legacy-import-gain.test.ts tests/legacy-overrides.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `392` tests).
+- Hardened Playwright workflow `36` setup after a user run showed it could miss the initial playlist population.
+  - `tests/e2e/workflows.e2e.ts` now clears the playlist before the workflow starts and explicitly waits for the `Tango Trio` search result row to be visible before adding it to the playlist.
+  - This removes reliance on any prior seeded/default playlist state.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `392` tests).

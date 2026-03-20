@@ -3894,6 +3894,10 @@ const playOnChannel = async (
       trimmedEndSeconds !== null && durationCutoffSeconds !== null
         ? Math.min(trimmedEndSeconds, durationCutoffSeconds)
         : trimmedEndSeconds ?? durationCutoffSeconds;
+    const autoStopCanBeCancelled =
+      Boolean(options?.isCortinaPlayback) &&
+      durationCutoffSeconds !== null &&
+      (trimmedEndSeconds === null || durationCutoffSeconds <= trimmedEndSeconds + 0.001);
     const fadeLeadSeconds =
       autoStopFadeMs > 0 ? Math.max(0, autoStopFadeMs / 1000) : 0.14;
     const fadeStartSeconds =
@@ -3915,12 +3919,25 @@ const playOnChannel = async (
           0,
           (effectiveEndSeconds - next.currentTime) * 1000,
         );
+        const shouldCancelAutoStop = () => autoStopCanBeCancelled && cortinaAllowFull;
         if (autoStopFadeMs > 0 || isTrimmedEarly) {
           const preferredFadeMs = autoStopFadeMs > 0 ? autoStopFadeMs : 140;
           const fadeMs = computeFadeDurationMs(preferredFadeMs, remainingMs);
           if (fadeMs > 0) {
-            await fadeOutAudio(next, fadeMs);
+            const completed = await fadeOutAudio(next, fadeMs, shouldCancelAutoStop);
+            if (!completed) {
+              trimHandled = false;
+              setAudioLevel(next, targetVolume);
+              updateNowPlayingDisplay();
+              return;
+            }
           }
+        }
+        if (shouldCancelAutoStop()) {
+          trimHandled = false;
+          setAudioLevel(next, targetVolume);
+          updateNowPlayingDisplay();
+          return;
         }
         setAudioLevel(next, 0);
         next.currentTime = effectiveEndSeconds ?? next.currentTime;
@@ -4070,16 +4087,24 @@ const playTrackForMode = async (
   return started;
 };
 
-const fadeOutAudio = async (audio: HTMLAudioElement, durationMs: number) => {
+const fadeOutAudio = async (
+  audio: HTMLAudioElement,
+  durationMs: number,
+  shouldCancel?: () => boolean,
+) => {
   const startVolume = getAudioLevel(audio);
   const start = performance.now();
-  return new Promise<void>((resolve) => {
+  return new Promise<boolean>((resolve) => {
     const step = () => {
+      if (shouldCancel?.()) {
+        resolve(false);
+        return;
+      }
       const elapsed = performance.now() - start;
       const t = Math.min(1, durationMs > 0 ? elapsed / durationMs : 1);
       setAudioLevel(audio, Math.max(0, startVolume * (1 - t)));
       if (t >= 1) {
-        resolve();
+        resolve(true);
         return;
       }
       window.requestAnimationFrame(step);
@@ -8388,7 +8413,7 @@ const playCortina = async (
     Number.isFinite(configuredDurationMs) && configuredDurationMs > 0
       ? configuredDurationMs
       : 20_000;
-  const autoStopFadeMs = Math.max(2000, getStopFadeSeconds() * 1000 + 1000);
+  const autoStopFadeMs = Math.max(0, getStopFadeSeconds() * 1000);
   setCortinaControlsVisible(true);
   renderPlaylist();
   const started = await playOnChannel(

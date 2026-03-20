@@ -62,6 +62,12 @@ For each cortina:
 - FR-053.R1: Track is selected from the current cortina group or overridden manually.
 - FR-053.R2: Playback starts at track start offset.
 - FR-053.R3: Playback ends at the DJ-defined duration.
+- FR-053.R3.a: The configured cortina-duration timer starts when cortina playback starts.
+- FR-053.R3.b: If the timer expires, fade-out starts immediately and is timed to
+  complete at the configured cortina-duration cutoff.
+- FR-053.R3.c: While that timer is still active, the DJ may either stop the
+  cortina immediately with a fade from the current position or cancel the timer
+  and let the cortina continue to its natural trimmed end.
 - FR-053.R4: Fade-out is applied using system-defined curves.
 - FR-053.R5: Cortina gain is applied independently.
 - FR-053.R6: When cortinas are enabled, a cortina plays before the first tanda
@@ -71,6 +77,9 @@ For each cortina:
   first cortina when starting a playlist.
 - FR-053.R8: After a cortina fades out, the pre-tanda delay is applied before the
   next tanda starts (when configured).
+- FR-053.R9: During a playing cortina, a manual "Play" override must cancel the
+  configured-duration fade path even if that fade has already started, so the
+  cortina continues to its natural trimmed end or until a later manual stop.
 
 ---
 

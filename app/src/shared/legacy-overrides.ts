@@ -6,6 +6,7 @@ export type LegacyOverride = {
   genre?: string;
   bpm?: number | null;
   notes?: string;
+  instrumental?: boolean | null;
   durationMs?: number;
   startOffsetMs?: number;
   endTrimMs?: number;
@@ -36,6 +37,10 @@ const sanitizeOverride = (value: unknown): LegacyOverride | null => {
   copyString("year");
   copyString("genre");
   copyString("notes");
+  const instrumental = input.instrumental;
+  if (typeof instrumental === "boolean" || instrumental === null) {
+    out.instrumental = instrumental;
+  }
   const copyNullableNumber = (key: string) => {
     const raw = input[key];
     if (raw === null) {

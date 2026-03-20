@@ -2166,6 +2166,7 @@ test.describe("Electron app end-to-end workflows", () => {
         .toContain("tango uno");
 
       await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 15_000 });
+      await page.waitForTimeout(750);
       await page.locator("#cortina-play").click();
       await expect(page.locator("#cortina-play")).toBeDisabled();
       await page.waitForTimeout(1_500);
@@ -2182,6 +2183,66 @@ test.describe("Electron app end-to-end workflows", () => {
           { timeout: 8_000 },
         )
         .toContain("milonga de prueba");
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("46 - cortina scenarios cover timer expiry, manual stop, and play-to-end override", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await installVariableEndingMediaStub(page, 4_000, 4_000);
+
+      await page.locator("#mode-select").selectOption("live");
+      await openSettings(page);
+      await page.locator('button[data-tab="playlist"]').click();
+      await page.locator("#gap-between-tracks").fill("0");
+      await page.locator("#gap-before-tanda").fill("0");
+      await page.locator("#gap-before-cortina").fill("0");
+      await page.locator("#stop-fade-duration").fill("0.2");
+      await page.locator("#playlist-cortina-duration").fill("1");
+      const setValue = await waitForFirstNamedCortinaSetValue(page);
+      await page.locator("#playlist-cortina-set").selectOption(setValue);
+      await closeSettings(page);
+      await clearPlaylistViaUi(page);
+
+      await page.locator('button[data-tab="search-tandas"]').click();
+      for (const tandaName of ["Tango Trio", "Milonga Trio", "Waltz Trio"]) {
+        await runSearch(page, tandaName);
+        await clickRowAction(searchTandaRow(page, tandaName), "add-playlist-tanda");
+        await confirmIfPrompted(page);
+      }
+
+      await ensurePlaylistTab(page);
+      await dispatchExactClick(
+        await getExpandedTandaDetailLine(playlistTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Uno"),
+      );
+
+      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/);
+      await expect
+        .poll(
+          async () => page.locator("#cortina-controls").getAttribute("class"),
+          { timeout: 8_000 },
+        )
+        .not.toMatch(/visible/);
+      await expectNowPlayingContainsSoon(page, "tango uno", 8_000);
+
+      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 15_000 });
+      await page.locator("#cortina-stop").click();
+      await expect(page.locator("#cortina-controls")).not.toHaveClass(/visible/);
+      await expectNowPlayingContainsSoon(page, "milonga de prueba", 8_000);
+
+      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 15_000 });
+      await page.waitForTimeout(750);
+      await page.locator("#cortina-play").click();
+      await expect(page.locator("#cortina-play")).toBeDisabled();
+      await page.waitForTimeout(300);
+      await expect(
+        ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
+      ).not.toContain("needle waltz");
+      await expectNowPlayingContainsSoon(page, "needle waltz", 8_000);
+      await expect(page.locator("#cortina-controls")).not.toHaveClass(/visible/);
     } finally {
       await launched.close();
     }
@@ -2529,9 +2590,12 @@ test.describe("Electron app end-to-end workflows", () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
+      await clearPlaylistViaUi(page);
       await page.locator('button[data-tab="search-tandas"]').click();
       await runSearch(page, "Tango Trio");
-      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      const searchRow = searchTandaRow(page, "Tango Trio");
+      await expect(searchRow).toBeVisible();
+      await clickRowAction(searchRow, "add-playlist-tanda");
       await confirmIfPrompted(page);
       await ensurePlaylistTab(page);
 

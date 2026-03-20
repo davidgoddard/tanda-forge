@@ -18,6 +18,7 @@ describe("legacy override persistence", () => {
               title: "Track",
               artist: "Artist",
               bpm: 62,
+              instrumental: false,
               loudnessDb: -19.5,
               gainDb: 3.5,
             },
@@ -29,6 +30,7 @@ describe("legacy override persistence", () => {
     const encoded = serializeLegacyOverrides(source);
     const decoded = deserializeLegacyOverrides(encoded);
     expect(decoded.get("root-1")?.get("Artist/Track.mp3")?.title).toBe("Track");
+    expect(decoded.get("root-1")?.get("Artist/Track.mp3")?.instrumental).toBe(false);
     expect(decoded.get("root-1")?.get("Artist/Track.mp3")?.gainDb).toBeCloseTo(3.5);
   });
 
@@ -39,13 +41,14 @@ describe("legacy override persistence", () => {
     const malformed = deserializeLegacyOverrides(
       JSON.stringify({
         root: {
-          "x.mp3": { title: "x", bpm: "fast", gainDb: null, noise: true },
+          "x.mp3": { title: "x", bpm: "fast", gainDb: null, instrumental: "no", noise: true },
         },
       }),
     );
     const row = malformed.get("root")?.get("x.mp3");
     expect(row?.title).toBe("x");
     expect(row?.gainDb).toBeNull();
+    expect((row as Record<string, unknown>)?.instrumental).toBeUndefined();
     expect((row as Record<string, unknown>)?.noise).toBeUndefined();
     expect((row as Record<string, unknown>)?.bpm).toBeUndefined();
   });

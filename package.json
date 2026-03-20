@@ -2,7 +2,7 @@
   "name": "tanda-forge",
   "description": "Tanda Forge desktop app for preparing and playing tandas.",
   "author": "David Goddard<tangotandaplayer@gmail.com>",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "private": true,
   "engines": {
     "node": ">=22.12.0"

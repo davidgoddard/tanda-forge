@@ -16,6 +16,8 @@ never modified on disk.
 - AUD-002.R2: Use `ffmpeg` to compute:
   - AUD-002.R2.a: Loudness (EBU R128 integrated).
   - AUD-002.R2.b: Leading/trailing silence offsets.
+  - AUD-002.R2.b.i: Trailing-silence detection should use a conservative noise
+    floor so quiet musical endings are less likely to be misclassified as fade-out silence.
 - AUD-002.R2.c: Waveform PNG previews.
 - AUD-002.R3: Store results in SQLite for reuse at playback time.
 

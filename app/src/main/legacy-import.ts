@@ -28,6 +28,7 @@ export type LegacyTrackOverride = {
   genre?: string;
   bpm?: number | null;
   notes?: string;
+  instrumental?: boolean | null;
   durationMs?: number;
   startOffsetMs?: number;
   endTrimMs?: number;
@@ -66,6 +67,7 @@ type LegacyLibraryEntry = {
     bpm?: number;
     notes?: string;
     style?: string;
+    instrumental?: boolean;
     subStyle?: string;
     "sub-style"?: string;
   };
@@ -213,6 +215,8 @@ export const loadLegacyLibrary = (libraryPath: string) => {
     const genre = buildLegacyClassifierStyle(classifiers) || "?";
     const bpm = typeof classifiers.bpm === "number" ? classifiers.bpm : null;
     const notes = (classifiers.notes ?? "").toString().trim();
+    const instrumental =
+      typeof classifiers.instrumental === "boolean" ? classifiers.instrumental : null;
     let year =
       track.date && !Number.isNaN(Date.parse(track.date))
         ? new Date(track.date).getFullYear().toString()
@@ -255,6 +259,7 @@ export const loadLegacyLibrary = (libraryPath: string) => {
       year: year || undefined,
       bpm,
       notes: notes || undefined,
+      instrumental,
       durationMs: durationMs || undefined,
       startOffsetMs: startOffsetMs || undefined,
       endTrimMs: endTrimMs || undefined,
@@ -357,7 +362,7 @@ const importLegacyTracks = async (
     styleMap.set(row.alias_normalized.toLowerCase(), row.style_name);
   });
   const selectStmt = db.prepare(
-    `select id, title, artist, album, year, genre, bpm, notes, singer, created_at,
+    `select id, title, artist, album, year, genre, bpm, notes, singer, instrumental, created_at,
         duration_ms, start_offset_ms, end_trim_ms, loudness_db, gain_db
      from tracks where root_id = ? and relative_path = ?`,
   );
@@ -426,6 +431,7 @@ const importLegacyTracks = async (
             bpm?: number | null;
             notes?: string;
             singer?: string;
+            instrumental?: number | null;
             created_at?: string;
             duration_ms?: number;
             start_offset_ms?: number;
@@ -449,6 +455,12 @@ const importLegacyTracks = async (
         typeof override.bpm === "number" ? override.bpm : existing?.bpm ?? null;
       const notes = override.notes?.trim() || existing?.notes || "";
       const singer = existing?.singer || extractSingerName(artist);
+      const instrumental =
+        typeof override.instrumental === "boolean"
+          ? override.instrumental
+          : existing?.instrumental === null || existing?.instrumental === undefined
+            ? null
+            : Boolean(existing.instrumental);
       const durationMs =
         typeof override.durationMs === "number"
           ? override.durationMs
@@ -489,7 +501,7 @@ const importLegacyTracks = async (
         genre,
         bpm,
         notes,
-        instrumental: null,
+        instrumental,
         duration_ms: maxDuration,
         start_offset_ms: safeStartOffset,
         end_trim_ms: safeEndTrim,

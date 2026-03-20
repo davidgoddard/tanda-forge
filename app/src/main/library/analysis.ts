@@ -20,6 +20,11 @@ export type TagResult = {
   error?: string;
 };
 
+export const SILENCE_DETECT_NOISE_DB = -40;
+export const SILENCE_DETECT_MIN_DURATION_SECONDS = 0.2;
+export const buildSilenceDetectFilter = () =>
+  `silencedetect=noise=${SILENCE_DETECT_NOISE_DB}dB:d=${SILENCE_DETECT_MIN_DURATION_SECONDS}`;
+
 const extractJsonPayload = (payload: string) => {
   const trimmed = payload.trim();
   if (!trimmed) {
@@ -617,7 +622,7 @@ const readSilenceBounds = async (filePath: string) => {
     "-sn",
     "-dn",
     "-af",
-    "silencedetect=noise=-35dB:d=0.2",
+    buildSilenceDetectFilter(),
     "-f",
     "null",
     "-",

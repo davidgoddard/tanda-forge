@@ -184,13 +184,13 @@ export const scanLibraryRoots = async (
   const insertStmt = db.prepare(`
     insert into tracks (
       id, root_id, relative_path, full_path, file_hash, file_size, file_mtime_ms,
-      title, artist, artist_summary, singer, album, year, genre, bpm, notes, duration_ms,
+      title, artist, artist_summary, singer, album, year, genre, bpm, notes, instrumental, duration_ms,
       start_offset_ms, end_trim_ms, loudness_db, gain_db, tag_error, analysis_error, tag_json,
       analysis_json, created_at, updated_at, last_scanned_at
     ) values (
       @id, @root_id, @relative_path, @full_path, @file_hash, @file_size,
       @file_mtime_ms, @title, @artist, @artist_summary, @singer, @album, @year, @genre,
-      @bpm, @notes, @duration_ms, @start_offset_ms, @end_trim_ms, @loudness_db, @gain_db,
+      @bpm, @notes, @instrumental, @duration_ms, @start_offset_ms, @end_trim_ms, @loudness_db, @gain_db,
       @tag_error, @analysis_error, @tag_json, @analysis_json, @created_at,
       @updated_at, @last_scanned_at
     )
@@ -207,6 +207,7 @@ export const scanLibraryRoots = async (
       genre=excluded.genre,
       bpm=excluded.bpm,
       notes=excluded.notes,
+      instrumental=excluded.instrumental,
       duration_ms=excluded.duration_ms,
       start_offset_ms=excluded.start_offset_ms,
       end_trim_ms=excluded.end_trim_ms,
@@ -222,7 +223,7 @@ export const scanLibraryRoots = async (
 
   const existsStmt = db.prepare(
     `select id, file_hash, file_size, file_mtime_ms, title, artist, artist_summary, singer,
-      album, year, genre, bpm, notes, duration_ms, start_offset_ms, end_trim_ms,
+      album, year, genre, bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms,
       loudness_db, gain_db, tag_error, analysis_error, tag_json, analysis_json
      from tracks where root_id = ? and relative_path = ?`,
   );
@@ -282,6 +283,7 @@ export const scanLibraryRoots = async (
               genre?: string;
               bpm?: number | null;
               notes?: string;
+              instrumental?: number | null;
               duration_ms?: number;
               start_offset_ms?: number;
               end_trim_ms?: number;
@@ -397,6 +399,12 @@ export const scanLibraryRoots = async (
             ? legacy.bpm
             : existing?.bpm ?? null;
         const notes = legacy?.notes?.trim() || existing?.notes || "";
+        const instrumental =
+          typeof legacy?.instrumental === "boolean"
+            ? legacy.instrumental
+            : existing?.instrumental === null || existing?.instrumental === undefined
+              ? null
+              : Boolean(existing.instrumental);
         const artistSummary = summarizeArtistName(artist);
         const singerFromTags =
           tags.singer ||
@@ -418,6 +426,9 @@ export const scanLibraryRoots = async (
           existing.genre !== genre ||
           existing.bpm !== bpm ||
           existing.notes !== notes ||
+          (existing?.instrumental === null || existing?.instrumental === undefined
+            ? null
+            : Boolean(existing.instrumental)) !== instrumental ||
           existing.artist_summary !== artistSummary ||
           existing.singer !== singer;
 
@@ -445,6 +456,7 @@ export const scanLibraryRoots = async (
             artist_summary: artistSummary,
             singer,
             notes,
+            instrumental,
             duration_ms: analysis.durationMs,
             start_offset_ms: analysis.startOffsetMs,
             end_trim_ms: analysis.endTrimMs,
