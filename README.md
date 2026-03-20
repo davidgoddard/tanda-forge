@@ -2,6 +2,12 @@
 
 <img src="images/user-guide/tandaforge_icon_1024.png" width="300px">
 
+## Download
+
+Pre-built releases for Windows, Mac OS and Linux are available.
+
+[Tanda Forge on GitHub](https://github.com/davidgoddard/tanda-forge/releases/)
+
 ## User Guide
 
 See [User Guide](docs/user-guide.md)
