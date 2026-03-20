@@ -8545,7 +8545,15 @@ const playCortina = async (
       if (!settled) {
         return { ok: false, overlappedIntoNext: false, overlapFadeMs: null, track };
       }
-      if (!activeAudio.paused && !activeAudio.ended) {
+      if (cortinaStopRequested) {
+        if (cortinaStopPromise) {
+          await cortinaStopPromise;
+        } else {
+          await requestImmediateCortinaStop();
+        }
+      } else if (cortinaAllowFull) {
+        await waitForAudioEnd(activeAudio, runId);
+      } else if (!activeAudio.paused && !activeAudio.ended) {
         const fadeMs = Math.max(400, getStopFadeSeconds() * 1000);
         await Promise.all([
           fadeOutAudio(activeAudio, fadeMs),

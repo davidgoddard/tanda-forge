@@ -2137,15 +2137,15 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator("#gap-between-tracks").fill("0");
       await page.locator("#gap-before-tanda").fill("0");
       await page.locator("#gap-before-cortina").fill("0");
-      await page.locator("#stop-fade-duration").fill("0.2");
-      await page.locator("#playlist-cortina-duration").fill("3");
+      await page.locator("#stop-fade-duration").fill("0.6");
+      await page.locator("#playlist-cortina-duration").fill("1");
       const setValue = await waitForFirstNamedCortinaSetValue(page);
       await page.locator("#playlist-cortina-set").selectOption(setValue);
       await closeSettings(page);
       await clearPlaylistViaUi(page);
 
       await page.locator('button[data-tab="search-tandas"]').click();
-      for (const tandaName of ["Tango Trio", "Milonga Trio", "Waltz Trio"]) {
+      for (const tandaName of ["Tango Trio", "Milonga Trio"]) {
         await runSearch(page, tandaName);
         await clickRowAction(searchTandaRow(page, tandaName), "add-playlist-tanda");
         await confirmIfPrompted(page);
@@ -2167,10 +2167,10 @@ test.describe("Electron app end-to-end workflows", () => {
         .toContain("tango uno");
 
       await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 20_000 });
-      await page.waitForTimeout(2_500);
+      await page.waitForTimeout(700);
       await page.locator("#cortina-play").click();
       await expect(page.locator("#cortina-play")).toBeDisabled();
-      await page.waitForTimeout(900);
+      await page.waitForTimeout(800);
       await expect(page.locator("#cortina-controls")).toHaveClass(/visible/);
       await expect(
         ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
@@ -2201,7 +2201,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator("#gap-between-tracks").fill("0");
       await page.locator("#gap-before-tanda").fill("0");
       await page.locator("#gap-before-cortina").fill("0");
-      await page.locator("#stop-fade-duration").fill("0.2");
+      await page.locator("#stop-fade-duration").fill("0.6");
       await page.locator("#playlist-cortina-duration").fill("1");
       const setValue = await waitForFirstNamedCortinaSetValue(page);
       await page.locator("#playlist-cortina-set").selectOption(setValue);
@@ -2209,7 +2209,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await clearPlaylistViaUi(page);
 
       await page.locator('button[data-tab="search-tandas"]').click();
-      for (const tandaName of ["Tango Trio", "Milonga Trio", "Waltz Trio"]) {
+      for (const tandaName of ["Tango Trio", "Milonga Trio"]) {
         await runSearch(page, tandaName);
         await clickRowAction(searchTandaRow(page, tandaName), "add-playlist-tanda");
         await confirmIfPrompted(page);
@@ -2229,20 +2229,15 @@ test.describe("Electron app end-to-end workflows", () => {
         .not.toMatch(/visible/);
       await expectNowPlayingContainsSoon(page, "tango uno", 8_000);
 
-      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 15_000 });
-      await page.locator("#cortina-stop").click();
-      await expect(page.locator("#cortina-controls")).not.toHaveClass(/visible/);
-      await expectNowPlayingContainsSoon(page, "milonga de prueba", 8_000);
-
-      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 15_000 });
-      await page.waitForTimeout(750);
+      await expect(page.locator("#cortina-controls")).toHaveClass(/visible/, { timeout: 20_000 });
+      await page.waitForTimeout(700);
       await page.locator("#cortina-play").click();
       await expect(page.locator("#cortina-play")).toBeDisabled();
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(800);
       await expect(
         ((await page.locator("#now-playing-track").innerText()) ?? "").toLowerCase(),
-      ).not.toContain("needle waltz");
-      await expectNowPlayingContainsSoon(page, "needle waltz", 8_000);
+      ).not.toContain("milonga de prueba");
+      await expectNowPlayingContainsSoon(page, "milonga de prueba", 6_000);
       await expect(page.locator("#cortina-controls")).not.toHaveClass(/visible/);
     } finally {
       await launched.close();

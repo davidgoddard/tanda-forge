@@ -7804,6 +7804,15 @@
 - Verification:
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `392` tests).
+- Fixed a real cortina play-override race and made the Electron workflows prove the late-override case instead of an early-click approximation.
+  - In `app/src/renderer/renderer.ts`, the timed cortina-stop path now re-checks both `cortinaStopRequested` and `cortinaAllowFull` after the post-cutoff wait. This closes the race where a DJ could press `Play` after the auto-fade had already started, but the playback code had already committed to the old timed-stop branch and still faded out at the configured cutoff.
+  - In `tests/e2e/workflows.e2e.ts`, workflows `41` and `46` now press `Play` after the configured auto-fade has begun (`1s` cortina duration with `0.6s` fade, then click at `700ms`). That means the tests now check the user-visible contract that was actually failing: the cortina must still be playing beyond the default cutoff after a late `Play`, and a later `Stop` must still advance promptly.
+  - The workflows also use a shorter two-tanda setup and explicit Electron verification instead of relying only on the Vitest suite.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `392` tests).
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g '41 - cortina now-playing controls stop to continue and play to override duration'` passed.
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g '46 - cortina scenarios cover timer expiry, manual stop, and play-to-end override'` passed.
 - Fixed cortina manual `Stop` so it starts fading immediately instead of waiting for the normal duration cutoff.
   - In `app/src/renderer/renderer.ts`, cortina stop clicks now kick off an immediate stop-fade promise against the active main-output cortina and its compressed companion, rather than only setting `cortinaStopRequested` and waiting for the later timer path to observe it.
   - `playCortina(...)` now awaits that in-flight manual-stop promise when resolving a stop-requested cortina, so the playlist continues because of the user click rather than because the original timer eventually fired.
