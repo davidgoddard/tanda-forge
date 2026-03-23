@@ -192,11 +192,36 @@ Also shows when it is the last tanda and when there is no more - "That's all fol
 
 A typical workflow:
 
-1. Search tracks or tandas
-2. Stage options in clipboard or collections
-3. Build tandas in the designer
-4. Add to playlist
-5. Cue and play live
+1. Configure separate folders for:
+   - music
+   - cortinas
+   - display board images
+2. Run setup so Tanda Forge scans your music library, imports available metadata and prepares for playback
+3. Review and enrich track metadata such as:
+   - dates
+   - notes
+   - BPM
+   - title, artist, singer, style, and other library fields
+4. Use that metadata in different ways:
+   - search directly by hand
+   - use `find similar` from a track
+   - move into tandas (new or old) directly from the metadata editor or drop into the playlist and let it handle tanda construction
+5. Open a tanda in the designer to set the app's context to that tanda’s style and size, making it safer to edit and faster to see suitable alternatives
+6. Use collections to keep longer-term working sets such as:
+   - favourites
+   - crowd-pleasers
+   - possible last-tanda choices
+   - other reusable shortlist ideas
+7. Add tandas to the playlist, swap them about, cue them, and play live
+8. Built in summaries:
+   - tandas are shown as summaries of artists, years, tempo, Sung/instrumental and DJ added descriptions
+   - expand to see the tracks within and send to the editor to change order, add or remove etc.
+   - collapse expanded tandas to see more tandas on the screen at once to get a feel for the up-coming tracks and predicted time they will play
+9. Use the display board:
+   - grab some background images and configure their location
+   - Open the display board view
+   - Drag to a window, resize and share with the dancers
+   - No manual management
 
 Simple. Fast. Repeatable.
 
@@ -209,15 +234,15 @@ https://github.com/davidgoddard/tanda-forge/blob/main/docs/user-guide.md
 
 ---
 
-## Why DJs Use Tanda Forge
+## Support & Feedback
 
-Because during a milonga:
+If you run into a problem, want to request a feature, or have an idea to improve Tanda Forge, please use GitHub Issues.
 
-* You don’t have time to fight your software
-* You need to react to the floor
-* You need confidence nothing will break
+* **Bug reports**: open an issue with clear steps, what you expected, and what happened instead
+* **Feature requests**: open an issue describing the workflow problem you want to solve
+* **General feedback**: open an issue and describe the use case or DJ context
 
-Tanda Forge is built for that reality.
+This project does not currently maintain a separate private security reporting process. For normal project problems and feedback, GitHub Issues is the right place.
 
 ---
 

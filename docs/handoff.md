@@ -8007,3 +8007,18 @@
     - single-click mark-current-tanda-as-last behavior so playback and display handling complete automatically without editing the playlist
 - Verification:
   - Not rerun; README-only documentation change.
+- Added a README support/feedback section pointing users to GitHub Issues.
+  - In `README.md`, added `Support & Feedback` with guidance for bug reports, feature requests, and general feedback via GitHub Issues.
+  - The section also states that the project does not currently maintain a separate private security reporting process.
+- Verification:
+  - Not rerun; README-only documentation change.
+- Reworked the README `How It Works` section to describe the real preparation and workflow model in more detail.
+  - In `README.md`, `How It Works` now covers:
+    - separate folders for music, cortinas, and display board images
+    - setup/scanning and derived asset preparation
+    - metadata editing for dates, notes, BPM, and other fields
+    - metadata-driven search, including direct search, `find similar`, and editor-driven navigation
+    - tanda-designer context setting by style and tanda size
+    - collections for long-term favourites, crowd-pleasers, and last-tanda candidates
+- Verification:
+  - Not rerun; README-only documentation change.
