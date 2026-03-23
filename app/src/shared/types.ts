@@ -182,10 +182,59 @@ export type AppApi = {
   }>;
   scanAll: () => Promise<ScanSummary>;
   scanKind: (kind: "music" | "cortina") => Promise<ScanSummary>;
+  runStartupFlow: (params: {
+    mode: "upward" | "track-leveler";
+    liftThresholdDb: number;
+    maxLiftDb: number;
+    ratio: number;
+    attackMs: number;
+    releaseMs: number;
+    gateThresholdDb: number;
+    limiterCeilingDb: number;
+    limiterReleaseMs: number;
+  }) => Promise<
+    | {
+        ok: true;
+        legacyDetected: boolean;
+        legacyImported: boolean;
+        legacyImport: {
+          imported: boolean;
+          tandasImported: number;
+          tracksUpdated: number;
+          missingTracks: number;
+          missingFiles: { filePath: string; message: string }[];
+          rootPath: string;
+        };
+        musicScan: ScanSummary;
+        cortinaScan: ScanSummary;
+        precompute: {
+          rendered: number;
+          cached: number;
+          failed: number;
+          errors: { filePath: string; message: string }[];
+        };
+      }
+    | {
+        ok: false;
+        error: string;
+      }
+  >;
   listTracks: () => Promise<TrackRow[]>;
   onScanProgress: (handler: (progress: ScanProgress) => void) => () => void;
   resetDatabase: () => Promise<{ ok: boolean }>;
   clearCachedFiles: () => Promise<{ ok: boolean }>;
+  exportSystemData: () => Promise<{
+    ok: boolean;
+    cancelled?: boolean;
+    path: string;
+    error?: string;
+  }>;
+  importSystemData: () => Promise<{
+    ok: boolean;
+    cancelled?: boolean;
+    path: string;
+    error?: string;
+  }>;
   listTrackPage: (params: TrackPageRequest) => Promise<TrackRow[]>;
   jumpToPrefix: (params: JumpRequest) => Promise<{ offset: number }>;
   getJumpIndex: (params: { sortBy?: string }) => Promise<string[]>;

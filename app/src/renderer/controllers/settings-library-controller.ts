@@ -9,6 +9,7 @@ type PrecomputeProgress = Parameters<AppApi["onPrecomputeCompressedProgress"]>[0
   : never;
 
 type CompressionConfig = Parameters<AppApi["precomputeCompressedTracks"]>[0];
+type StartupFlowResult = Awaited<ReturnType<AppApi["runStartupFlow"]>>;
 
 type LibraryMaintenanceElements = {
   errorList?: HTMLElement | null;
@@ -21,8 +22,13 @@ type LibraryMaintenanceElements = {
   precomputeCompressedResult?: HTMLElement | null;
   precomputeCompressedBtn?: HTMLButtonElement | null;
   precomputeCompressedShortcutBtn?: HTMLButtonElement | null;
+  startupFlowBtn?: HTMLButtonElement | null;
+  startupFlowResult?: HTMLElement | null;
   scanMusicBtn?: HTMLButtonElement | null;
   scanCortinasBtn?: HTMLButtonElement | null;
+  exportSystemBtn?: HTMLButtonElement | null;
+  importSystemBtn?: HTMLButtonElement | null;
+  systemTransferResult?: HTMLElement | null;
   cacheVerifyResult?: HTMLElement | null;
 };
 
@@ -31,7 +37,13 @@ export type LibraryMaintenanceControllerDeps = {
   basenameForDisplay: (filePath: string | null | undefined) => string;
   api: Pick<
     AppApi,
-    "scanKind" | "precomputeCompressedTracks" | "verifyCachedFiles" | "clearCachedFiles"
+    | "scanKind"
+    | "runStartupFlow"
+    | "precomputeCompressedTracks"
+    | "verifyCachedFiles"
+    | "clearCachedFiles"
+    | "exportSystemData"
+    | "importSystemData"
   >;
   elements: LibraryMaintenanceElements;
   setStatus: (message: string) => void;
@@ -40,6 +52,8 @@ export type LibraryMaintenanceControllerDeps = {
   scheduleCompressionPrefetch: () => void;
   onScanCompleted: (kind: "music" | "cortina", summary: ScanSummary) => Promise<void>;
   onCachedFilesCleared: () => Promise<void>;
+  onStartupFlowCompleted: (result: Extract<StartupFlowResult, { ok: true }>) => Promise<void>;
+  onSystemImported: () => Promise<void>;
 };
 
 const MAX_SCAN_ISSUES = 50;
@@ -99,6 +113,7 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
   let currentPrecomputeIssueKeys = new Set<string>();
   let scanRequestInFlight = false;
   let precomputeCompressionInProgress = false;
+  let startupFlowInProgress = false;
 
   const setScanButtonsDisabled = (disabled: boolean) => {
     if (deps.elements.scanMusicBtn) {
@@ -115,6 +130,21 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     }
     if (deps.elements.precomputeCompressedShortcutBtn) {
       deps.elements.precomputeCompressedShortcutBtn.disabled = disabled;
+    }
+  };
+
+  const setStartupFlowButtonDisabled = (disabled: boolean) => {
+    if (deps.elements.startupFlowBtn) {
+      deps.elements.startupFlowBtn.disabled = disabled;
+    }
+  };
+
+  const setSystemTransferButtonsDisabled = (disabled: boolean) => {
+    if (deps.elements.exportSystemBtn) {
+      deps.elements.exportSystemBtn.disabled = disabled;
+    }
+    if (deps.elements.importSystemBtn) {
+      deps.elements.importSystemBtn.disabled = disabled;
     }
   };
 
@@ -326,6 +356,81 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     }
   };
 
+  const renderStartupFlowResult = (result: string) => {
+    if (deps.elements.startupFlowResult) {
+      deps.elements.startupFlowResult.textContent = result;
+    }
+  };
+
+  const runStartupFlow = async () => {
+    if (startupFlowInProgress || scanRequestInFlight || precomputeCompressionInProgress) {
+      deps.setStatus(deps.translate("statusScanInProgress"));
+      return;
+    }
+    currentPrecomputeIssueKeys = new Set<string>();
+    currentPrecomputeIssueErrors = [];
+    renderPrecomputeFailureResult(deps.elements.precomputeCompressedResult, deps.translate, []);
+    startupFlowInProgress = true;
+    setStartupFlowButtonDisabled(true);
+    setScanButtonsDisabled(true);
+    setPrecomputeButtonsDisabled(true);
+    deps.clearAlert();
+    renderStartupFlowResult(deps.translate("startupFlowRunning"));
+    deps.setStatus(deps.translate("startupFlowRunning"));
+    try {
+      const result = await deps.api.runStartupFlow(deps.getCompressionConfig());
+      if (!result.ok) {
+        const message = deps.translate("startupFlowFailed", { message: result.error });
+        renderStartupFlowResult(message);
+        deps.setStatus(message);
+        return;
+      }
+      updateScanIssues([
+        ...result.legacyImport.missingFiles,
+        ...result.musicScan.errors,
+        ...result.cortinaScan.errors,
+        ...result.precompute.errors,
+      ]);
+      result.precompute.errors.forEach((error) => appendPrecomputeIssue(error));
+      renderStartupFlowResult(
+        deps.translate("startupFlowDone", {
+          legacy: result.legacyImported
+            ? deps.translate("startupFlowLegacyImported")
+            : result.legacyDetected
+              ? deps.translate("startupFlowLegacyDetected")
+              : deps.translate("startupFlowLegacySkipped"),
+          music: result.musicScan.scanned,
+          cortinas: result.cortinaScan.scanned,
+          rendered: result.precompute.rendered,
+          cached: result.precompute.cached,
+          failed: result.precompute.failed,
+        }),
+      );
+      deps.setStatus(
+        deps.translate("startupFlowStatusDone", {
+          music: result.musicScan.scanned,
+          cortinas: result.cortinaScan.scanned,
+          rendered: result.precompute.rendered,
+          cached: result.precompute.cached,
+          failed: result.precompute.failed,
+        }),
+      );
+      deps.scheduleCompressionPrefetch();
+      await deps.onStartupFlowCompleted(result);
+    } catch (error) {
+      const message = deps.translate("startupFlowFailed", {
+        message: error instanceof Error ? error.message : deps.translate("statusUnknownError"),
+      });
+      renderStartupFlowResult(message);
+      deps.setStatus(message);
+    } finally {
+      startupFlowInProgress = false;
+      setStartupFlowButtonDisabled(false);
+      setScanButtonsDisabled(false);
+      setPrecomputeButtonsDisabled(false);
+    }
+  };
+
   const runVerifyCachedFiles = async () => {
     if (!deps.elements.cacheVerifyResult) {
       return;
@@ -368,13 +473,82 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     await deps.onCachedFilesCleared();
   };
 
+  const runExportSystemData = async () => {
+    const resultEl = deps.elements.systemTransferResult;
+    if (!resultEl) {
+      return;
+    }
+    setSystemTransferButtonsDisabled(true);
+    resultEl.textContent = deps.translate("systemExportRunning");
+    try {
+      const result = await deps.api.exportSystemData();
+      if (result.cancelled) {
+        resultEl.textContent = deps.translate("systemTransferCancelled");
+        return;
+      }
+      if (!result.ok) {
+        resultEl.textContent = deps.translate("systemExportFailed", {
+          message: result.error ?? deps.translate("statusUnknownError"),
+        });
+        return;
+      }
+      resultEl.textContent = deps.translate("systemExportDone", {
+        path: result.path,
+      });
+    } catch (error) {
+      resultEl.textContent = deps.translate("systemExportFailed", {
+        message: error instanceof Error ? error.message : deps.translate("statusUnknownError"),
+      });
+    } finally {
+      setSystemTransferButtonsDisabled(false);
+    }
+  };
+
+  const runImportSystemData = async (confirm: () => Promise<boolean>) => {
+    const resultEl = deps.elements.systemTransferResult;
+    if (!resultEl) {
+      return;
+    }
+    if (!(await confirm())) {
+      return;
+    }
+    setSystemTransferButtonsDisabled(true);
+    resultEl.textContent = deps.translate("systemImportRunning");
+    try {
+      const result = await deps.api.importSystemData();
+      if (result.cancelled) {
+        resultEl.textContent = deps.translate("systemTransferCancelled");
+        return;
+      }
+      if (!result.ok) {
+        resultEl.textContent = deps.translate("systemImportFailed", {
+          message: result.error ?? deps.translate("statusUnknownError"),
+        });
+        return;
+      }
+      resultEl.textContent = deps.translate("systemImportDone", {
+        path: result.path,
+      });
+      await deps.onSystemImported();
+    } catch (error) {
+      resultEl.textContent = deps.translate("systemImportFailed", {
+        message: error instanceof Error ? error.message : deps.translate("statusUnknownError"),
+      });
+    } finally {
+      setSystemTransferButtonsDisabled(false);
+    }
+  };
+
   return {
     handleScanProgress,
     handlePrecomputeProgress,
     updateScanIssues,
     runScan,
+    runStartupFlow,
     runPrecomputeCompressedTracks,
     runVerifyCachedFiles,
     runClearCachedFiles,
+    runExportSystemData,
+    runImportSystemData,
   };
 };

@@ -16,6 +16,7 @@ const api: AppApi = {
     ipcRenderer.invoke("legacy:listStyles", rootPath),
   scanAll: async () => ipcRenderer.invoke("library:scanAll"),
   scanKind: async (kind) => ipcRenderer.invoke("library:scanKind", kind),
+  runStartupFlow: async (params) => ipcRenderer.invoke("library:runStartupFlow", params),
   listTracks: async () => ipcRenderer.invoke("library:listTracks"),
   onScanProgress: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, progress: unknown) => {
@@ -28,6 +29,8 @@ const api: AppApi = {
   },
   resetDatabase: async () => ipcRenderer.invoke("app:resetDatabase"),
   clearCachedFiles: async () => ipcRenderer.invoke("app:clearCachedFiles"),
+  exportSystemData: async () => ipcRenderer.invoke("app:exportSystemData"),
+  importSystemData: async () => ipcRenderer.invoke("app:importSystemData"),
   listTrackPage: async (params) => ipcRenderer.invoke("tracks:listPage", params),
   jumpToPrefix: async (params) =>
     ipcRenderer.invoke("tracks:jumpToPrefix", params),

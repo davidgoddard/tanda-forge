@@ -402,16 +402,21 @@ Although the old legacy data does include some information to help normalise the
 
 In **Settings -> Library**, the buttons are grouped by purpose:
 
+- **Startup Flow** runs the recommended end-to-end setup in one action.
+  - If legacy data is detected for the configured roots, it imports that first.
+  - It then scans music and cortinas, generates missing waveform PNGs, and precomputes compressed companion files.
+  - This is the recommended path after adding roots for the first time or after using **Erase Database**.
 - **Library Scan** refreshes the database, analysis, and waveform PNG cache from the music and cortina folders.
 - Re-running **Scan Music** or **Scan Cortinas** skips unchanged files, so adding new songs normally just means copying them into an existing root and scanning that root again.
 - **Derived Caches** manages the expensive on-disk cache files.
 - **Library Maintenance** contains database-only cleanup.
+- **System Export / Import** backs up or restores the complete application data folder (database, caches, logs, and persisted settings).
 
 If **compression** (dynamic range reduction) is enabled, the system can generate compressed files on demand when a track starts, but this may cause a short delay or CPU spike. Clicking **Precompute compressed cache** renders those compressed companions in advance. This takes a long time, but it is optional and only needed if compression will be used.
 
 If you want to keep the cache files on disk but do not fully trust them, use **Verify cached files**. This checks waveform PNGs and compressed cache files, removes broken or incomplete entries, and leaves valid cached files in place. Use **Erase Cached Files** only if you want to remove those derived files entirely and force them to be rebuilt later.
 
-**Erase Database** now removes only the database records. It does not remove waveform or compressed cache files.
+**Erase Database** now removes only the database records. It does not remove waveform or compressed cache files. After using it, run **Startup Flow** to rebuild a complete working library from the configured roots.
 
 In **Settings -> Diagnostics**, the app shows the actual `ffmpeg` and `ffprobe` paths it is using and whether each one came from the bundled app resources, a custom tools folder, or the system `PATH`.
 

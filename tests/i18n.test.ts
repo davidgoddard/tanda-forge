@@ -80,6 +80,19 @@ describe("renderer i18n", () => {
     expect(value).toContain("/tmp/example.wav");
   });
 
+  it("falls back to the key when a translation value is unexpectedly non-string", () => {
+    const mutated = translations as typeof translations & {
+      en: Record<string, string | null>;
+    };
+    const original = mutated.en.searchButton;
+    mutated.en.searchButton = null;
+    try {
+      expect(translate("en", "searchButton")).toBe("searchButton");
+    } finally {
+      mutated.en.searchButton = original;
+    }
+  });
+
   it("keeps popup short action labels unambiguous within each menu in every language", () => {
     for (const language of SUPPORTED_LANGUAGES) {
       for (const menu of shortActionMenus) {

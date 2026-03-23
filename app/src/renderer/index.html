@@ -770,6 +770,18 @@
               </div>
             </div>
             <div class="settings-section">
+              <h3 data-i18n="startupFlowTitle">Startup Flow</h3>
+              <p class="settings-note" data-i18n="startupFlowHelp">
+                Runs the complete setup for configured roots. If legacy data is detected it is imported first, then music and cortinas are scanned, waveform images are built, and compressed cache files are rendered.
+              </p>
+              <div class="settings-actions">
+                <button id="startup-flow-button" data-i18n="startupFlowButton">
+                  Run complete setup
+                </button>
+              </div>
+              <div id="startup-flow-result" class="diagnostics-result"></div>
+            </div>
+            <div class="settings-section">
               <div id="legacy-import" class="hidden">
               <h3 data-i18n="legacyImportTitle">Legacy Import</h3>
               <p id="legacy-import-description"></p>
@@ -850,6 +862,21 @@
               <p class="settings-note" data-i18n="eraseDatabaseHelp">
                 Removes database records only. Cached waveform and compressed files are kept unless erased separately.
               </p>
+            </div>
+            <div class="settings-section">
+              <h3 data-i18n="systemTransferTitle">System Export / Import</h3>
+              <p class="settings-note" data-i18n="systemTransferHelp">
+                Export or restore the full application data root, including database records, waveform images, compressed cache files, logs, and saved settings.
+              </p>
+              <div class="settings-actions">
+                <button id="export-system-data" data-i18n="systemExport">
+                  Export System
+                </button>
+                <button id="import-system-data" data-i18n="systemImport">
+                  Import System
+                </button>
+              </div>
+              <div id="system-transfer-result" class="diagnostics-result diagnostics-log"></div>
             </div>
           </div>
           <div class="settings-tab" data-tab="playlist">

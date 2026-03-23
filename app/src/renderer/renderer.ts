@@ -247,6 +247,10 @@ const scanMusicBtn =
   document.querySelector<HTMLButtonElement>("#scan-music");
 const scanCortinasBtn =
   document.querySelector<HTMLButtonElement>("#scan-cortinas");
+const startupFlowBtn =
+  document.querySelector<HTMLButtonElement>("#startup-flow-button");
+const startupFlowResult =
+  document.querySelector<HTMLDivElement>("#startup-flow-result");
 const precomputeCompressedBtn =
   document.querySelector<HTMLButtonElement>("#precompute-compressed");
 const verifyCachedFilesBtn =
@@ -352,6 +356,12 @@ const legacyStyleMappingEl =
   document.querySelector<HTMLDivElement>("#legacy-style-mapping");
 const legacyStyleMappingBody =
   document.querySelector<HTMLTableSectionElement>("#legacy-style-mapping-body");
+const exportSystemBtn =
+  document.querySelector<HTMLButtonElement>("#export-system-data");
+const importSystemBtn =
+  document.querySelector<HTMLButtonElement>("#import-system-data");
+const systemTransferResult =
+  document.querySelector<HTMLDivElement>("#system-transfer-result");
 const clipboardClearBtn =
   document.querySelector<HTMLButtonElement>("#clipboard-clear");
 const clipboardFilterInput =
@@ -11635,8 +11645,10 @@ const showAlert = (message: string) => {
   alertBanner.classList.remove("pulse");
 };
 
-const formatAlertErrorMessage = (message: string) => {
-  const compact = message.replace(/\s+/g, " ").trim();
+const formatAlertErrorMessage = (message: unknown) => {
+  const normalized =
+    typeof message === "string" ? message : message === null || message === undefined ? "" : String(message);
+  const compact = normalized.replace(/\s+/g, " ").trim();
   if (!compact) {
     return t("statusUnknownError");
   }
@@ -13444,9 +13456,12 @@ const init = async () => {
     basenameForDisplay: (filePath) => basenameForDisplay(filePath ?? ""),
     api: {
       scanKind: (kind) => window.tanda!.scanKind(kind),
+      runStartupFlow: (params) => window.tanda!.runStartupFlow(params),
       precomputeCompressedTracks: (params) => window.tanda!.precomputeCompressedTracks(params),
       verifyCachedFiles: () => window.tanda!.verifyCachedFiles(),
       clearCachedFiles: () => window.tanda!.clearCachedFiles(),
+      exportSystemData: () => window.tanda!.exportSystemData(),
+      importSystemData: () => window.tanda!.importSystemData(),
     },
     elements: {
       errorList,
@@ -13459,8 +13474,13 @@ const init = async () => {
       precomputeCompressedResult,
       precomputeCompressedBtn,
       precomputeCompressedShortcutBtn,
+      startupFlowBtn,
+      startupFlowResult,
       scanMusicBtn,
       scanCortinasBtn,
+      exportSystemBtn,
+      importSystemBtn,
+      systemTransferResult,
       cacheVerifyResult,
     },
     setStatus,
@@ -13480,6 +13500,55 @@ const init = async () => {
     onCachedFilesCleared: async () => {
       await renderDiagnosticsPaths();
       await renderDiagnosticsDataReadiness();
+      updateNowPlayingDisplay();
+    },
+    onStartupFlowCompleted: async () => {
+      await loadTandaDrafts();
+      await loadStyles();
+      await loadCortinaSets();
+      await refreshNewCollectionTracks();
+      await refreshSearch();
+      await updateLegacyImport();
+      await renderDiagnosticsDataReadiness();
+      renderAllLists();
+      updateNowPlayingDisplay();
+    },
+    onSystemImported: async () => {
+      trackCache.clear();
+      tandaCache.clear();
+      clipboardTracks = [];
+      clipboardTandas = [];
+      playlistItems = [null];
+      playlistPlayback.status = "idle";
+      playlistPlayback.resume = null;
+      playlistPlayback.currentIndex = 0;
+      playlistPlayback.currentTrackIndex = 0;
+      playlistPlayback.playedThroughIndex = -1;
+      cortinaDisplayPhase = "none";
+      isMarkedLastFinalCortinaActive = false;
+      isPerformanceStopFinalCortinaActive = false;
+      isPausedForPerformanceStop = false;
+      lastPausedPerformanceStopCortinaLabel = null;
+      holdPerformanceStopDisplayBlankWhenIdle = false;
+      playlistPlayback.activeTrackId = null;
+      playlistPlayback.activeTandaId = null;
+      playlistPlayback.liveBaseStartMs = null;
+      clearPlaylistTarget();
+      resetCortinaPlans();
+      localStorage.removeItem(PLAYLIST_STORAGE_KEY);
+      await renderRoots();
+      await renderDataLocation();
+      await loadStyles();
+      await loadTandaDrafts();
+      await loadCortinaSets();
+      await updateLegacyImport();
+      await renderDiagnosticsPaths();
+      await renderFfmpegToolsDir();
+      await renderDiagnosticsDataReadiness();
+      await refreshSearch();
+      renderClipboard();
+      renderPlaylist();
+      renderAllLists();
       updateNowPlayingDisplay();
     },
   });
@@ -14817,6 +14886,9 @@ const init = async () => {
   scanCortinasBtn?.addEventListener("click", () => {
     void settingsLibraryController.runScan("cortina");
   });
+  startupFlowBtn?.addEventListener("click", async () => {
+    await settingsLibraryController.runStartupFlow();
+  });
 
   precomputeCompressedBtn?.addEventListener("click", async () => {
     await settingsLibraryController.runPrecomputeCompressedTracks();
@@ -14847,6 +14919,16 @@ const init = async () => {
     }
     await settingsLibraryController.runClearCachedFiles(async () =>
       showConfirmModal(t("confirmEraseCachedFiles"), t("eraseCachedFiles")),
+    );
+  });
+
+  exportSystemBtn?.addEventListener("click", async () => {
+    await settingsLibraryController.runExportSystemData();
+  });
+
+  importSystemBtn?.addEventListener("click", async () => {
+    await settingsLibraryController.runImportSystemData(async () =>
+      showConfirmModal(t("confirmSystemImport"), t("systemImport")),
     );
   });
 

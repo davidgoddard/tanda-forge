@@ -46,6 +46,28 @@ Analysis:
 - FR-001.3.R4: Missing tracks are removed from the database on scan completion.
 - FR-001.3.R5: Tandas and playlists that reference missing tracks are marked invalid.
 
+### FR-001.4 Guided Setup and Recovery
+- FR-001.4.R1: The system must provide a single guided library-setup flow for
+  configured roots.
+- FR-001.4.R2: When legacy data is detected for the configured roots, the
+  guided flow must import it before scanning.
+- FR-001.4.R3: The guided flow must scan music and cortina roots, ensure
+  waveform PNGs are available, and bulk-render compressed companion files.
+- FR-001.4.R4: The guided flow must remain valid after a database reset so a
+  user can rebuild a complete working library without manual step ordering.
+- FR-001.4.R5: Combined import/scan/precompute failures must be surfaced to the
+  user without aborting unrelated successful work.
+
+### FR-001.5 System Backup and Restore
+- FR-001.5.R1: The system must export the full application data root as a
+  portable backup.
+- FR-001.5.R2: Exported backups must include the database, derived caches,
+  diagnostics logs, and persisted application state stored under the data root.
+- FR-001.5.R3: The system must restore a previously exported backup into the
+  active data root.
+- FR-001.5.R4: Importing a system backup must require explicit confirmation
+  because it replaces current application data.
+
 ---
 
 ## FR-002 — Loudness and Gain Handling

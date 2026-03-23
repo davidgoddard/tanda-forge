@@ -5,6 +5,10 @@ Code diffs are omitted; only intent and outcomes are captured.
 
 ## Timeline Highlights
 
+- User: Asked for an end-to-end test that clears the system, reruns the startup/import path, and verifies metadata, waveform images, and compressed artifacts are absent after clear-down and present again after recovery; also reported a startup banner error, "Cannot read properties of null (reading 'replace')".
+  Assistant: Added a Playwright recovery test using real WAV fixtures and legacy files, fixed SQLite startup-path boolean binding that the E2E exposed, and hardened renderer translation/error formatting while investigating the null `replace` crash.
+- User: Startup/reset flow felt illogical; after clearing the database, legacy import plus scans did not reliably restore metadata, waveform images, and compressed files, and the user also requested full system export/import.
+  Assistant: Added a guided Library startup/recovery flow that optionally imports legacy data, scans music and cortinas, rebuilds waveform coverage, and precomputes compressed companions in one ordered action; added full data-root system export/import; updated requirements/docs and added regression tests.
 - User: Move from Raspberry Pi/web app to Electron + TypeScript; update designs and scaffold.
   Assistant: Updated design docs, created Electron/TS scaffold.
 - User: Build/run app; Electron install issues.

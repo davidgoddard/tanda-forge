@@ -183,6 +183,19 @@ export const translations = {
     addCortinaFolder: "Add Cortina Folder",
     addBackgroundFolder: "Add Background Folder",
     scanLibrary: "Scan Library",
+    startupFlowTitle: "Startup Flow",
+    startupFlowHelp:
+      "Runs the complete setup for configured roots. If legacy data is detected it is imported first, then music and cortinas are scanned, waveform images are built, and compressed cache files are rendered.",
+    startupFlowButton: "Run complete setup",
+    startupFlowRunning: "Running complete setup...",
+    startupFlowDone:
+      "Setup complete. Legacy: {legacy}. Music scanned {music}. Cortinas scanned {cortinas}. Compressed rendered {rendered}, cached {cached}, failed {failed}.",
+    startupFlowStatusDone:
+      "Setup complete: music {music}, cortinas {cortinas}, rendered {rendered}, cached {cached}, failed {failed}.",
+    startupFlowFailed: "Setup failed: {message}",
+    startupFlowLegacyImported: "imported",
+    startupFlowLegacyDetected: "detected but not imported",
+    startupFlowLegacySkipped: "not detected",
     libraryScanTitle: "Library Scan",
     libraryScanHelp:
       "Scanning builds or refreshes the track database, analysis, and waveform cache. Re-running Scan Music or Scan Cortinas skips unchanged files, so adding new songs only requires scanning that root again.",
@@ -203,6 +216,20 @@ export const translations = {
       "This will remove cached waveform and compressed audio files. They can be regenerated later, but this may take time. Continue?",
     eraseCachedFilesDone: "Cached files erased.",
     libraryMaintenanceTitle: "Library Maintenance",
+    systemTransferTitle: "System Export / Import",
+    systemTransferHelp:
+      "Export or restore the full application data root, including database records, waveform images, compressed cache files, logs, and saved settings.",
+    systemExport: "Export System",
+    systemImport: "Import System",
+    systemExportRunning: "Exporting system data...",
+    systemExportDone: "System export created at {path}",
+    systemExportFailed: "System export failed: {message}",
+    systemImportRunning: "Importing system data...",
+    systemImportDone: "System import completed from {path}",
+    systemImportFailed: "System import failed: {message}",
+    systemTransferCancelled: "System transfer cancelled.",
+    confirmSystemImport:
+      "Importing a system backup replaces the current application data, including the database and caches. Continue?",
     system: "System",
     systemGroupLanguage: "Language",
     systemGroupOutputs: "Outputs",
@@ -747,6 +774,19 @@ export const translations = {
     addCortinaFolder: "Agregar cortinas",
     addBackgroundFolder: "Agregar fondos",
     scanLibrary: "Escanear biblioteca",
+    startupFlowTitle: "Flujo inicial",
+    startupFlowHelp:
+      "Ejecuta la preparacion completa para las raices configuradas. Si hay datos legacy, los importa primero; despues escanea musica y cortinas, genera formas de onda y renderiza la cache comprimida.",
+    startupFlowButton: "Ejecutar preparacion completa",
+    startupFlowRunning: "Ejecutando preparacion completa...",
+    startupFlowDone:
+      "Preparacion completa. Legacy: {legacy}. Musica escaneada {music}. Cortinas escaneadas {cortinas}. Comprimidos renderizados {rendered}, en cache {cached}, fallidos {failed}.",
+    startupFlowStatusDone:
+      "Preparacion completa: musica {music}, cortinas {cortinas}, renderizados {rendered}, en cache {cached}, fallidos {failed}.",
+    startupFlowFailed: "La preparacion fallo: {message}",
+    startupFlowLegacyImported: "importado",
+    startupFlowLegacyDetected: "detectado pero no importado",
+    startupFlowLegacySkipped: "no detectado",
     libraryScanTitle: "Escaneo de biblioteca",
     libraryScanHelp:
       "El escaneo crea o actualiza la base de pistas, el analisis y la cache de formas de onda. Al repetir Escanear musica o Escanear cortinas se omiten los archivos sin cambios, asi que agregar canciones nuevas solo requiere escanear esa raiz otra vez.",
@@ -767,6 +807,20 @@ export const translations = {
       "Esto eliminara las formas de onda y el audio comprimido en cache. Se pueden regenerar despues, pero puede tardar. Continuar?",
     eraseCachedFilesDone: "Archivos en cache borrados.",
     libraryMaintenanceTitle: "Mantenimiento de biblioteca",
+    systemTransferTitle: "Exportar / importar sistema",
+    systemTransferHelp:
+      "Exporta o restaura toda la carpeta de datos de la aplicacion, incluyendo base de datos, formas de onda, cache comprimida, registros y ajustes guardados.",
+    systemExport: "Exportar sistema",
+    systemImport: "Importar sistema",
+    systemExportRunning: "Exportando datos del sistema...",
+    systemExportDone: "Exportacion creada en {path}",
+    systemExportFailed: "La exportacion fallo: {message}",
+    systemImportRunning: "Importando datos del sistema...",
+    systemImportDone: "Importacion completada desde {path}",
+    systemImportFailed: "La importacion fallo: {message}",
+    systemTransferCancelled: "Transferencia cancelada.",
+    confirmSystemImport:
+      "Importar una copia del sistema reemplaza los datos actuales de la aplicacion, incluyendo base de datos y caches. Continuar?",
     system: "Sistema",
     systemGroupLanguage: "Idioma",
     systemGroupOutputs: "Salidas",
@@ -1327,6 +1381,19 @@ export const translations = {
     addCortinaFolder: "Ajouter cortinas",
     addBackgroundFolder: "Ajouter fonds",
     scanLibrary: "Scanner la bibliotheque",
+    startupFlowTitle: "Flux de demarrage",
+    startupFlowHelp:
+      "Lance la preparation complete pour les racines configurees. Si des donnees legacy sont detectees elles sont importees d'abord, puis la musique et les cortinas sont scannees, les formes d'onde sont generees et le cache compresse est calcule.",
+    startupFlowButton: "Lancer la preparation complete",
+    startupFlowRunning: "Preparation complete en cours...",
+    startupFlowDone:
+      "Preparation terminee. Legacy: {legacy}. Musique scannee {music}. Cortinas scannees {cortinas}. Compresses rendus {rendered}, en cache {cached}, echecs {failed}.",
+    startupFlowStatusDone:
+      "Preparation terminee: musique {music}, cortinas {cortinas}, rendus {rendered}, en cache {cached}, echecs {failed}.",
+    startupFlowFailed: "La preparation a echoue: {message}",
+    startupFlowLegacyImported: "importe",
+    startupFlowLegacyDetected: "detecte mais non importe",
+    startupFlowLegacySkipped: "non detecte",
     libraryScanTitle: "Scan de bibliotheque",
     libraryScanHelp:
       "Le scan construit ou rafraichit la base de titres, l'analyse et le cache de formes d'onde. Relancer Scanner musique ou Scanner cortinas ignore les fichiers inchanges, donc l'ajout de nouveaux morceaux ne demande qu'un nouveau scan de cette racine.",
@@ -1347,6 +1414,20 @@ export const translations = {
       "Cette action supprimera les formes d'onde et l'audio compresse en cache. Ils pourront etre regeneres plus tard, mais cela peut prendre du temps. Continuer ?",
     eraseCachedFilesDone: "Fichiers en cache effaces.",
     libraryMaintenanceTitle: "Maintenance de bibliotheque",
+    systemTransferTitle: "Export / import systeme",
+    systemTransferHelp:
+      "Exporte ou restaure tout le dossier de donnees de l'application, y compris la base, les formes d'onde, le cache compresse, les journaux et les reglages sauvegardes.",
+    systemExport: "Exporter le systeme",
+    systemImport: "Importer le systeme",
+    systemExportRunning: "Export du systeme...",
+    systemExportDone: "Export cree dans {path}",
+    systemExportFailed: "Echec de l'export: {message}",
+    systemImportRunning: "Import du systeme...",
+    systemImportDone: "Import termine depuis {path}",
+    systemImportFailed: "Echec de l'import: {message}",
+    systemTransferCancelled: "Transfert annule.",
+    confirmSystemImport:
+      "Importer une sauvegarde systeme remplace les donnees actuelles de l'application, y compris la base et les caches. Continuer ?",
     system: "Systeme",
     systemGroupLanguage: "Langue",
     systemGroupOutputs: "Sorties",
@@ -1915,6 +1996,19 @@ export const translations = {
     addCortinaFolder: "Cortina-Ordner hinzufugen",
     addBackgroundFolder: "Hintergrundordner hinzufugen",
     scanLibrary: "Bibliothek scannen",
+    startupFlowTitle: "Startablauf",
+    startupFlowHelp:
+      "Fuehrt die komplette Einrichtung fuer konfigurierte Wurzeln aus. Wenn Legacy-Daten gefunden werden, werden sie zuerst importiert; danach werden Musik und Cortinas gescannt, Wellenformen erzeugt und der komprimierte Cache gerendert.",
+    startupFlowButton: "Komplette Einrichtung starten",
+    startupFlowRunning: "Komplette Einrichtung laeuft...",
+    startupFlowDone:
+      "Einrichtung abgeschlossen. Legacy: {legacy}. Musik gescannt {music}. Cortinas gescannt {cortinas}. Komprimiert gerendert {rendered}, im Cache {cached}, fehlgeschlagen {failed}.",
+    startupFlowStatusDone:
+      "Einrichtung abgeschlossen: Musik {music}, Cortinas {cortinas}, gerendert {rendered}, im Cache {cached}, fehlgeschlagen {failed}.",
+    startupFlowFailed: "Einrichtung fehlgeschlagen: {message}",
+    startupFlowLegacyImported: "importiert",
+    startupFlowLegacyDetected: "erkannt aber nicht importiert",
+    startupFlowLegacySkipped: "nicht erkannt",
     libraryScanTitle: "Bibliothek scannen",
     libraryScanHelp:
       "Der Scan erstellt oder aktualisiert Track-Datenbank, Analyse und Wellenform-Cache. Ein erneutes Scannen von Musik oder Cortinas uberspringt unveranderte Dateien, daher reicht fur neue Titel ein weiterer Scan dieses Wurzelordners.",
@@ -1935,6 +2029,20 @@ export const translations = {
       "Dadurch werden zwischengespeicherte Wellenformen und komprimierte Audiodateien entfernt. Sie konnen spater neu erzeugt werden, dies kann aber Zeit kosten. Fortfahren?",
     eraseCachedFilesDone: "Cache-Dateien geloscht.",
     libraryMaintenanceTitle: "Bibliothekswartung",
+    systemTransferTitle: "System exportieren / importieren",
+    systemTransferHelp:
+      "Exportiert oder stellt das komplette App-Datenverzeichnis wieder her, einschliesslich Datenbank, Wellenformen, komprimiertem Cache, Logs und gespeicherten Einstellungen.",
+    systemExport: "System exportieren",
+    systemImport: "System importieren",
+    systemExportRunning: "Systemdaten werden exportiert...",
+    systemExportDone: "Systemexport erstellt unter {path}",
+    systemExportFailed: "Systemexport fehlgeschlagen: {message}",
+    systemImportRunning: "Systemdaten werden importiert...",
+    systemImportDone: "Systemimport abgeschlossen von {path}",
+    systemImportFailed: "Systemimport fehlgeschlagen: {message}",
+    systemTransferCancelled: "Systemtransfer abgebrochen.",
+    confirmSystemImport:
+      "Beim Import einer Systemsicherung werden die aktuellen Anwendungsdaten inklusive Datenbank und Caches ersetzt. Fortfahren?",
     system: "System",
     systemGroupLanguage: "Sprache",
     systemGroupOutputs: "Ausgange",
@@ -2505,6 +2613,19 @@ export const translations = {
     addCortinaFolder: "Adicionar cortinas",
     addBackgroundFolder: "Adicionar fundos",
     scanLibrary: "Escanear biblioteca",
+    startupFlowTitle: "Fluxo inicial",
+    startupFlowHelp:
+      "Executa a preparacao completa para as raizes configuradas. Se existirem dados legacy, sao importados primeiro; depois a musica e as cortinas sao analisadas, as formas de onda sao geradas e a cache comprimida e renderizada.",
+    startupFlowButton: "Executar preparacao completa",
+    startupFlowRunning: "A executar preparacao completa...",
+    startupFlowDone:
+      "Preparacao concluida. Legacy: {legacy}. Musica analisada {music}. Cortinas analisadas {cortinas}. Comprimidos renderizados {rendered}, em cache {cached}, falhados {failed}.",
+    startupFlowStatusDone:
+      "Preparacao concluida: musica {music}, cortinas {cortinas}, renderizados {rendered}, em cache {cached}, falhados {failed}.",
+    startupFlowFailed: "A preparacao falhou: {message}",
+    startupFlowLegacyImported: "importado",
+    startupFlowLegacyDetected: "detetado mas nao importado",
+    startupFlowLegacySkipped: "nao detetado",
     libraryScanTitle: "Escanear biblioteca",
     libraryScanHelp:
       "O scan cria ou atualiza a base de faixas, a analise e a cache de formas de onda. Repetir Escanear musica ou Escanear cortinas ignora ficheiros sem alteracoes, por isso adicionar faixas novas so exige novo scan dessa raiz.",
@@ -2525,6 +2646,20 @@ export const translations = {
       "Isto vai remover as formas de onda e o audio comprimido em cache. Podem ser regenerados depois, mas pode demorar. Continuar?",
     eraseCachedFilesDone: "Ficheiros em cache apagados.",
     libraryMaintenanceTitle: "Manutencao da biblioteca",
+    systemTransferTitle: "Exportar / importar sistema",
+    systemTransferHelp:
+      "Exporta ou restaura toda a pasta de dados da aplicacao, incluindo base de dados, formas de onda, cache comprimida, registos e definicoes guardadas.",
+    systemExport: "Exportar sistema",
+    systemImport: "Importar sistema",
+    systemExportRunning: "A exportar dados do sistema...",
+    systemExportDone: "Exportacao criada em {path}",
+    systemExportFailed: "A exportacao falhou: {message}",
+    systemImportRunning: "A importar dados do sistema...",
+    systemImportDone: "Importacao concluida de {path}",
+    systemImportFailed: "A importacao falhou: {message}",
+    systemTransferCancelled: "Transferencia cancelada.",
+    confirmSystemImport:
+      "Importar uma copia do sistema substitui os dados atuais da aplicacao, incluindo base de dados e caches. Continuar?",
     system: "Sistema",
     systemGroupLanguage: "Idioma",
     systemGroupOutputs: "Saidas",
@@ -3095,6 +3230,19 @@ export const translations = {
     addCortinaFolder: "Aggiungi cartella cortina",
     addBackgroundFolder: "Aggiungi cartella sfondi",
     scanLibrary: "Scansiona libreria",
+    startupFlowTitle: "Flusso iniziale",
+    startupFlowHelp:
+      "Esegue la preparazione completa per le radici configurate. Se vengono rilevati dati legacy, li importa prima; poi scansiona musica e cortine, genera le forme d'onda e rende la cache compressa.",
+    startupFlowButton: "Esegui preparazione completa",
+    startupFlowRunning: "Preparazione completa in corso...",
+    startupFlowDone:
+      "Preparazione completata. Legacy: {legacy}. Musica scansionata {music}. Cortine scansionate {cortinas}. Compressi renderizzati {rendered}, in cache {cached}, falliti {failed}.",
+    startupFlowStatusDone:
+      "Preparazione completata: musica {music}, cortine {cortinas}, renderizzati {rendered}, in cache {cached}, falliti {failed}.",
+    startupFlowFailed: "Preparazione non riuscita: {message}",
+    startupFlowLegacyImported: "importato",
+    startupFlowLegacyDetected: "rilevato ma non importato",
+    startupFlowLegacySkipped: "non rilevato",
     libraryScanTitle: "Scansione libreria",
     libraryScanHelp:
       "La scansione crea o aggiorna database brani, analisi e cache delle forme d'onda. Ripetere Scansiona musica o Scansiona cortine salta i file invariati, quindi per aggiungere nuovi brani basta rieseguire la scansione di quella radice.",
@@ -3115,6 +3263,20 @@ export const translations = {
       "Questa azione rimuovera forme d'onda e audio compresso in cache. Potranno essere rigenerati in seguito, ma potrebbe volerci tempo. Continuare?",
     eraseCachedFilesDone: "File in cache cancellati.",
     libraryMaintenanceTitle: "Manutenzione libreria",
+    systemTransferTitle: "Esporta / importa sistema",
+    systemTransferHelp:
+      "Esporta o ripristina l'intera cartella dati dell'applicazione, inclusi database, forme d'onda, cache compressa, log e impostazioni salvate.",
+    systemExport: "Esporta sistema",
+    systemImport: "Importa sistema",
+    systemExportRunning: "Esportazione dati di sistema...",
+    systemExportDone: "Esportazione creata in {path}",
+    systemExportFailed: "Esportazione non riuscita: {message}",
+    systemImportRunning: "Importazione dati di sistema...",
+    systemImportDone: "Importazione completata da {path}",
+    systemImportFailed: "Importazione non riuscita: {message}",
+    systemTransferCancelled: "Trasferimento annullato.",
+    confirmSystemImport:
+      "Importare un backup di sistema sostituisce i dati attuali dell'applicazione, inclusi database e cache. Continuare?",
     system: "Sistema",
     systemGroupLanguage: "Lingua",
     systemGroupOutputs: "Uscite",
@@ -3626,6 +3788,19 @@ translations.is = {
   addCortinaFolder: "Bæta við cortinumöppu",
   addBackgroundFolder: "Bæta við bakgrunnsmöppu",
   scanLibrary: "Skanna safn",
+  startupFlowTitle: "Ræsingarferli",
+  startupFlowHelp:
+    "Keyrir alla upphafsstillingu fyrir skilgreindar rætur. Ef eldri gögn finnast eru þau flutt inn fyrst; svo er tónlist og cortinum skannað, bylgjumyndir gerðar og þjappað skyndiminni reiknað.",
+  startupFlowButton: "Keyra fulla uppsetningu",
+  startupFlowRunning: "Keyri fulla uppsetningu...",
+  startupFlowDone:
+    "Uppsetningu lokið. Legacy: {legacy}. Tónlist skönnuð {music}. Cortinur skannaðar {cortinas}. Þjappað renderað {rendered}, í skyndiminni {cached}, mistókst {failed}.",
+  startupFlowStatusDone:
+    "Uppsetningu lokið: tónlist {music}, cortinur {cortinas}, renderað {rendered}, í skyndiminni {cached}, mistókst {failed}.",
+  startupFlowFailed: "Uppsetning mistókst: {message}",
+  startupFlowLegacyImported: "flutt inn",
+  startupFlowLegacyDetected: "fannst en ekki flutt inn",
+  startupFlowLegacySkipped: "fannst ekki",
   libraryScanTitle: "Skönnun safns",
   libraryScanHelp:
     "Skönnun byggir upp eða endurnýjar lagagagnagrunn, greiningu og bylgjuformsminni. Endurskönnun tónlistar eða cortina sleppir óbreyttum skrám.",
@@ -3646,6 +3821,20 @@ translations.is = {
     "Þetta mun eyða skyndivistuðum bylgjuformum og þjöppuðum hljóðskrám. Hægt er að búa þær til aftur síðar. Halda áfram?",
   eraseCachedFilesDone: "Skyndiminni eytt.",
   libraryMaintenanceTitle: "Viðhald safns",
+  systemTransferTitle: "Kerfisútflutningur / innflutningur",
+  systemTransferHelp:
+    "Flytur út eða endurheimtir alla gagnamöppu forritsins, þar á meðal gagnagrunn, bylgjumyndir, þjappað skyndiminni, logs og vistaðar stillingar.",
+  systemExport: "Flytja út kerfi",
+  systemImport: "Flytja inn kerfi",
+  systemExportRunning: "Flyt út kerfisgögn...",
+  systemExportDone: "Kerfisútflutningur vistaður í {path}",
+  systemExportFailed: "Kerfisútflutningur mistókst: {message}",
+  systemImportRunning: "Flyt inn kerfisgögn...",
+  systemImportDone: "Kerfisinnflutningi lokið frá {path}",
+  systemImportFailed: "Kerfisinnflutningur mistókst: {message}",
+  systemTransferCancelled: "Kerfisflutningi hætt við.",
+  confirmSystemImport:
+    "Innflutningur kerfisafrits skiptir út núverandi forritsgögnum, þar á meðal gagnagrunni og skyndiminni. Halda áfram?",
   system: "Kerfi",
   systemGroupLanguage: "Tungumál",
   systemGroupOutputs: "Úttök",
@@ -3916,7 +4105,8 @@ export const translate = (
   key: string,
   params?: Record<string, string | number>,
 ) => {
-  const value = translations[language]?.[key] ?? translations.en[key] ?? key;
+  const rawValue = translations[language]?.[key] ?? translations.en[key] ?? key;
+  const value = typeof rawValue === "string" ? rawValue : key;
   if (!params) {
     return value;
   }

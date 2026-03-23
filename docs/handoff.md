@@ -5,6 +5,67 @@
 - Version: `0.1.1` (from `package.json`)
 
 ### What I was doing last
+- Added a recovery E2E and fixed startup-path regressions it exposed:
+  - new Playwright flow clears cached files, erases the database, re-adds roots,
+    reruns `Startup Flow`, and verifies:
+    - legacy metadata returns,
+    - imported tandas return,
+    - waveform PNG files are regenerated,
+    - compressed companion files are regenerated
+  - fixed SQLite binding in startup/import paths by normalizing track
+    `instrumental` values to `1/0/null` before DB writes in:
+    - `app/src/main/legacy-import.ts`
+    - `app/src/main/library/scan.ts`
+  - hardened renderer error formatting / translation fallback against unexpected
+    `null` values while investigating the user's startup-time `replace` crash
+- Updated files:
+  - `app/src/main/legacy-import.ts`
+  - `app/src/main/library/scan.ts`
+  - `app/src/renderer/i18n.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/e2e/workflows.e2e.ts`
+  - `tests/i18n.test.ts`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g "37 - reset plus startup flow rebuilds legacy metadata, waveforms, and compressed cache"`
+  - result:
+    - 84 test files passed / 398 unit tests passed
+    - targeted Playwright recovery E2E passed
+- Added a guided Library-tab startup/recovery flow plus system export/import:
+  - new `Startup Flow` action now runs the recovery sequence in a safe order:
+    - imports legacy data first when detected for configured roots
+    - scans music and cortinas
+    - regenerates missing waveform PNGs through the scan path
+    - bulk-renders compressed companion files
+  - added `System Export / Import` actions that copy the full application data
+    root with manifest validation and confirmation before destructive import
+  - extracted compressed-cache keying into `app/src/main/library/compression-cache.ts`
+    and added regression coverage so precomputed compressed artifacts stay reusable
+    regardless of the live wet/dry depth slider
+- Updated files:
+  - `app/src/main/db.ts`
+  - `app/src/main/main.ts`
+  - `app/src/main/library/compression-cache.ts`
+  - `app/src/main/system-transfer.ts`
+  - `app/src/preload/preload.ts`
+  - `app/src/renderer/controllers/settings-library-controller.ts`
+  - `app/src/renderer/i18n.ts`
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/shared/types.ts`
+  - `tests/settings-library-controller.test.ts`
+  - `tests/compression-cache-key.test.ts`
+  - `tests/system-transfer.test.ts`
+  - `design/02-functional-requirements.md`
+  - `design/05-ui-principles-and-components.md`
+  - `design/09-ipc-and-api.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/user-guide.md`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - result: 84 test files passed / 397 tests passed
 - Added a visual pulse highlight for the System -> Precompute shortcut target:
   - after opening Settings, switching to Library, and scrolling to `Derived Caches`,
     the target section now gets a temporary pulsing border/background treatment

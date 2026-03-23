@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { launchSeededApp, relaunchSeededApp } from "./support/electron-app";
 
@@ -319,6 +321,154 @@ const closeTrackEditorIfOpen = async (page: Page) => {
     await confirmIfPrompted(page);
   }
   await expect(editor).toHaveAttribute("aria-hidden", "true");
+};
+
+const ensureDir = (dirPath: string) => {
+  fs.mkdirSync(dirPath, { recursive: true });
+};
+
+const writeTestWav = (filePath: string, options?: { seconds?: number; frequency?: number }) => {
+  const seconds = Math.max(0.25, options?.seconds ?? 0.6);
+  const sampleRate = 44_100;
+  const channelCount = 1;
+  const bitsPerSample = 16;
+  const blockAlign = (channelCount * bitsPerSample) / 8;
+  const byteRate = sampleRate * blockAlign;
+  const sampleCount = Math.max(1, Math.floor(sampleRate * seconds));
+  const dataSize = sampleCount * blockAlign;
+  const buffer = Buffer.alloc(44 + dataSize);
+  let offset = 0;
+  buffer.write("RIFF", offset); offset += 4;
+  buffer.writeUInt32LE(36 + dataSize, offset); offset += 4;
+  buffer.write("WAVE", offset); offset += 4;
+  buffer.write("fmt ", offset); offset += 4;
+  buffer.writeUInt32LE(16, offset); offset += 4;
+  buffer.writeUInt16LE(1, offset); offset += 2;
+  buffer.writeUInt16LE(channelCount, offset); offset += 2;
+  buffer.writeUInt32LE(sampleRate, offset); offset += 4;
+  buffer.writeUInt32LE(byteRate, offset); offset += 4;
+  buffer.writeUInt16LE(blockAlign, offset); offset += 2;
+  buffer.writeUInt16LE(bitsPerSample, offset); offset += 2;
+  buffer.write("data", offset); offset += 4;
+  buffer.writeUInt32LE(dataSize, offset); offset += 4;
+  const frequency = options?.frequency ?? 220;
+  for (let index = 0; index < sampleCount; index += 1) {
+    const amplitude = Math.round(
+      Math.sin((2 * Math.PI * frequency * index) / sampleRate) * 8_000,
+    );
+    buffer.writeInt16LE(amplitude, offset);
+    offset += 2;
+  }
+  ensureDir(path.dirname(filePath));
+  fs.writeFileSync(filePath, buffer);
+};
+
+const writeLegacyStartupFixture = (tempRoot: string) => {
+  const musicRoot = path.join(tempRoot, "music");
+  const cortinaRoot = path.join(tempRoot, "cortinas");
+  ensureDir(musicRoot);
+  ensureDir(cortinaRoot);
+
+  writeTestWav(path.join(musicRoot, "legacy-alpha.wav"), { frequency: 220 });
+  writeTestWav(path.join(musicRoot, "legacy-beta.wav"), { frequency: 330 });
+  writeTestWav(path.join(cortinaRoot, "cortina-a.wav"), { seconds: 0.35, frequency: 440 });
+
+  fs.writeFileSync(path.join(musicRoot, "config.js"), "module.exports = {};\n", "utf-8");
+  fs.writeFileSync(
+    path.join(musicRoot, "library.dat"),
+    JSON.stringify(
+      {
+        "music/legacy-alpha.wav": {
+          track: {
+            title: "Legacy Alpha",
+            artist: "Legacy Orchestra",
+            album: "Legacy Album",
+            date: "1941-01-01",
+          },
+          analysis: {
+            duration: 0.6,
+            start: 0.02,
+            silence: 0.55,
+            meanGain: -18,
+          },
+          classifiers: {
+            style: "Tango",
+            notes: "legacy note alpha",
+            bpm: 64,
+            instrumental: false,
+          },
+        },
+        "music/legacy-beta.wav": {
+          track: {
+            title: "Legacy Beta",
+            artist: "Legacy Orchestra",
+            album: "Legacy Album",
+            date: "1942-01-01",
+          },
+          analysis: {
+            duration: 0.6,
+            start: 0.02,
+            silence: 0.56,
+            meanGain: -17.5,
+          },
+          classifiers: {
+            style: "Tango",
+            notes: "legacy note beta",
+            bpm: 65,
+            instrumental: false,
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  );
+  fs.writeFileSync(
+    path.join(musicRoot, "cortinas.dat"),
+    JSON.stringify(
+      {
+        "cortinas/cortina-a.wav": {
+          track: {
+            title: "Legacy Cortina",
+            artist: "DJ Test",
+            album: "Legacy Cortinas",
+            date: "1940-01-01",
+          },
+          analysis: {
+            duration: 0.35,
+            meanGain: -19,
+          },
+          classifiers: {
+            style: "Other",
+            bpm: 120,
+            instrumental: true,
+          },
+        },
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  );
+  fs.writeFileSync(
+    path.join(musicRoot, "tandas.dat"),
+    JSON.stringify(
+      [
+        {
+          label: "Legacy Tango Pair",
+          style: "Tango",
+          instrumental: false,
+          tracks: ["music/legacy-alpha.wav", "music/legacy-beta.wav"],
+        },
+      ],
+      null,
+      2,
+    ),
+    "utf-8",
+  );
+
+  return { musicRoot, cortinaRoot };
 };
 
 const installDeterministicMediaStub = async (page: Page) => {
@@ -2912,6 +3062,132 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect(page.locator('button[data-tab="tanda-designer-tab"]')).not.toHaveClass(/active/);
       await expect(page.locator('#playlist-tanda-editor[data-state="visible"]')).toBeVisible();
       await expect(page.locator("#playlist-tanda-editor .tanda-track-row")).toHaveCount(3);
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("37 - reset plus startup flow rebuilds legacy metadata, waveforms, and compressed cache", async () => {
+    const launched = await launchSeededApp("empty");
+    const { page, tempRoot } = launched;
+    const { musicRoot, cortinaRoot } = writeLegacyStartupFixture(tempRoot);
+    const dataRoot = path.join(tempRoot, "data");
+    const waveformsDir = path.join(dataRoot, "waveforms");
+    const compressedDir = path.join(dataRoot, "compressed-audio-cache");
+    try {
+      await page.evaluate(
+        async ({ musicRoot: nextMusicRoot, cortinaRoot: nextCortinaRoot }) => {
+          await window.tanda?.addRoot("music", nextMusicRoot);
+          await window.tanda?.addRoot("cortina", nextCortinaRoot);
+        },
+        { musicRoot, cortinaRoot },
+      );
+
+      await openSettings(page);
+      await page.locator('button[data-tab="library"]').click();
+      await page.locator("#startup-flow-button").click();
+      await expect(page.locator("#startup-flow-result")).toContainText("Setup complete", {
+        timeout: 30_000,
+      });
+
+      await closeSettings(page);
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await runSearch(page, "Legacy Alpha");
+      await expect(searchTrackRow(page, "Legacy Alpha")).toBeVisible();
+      await expect
+        .poll(async () => {
+          const tandas = await page.evaluate(async () => await window.tanda?.listTandas());
+          return tandas?.some((tanda) => tanda.name === "Legacy Tango Pair") ?? false;
+        })
+        .toBe(true);
+
+      await expect
+        .poll(() =>
+          fs.existsSync(waveformsDir)
+            ? fs.readdirSync(waveformsDir).filter((entry) => entry.endsWith(".png")).length
+            : 0,
+        )
+        .toBeGreaterThan(0);
+      await expect
+        .poll(() =>
+          fs.existsSync(compressedDir)
+            ? fs.readdirSync(compressedDir).filter((entry) => entry.endsWith(".wav")).length
+            : 0,
+        )
+        .toBeGreaterThan(0);
+
+      await openSettings(page);
+      await page.locator('button[data-tab="library"]').click();
+      await page.locator("#clear-cached-files").click();
+      await confirmIfPrompted(page);
+      await expect
+        .poll(() =>
+          fs.existsSync(waveformsDir)
+            ? fs.readdirSync(waveformsDir).filter((entry) => entry.endsWith(".png")).length
+            : 0,
+        )
+        .toBe(0);
+      await expect
+        .poll(() =>
+          fs.existsSync(compressedDir)
+            ? fs.readdirSync(compressedDir).filter((entry) => entry.endsWith(".wav")).length
+            : 0,
+        )
+        .toBe(0);
+
+      await page.locator("#reset-db").click();
+      await confirmIfPrompted(page);
+      await closeSettings(page);
+
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await runSearch(page, "Legacy Alpha");
+      await expect(page.locator("#search-tracks .track-row")).toHaveCount(0);
+      await expect
+        .poll(async () => {
+          const tandas = await page.evaluate(async () => await window.tanda?.listTandas());
+          return tandas?.length ?? 0;
+        })
+        .toBe(0);
+
+      await page.evaluate(
+        async ({ musicRoot: nextMusicRoot, cortinaRoot: nextCortinaRoot }) => {
+          await window.tanda?.addRoot("music", nextMusicRoot);
+          await window.tanda?.addRoot("cortina", nextCortinaRoot);
+        },
+        { musicRoot, cortinaRoot },
+      );
+
+      await openSettings(page);
+      await page.locator('button[data-tab="library"]').click();
+      await page.locator("#startup-flow-button").click();
+      await expect(page.locator("#startup-flow-result")).toContainText("Setup complete", {
+        timeout: 30_000,
+      });
+      await closeSettings(page);
+
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await runSearch(page, "Legacy Alpha");
+      await expect(searchTrackRow(page, "Legacy Alpha")).toBeVisible();
+      await expect
+        .poll(async () => {
+          const tandas = await page.evaluate(async () => await window.tanda?.listTandas());
+          return tandas?.some((tanda) => tanda.name === "Legacy Tango Pair") ?? false;
+        })
+        .toBe(true);
+      await expect
+        .poll(() =>
+          fs.existsSync(waveformsDir)
+            ? fs.readdirSync(waveformsDir).filter((entry) => entry.endsWith(".png")).length
+            : 0,
+        )
+        .toBeGreaterThan(0);
+      await expect
+        .poll(() =>
+          fs.existsSync(compressedDir)
+            ? fs.readdirSync(compressedDir).filter((entry) => entry.endsWith(".wav")).length
+            : 0,
+        )
+        .toBeGreaterThan(0);
     } finally {
       await launched.close();
     }

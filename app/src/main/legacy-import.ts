@@ -501,7 +501,8 @@ const importLegacyTracks = async (
         genre,
         bpm,
         notes,
-        instrumental,
+        instrumental:
+          instrumental === null ? null : instrumental ? 1 : 0,
         duration_ms: maxDuration,
         start_offset_ms: safeStartOffset,
         end_trim_ms: safeEndTrim,

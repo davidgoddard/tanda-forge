@@ -456,7 +456,8 @@ export const scanLibraryRoots = async (
             artist_summary: artistSummary,
             singer,
             notes,
-            instrumental,
+            instrumental:
+              instrumental === null ? null : instrumental ? 1 : 0,
             duration_ms: analysis.durationMs,
             start_offset_ms: analysis.startOffsetMs,
             end_trim_ms: analysis.endTrimMs,

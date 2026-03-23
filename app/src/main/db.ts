@@ -227,6 +227,13 @@ export const reopenDb = () => {
   return initDb();
 };
 
+export const closeDb = () => {
+  if (db) {
+    db.close();
+    db = null;
+  }
+};
+
 export const getDb = () => {
   if (!db) {
     throw new Error("Database not initialized");
@@ -235,10 +242,7 @@ export const getDb = () => {
 };
 
 export const resetDb = () => {
-  if (db) {
-    db.close();
-    db = null;
-  }
+  closeDb();
   if (dbPath) {
     try {
       fs.unlinkSync(dbPath);

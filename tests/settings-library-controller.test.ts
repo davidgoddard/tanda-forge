@@ -62,11 +62,16 @@ const createElements = () => ({
   progressLabelSettings: new FakeElement(),
   precomputeProgressElSettings: new FakeElement(),
   precomputeProgressLabelSettings: new FakeElement(),
+  startupFlowBtn: new FakeElement(),
+  startupFlowResult: new FakeElement(),
   precomputeCompressedResult: new FakeElement(),
   precomputeCompressedBtn: new FakeElement(),
   precomputeCompressedShortcutBtn: new FakeElement(),
   scanMusicBtn: new FakeElement(),
   scanCortinasBtn: new FakeElement(),
+  exportSystemBtn: new FakeElement(),
+  importSystemBtn: new FakeElement(),
+  systemTransferResult: new FakeElement(),
   cacheVerifyResult: new FakeElement(),
 });
 
@@ -76,6 +81,7 @@ const createController = (elements = createElements()) =>
     basenameForDisplay: (filePath) => filePath ?? "",
     api: {
       scanKind: vi.fn(),
+      runStartupFlow: vi.fn(),
       precomputeCompressedTracks: vi.fn(async () => ({
         ok: true,
         rendered: 0,
@@ -85,6 +91,8 @@ const createController = (elements = createElements()) =>
       })),
       verifyCachedFiles: vi.fn(),
       clearCachedFiles: vi.fn(),
+      exportSystemData: vi.fn(),
+      importSystemData: vi.fn(),
     },
     elements,
     setStatus: vi.fn(),
@@ -103,6 +111,8 @@ const createController = (elements = createElements()) =>
     scheduleCompressionPrefetch: vi.fn(),
     onScanCompleted: vi.fn(async () => {}),
     onCachedFilesCleared: vi.fn(async () => {}),
+    onStartupFlowCompleted: vi.fn(async () => {}),
+    onSystemImported: vi.fn(async () => {}),
   });
 
 describe("settings library controller", () => {
@@ -130,6 +140,7 @@ describe("settings library controller", () => {
       basenameForDisplay: (filePath) => filePath ?? "",
       api: {
         scanKind: vi.fn(),
+        runStartupFlow: vi.fn(),
         precomputeCompressedTracks: vi.fn(
           () =>
             new Promise((resolve) => {
@@ -145,6 +156,8 @@ describe("settings library controller", () => {
         ),
         verifyCachedFiles: vi.fn(),
         clearCachedFiles: vi.fn(),
+        exportSystemData: vi.fn(),
+        importSystemData: vi.fn(),
       },
       elements,
       setStatus: vi.fn(),
@@ -163,6 +176,8 @@ describe("settings library controller", () => {
       scheduleCompressionPrefetch: vi.fn(),
       onScanCompleted: vi.fn(async () => {}),
       onCachedFilesCleared: vi.fn(async () => {}),
+      onStartupFlowCompleted: vi.fn(async () => {}),
+      onSystemImported: vi.fn(async () => {}),
     });
 
     const runPromise = controller.runPrecomputeCompressedTracks();
@@ -214,6 +229,7 @@ describe("settings library controller", () => {
           removed: 3,
           errors: [],
         })),
+        runStartupFlow: vi.fn(),
         precomputeCompressedTracks: vi.fn(async () => ({
           ok: true,
           rendered: 0,
@@ -223,6 +239,8 @@ describe("settings library controller", () => {
         })),
         verifyCachedFiles: vi.fn(),
         clearCachedFiles: vi.fn(),
+        exportSystemData: vi.fn(),
+        importSystemData: vi.fn(),
       },
       elements,
       setStatus,
@@ -241,6 +259,8 @@ describe("settings library controller", () => {
       scheduleCompressionPrefetch: vi.fn(),
       onScanCompleted,
       onCachedFilesCleared: vi.fn(async () => {}),
+      onStartupFlowCompleted: vi.fn(async () => {}),
+      onSystemImported: vi.fn(async () => {}),
     });
 
     await controller.runScan("music");
@@ -249,5 +269,93 @@ describe("settings library controller", () => {
       'statusScanComplete:{"checked":12,"reused":9,"added":2,"updated":1,"removed":3}',
     );
     expect(onScanCompleted).toHaveBeenCalled();
+  });
+
+  it("runs the guided startup flow and reports the combined result", async () => {
+    (globalThis as { document?: { createElement: () => FakeElement } }).document = {
+      createElement: () => new FakeElement(),
+    };
+    const elements = createElements();
+    const setStatus = vi.fn();
+    const onStartupFlowCompleted = vi.fn(async () => {});
+    const controller = createSettingsLibraryController({
+      translate: (key, params) => `${key}:${params ? JSON.stringify(params) : ""}`,
+      basenameForDisplay: (filePath) => filePath ?? "",
+      api: {
+        scanKind: vi.fn(),
+        runStartupFlow: vi.fn(async () => ({
+          ok: true,
+          legacyDetected: true,
+          legacyImported: true,
+          legacyImport: {
+            imported: true,
+            tandasImported: 4,
+            tracksUpdated: 20,
+            missingTracks: 1,
+            missingFiles: [{ filePath: "/legacy/missing.mp3", message: "File not found" }],
+            rootPath: "/legacy",
+          },
+          musicScan: {
+            scanned: 10,
+            added: 2,
+            updated: 3,
+            removed: 0,
+            errors: [],
+          },
+          cortinaScan: {
+            scanned: 5,
+            added: 1,
+            updated: 0,
+            removed: 0,
+            errors: [],
+          },
+          precompute: {
+            rendered: 7,
+            cached: 8,
+            failed: 0,
+            errors: [],
+          },
+        })),
+        precomputeCompressedTracks: vi.fn(async () => ({
+          ok: true,
+          rendered: 0,
+          cached: 0,
+          failed: 0,
+          errors: [],
+        })),
+        verifyCachedFiles: vi.fn(),
+        clearCachedFiles: vi.fn(),
+        exportSystemData: vi.fn(),
+        importSystemData: vi.fn(),
+      },
+      elements,
+      setStatus,
+      clearAlert: vi.fn(),
+      getCompressionConfig: () => ({
+        mode: "upward",
+        liftThresholdDb: -24,
+        maxLiftDb: 8,
+        ratio: 4,
+        attackMs: 5,
+        releaseMs: 250,
+        gateThresholdDb: -50,
+        limiterCeilingDb: -1,
+        limiterReleaseMs: 150,
+      }),
+      scheduleCompressionPrefetch: vi.fn(),
+      onScanCompleted: vi.fn(async () => {}),
+      onCachedFilesCleared: vi.fn(async () => {}),
+      onStartupFlowCompleted,
+      onSystemImported: vi.fn(async () => {}),
+    });
+
+    await controller.runStartupFlow();
+
+    expect(elements.startupFlowResult.textContent).toContain("startupFlowDone");
+    expect(elements.errorList.querySelectorAll("li")).toHaveLength(1);
+    expect(setStatus).toHaveBeenCalledWith(
+      'startupFlowStatusDone:{"music":10,"cortinas":5,"rendered":7,"cached":8,"failed":0}',
+    );
+    expect(onStartupFlowCompleted).toHaveBeenCalled();
   });
 });

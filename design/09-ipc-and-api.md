@@ -23,8 +23,9 @@ identified as `IPC-<section>.R<n>` in order under each section. Sub-bullets use
 - IPC-003.R1.b: `library:addRoot(kind, path): LibraryRoot`
 - IPC-003.R1.c: `library:listRoots(): LibraryRoot[]`
 - IPC-003.R1.d: `library:scanAll(): ScanSummary`
-- IPC-003.R1.e: `library:listTracks(): TrackRow[]`
-- IPC-003.R1.f: `library:scanProgress` (event stream)
+- IPC-003.R1.e: `library:runStartupFlow(params): StartupFlowSummary`
+- IPC-003.R1.f: `library:listTracks(): TrackRow[]`
+- IPC-003.R1.g: `library:scanProgress` (event stream)
 
 ### Tracks
 
@@ -56,9 +57,11 @@ identified as `IPC-<section>.R<n>` in order under each section. Sub-bullets use
 ### App
 
 - IPC-003.R5.a: `app:resetDatabase(): { ok: boolean }`
-- IPC-003.R5.b: `app:close(): void`
-- IPC-003.R5.c: `app:logClientError(payload): void`
-- IPC-003.R5.d: `diagnostics:getDataReadiness(): { totalTracks, missingDuration, missingLoudness, missingTrimSignals, analysisErrors, missingWaveforms }`
+- IPC-003.R5.b: `app:exportSystemData(): { ok, cancelled?, path, error? }`
+- IPC-003.R5.c: `app:importSystemData(): { ok, cancelled?, path, error? }`
+- IPC-003.R5.d: `app:close(): void`
+- IPC-003.R5.e: `app:logClientError(payload): void`
+- IPC-003.R5.f: `diagnostics:getDataReadiness(): { totalTracks, missingDuration, missingLoudness, missingTrimSignals, analysisErrors, missingWaveforms }`
 
 ## IPC-004 — Versioning
 

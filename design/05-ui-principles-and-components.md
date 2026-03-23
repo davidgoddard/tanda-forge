@@ -572,6 +572,13 @@ Rules:
 - UI-050.R5: Configuration changes must be explicit.
 - UI-050.R6: Risky changes should be labeled clearly.
 - UI-050.R7: Changes affecting live playback must require confirmation.
+- UI-050.R8: Library settings must expose a guided startup/recovery control
+  that runs legacy import (when available), scan, waveform generation, and
+  compressed-cache preparation in a clear order.
+- UI-050.R9: The guided startup/recovery UI must summarize the combined result
+  so the user can see whether metadata, waveforms, and compressed files were prepared.
+- UI-050.R10: Library settings must expose full-system export/import actions for
+  the application data root, with explicit confirmation before import.
 
 ---
 

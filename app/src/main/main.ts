@@ -7,7 +7,7 @@ if (process.platform === "darwin" && process.arch === "x64") {
 import fs from "fs";
 import { createHash, randomUUID } from "crypto";
 import path from "path";
-import { initDb, getDb, resetDb, reopenDb } from "./db";
+import { initDb, getDb, resetDb, reopenDb, closeDb } from "./db";
 import { getDataPaths, getDataRoot, getDefaultDataPath, setDataRoot } from "./data-location";
 import {
   appendLogEntry,
@@ -33,6 +33,7 @@ import {
   renderWaveformPng,
   setCustomFfmpegToolsDir,
 } from "./library/analysis";
+import { buildCompressedCacheKey } from "./library/compression-cache";
 import {
   buildJumpIndex,
   getSortKeySql,
@@ -82,6 +83,14 @@ import {
   serializeLegacyOverrides,
 } from "../shared/legacy-overrides";
 import { computeSearchDiversityStats } from "./search-diversity";
+import {
+  buildSystemBackupFolderName,
+  isPathWithin,
+  readSystemBackupManifest,
+  restoreSystemBackup,
+  SYSTEM_BACKUP_VERSION,
+  writeSystemBackup,
+} from "./system-transfer";
 
 const forcedUserDataRoot = process.env.TANDA_USER_DATA_ROOT?.trim();
 if (forcedUserDataRoot) {
@@ -184,34 +193,6 @@ const walkImageFiles = async (rootPath: string): Promise<string[]> => {
 };
 
 const getCompressedCacheDir = () => path.join(getDataRoot(), "compressed-audio-cache");
-const COMPRESSED_RENDER_PIPELINE_VERSION = 5;
-
-const buildCompressedCacheKey = (
-  filePath: string,
-  stat: fs.Stats,
-  params: {
-    loudnessDb?: number | null;
-    depthPercent: number;
-    mode: "upward" | "track-leveler";
-    liftThresholdDb: number;
-    maxLiftDb: number;
-    ratio: number;
-    attackMs: number;
-    releaseMs: number;
-    gateThresholdDb: number;
-    limiterCeilingDb: number;
-    limiterReleaseMs: number;
-  },
-) => {
-  const fingerprint = JSON.stringify({
-    pipelineVersion: COMPRESSED_RENDER_PIPELINE_VERSION,
-    filePath,
-    mtimeMs: stat.mtimeMs,
-    size: stat.size,
-    ...params,
-  });
-  return createHash("sha1").update(fingerprint).digest("hex");
-};
 
 const detectCortinaSetsFromRoot = (rootPath: string) => {
   const sets = new Set<string>();
@@ -293,6 +274,133 @@ const clearDiagnosticsArtifacts = () => {
       // Best-effort cleanup; reset should not fail if log deletion fails.
     }
   });
+};
+
+type CompressionRenderConfig = {
+  mode: "upward" | "track-leveler";
+  liftThresholdDb: number;
+  maxLiftDb: number;
+  ratio: number;
+  attackMs: number;
+  releaseMs: number;
+  gateThresholdDb: number;
+  limiterCeilingDb: number;
+  limiterReleaseMs: number;
+};
+
+const precomputeCompressedTracksWithProgress = async (
+  sender: Electron.WebContents,
+  params: CompressionRenderConfig,
+) => {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `select t.id, t.full_path, t.loudness_db, r.path as root_path, r.kind as root_kind
+       from tracks t
+       join library_roots r on r.id = t.root_id
+       where r.kind in ('music', 'cortina')`,
+    )
+    .all() as {
+    id: string;
+    full_path: string;
+    loudness_db: number | null;
+    root_path: string;
+    root_kind: "music" | "cortina";
+  }[];
+  const cacheDir = getCompressedCacheDir();
+  fs.mkdirSync(cacheDir, { recursive: true });
+  let rendered = 0;
+  let cached = 0;
+  let failed = 0;
+  const errors: { filePath: string; message: string }[] = [];
+  const total = rows.length;
+  const pushProgress = (
+    done: boolean,
+    currentFile?: string | null,
+    latestError?: { filePath: string; message: string } | null,
+  ) => {
+    sender.send("audio:precomputeProgress", {
+      current: rendered + cached + failed,
+      total,
+      rendered,
+      cached,
+      failed,
+      currentFile: currentFile ?? null,
+      latestError: latestError ?? null,
+      done,
+    });
+  };
+  pushProgress(false);
+  for (const row of rows) {
+    const relativeFile =
+      row.root_path && row.full_path
+        ? path.relative(row.root_path, row.full_path) || path.basename(row.full_path)
+        : path.basename(row.full_path || row.id);
+    try {
+      if (!row.full_path || !fs.existsSync(row.full_path)) {
+        failed += 1;
+        const latestError = {
+          filePath: row.full_path || row.id,
+          message: "Compression: Track file not found",
+        };
+        errors.push(latestError);
+        pushProgress(false, relativeFile, latestError);
+        continue;
+      }
+      const stat = fs.statSync(row.full_path);
+      const outputPath = path.join(
+        cacheDir,
+        `${buildCompressedCacheKey(row.full_path, stat, {
+          loudnessDb: row.loudness_db,
+          depthPercent: 100,
+          mode: params.mode,
+          liftThresholdDb: params.liftThresholdDb,
+          maxLiftDb: params.maxLiftDb,
+          ratio: params.ratio,
+          attackMs: params.attackMs,
+          releaseMs: params.releaseMs,
+          gateThresholdDb: params.gateThresholdDb,
+          limiterCeilingDb: params.limiterCeilingDb,
+          limiterReleaseMs: params.limiterReleaseMs,
+        })}.wav`,
+      );
+      if (hasUsableCompressedRender(outputPath)) {
+        cached += 1;
+        pushProgress(false, relativeFile);
+        continue;
+      }
+      fs.rmSync(outputPath, { force: true });
+      await runWithCompressedRenderSlot(async () => {
+        await renderCompressedAudio(row.full_path, outputPath, {
+          loudnessDb: row.loudness_db,
+          depthPercent: 100,
+          mode: params.mode,
+          liftThresholdDb: params.liftThresholdDb,
+          maxLiftDb: params.maxLiftDb,
+          ratio: params.ratio,
+          attackMs: params.attackMs,
+          releaseMs: params.releaseMs,
+          gateThresholdDb: params.gateThresholdDb,
+          limiterCeilingDb: params.limiterCeilingDb,
+          limiterReleaseMs: params.limiterReleaseMs,
+        });
+      });
+      rendered += 1;
+      pushProgress(false, relativeFile);
+    } catch (error) {
+      failed += 1;
+      const latestError = {
+        filePath: row.full_path,
+        message: `Compression: ${
+          error instanceof Error ? error.message : "Compression render failed"
+        }`,
+      };
+      errors.push(latestError);
+      pushProgress(false, relativeFile, latestError);
+    }
+  }
+  pushProgress(true);
+  return { rendered, cached, failed, errors };
 };
 
 const saveLegacyOverrides = () => {
@@ -593,6 +701,63 @@ const registerIpc = () => {
     persistFfmpegToolsDir(dirPath),
   );
 
+  ipcMain.handle("app:exportSystemData", async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory", "createDirectory"],
+      title: "Choose Export Location",
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false, cancelled: true, path: "" };
+    }
+    const createdAt = new Date().toISOString();
+    const exportRoot = path.join(
+      result.filePaths[0],
+      buildSystemBackupFolderName(createdAt),
+    );
+    writeSystemBackup(getDataRoot(), exportRoot, {
+      format: "tanda-forge-system-backup",
+      version: SYSTEM_BACKUP_VERSION,
+      createdAt,
+      appVersion: app.getVersion(),
+    });
+    return { ok: true, cancelled: false, path: exportRoot };
+  });
+
+  ipcMain.handle("app:importSystemData", async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory"],
+      title: "Choose System Backup Folder",
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false, cancelled: true, path: "" };
+    }
+    const backupRoot = path.resolve(result.filePaths[0]);
+    const targetRoot = getDataRoot();
+    if (backupRoot === targetRoot || isPathWithin(targetRoot, backupRoot)) {
+      return {
+        ok: false,
+        cancelled: false,
+        path: backupRoot,
+        error: "Backup folder must be outside the active data directory",
+      };
+    }
+    const manifest = readSystemBackupManifest(backupRoot);
+    if (!manifest) {
+      return {
+        ok: false,
+        cancelled: false,
+        path: backupRoot,
+        error: "Selected folder is not a valid Tanda Forge system backup",
+      };
+    }
+    closeDb();
+    restoreSystemBackup(backupRoot, targetRoot);
+    reopenDb();
+    loadLegacyOverrides();
+    loadFfmpegToolsDir();
+    return { ok: true, cancelled: false, path: backupRoot };
+  });
+
   ipcMain.handle(
     "library:addRoot",
     async (_event, kind: "music" | "cortina" | "background", rootPath: string) => {
@@ -788,6 +953,65 @@ const registerIpc = () => {
       throw error;
     }
   });
+
+  ipcMain.handle(
+    "library:runStartupFlow",
+    async (_event, params: CompressionRenderConfig) => {
+      const db = getDb();
+      const roots = db
+        .prepare("select id, kind, path, label from library_roots")
+        .all() as LibraryRoot[];
+      const musicRoots = roots.filter((root) => root.kind === "music");
+      const cortinaRoots = roots.filter((root) => root.kind === "cortina");
+      if (musicRoots.length === 0 && cortinaRoots.length === 0) {
+        return {
+          ok: false,
+          error: "Configure music or cortina roots before running setup",
+        };
+      }
+      const legacy = detectLegacyFromRoots(roots);
+      let legacyImportSummary = {
+        imported: false,
+        tandasImported: 0,
+        tracksUpdated: 0,
+        missingTracks: 0,
+        missingFiles: [] as { filePath: string; message: string }[],
+        rootPath: legacy?.rootPath ?? "",
+      };
+      if (legacy) {
+        const { waveformsDir } = getDataPaths();
+        const result = await importLegacyData(legacy.rootPath, roots, { waveformsDir });
+        legacyOverridesByRootId = result.overridesByRootId;
+        saveLegacyOverrides();
+        legacyImportSummary = {
+          imported: true,
+          tandasImported: result.tandasImported,
+          tracksUpdated: result.tracksUpdated,
+          missingTracks: result.missingTracks,
+          missingFiles: result.missingFiles,
+          rootPath: result.rootPath,
+        };
+      }
+      const musicScan =
+        musicRoots.length > 0
+          ? await runScan(musicRoots)
+          : { scanned: 0, added: 0, updated: 0, removed: 0, errors: [] };
+      const cortinaScan =
+        cortinaRoots.length > 0
+          ? await runScan(cortinaRoots)
+          : { scanned: 0, added: 0, updated: 0, removed: 0, errors: [] };
+      const precompute = await precomputeCompressedTracksWithProgress(_event.sender, params);
+      return {
+        ok: true,
+        legacyDetected: Boolean(legacy),
+        legacyImported: legacyImportSummary.imported,
+        legacyImport: legacyImportSummary,
+        musicScan,
+        cortinaScan,
+        precompute,
+      };
+    },
+  );
 
   const normalizeTrackRow = (row: any) =>
     row
@@ -1567,128 +1791,10 @@ const registerIpc = () => {
 
   ipcMain.handle(
     "audio:precomputeCompressedTracks",
-    async (
-      event,
-      params: {
-        mode: "upward" | "track-leveler";
-        liftThresholdDb: number;
-        maxLiftDb: number;
-        ratio: number;
-        attackMs: number;
-        releaseMs: number;
-        gateThresholdDb: number;
-        limiterCeilingDb: number;
-        limiterReleaseMs: number;
-      },
-    ) => {
+    async (event, params: CompressionRenderConfig) => {
       try {
-        const db = getDb();
-        const rows = db
-          .prepare(
-            `select t.id, t.full_path, t.loudness_db, r.path as root_path, r.kind as root_kind
-             from tracks t
-             join library_roots r on r.id = t.root_id
-             where r.kind in ('music', 'cortina')`,
-          )
-          .all() as {
-          id: string;
-          full_path: string;
-          loudness_db: number | null;
-          root_path: string;
-          root_kind: "music" | "cortina";
-        }[];
-        const cacheDir = getCompressedCacheDir();
-        fs.mkdirSync(cacheDir, { recursive: true });
-        let rendered = 0;
-        let cached = 0;
-        let failed = 0;
-        const errors: { filePath: string; message: string }[] = [];
-        const total = rows.length;
-        const pushProgress = (
-          done: boolean,
-          currentFile?: string | null,
-          latestError?: { filePath: string; message: string } | null,
-        ) => {
-          event.sender.send("audio:precomputeProgress", {
-            current: rendered + cached + failed,
-            total,
-            rendered,
-            cached,
-            failed,
-            currentFile: currentFile ?? null,
-            latestError: latestError ?? null,
-            done,
-          });
-        };
-        pushProgress(false);
-        for (const row of rows) {
-          const relativeFile =
-            row.root_path && row.full_path
-              ? path.relative(row.root_path, row.full_path) || path.basename(row.full_path)
-              : path.basename(row.full_path || row.id);
-          try {
-            if (!row.full_path || !fs.existsSync(row.full_path)) {
-              failed += 1;
-              const latestError = {
-                filePath: row.full_path || row.id,
-                message: "Compression: Track file not found",
-              };
-              errors.push(latestError);
-              pushProgress(false, relativeFile, latestError);
-              continue;
-            }
-            const stat = fs.statSync(row.full_path);
-            const cacheKey = buildCompressedCacheKey(row.full_path, stat, {
-              loudnessDb: row.loudness_db,
-              depthPercent: 100,
-              mode: params.mode,
-              liftThresholdDb: params.liftThresholdDb,
-              maxLiftDb: params.maxLiftDb,
-              ratio: params.ratio,
-              attackMs: params.attackMs,
-              releaseMs: params.releaseMs,
-              gateThresholdDb: params.gateThresholdDb,
-              limiterCeilingDb: params.limiterCeilingDb,
-              limiterReleaseMs: params.limiterReleaseMs,
-            });
-            const outputPath = path.join(cacheDir, `${cacheKey}.wav`);
-            if (hasUsableCompressedRender(outputPath)) {
-              cached += 1;
-              pushProgress(false, relativeFile);
-              continue;
-            }
-            fs.rmSync(outputPath, { force: true });
-            await runWithCompressedRenderSlot(async () => {
-              await renderCompressedAudio(row.full_path, outputPath, {
-                loudnessDb: row.loudness_db,
-                depthPercent: 100,
-                mode: params.mode,
-                liftThresholdDb: params.liftThresholdDb,
-                maxLiftDb: params.maxLiftDb,
-                ratio: params.ratio,
-                attackMs: params.attackMs,
-                releaseMs: params.releaseMs,
-                gateThresholdDb: params.gateThresholdDb,
-                limiterCeilingDb: params.limiterCeilingDb,
-                limiterReleaseMs: params.limiterReleaseMs,
-              });
-            });
-            rendered += 1;
-            pushProgress(false, relativeFile);
-          } catch (error) {
-            failed += 1;
-            const latestError = {
-              filePath: row.full_path,
-              message: `Compression: ${
-                error instanceof Error ? error.message : "Compression render failed"
-              }`,
-            };
-            errors.push(latestError);
-            pushProgress(false, relativeFile, latestError);
-          }
-        }
-        pushProgress(true);
-        return { ok: true, rendered, cached, failed, errors };
+        const result = await precomputeCompressedTracksWithProgress(event.sender, params);
+        return { ok: true, ...result };
       } catch (error) {
         event.sender.send("audio:precomputeProgress", {
           current: 0,
