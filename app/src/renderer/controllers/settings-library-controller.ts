@@ -1,4 +1,9 @@
-import type { AppApi, ScanProgress, ScanSummary } from "../../shared/types.js";
+import type {
+  AppApi,
+  ScanProgress,
+  ScanSummary,
+  StartupFlowPhase,
+} from "../../shared/types.js";
 
 type ScanIssue = { filePath: string; message: string };
 
@@ -24,6 +29,8 @@ type LibraryMaintenanceElements = {
   precomputeCompressedShortcutBtn?: HTMLButtonElement | null;
   startupFlowBtn?: HTMLButtonElement | null;
   startupFlowResult?: HTMLElement | null;
+  startupFlowPhaseItems?: HTMLElement[] | null;
+  startupFlowPhaseDetail?: HTMLElement | null;
   scanMusicBtn?: HTMLButtonElement | null;
   scanCortinasBtn?: HTMLButtonElement | null;
   exportSystemBtn?: HTMLButtonElement | null;
@@ -58,6 +65,14 @@ export type LibraryMaintenanceControllerDeps = {
 
 const MAX_SCAN_ISSUES = 50;
 const MAX_PRECOMPUTE_FAILURE_LINES = 20;
+const STARTUP_PHASE_DETAIL_KEYS: Record<StartupFlowPhase, string> = {
+  legacy: "startupFlowPhaseDetailLegacy",
+  music: "startupFlowPhaseDetailMusic",
+  cortina: "startupFlowPhaseDetailCortina",
+  compression: "startupFlowPhaseDetailCompression",
+  complete: "startupFlowPhaseDetailComplete",
+  failed: "startupFlowPhaseDetailFailed",
+};
 
 const renderIssuesList = (
   errorList: HTMLElement | null | undefined,
@@ -114,6 +129,16 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
   let scanRequestInFlight = false;
   let precomputeCompressionInProgress = false;
   let startupFlowInProgress = false;
+  let currentStartupPhase: StartupFlowPhase | null = null;
+  let lastStartupActivePhase: StartupFlowPhase | null = null;
+
+  const startupPhaseOrder: StartupFlowPhase[] = [
+    "legacy",
+    "music",
+    "cortina",
+    "compression",
+    "complete",
+  ];
 
   const setScanButtonsDisabled = (disabled: boolean) => {
     if (deps.elements.scanMusicBtn) {
@@ -214,7 +239,7 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
   };
 
   const handlePrecomputeProgress = (progress: PrecomputeProgress) => {
-    if (!precomputeCompressionInProgress) {
+    if (!precomputeCompressionInProgress && !startupFlowInProgress) {
       return;
     }
     if (progress.latestError) {
@@ -362,6 +387,58 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     }
   };
 
+  const setStartupPhase = (phase: StartupFlowPhase | null) => {
+    currentStartupPhase = phase;
+    if (phase && phase !== "failed" && phase !== "complete") {
+      lastStartupActivePhase = phase;
+    }
+    if (deps.elements.startupFlowPhaseDetail) {
+      deps.elements.startupFlowPhaseDetail.textContent =
+        phase === null
+          ? deps.translate("startupFlowPhaseDetailIdle")
+          : deps.translate(STARTUP_PHASE_DETAIL_KEYS[phase]);
+    }
+    const items = deps.elements.startupFlowPhaseItems ?? [];
+    if (items.length === 0) {
+      return;
+    }
+    const currentIndex =
+      phase && phase !== "failed" ? startupPhaseOrder.indexOf(phase) : -1;
+    items.forEach((item) => {
+      const itemPhase = item.dataset.phase as StartupFlowPhase | undefined;
+      item.classList.remove("completed", "current", "skipped", "failed");
+      if (!itemPhase) {
+        return;
+      }
+      const itemIndex = startupPhaseOrder.indexOf(itemPhase);
+      if (phase === "failed") {
+        if (itemPhase === lastStartupActivePhase) {
+          item.classList.add("failed");
+        }
+        return;
+      }
+      if (phase === null) {
+        return;
+      }
+      if (currentIndex > itemIndex) {
+        item.classList.add("completed");
+        return;
+      }
+      if (currentIndex === itemIndex) {
+        item.classList.add("current");
+        return;
+      }
+      if (currentIndex > itemIndex + 1) {
+        item.classList.add("skipped");
+      }
+    });
+    if (phase === "music") {
+      items
+        .filter((item) => item.dataset.phase === "legacy")
+        .forEach((item) => item.classList.add("skipped"));
+    }
+  };
+
   const runStartupFlow = async () => {
     if (startupFlowInProgress || scanRequestInFlight || precomputeCompressionInProgress) {
       deps.setStatus(deps.translate("statusScanInProgress"));
@@ -371,12 +448,23 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     currentPrecomputeIssueErrors = [];
     renderPrecomputeFailureResult(deps.elements.precomputeCompressedResult, deps.translate, []);
     startupFlowInProgress = true;
+    lastStartupActivePhase = null;
+    setStartupPhase(null);
     setStartupFlowButtonDisabled(true);
     setScanButtonsDisabled(true);
     setPrecomputeButtonsDisabled(true);
     deps.clearAlert();
     renderStartupFlowResult(deps.translate("startupFlowRunning"));
     deps.setStatus(deps.translate("startupFlowRunning"));
+    if (deps.elements.precomputeProgressElSettings) {
+      deps.elements.precomputeProgressElSettings.max = 1;
+      deps.elements.precomputeProgressElSettings.value = 0;
+    }
+    if (deps.elements.precomputeProgressLabelSettings) {
+      deps.elements.precomputeProgressLabelSettings.textContent = deps.translate(
+        "startupFlowCompressionPending",
+      );
+    }
     try {
       const result = await deps.api.runStartupFlow(deps.getCompressionConfig());
       if (!result.ok) {
@@ -429,6 +517,10 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
       setScanButtonsDisabled(false);
       setPrecomputeButtonsDisabled(false);
     }
+  };
+
+  const handleStartupFlowProgress = (progress: { phase: StartupFlowPhase }) => {
+    setStartupPhase(progress.phase);
   };
 
   const runVerifyCachedFiles = async () => {
@@ -541,6 +633,7 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
 
   return {
     handleScanProgress,
+    handleStartupFlowProgress,
     handlePrecomputeProgress,
     updateScanIssues,
     runScan,

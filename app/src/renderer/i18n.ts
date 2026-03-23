@@ -186,7 +186,28 @@ export const translations = {
     startupFlowTitle: "Startup Flow",
     startupFlowHelp:
       "Runs the complete setup for configured roots. If legacy data is detected it is imported first, then music and cortinas are scanned, waveform images are built, and compressed cache files are rendered.",
+    startupFlowCompressionPending:
+      "Compressed cache stage will appear here once music and cortina scans finish.",
     startupFlowButton: "Run complete setup",
+    startupPhaseLegacy: "Legacy import",
+    startupPhaseMusic: "Music scan",
+    startupPhaseCortina: "Cortina scan",
+    startupPhaseCompression: "Compressed cache",
+    startupPhaseComplete: "Done",
+    startupFlowPhaseDetailIdle:
+      "The active setup stage will be described here while complete setup runs.",
+    startupFlowPhaseDetailLegacy:
+      "Importing tandas and metadata from legacy files before scanning.",
+    startupFlowPhaseDetailMusic:
+      "Scanning configured music folders and building metadata and waveform images.",
+    startupFlowPhaseDetailCortina:
+      "Scanning configured cortina folders and building metadata and waveform images.",
+    startupFlowPhaseDetailCompression:
+      "Rendering compressed companion files for playback and preview.",
+    startupFlowPhaseDetailComplete:
+      "Complete setup finished. The library, waveforms, and compressed cache are ready.",
+    startupFlowPhaseDetailFailed:
+      "Complete setup stopped because one stage failed. Check the result message below.",
     startupFlowRunning: "Running complete setup...",
     startupFlowDone:
       "Setup complete. Legacy: {legacy}. Music scanned {music}. Cortinas scanned {cortinas}. Compressed rendered {rendered}, cached {cached}, failed {failed}.",
@@ -196,6 +217,9 @@ export const translations = {
     startupFlowLegacyImported: "imported",
     startupFlowLegacyDetected: "detected but not imported",
     startupFlowLegacySkipped: "not detected",
+    manualLibraryToolsTitle: "Manual Setup / Maintenance",
+    manualLibraryToolsHelp:
+      "The controls below are only needed for manual setup, targeted reruns, or maintenance after the complete setup flow.",
     libraryScanTitle: "Library Scan",
     libraryScanHelp:
       "Scanning builds or refreshes the track database, analysis, and waveform cache. Re-running Scan Music or Scan Cortinas skips unchanged files, so adding new songs only requires scanning that root again.",
@@ -777,7 +801,28 @@ export const translations = {
     startupFlowTitle: "Flujo inicial",
     startupFlowHelp:
       "Ejecuta la preparacion completa para las raices configuradas. Si hay datos legacy, los importa primero; despues escanea musica y cortinas, genera formas de onda y renderiza la cache comprimida.",
+    startupFlowCompressionPending:
+      "La etapa de cache comprimida aparecera aqui cuando terminen los escaneos de musica y cortinas.",
     startupFlowButton: "Ejecutar preparacion completa",
+    startupPhaseLegacy: "Importacion legacy",
+    startupPhaseMusic: "Escaneo de musica",
+    startupPhaseCortina: "Escaneo de cortinas",
+    startupPhaseCompression: "Cache comprimida",
+    startupPhaseComplete: "Hecho",
+    startupFlowPhaseDetailIdle:
+      "La etapa activa de configuracion aparecera aqui mientras se ejecuta la configuracion completa.",
+    startupFlowPhaseDetailLegacy:
+      "Importando tandas y metadatos desde archivos legacy antes del escaneo.",
+    startupFlowPhaseDetailMusic:
+      "Escaneando carpetas de musica configuradas y creando metadatos e imagenes de forma de onda.",
+    startupFlowPhaseDetailCortina:
+      "Escaneando carpetas de cortinas configuradas y creando metadatos e imagenes de forma de onda.",
+    startupFlowPhaseDetailCompression:
+      "Generando archivos comprimidos auxiliares para reproduccion y preescucha.",
+    startupFlowPhaseDetailComplete:
+      "La configuracion completa termino. La biblioteca, las formas de onda y la cache comprimida estan listas.",
+    startupFlowPhaseDetailFailed:
+      "La configuracion completa se detuvo porque una etapa fallo. Revise el mensaje de resultado abajo.",
     startupFlowRunning: "Ejecutando preparacion completa...",
     startupFlowDone:
       "Preparacion completa. Legacy: {legacy}. Musica escaneada {music}. Cortinas escaneadas {cortinas}. Comprimidos renderizados {rendered}, en cache {cached}, fallidos {failed}.",
@@ -787,6 +832,9 @@ export const translations = {
     startupFlowLegacyImported: "importado",
     startupFlowLegacyDetected: "detectado pero no importado",
     startupFlowLegacySkipped: "no detectado",
+    manualLibraryToolsTitle: "Configuracion manual / mantenimiento",
+    manualLibraryToolsHelp:
+      "Los controles de abajo solo se necesitan para configuracion manual, repeticiones puntuales o mantenimiento despues del flujo completo.",
     libraryScanTitle: "Escaneo de biblioteca",
     libraryScanHelp:
       "El escaneo crea o actualiza la base de pistas, el analisis y la cache de formas de onda. Al repetir Escanear musica o Escanear cortinas se omiten los archivos sin cambios, asi que agregar canciones nuevas solo requiere escanear esa raiz otra vez.",
@@ -1384,7 +1432,28 @@ export const translations = {
     startupFlowTitle: "Flux de demarrage",
     startupFlowHelp:
       "Lance la preparation complete pour les racines configurees. Si des donnees legacy sont detectees elles sont importees d'abord, puis la musique et les cortinas sont scannees, les formes d'onde sont generees et le cache compresse est calcule.",
+    startupFlowCompressionPending:
+      "L'etape de cache compresse apparaitra ici une fois les scans musique et cortinas termines.",
     startupFlowButton: "Lancer la preparation complete",
+    startupPhaseLegacy: "Import legacy",
+    startupPhaseMusic: "Scan musique",
+    startupPhaseCortina: "Scan cortinas",
+    startupPhaseCompression: "Cache compresse",
+    startupPhaseComplete: "Termine",
+    startupFlowPhaseDetailIdle:
+      "L'etape active de configuration complete sera decrite ici pendant l'execution.",
+    startupFlowPhaseDetailLegacy:
+      "Import des tandas et metadonnees depuis les fichiers legacy avant l'analyse.",
+    startupFlowPhaseDetailMusic:
+      "Analyse des dossiers musique configures et creation des metadonnees et images de forme d'onde.",
+    startupFlowPhaseDetailCortina:
+      "Analyse des dossiers de cortinas configures et creation des metadonnees et images de forme d'onde.",
+    startupFlowPhaseDetailCompression:
+      "Generation des fichiers compresses auxiliaires pour la lecture et la preecoute.",
+    startupFlowPhaseDetailComplete:
+      "La configuration complete est terminee. La bibliotheque, les formes d'onde et le cache compresse sont prets.",
+    startupFlowPhaseDetailFailed:
+      "La configuration complete s'est arretee car une etape a echoue. Consultez le message de resultat ci-dessous.",
     startupFlowRunning: "Preparation complete en cours...",
     startupFlowDone:
       "Preparation terminee. Legacy: {legacy}. Musique scannee {music}. Cortinas scannees {cortinas}. Compresses rendus {rendered}, en cache {cached}, echecs {failed}.",
@@ -1394,6 +1463,9 @@ export const translations = {
     startupFlowLegacyImported: "importe",
     startupFlowLegacyDetected: "detecte mais non importe",
     startupFlowLegacySkipped: "non detecte",
+    manualLibraryToolsTitle: "Configuration manuelle / maintenance",
+    manualLibraryToolsHelp:
+      "Les commandes ci-dessous ne servent qu'a la configuration manuelle, aux relances ciblees, ou a la maintenance apres le flux complet.",
     libraryScanTitle: "Scan de bibliotheque",
     libraryScanHelp:
       "Le scan construit ou rafraichit la base de titres, l'analyse et le cache de formes d'onde. Relancer Scanner musique ou Scanner cortinas ignore les fichiers inchanges, donc l'ajout de nouveaux morceaux ne demande qu'un nouveau scan de cette racine.",
@@ -1999,7 +2071,28 @@ export const translations = {
     startupFlowTitle: "Startablauf",
     startupFlowHelp:
       "Fuehrt die komplette Einrichtung fuer konfigurierte Wurzeln aus. Wenn Legacy-Daten gefunden werden, werden sie zuerst importiert; danach werden Musik und Cortinas gescannt, Wellenformen erzeugt und der komprimierte Cache gerendert.",
+    startupFlowCompressionPending:
+      "Die Stufe fuer den komprimierten Cache erscheint hier, sobald Musik- und Cortina-Scans abgeschlossen sind.",
     startupFlowButton: "Komplette Einrichtung starten",
+    startupPhaseLegacy: "Legacy-Import",
+    startupPhaseMusic: "Musikscan",
+    startupPhaseCortina: "Cortina-Scan",
+    startupPhaseCompression: "Komprimierter Cache",
+    startupPhaseComplete: "Fertig",
+    startupFlowPhaseDetailIdle:
+      "Die aktive Einrichtungsphase wird waehrend des kompletten Setups hier beschrieben.",
+    startupFlowPhaseDetailLegacy:
+      "Importiert Tandas und Metadaten aus Legacy-Dateien vor dem Scan.",
+    startupFlowPhaseDetailMusic:
+      "Scannt konfigurierte Musikordner und erstellt Metadaten und Wellenformbilder.",
+    startupFlowPhaseDetailCortina:
+      "Scannt konfigurierte Cortina-Ordner und erstellt Metadaten und Wellenformbilder.",
+    startupFlowPhaseDetailCompression:
+      "Erzeugt komprimierte Begleitdateien fuer Wiedergabe und Vorhoeren.",
+    startupFlowPhaseDetailComplete:
+      "Das komplette Setup ist abgeschlossen. Bibliothek, Wellenformen und komprimierter Cache sind bereit.",
+    startupFlowPhaseDetailFailed:
+      "Das komplette Setup wurde gestoppt, weil eine Phase fehlgeschlagen ist. Pruefen Sie die Ergebnisnachricht unten.",
     startupFlowRunning: "Komplette Einrichtung laeuft...",
     startupFlowDone:
       "Einrichtung abgeschlossen. Legacy: {legacy}. Musik gescannt {music}. Cortinas gescannt {cortinas}. Komprimiert gerendert {rendered}, im Cache {cached}, fehlgeschlagen {failed}.",
@@ -2009,6 +2102,9 @@ export const translations = {
     startupFlowLegacyImported: "importiert",
     startupFlowLegacyDetected: "erkannt aber nicht importiert",
     startupFlowLegacySkipped: "nicht erkannt",
+    manualLibraryToolsTitle: "Manuelle Einrichtung / Wartung",
+    manualLibraryToolsHelp:
+      "Die folgenden Steuerelemente werden nur fuer manuelle Einrichtung, gezielte Wiederholungen oder Wartung nach dem Komplettablauf benoetigt.",
     libraryScanTitle: "Bibliothek scannen",
     libraryScanHelp:
       "Der Scan erstellt oder aktualisiert Track-Datenbank, Analyse und Wellenform-Cache. Ein erneutes Scannen von Musik oder Cortinas uberspringt unveranderte Dateien, daher reicht fur neue Titel ein weiterer Scan dieses Wurzelordners.",
@@ -2616,7 +2712,28 @@ export const translations = {
     startupFlowTitle: "Fluxo inicial",
     startupFlowHelp:
       "Executa a preparacao completa para as raizes configuradas. Se existirem dados legacy, sao importados primeiro; depois a musica e as cortinas sao analisadas, as formas de onda sao geradas e a cache comprimida e renderizada.",
+    startupFlowCompressionPending:
+      "A etapa da cache comprimida aparece aqui quando os scans de musica e cortinas terminarem.",
     startupFlowButton: "Executar preparacao completa",
+    startupPhaseLegacy: "Importacao legacy",
+    startupPhaseMusic: "Analise de musica",
+    startupPhaseCortina: "Analise de cortinas",
+    startupPhaseCompression: "Cache comprimida",
+    startupPhaseComplete: "Concluido",
+    startupFlowPhaseDetailIdle:
+      "A etapa ativa da configuracao aparecera aqui enquanto a configuracao completa estiver em execucao.",
+    startupFlowPhaseDetailLegacy:
+      "Importando tandas e metadados de arquivos legacy antes da analise.",
+    startupFlowPhaseDetailMusic:
+      "Analisando pastas de musica configuradas e criando metadados e imagens de forma de onda.",
+    startupFlowPhaseDetailCortina:
+      "Analisando pastas de cortinas configuradas e criando metadados e imagens de forma de onda.",
+    startupFlowPhaseDetailCompression:
+      "Gerando arquivos comprimidos auxiliares para reproducao e pre-escuta.",
+    startupFlowPhaseDetailComplete:
+      "A configuracao completa terminou. A biblioteca, as formas de onda e a cache comprimida estao prontas.",
+    startupFlowPhaseDetailFailed:
+      "A configuracao completa parou porque uma etapa falhou. Verifique a mensagem de resultado abaixo.",
     startupFlowRunning: "A executar preparacao completa...",
     startupFlowDone:
       "Preparacao concluida. Legacy: {legacy}. Musica analisada {music}. Cortinas analisadas {cortinas}. Comprimidos renderizados {rendered}, em cache {cached}, falhados {failed}.",
@@ -2626,6 +2743,9 @@ export const translations = {
     startupFlowLegacyImported: "importado",
     startupFlowLegacyDetected: "detetado mas nao importado",
     startupFlowLegacySkipped: "nao detetado",
+    manualLibraryToolsTitle: "Configuracao manual / manutencao",
+    manualLibraryToolsHelp:
+      "Os controlos abaixo so sao necessarios para configuracao manual, repeticoes dirigidas ou manutencao apos o fluxo completo.",
     libraryScanTitle: "Escanear biblioteca",
     libraryScanHelp:
       "O scan cria ou atualiza a base de faixas, a analise e a cache de formas de onda. Repetir Escanear musica ou Escanear cortinas ignora ficheiros sem alteracoes, por isso adicionar faixas novas so exige novo scan dessa raiz.",
@@ -3233,7 +3353,28 @@ export const translations = {
     startupFlowTitle: "Flusso iniziale",
     startupFlowHelp:
       "Esegue la preparazione completa per le radici configurate. Se vengono rilevati dati legacy, li importa prima; poi scansiona musica e cortine, genera le forme d'onda e rende la cache compressa.",
+    startupFlowCompressionPending:
+      "La fase della cache compressa comparira qui quando saranno terminati i controlli di musica e cortine.",
     startupFlowButton: "Esegui preparazione completa",
+    startupPhaseLegacy: "Import legacy",
+    startupPhaseMusic: "Scansione musica",
+    startupPhaseCortina: "Scansione cortine",
+    startupPhaseCompression: "Cache compressa",
+    startupPhaseComplete: "Completato",
+    startupFlowPhaseDetailIdle:
+      "La fase attiva della configurazione completa verra descritta qui durante l'esecuzione.",
+    startupFlowPhaseDetailLegacy:
+      "Importazione di tandas e metadati dai file legacy prima della scansione.",
+    startupFlowPhaseDetailMusic:
+      "Scansione delle cartelle musica configurate e creazione di metadati e immagini della forma d'onda.",
+    startupFlowPhaseDetailCortina:
+      "Scansione delle cartelle cortina configurate e creazione di metadati e immagini della forma d'onda.",
+    startupFlowPhaseDetailCompression:
+      "Generazione dei file compressi di supporto per riproduzione e anteprima.",
+    startupFlowPhaseDetailComplete:
+      "La configurazione completa e terminata. Libreria, forme d'onda e cache compressa sono pronte.",
+    startupFlowPhaseDetailFailed:
+      "La configurazione completa si e fermata per un errore in una fase. Controlla il messaggio di risultato qui sotto.",
     startupFlowRunning: "Preparazione completa in corso...",
     startupFlowDone:
       "Preparazione completata. Legacy: {legacy}. Musica scansionata {music}. Cortine scansionate {cortinas}. Compressi renderizzati {rendered}, in cache {cached}, falliti {failed}.",
@@ -3243,6 +3384,9 @@ export const translations = {
     startupFlowLegacyImported: "importato",
     startupFlowLegacyDetected: "rilevato ma non importato",
     startupFlowLegacySkipped: "non rilevato",
+    manualLibraryToolsTitle: "Configurazione manuale / manutenzione",
+    manualLibraryToolsHelp:
+      "I controlli sotto servono solo per impostazione manuale, riesecuzioni mirate o manutenzione dopo il flusso completo.",
     libraryScanTitle: "Scansione libreria",
     libraryScanHelp:
       "La scansione crea o aggiorna database brani, analisi e cache delle forme d'onda. Ripetere Scansiona musica o Scansiona cortine salta i file invariati, quindi per aggiungere nuovi brani basta rieseguire la scansione di quella radice.",
@@ -3791,7 +3935,28 @@ translations.is = {
   startupFlowTitle: "Ræsingarferli",
   startupFlowHelp:
     "Keyrir alla upphafsstillingu fyrir skilgreindar rætur. Ef eldri gögn finnast eru þau flutt inn fyrst; svo er tónlist og cortinum skannað, bylgjumyndir gerðar og þjappað skyndiminni reiknað.",
+  startupFlowCompressionPending:
+    "Þjappaða skyndiminnisstigið birtist hér þegar tónlistar- og cortinuskönnun lýkur.",
   startupFlowButton: "Keyra fulla uppsetningu",
+  startupPhaseLegacy: "Innflutningur eldra safns",
+  startupPhaseMusic: "Tónlistarskönnun",
+  startupPhaseCortina: "Cortinuskönnun",
+  startupPhaseCompression: "Þjappað skyndiminni",
+  startupPhaseComplete: "Lokið",
+  startupFlowPhaseDetailIdle:
+    "Virka uppsetningarþrepinu verður lyst her a meðan full uppsetning keyrir.",
+  startupFlowPhaseDetailLegacy:
+    "Flytur inn tandas og lysigogn ur eldri skram áður en skonnun hefst.",
+  startupFlowPhaseDetailMusic:
+    "Skannar skilgreindar tonlistarmoppur og byggir lysigogn og bylgjumyndir.",
+  startupFlowPhaseDetailCortina:
+    "Skannar skilgreindar cortinumoppur og byggir lysigogn og bylgjumyndir.",
+  startupFlowPhaseDetailCompression:
+    "Byr til þjappaðar fylgiskrar fyrir spilun og forskoðun.",
+  startupFlowPhaseDetailComplete:
+    "Fullri uppsetningu er lokið. Safn, bylgjumyndir og þjappað skyndiminni eru tilbúin.",
+  startupFlowPhaseDetailFailed:
+    "Full uppsetning stoppaði vegna villu i einu þrepi. Skoðaðu niðurstöðuskilaboðin her fyrir neðan.",
   startupFlowRunning: "Keyri fulla uppsetningu...",
   startupFlowDone:
     "Uppsetningu lokið. Legacy: {legacy}. Tónlist skönnuð {music}. Cortinur skannaðar {cortinas}. Þjappað renderað {rendered}, í skyndiminni {cached}, mistókst {failed}.",
@@ -3801,6 +3966,9 @@ translations.is = {
   startupFlowLegacyImported: "flutt inn",
   startupFlowLegacyDetected: "fannst en ekki flutt inn",
   startupFlowLegacySkipped: "fannst ekki",
+  manualLibraryToolsTitle: "Handvirk uppsetning / viðhald",
+  manualLibraryToolsHelp:
+    "Stýringarnar hér að neðan eru aðeins fyrir handvirka uppsetningu, markvissar endurkeyrslur eða viðhald eftir fulla uppsetningu.",
   libraryScanTitle: "Skönnun safns",
   libraryScanHelp:
     "Skönnun byggir upp eða endurnýjar lagagagnagrunn, greiningu og bylgjuformsminni. Endurskönnun tónlistar eða cortina sleppir óbreyttum skrám.",

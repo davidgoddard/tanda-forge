@@ -87,6 +87,14 @@ export type ScanProgress = {
   errors: number;
 };
 
+export type StartupFlowPhase =
+  | "legacy"
+  | "music"
+  | "cortina"
+  | "compression"
+  | "complete"
+  | "failed";
+
 export type TrackPageRequest = {
   offset?: number;
   limit?: number;
@@ -221,6 +229,9 @@ export type AppApi = {
   >;
   listTracks: () => Promise<TrackRow[]>;
   onScanProgress: (handler: (progress: ScanProgress) => void) => () => void;
+  onStartupFlowProgress: (handler: (progress: {
+    phase: StartupFlowPhase;
+  }) => void) => () => void;
   resetDatabase: () => Promise<{ ok: boolean }>;
   clearCachedFiles: () => Promise<{ ok: boolean }>;
   exportSystemData: () => Promise<{

@@ -5,6 +5,46 @@
 - Version: `0.1.1` (from `package.json`)
 
 ### What I was doing last
+- Added a visual startup-flow phase line in Library settings:
+  - complete setup now shows a phase tracker for:
+    - legacy import
+    - music scan
+    - cortina scan
+    - compressed cache
+    - done
+  - completed phases are ticked, the current phase pulses, and skipped phases
+    are visually differentiated
+  - the tracker is driven by explicit main-process startup-phase events rather
+    than inferred from scan text
+- Updated files:
+  - `app/src/main/main.ts`
+  - `app/src/preload/preload.ts`
+  - `app/src/shared/types.ts`
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/styles.css`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/controllers/settings-library-controller.ts`
+  - `app/src/renderer/i18n.ts`
+  - `tests/settings-library-controller.test.ts`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-library-controller.test.ts tests/i18n.test.ts`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - result: targeted tests passed; build passed
+- Clarified Library settings around the new complete setup path:
+  - added a dedicated `Manual Setup / Maintenance` divider below `Startup Flow`
+    so individual legacy/scan/cache controls read as optional manual tools
+  - startup-flow runs now surface compressed-cache stage progress through the
+    existing precompute progress block, instead of appearing silent after the
+    music/cortina scan phase
+- Updated files:
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/controllers/settings-library-controller.ts`
+  - `app/src/renderer/i18n.ts`
+  - `tests/settings-library-controller.test.ts`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-library-controller.test.ts tests/i18n.test.ts`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - result: targeted tests passed; build passed
 - Added a recovery E2E and fixed startup-path regressions it exposed:
   - new Playwright flow clears cached files, erases the database, re-adds roots,
     reruns `Startup Flow`, and verifies:
@@ -7947,3 +7987,13 @@
 - Verification:
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed (`82` files, `392` tests).
+- Added per-phase status text under the Library `Startup Flow` tracker so the active setup step is explicit, not just implied by the pulsing marker.
+  - In `app/src/renderer/index.html`, the startup section now includes a dedicated `#startup-flow-phase-detail` line beneath the phase tracker.
+  - In `app/src/renderer/controllers/settings-library-controller.ts`, startup-flow progress now maps each phase (`legacy`, `music`, `cortina`, `compression`, `complete`, `failed`) to a translated explanatory sentence and updates that detail line whenever the phase changes.
+  - In `app/src/renderer/renderer.ts`, the new detail element is wired into the settings-library controller.
+  - In `app/src/renderer/i18n.ts`, all supported languages now include the new startup-flow phase-detail strings.
+  - In `tests/settings-library-controller.test.ts`, the startup phase test now also verifies the detail text changes with the active phase.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-library-controller.test.ts tests/i18n.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`84` files, `400` tests).

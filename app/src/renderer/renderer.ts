@@ -251,6 +251,11 @@ const startupFlowBtn =
   document.querySelector<HTMLButtonElement>("#startup-flow-button");
 const startupFlowResult =
   document.querySelector<HTMLDivElement>("#startup-flow-result");
+const startupFlowPhaseItems = Array.from(
+  document.querySelectorAll<HTMLElement>("#startup-flow-phases .startup-flow-phase"),
+);
+const startupFlowPhaseDetail =
+  document.querySelector<HTMLDivElement>("#startup-flow-phase-detail");
 const precomputeCompressedBtn =
   document.querySelector<HTMLButtonElement>("#precompute-compressed");
 const verifyCachedFilesBtn =
@@ -13476,6 +13481,8 @@ const init = async () => {
       precomputeCompressedShortcutBtn,
       startupFlowBtn,
       startupFlowResult,
+      startupFlowPhaseItems,
+      startupFlowPhaseDetail,
       scanMusicBtn,
       scanCortinasBtn,
       exportSystemBtn,
@@ -14640,6 +14647,10 @@ const init = async () => {
 
   window.tanda.onScanProgress((progress) => {
     settingsLibraryController.handleScanProgress(progress);
+  });
+
+  window.tanda.onStartupFlowProgress((progress) => {
+    settingsLibraryController.handleStartupFlowProgress(progress);
   });
 
   window.tanda.onPrecomputeCompressedProgress((progress) => {

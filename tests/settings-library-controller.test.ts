@@ -64,6 +64,14 @@ const createElements = () => ({
   precomputeProgressLabelSettings: new FakeElement(),
   startupFlowBtn: new FakeElement(),
   startupFlowResult: new FakeElement(),
+  startupFlowPhaseDetail: new FakeElement(),
+  startupFlowPhaseItems: [
+    Object.assign(new FakeElement(), { dataset: { phase: "legacy" } }),
+    Object.assign(new FakeElement(), { dataset: { phase: "music" } }),
+    Object.assign(new FakeElement(), { dataset: { phase: "cortina" } }),
+    Object.assign(new FakeElement(), { dataset: { phase: "compression" } }),
+    Object.assign(new FakeElement(), { dataset: { phase: "complete" } }),
+  ],
   precomputeCompressedResult: new FakeElement(),
   precomputeCompressedBtn: new FakeElement(),
   precomputeCompressedShortcutBtn: new FakeElement(),
@@ -357,5 +365,132 @@ describe("settings library controller", () => {
       'startupFlowStatusDone:{"music":10,"cortinas":5,"rendered":7,"cached":8,"failed":0}',
     );
     expect(onStartupFlowCompleted).toHaveBeenCalled();
+  });
+
+  it("shows compressed-cache progress while the guided startup flow is running", async () => {
+    (globalThis as { document?: { createElement: () => FakeElement } }).document = {
+      createElement: () => new FakeElement(),
+    };
+    const elements = createElements();
+    let resolveStartup: (() => void) | null = null;
+    const controller = createSettingsLibraryController({
+      translate: (key, params) => `${key}:${params ? JSON.stringify(params) : ""}`,
+      basenameForDisplay: (filePath) => filePath ?? "",
+      api: {
+        scanKind: vi.fn(),
+        runStartupFlow: vi.fn(
+          () =>
+            new Promise((resolve) => {
+              resolveStartup = () =>
+                resolve({
+                  ok: true,
+                  legacyDetected: false,
+                  legacyImported: false,
+                  legacyImport: {
+                    imported: false,
+                    tandasImported: 0,
+                    tracksUpdated: 0,
+                    missingTracks: 0,
+                    missingFiles: [],
+                    rootPath: "",
+                  },
+                  musicScan: {
+                    scanned: 1,
+                    added: 1,
+                    updated: 0,
+                    removed: 0,
+                    errors: [],
+                  },
+                  cortinaScan: {
+                    scanned: 0,
+                    added: 0,
+                    updated: 0,
+                    removed: 0,
+                    errors: [],
+                  },
+                  precompute: {
+                    rendered: 1,
+                    cached: 0,
+                    failed: 0,
+                    errors: [],
+                  },
+                });
+            }),
+        ),
+        precomputeCompressedTracks: vi.fn(async () => ({
+          ok: true,
+          rendered: 0,
+          cached: 0,
+          failed: 0,
+          errors: [],
+        })),
+        verifyCachedFiles: vi.fn(),
+        clearCachedFiles: vi.fn(),
+        exportSystemData: vi.fn(),
+        importSystemData: vi.fn(),
+      },
+      elements,
+      setStatus: vi.fn(),
+      clearAlert: vi.fn(),
+      getCompressionConfig: () => ({
+        mode: "upward",
+        liftThresholdDb: -24,
+        maxLiftDb: 8,
+        ratio: 4,
+        attackMs: 5,
+        releaseMs: 250,
+        gateThresholdDb: -50,
+        limiterCeilingDb: -1,
+        limiterReleaseMs: 150,
+      }),
+      scheduleCompressionPrefetch: vi.fn(),
+      onScanCompleted: vi.fn(async () => {}),
+      onCachedFilesCleared: vi.fn(async () => {}),
+      onStartupFlowCompleted: vi.fn(async () => {}),
+      onSystemImported: vi.fn(async () => {}),
+    });
+
+    const startupPromise = controller.runStartupFlow();
+    controller.handlePrecomputeProgress({
+      current: 1,
+      total: 2,
+      rendered: 1,
+      cached: 0,
+      failed: 0,
+      currentFile: "music/Legacy Alpha.wav",
+      latestError: null,
+      done: false,
+    });
+    resolveStartup?.();
+    await startupPromise;
+
+    expect(elements.precomputeProgressLabelSettings.textContent).toContain(
+      "statusPrecomputeCompressionProgressWithFile",
+    );
+  });
+
+  it("marks startup phases as skipped, current, and completed", () => {
+    const elements = createElements();
+    const controller = createController(elements);
+
+    controller.handleStartupFlowProgress({ phase: "music" });
+    expect(elements.startupFlowPhaseItems[0].classList.contains("skipped")).toBe(true);
+    expect(elements.startupFlowPhaseItems[1].classList.contains("current")).toBe(true);
+    expect(elements.startupFlowPhaseDetail.textContent).toBe("startupFlowPhaseDetailMusic:");
+
+    controller.handleStartupFlowProgress({ phase: "compression" });
+    expect(elements.startupFlowPhaseItems[1].classList.contains("completed")).toBe(true);
+    expect(elements.startupFlowPhaseItems[2].classList.contains("completed")).toBe(true);
+    expect(elements.startupFlowPhaseItems[3].classList.contains("current")).toBe(true);
+    expect(elements.startupFlowPhaseDetail.textContent).toBe(
+      "startupFlowPhaseDetailCompression:",
+    );
+
+    controller.handleStartupFlowProgress({ phase: "complete" });
+    expect(elements.startupFlowPhaseItems[3].classList.contains("completed")).toBe(true);
+    expect(elements.startupFlowPhaseItems[4].classList.contains("current")).toBe(true);
+    expect(elements.startupFlowPhaseDetail.textContent).toBe(
+      "startupFlowPhaseDetailComplete:",
+    );
   });
 });

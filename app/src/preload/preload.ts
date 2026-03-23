@@ -27,6 +27,15 @@ const api: AppApi = {
       ipcRenderer.removeListener("library:scanProgress", listener);
     };
   },
+  onStartupFlowProgress: (handler) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: unknown) => {
+      handler(progress as never);
+    };
+    ipcRenderer.on("library:startupFlowProgress", listener);
+    return () => {
+      ipcRenderer.removeListener("library:startupFlowProgress", listener);
+    };
+  },
   resetDatabase: async () => ipcRenderer.invoke("app:resetDatabase"),
   clearCachedFiles: async () => ipcRenderer.invoke("app:clearCachedFiles"),
   exportSystemData: async () => ipcRenderer.invoke("app:exportSystemData"),

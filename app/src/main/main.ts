@@ -91,6 +91,7 @@ import {
   SYSTEM_BACKUP_VERSION,
   writeSystemBackup,
 } from "./system-transfer";
+import type { StartupFlowPhase } from "../shared/types";
 
 const forcedUserDataRoot = process.env.TANDA_USER_DATA_ROOT?.trim();
 if (forcedUserDataRoot) {
@@ -957,59 +958,72 @@ const registerIpc = () => {
   ipcMain.handle(
     "library:runStartupFlow",
     async (_event, params: CompressionRenderConfig) => {
-      const db = getDb();
-      const roots = db
-        .prepare("select id, kind, path, label from library_roots")
-        .all() as LibraryRoot[];
-      const musicRoots = roots.filter((root) => root.kind === "music");
-      const cortinaRoots = roots.filter((root) => root.kind === "cortina");
-      if (musicRoots.length === 0 && cortinaRoots.length === 0) {
+      const pushStartupFlowPhase = (phase: StartupFlowPhase) => {
+        _event.sender.send("library:startupFlowProgress", { phase });
+      };
+      try {
+        const db = getDb();
+        const roots = db
+          .prepare("select id, kind, path, label from library_roots")
+          .all() as LibraryRoot[];
+        const musicRoots = roots.filter((root) => root.kind === "music");
+        const cortinaRoots = roots.filter((root) => root.kind === "cortina");
+        if (musicRoots.length === 0 && cortinaRoots.length === 0) {
+          return {
+            ok: false,
+            error: "Configure music or cortina roots before running setup",
+          };
+        }
+        const legacy = detectLegacyFromRoots(roots);
+        let legacyImportSummary = {
+          imported: false,
+          tandasImported: 0,
+          tracksUpdated: 0,
+          missingTracks: 0,
+          missingFiles: [] as { filePath: string; message: string }[],
+          rootPath: legacy?.rootPath ?? "",
+        };
+        if (legacy) {
+          pushStartupFlowPhase("legacy");
+          const { waveformsDir } = getDataPaths();
+          const result = await importLegacyData(legacy.rootPath, roots, { waveformsDir });
+          legacyOverridesByRootId = result.overridesByRootId;
+          saveLegacyOverrides();
+          legacyImportSummary = {
+            imported: true,
+            tandasImported: result.tandasImported,
+            tracksUpdated: result.tracksUpdated,
+            missingTracks: result.missingTracks,
+            missingFiles: result.missingFiles,
+            rootPath: result.rootPath,
+          };
+        }
+        pushStartupFlowPhase("music");
+        const musicScan =
+          musicRoots.length > 0
+            ? await runScan(musicRoots)
+            : { scanned: 0, added: 0, updated: 0, removed: 0, errors: [] };
+        pushStartupFlowPhase("cortina");
+        const cortinaScan =
+          cortinaRoots.length > 0
+            ? await runScan(cortinaRoots)
+            : { scanned: 0, added: 0, updated: 0, removed: 0, errors: [] };
+        pushStartupFlowPhase("compression");
+        const precompute = await precomputeCompressedTracksWithProgress(_event.sender, params);
+        pushStartupFlowPhase("complete");
         return {
-          ok: false,
-          error: "Configure music or cortina roots before running setup",
+          ok: true,
+          legacyDetected: Boolean(legacy),
+          legacyImported: legacyImportSummary.imported,
+          legacyImport: legacyImportSummary,
+          musicScan,
+          cortinaScan,
+          precompute,
         };
+      } catch (error) {
+        pushStartupFlowPhase("failed");
+        throw error;
       }
-      const legacy = detectLegacyFromRoots(roots);
-      let legacyImportSummary = {
-        imported: false,
-        tandasImported: 0,
-        tracksUpdated: 0,
-        missingTracks: 0,
-        missingFiles: [] as { filePath: string; message: string }[],
-        rootPath: legacy?.rootPath ?? "",
-      };
-      if (legacy) {
-        const { waveformsDir } = getDataPaths();
-        const result = await importLegacyData(legacy.rootPath, roots, { waveformsDir });
-        legacyOverridesByRootId = result.overridesByRootId;
-        saveLegacyOverrides();
-        legacyImportSummary = {
-          imported: true,
-          tandasImported: result.tandasImported,
-          tracksUpdated: result.tracksUpdated,
-          missingTracks: result.missingTracks,
-          missingFiles: result.missingFiles,
-          rootPath: result.rootPath,
-        };
-      }
-      const musicScan =
-        musicRoots.length > 0
-          ? await runScan(musicRoots)
-          : { scanned: 0, added: 0, updated: 0, removed: 0, errors: [] };
-      const cortinaScan =
-        cortinaRoots.length > 0
-          ? await runScan(cortinaRoots)
-          : { scanned: 0, added: 0, updated: 0, removed: 0, errors: [] };
-      const precompute = await precomputeCompressedTracksWithProgress(_event.sender, params);
-      return {
-        ok: true,
-        legacyDetected: Boolean(legacy),
-        legacyImported: legacyImportSummary.imported,
-        legacyImport: legacyImportSummary,
-        musicScan,
-        cortinaScan,
-        precompute,
-      };
     },
   );
 

@@ -779,7 +779,42 @@
                   Run complete setup
                 </button>
               </div>
+              <div id="startup-flow-phases" class="startup-flow-phases" aria-hidden="true">
+                <div class="startup-flow-phase" data-phase="legacy">
+                  <span class="startup-flow-phase-marker"></span>
+                  <span class="startup-flow-phase-label" data-i18n="startupPhaseLegacy">Legacy import</span>
+                </div>
+                <div class="startup-flow-phase" data-phase="music">
+                  <span class="startup-flow-phase-marker"></span>
+                  <span class="startup-flow-phase-label" data-i18n="startupPhaseMusic">Music scan</span>
+                </div>
+                <div class="startup-flow-phase" data-phase="cortina">
+                  <span class="startup-flow-phase-marker"></span>
+                  <span class="startup-flow-phase-label" data-i18n="startupPhaseCortina">Cortina scan</span>
+                </div>
+                <div class="startup-flow-phase" data-phase="compression">
+                  <span class="startup-flow-phase-marker"></span>
+                  <span class="startup-flow-phase-label" data-i18n="startupPhaseCompression">Compressed cache</span>
+                </div>
+                <div class="startup-flow-phase" data-phase="complete">
+                  <span class="startup-flow-phase-marker"></span>
+                  <span class="startup-flow-phase-label" data-i18n="startupPhaseComplete">Done</span>
+                </div>
+              </div>
+              <div
+                id="startup-flow-phase-detail"
+                class="startup-flow-phase-detail"
+                data-i18n="startupFlowPhaseDetailIdle"
+              >
+                The active setup stage will be described here while complete setup runs.
+              </div>
               <div id="startup-flow-result" class="diagnostics-result"></div>
+            </div>
+            <div class="settings-section">
+              <h3 data-i18n="manualLibraryToolsTitle">Manual Setup / Maintenance</h3>
+              <p class="settings-note" data-i18n="manualLibraryToolsHelp">
+                The controls below are only needed for manual setup, targeted reruns, or maintenance after the complete setup flow.
+              </p>
             </div>
             <div class="settings-section">
               <div id="legacy-import" class="hidden">
