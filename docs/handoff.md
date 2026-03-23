@@ -7997,3 +7997,13 @@
   - `source ~/.nvm/nvm.sh && npm test -- tests/settings-library-controller.test.ts tests/i18n.test.ts` passed.
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed (`84` files, `400` tests).
+- Replaced the README section icon for `Support the dancers` to better match the feature intent.
+  - In `README.md`, the section heading now uses `💃` instead of the previous brain icon.
+- Verification:
+  - Not rerun; README-only documentation change.
+- Expanded the README live-DJing feature list to call out pause/resume and last-tanda controls explicitly.
+  - In `README.md`, the `Designed for Live DJing` section now mentions:
+    - single-click pause after the current tanda for demonstrations or announcements, with single-click resume
+    - single-click mark-current-tanda-as-last behavior so playback and display handling complete automatically without editing the playlist
+- Verification:
+  - Not rerun; README-only documentation change.

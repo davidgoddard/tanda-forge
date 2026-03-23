@@ -76,6 +76,8 @@ No surprises when you're in front of a room.
 * Instant playback and fast transitions
 * Safe “Live Mode” to prevent mistakes
 * Cue and prepare without interrupting flow
+* Single-click pause after the current tanda for demos, announcements, or organiser interruptions, then single-click resume when ready
+* Single-click mark the current tanda as the last tanda, so playback and display handling finish cleanly without trimming the playlist by hand
 
 All movements of tandas and tracks is done through keyboard and menus, safer than drag/drop
 
@@ -174,6 +176,18 @@ Optimised for each stage of DJing.
 
 ---
 
+### 💃 Support the dancers
+
+Show dancers who they are dancing too via a display screen or projector.
+
+* **Who's playing now** — current track's artist and title
+* **What's next** — show style of next tanda
+* **Re-affirm when it's the cortina** — Cortina shows what's coming
+
+Also shows when it is the last tanda and when there is no more - "That's all folks!"
+
+---
+
 ## How It Works
 
 A typical workflow:
@@ -227,4 +241,3 @@ Or download a release build for your platform (see above).
 ## Contributing
 
 Ideas, feedback, and pull requests are welcome.
-
