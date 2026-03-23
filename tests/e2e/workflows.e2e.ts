@@ -3085,6 +3085,15 @@ test.describe("Electron app end-to-end workflows", () => {
 
       await openSettings(page);
       await page.locator('button[data-tab="library"]').click();
+      await expect(page.locator("#legacy-import")).toBeVisible();
+      await page.locator("#legacy-import-button").click();
+      await confirmIfPrompted(page);
+      await expect
+        .poll(async () => {
+          const tandas = await page.evaluate(async () => await window.tanda?.listTandas());
+          return tandas?.some((tanda) => tanda.name === "Legacy Tango Pair") ?? false;
+        })
+        .toBe(true);
       await page.locator("#startup-flow-button").click();
       await expect(page.locator("#startup-flow-result")).toContainText("Setup complete", {
         timeout: 30_000,
@@ -3159,6 +3168,15 @@ test.describe("Electron app end-to-end workflows", () => {
 
       await openSettings(page);
       await page.locator('button[data-tab="library"]').click();
+      await expect(page.locator("#legacy-import")).toBeVisible();
+      await page.locator("#legacy-import-button").click();
+      await confirmIfPrompted(page);
+      await expect
+        .poll(async () => {
+          const tandas = await page.evaluate(async () => await window.tanda?.listTandas());
+          return tandas?.some((tanda) => tanda.name === "Legacy Tango Pair") ?? false;
+        })
+        .toBe(true);
       await page.locator("#startup-flow-button").click();
       await expect(page.locator("#startup-flow-result")).toContainText("Setup complete", {
         timeout: 30_000,

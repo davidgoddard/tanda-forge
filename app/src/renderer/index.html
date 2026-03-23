@@ -769,10 +769,34 @@
                 </div>
               </div>
             </div>
-            <div class="settings-section">
+            <div class="settings-section setup-card setup-card-warn">
+              <div id="legacy-import" class="hidden">
+              <div class="settings-eyebrow" data-i18n="legacyImportBadge">One-time migration</div>
+              <h3 data-i18n="legacyImportTitle">Legacy Import</h3>
+              <p class="settings-note" data-i18n="legacyImportHelp">
+                Import legacy tandas and metadata only if you are migrating from the old system. This is separate from Startup Flow because it replaces existing tanda data.
+              </p>
+              <p id="legacy-import-description"></p>
+              <button id="legacy-import-button" data-i18n="legacyImportButton">
+                Import legacy tandas
+              </button>
+              <button
+                id="legacy-readiness-button"
+                data-i18n="legacyReadinessButton"
+              >
+                Verify library readiness
+              </button>
+              <div id="legacy-readiness-result" class="diagnostics-result"></div>
+              </div>
+            </div>
+            <div class="settings-section setup-card setup-card-primary">
+              <div class="settings-eyebrow" data-i18n="startupFlowBadge">Recommended</div>
               <h3 data-i18n="startupFlowTitle">Startup Flow</h3>
               <p class="settings-note" data-i18n="startupFlowHelp">
-                Runs the complete setup for configured roots. If legacy data is detected it is imported first, then music and cortinas are scanned, waveform images are built, and compressed cache files are rendered.
+                Runs the resumable setup for configured roots. Music and cortinas are scanned, waveform images are built, and compressed cache files are rendered.
+              </p>
+              <p class="settings-note settings-note-compact" data-i18n="startupFlowRerunHelp">
+                Safe to run again later. Existing scans and caches are reused where possible, so reruns behave like repair and completion rather than starting from zero.
               </p>
               <div class="settings-actions">
                 <button id="startup-flow-button" data-i18n="startupFlowButton">
@@ -780,10 +804,6 @@
                 </button>
               </div>
               <div id="startup-flow-phases" class="startup-flow-phases" aria-hidden="true">
-                <div class="startup-flow-phase" data-phase="legacy">
-                  <span class="startup-flow-phase-marker"></span>
-                  <span class="startup-flow-phase-label" data-i18n="startupPhaseLegacy">Legacy import</span>
-                </div>
                 <div class="startup-flow-phase" data-phase="music">
                   <span class="startup-flow-phase-marker"></span>
                   <span class="startup-flow-phase-label" data-i18n="startupPhaseMusic">Music scan</span>
@@ -808,32 +828,38 @@
               >
                 The active setup stage will be described here while complete setup runs.
               </div>
+              <div class="startup-flow-progress">
+                <div
+                  id="startup-flow-progress-label"
+                  class="progress-label"
+                  data-i18n="startupFlowProgressIdle"
+                >
+                  Progress will appear here while complete setup runs.
+                </div>
+                <div
+                  id="startup-flow-eta"
+                  class="startup-flow-eta"
+                  data-i18n="startupFlowEtaCalculating"
+                >
+                  Rough remaining time: calculating...
+                </div>
+                <progress id="startup-flow-progress" value="0" max="1"></progress>
+              </div>
               <div id="startup-flow-result" class="diagnostics-result"></div>
             </div>
-            <div class="settings-section">
+            <div class="manual-setup-shell">
+            <div class="settings-section setup-card setup-card-muted">
+              <div class="settings-eyebrow" data-i18n="manualLibraryToolsBadge">Only if needed</div>
               <h3 data-i18n="manualLibraryToolsTitle">Manual Setup / Maintenance</h3>
               <p class="settings-note" data-i18n="manualLibraryToolsHelp">
                 The controls below are only needed for manual setup, targeted reruns, or maintenance after the complete setup flow.
               </p>
             </div>
-            <div class="settings-section">
-              <div id="legacy-import" class="hidden">
-              <h3 data-i18n="legacyImportTitle">Legacy Import</h3>
-              <p id="legacy-import-description"></p>
-              <button id="legacy-import-button" data-i18n="legacyImportButton">
-                Import legacy tandas
-              </button>
-              <button
-                id="legacy-readiness-button"
-                data-i18n="legacyReadinessButton"
-              >
-                Verify library readiness
-              </button>
-              <div id="legacy-readiness-result" class="diagnostics-result"></div>
-              </div>
-            </div>
-            <div class="settings-section">
+            <div class="settings-section setup-card">
               <h3 data-i18n="libraryScanTitle">Library Scan</h3>
+              <p class="settings-note settings-note-compact" data-i18n="libraryScanSummary">
+                Use this when you only want to refresh music or cortinas after adding files.
+              </p>
               <div class="settings-actions">
                 <button id="scan-music" data-i18n="scanMusic">
                   Scan Music
@@ -857,8 +883,11 @@
                 <progress id="scan-progress-settings" value="0" max="1"></progress>
               </div>
             </div>
-            <div id="derived-caches-section" class="settings-section">
+            <div id="derived-caches-section" class="settings-section setup-card">
               <h3 data-i18n="derivedCacheTitle">Derived Caches</h3>
+              <p class="settings-note settings-note-compact" data-i18n="derivedCacheSummary">
+                Use this to verify, rebuild, or clear waveform and compressed playback caches.
+              </p>
               <div class="settings-actions">
                 <button id="verify-cached-files" data-i18n="verifyCachedFiles">
                   Verify cached files
@@ -887,8 +916,11 @@
               <div id="cache-verify-result" class="diagnostics-result"></div>
               <div id="precompute-compressed-result" class="diagnostics-result diagnostics-log"></div>
             </div>
-            <div class="settings-section">
+            <div class="settings-section setup-card">
               <h3 data-i18n="libraryMaintenanceTitle">Library Maintenance</h3>
+              <p class="settings-note settings-note-compact" data-i18n="libraryMaintenanceSummary">
+                Use this only for recovery or deliberate rebuilds.
+              </p>
               <div class="settings-actions">
                 <button id="reset-db" class="danger" data-i18n="eraseDatabase">
                   Erase Database
@@ -898,8 +930,23 @@
                 Removes database records only. Cached waveform and compressed files are kept unless erased separately.
               </p>
             </div>
-            <div class="settings-section">
+            <div class="settings-section setup-card">
+              <h3 data-i18n="tandaExportTitle">Tandas Export</h3>
+              <p class="settings-note settings-note-compact" data-i18n="tandaExportSummary">
+                Export saved tandas only as a portable JSON file.
+              </p>
+              <div class="settings-actions">
+                <button id="export-tandas-data" data-i18n="tandaExportButton">
+                  Export Tandas
+                </button>
+              </div>
+              <div id="tanda-export-result" class="diagnostics-result diagnostics-log"></div>
+            </div>
+            <div class="settings-section setup-card">
               <h3 data-i18n="systemTransferTitle">System Export / Import</h3>
+              <p class="settings-note settings-note-compact" data-i18n="systemTransferSummary">
+                Export a portable backup of the full app state or restore one later.
+              </p>
               <p class="settings-note" data-i18n="systemTransferHelp">
                 Export or restore the full application data root, including database records, waveform images, compressed cache files, logs, and saved settings.
               </p>
@@ -912,6 +959,7 @@
                 </button>
               </div>
               <div id="system-transfer-result" class="diagnostics-result diagnostics-log"></div>
+            </div>
             </div>
           </div>
           <div class="settings-tab" data-tab="playlist">
@@ -1030,6 +1078,24 @@
                   Example: 3t 3t 3w 3t 3t (2c 3m). Group alternatives in brackets.
                 </p>
               </div>
+              <section class="settings-subgroup settings-field wide">
+                <h4 data-i18n="playlistTransferTitle">Playlist Files</h4>
+                <p data-i18n="playlistTransferSummary">
+                  Save the current playlist to JSON, or import a Tanda Forge playlist or track-only M3U/M3U8 file.
+                </p>
+                <p data-i18n="playlistTransferHelp">
+                  M3U import brings in individual tracks only. It does not preserve tanda grouping, cortina planning, or playlist settings.
+                </p>
+                <div class="settings-actions">
+                  <button id="playlist-save-button" data-i18n="playlistSaveButton">
+                    Save Playlist
+                  </button>
+                  <button id="playlist-import-button" data-i18n="playlistImportButton">
+                    Import Playlist
+                  </button>
+                </div>
+                <div id="playlist-transfer-result" class="diagnostics-result diagnostics-log"></div>
+              </section>
             </div>
           </div>
           <div class="settings-tab" data-tab="system">
@@ -1337,6 +1403,14 @@
             <div class="settings-section">
               <h3 data-i18n="diagnosticsDataReadiness">Data readiness</h3>
               <div id="diagnostics-data-readiness" class="diagnostics-paths"></div>
+              <h4 data-i18n="diagnosticsTrackLengthIssues">Suspicious track lengths</h4>
+              <p data-i18n="diagnosticsTrackLengthIssuesHelp">
+                Lists tracks shorter than 1 minute and tracks where trims remove 20 seconds or more from the ffmpeg duration.
+              </p>
+              <pre
+                id="diagnostics-track-length-issues"
+                class="diagnostics-result diagnostics-log"
+              ></pre>
             </div>
             <div class="settings-section">
               <h3 data-i18n="diagnosticsPlaybackLog">Playback leveling log</h3>

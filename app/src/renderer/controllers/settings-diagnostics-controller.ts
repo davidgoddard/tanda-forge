@@ -1,5 +1,5 @@
 import { evaluateDataReadiness } from "../../shared/data-readiness.js";
-import type { AppApi } from "../../shared/types.js";
+import type { AppApi, SuspiciousTrackLength } from "../../shared/types.js";
 
 export type DiagnosticsControllerDeps = {
   translate: (key: string, params?: Record<string, string | number>) => string;
@@ -26,6 +26,8 @@ export type DiagnosticsControllerDeps = {
     missingTrimSignals: number;
     analysisErrors: number;
     missingWaveforms: number;
+    shortDurationTracks: SuspiciousTrackLength[];
+    aggressivelyTrimmedTracks: SuspiciousTrackLength[];
   }>;
   enumerateDevices: () => Promise<MediaDeviceInfo[]>;
   requestAudioAccess: () => Promise<void>;
@@ -186,6 +188,49 @@ export const createSettingsDiagnosticsController = (deps: DiagnosticsControllerD
     }
   };
 
+  const renderDiagnosticsTrackLengthIssues = async (target: HTMLElement) => {
+    target.textContent = deps.translate("statusWaveformLoading");
+    try {
+      const summary = await deps.getDiagnosticsDataReadiness();
+      const lines: string[] = [];
+      const formatTrack = (track: SuspiciousTrackLength) =>
+        deps.translate("diagnosticsTrackLengthIssueLine", {
+          title: track.title,
+          path: track.relativePath,
+          duration: Math.round(track.durationMs / 1000),
+          effective: Math.round(track.effectiveDurationMs / 1000),
+          removed: Math.round(track.removedMs / 1000),
+        });
+
+      lines.push(
+        deps.translate("diagnosticsTrackLengthShortHeading", {
+          count: summary.shortDurationTracks.length,
+        }),
+      );
+      if (summary.shortDurationTracks.length === 0) {
+        lines.push(deps.translate("diagnosticsTrackLengthNone"));
+      } else {
+        summary.shortDurationTracks.forEach((track) => lines.push(formatTrack(track)));
+      }
+      lines.push("");
+      lines.push(
+        deps.translate("diagnosticsTrackLengthTrimHeading", {
+          count: summary.aggressivelyTrimmedTracks.length,
+        }),
+      );
+      if (summary.aggressivelyTrimmedTracks.length === 0) {
+        lines.push(deps.translate("diagnosticsTrackLengthNone"));
+      } else {
+        summary.aggressivelyTrimmedTracks.forEach((track) => lines.push(formatTrack(track)));
+      }
+      target.textContent = lines.join("\n").trim();
+    } catch (error) {
+      target.textContent = deps.translate("diagnosticsPlaybackLogFailed", {
+        message: error instanceof Error ? error.message : deps.translate("statusUnknownError"),
+      });
+    }
+  };
+
   const verifyLegacyReadiness = async (target: HTMLElement) => {
     target.textContent = deps.translate("legacyReadinessRunning");
     try {
@@ -269,6 +314,7 @@ export const createSettingsDiagnosticsController = (deps: DiagnosticsControllerD
     renderPlaybackDiagnosticsLog,
     clearPlaybackDiagnosticsLog,
     renderDiagnosticsDataReadiness,
+    renderDiagnosticsTrackLengthIssues,
     verifyLegacyReadiness,
     runAudioOutputProbe,
   };

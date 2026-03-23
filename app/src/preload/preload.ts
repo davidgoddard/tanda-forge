@@ -40,6 +40,9 @@ const api: AppApi = {
   clearCachedFiles: async () => ipcRenderer.invoke("app:clearCachedFiles"),
   exportSystemData: async () => ipcRenderer.invoke("app:exportSystemData"),
   importSystemData: async () => ipcRenderer.invoke("app:importSystemData"),
+  exportTandasData: async () => ipcRenderer.invoke("app:exportTandasData"),
+  exportPlaylistData: async (manifest) => ipcRenderer.invoke("app:exportPlaylistData", manifest),
+  importPlaylistData: async () => ipcRenderer.invoke("app:importPlaylistData"),
   listTrackPage: async (params) => ipcRenderer.invoke("tracks:listPage", params),
   jumpToPrefix: async (params) =>
     ipcRenderer.invoke("tracks:jumpToPrefix", params),

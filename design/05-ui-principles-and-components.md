@@ -338,6 +338,32 @@ Layout and behavior:
   unless explicitly edited and saved. The designer does not preload all saved
   tandas; they are opened on demand from search/clipboard.
 - UI-016.R3: Allows adding additional empty tandas via an Add button.
+
+---
+
+## UI-050.a — Library Setup Guidance
+
+The Library tab must present setup and recovery actions as a guided workflow, not
+just a maintenance toolbox.
+
+Requirements:
+- UI-050.a.R1: The recommended complete setup path is visually separated from
+  manual maintenance actions.
+- UI-050.a.R2: The startup-flow card shows concise human-readable guidance,
+  including that rerunning the flow is safe after interruption or shutdown.
+- UI-050.a.R3: The startup-flow phase line marks all finished phases with a
+  completed state, including the final `Done` step.
+- UI-050.a.R3.a: The startup-flow card includes a unified progress area that
+  mirrors scan and compressed-cache progress inside the recommended one-stop
+  setup card, so users do not need to inspect manual sections while setup runs.
+- UI-050.a.R3.b: The startup-flow card may show a clearly labeled rough
+  remaining-time estimate for the active step only, and should wait until enough
+  progress is available before showing a numeric value.
+- UI-050.a.R4: Manual actions such as legacy import, scans, cache tools, and
+  backup/restore each include short plain-language summaries describing when they
+  should be used.
+- UI-050.a.R5: All manual setup and maintenance actions are visually grouped
+  within a shared outer container so they read as optional/manual tools.
 - UI-016.R4: Each tanda has Save and Delete actions.
 - UI-016.R5: Tandas are selectable; the selected tanda is the target for incoming tracks.
 - UI-016.R6: Tracks can be added from search/clipboard via the add action or drag/drop.
@@ -573,12 +599,19 @@ Rules:
 - UI-050.R6: Risky changes should be labeled clearly.
 - UI-050.R7: Changes affecting live playback must require confirmation.
 - UI-050.R8: Library settings must expose a guided startup/recovery control
-  that runs legacy import (when available), scan, waveform generation, and
-  compressed-cache preparation in a clear order.
+  that runs scan, waveform generation, and compressed-cache preparation in a
+  clear order without destructive migration steps.
 - UI-050.R9: The guided startup/recovery UI must summarize the combined result
   so the user can see whether metadata, waveforms, and compressed files were prepared.
 - UI-050.R10: Library settings must expose full-system export/import actions for
   the application data root, with explicit confirmation before import.
+- UI-050.R11: Library settings must expose a dedicated tandas-only export action.
+- UI-050.R12: Playlist settings must expose playlist save/import actions with
+  plain-language guidance on the limitations of standard playlist formats such
+  as `m3u` and `m3u8`.
+- UI-050.R13: Diagnostics must surface suspicious track-length anomalies,
+  including unusually short raw durations and tracks where trims remove a large
+  amount of the FFmpeg-reported duration.
 
 ---
 

@@ -157,7 +157,13 @@ import {
   serializeStoredPlaylistState,
   type StoredCortinaAssignment,
   type StoredPlaylistItem,
+  type StoredPlaylistState,
 } from "../shared/playlist-storage.js";
+import {
+  PLAYLIST_EXPORT_VERSION,
+  type PlaylistExportManifest,
+  type PortableTrackRef,
+} from "../shared/library-transfer.js";
 import {
   aggregateOrchestraDurations,
   areArtistsGapSatisfied,
@@ -256,6 +262,12 @@ const startupFlowPhaseItems = Array.from(
 );
 const startupFlowPhaseDetail =
   document.querySelector<HTMLDivElement>("#startup-flow-phase-detail");
+const startupFlowProgressLabel =
+  document.querySelector<HTMLDivElement>("#startup-flow-progress-label");
+const startupFlowEta =
+  document.querySelector<HTMLDivElement>("#startup-flow-eta");
+const startupFlowProgressEl =
+  document.querySelector<HTMLProgressElement>("#startup-flow-progress");
 const precomputeCompressedBtn =
   document.querySelector<HTMLButtonElement>("#precompute-compressed");
 const verifyCachedFilesBtn =
@@ -290,6 +302,8 @@ const diagnosticsWaveformResult =
   document.querySelector<HTMLDivElement>("#diagnostics-waveform-result");
 const diagnosticsDataReadinessEl =
   document.querySelector<HTMLDivElement>("#diagnostics-data-readiness");
+const diagnosticsTrackLengthIssuesEl =
+  document.querySelector<HTMLPreElement>("#diagnostics-track-length-issues");
 const diagnosticsPlaybackLogBtn =
   document.querySelector<HTMLButtonElement>("#diagnostics-playback-log");
 const diagnosticsClearLogsBtn =
@@ -367,6 +381,10 @@ const importSystemBtn =
   document.querySelector<HTMLButtonElement>("#import-system-data");
 const systemTransferResult =
   document.querySelector<HTMLDivElement>("#system-transfer-result");
+const exportTandasBtn =
+  document.querySelector<HTMLButtonElement>("#export-tandas-data");
+const tandaExportResult =
+  document.querySelector<HTMLDivElement>("#tanda-export-result");
 const clipboardClearBtn =
   document.querySelector<HTMLButtonElement>("#clipboard-clear");
 const clipboardFilterInput =
@@ -529,6 +547,12 @@ const playlistStartTimeInput =
   document.querySelector<HTMLInputElement>("#playlist-start-time");
 const playlistEndTimeInput =
   document.querySelector<HTMLInputElement>("#playlist-end-time");
+const playlistSaveBtn =
+  document.querySelector<HTMLButtonElement>("#playlist-save-button");
+const playlistImportBtn =
+  document.querySelector<HTMLButtonElement>("#playlist-import-button");
+const playlistTransferResult =
+  document.querySelector<HTMLDivElement>("#playlist-transfer-result");
 const stopFadeInput =
   document.querySelector<HTMLInputElement>("#stop-fade-duration");
 const playlistSequenceInput =
@@ -7842,6 +7866,63 @@ const serializePlaylistState = () => {
   });
 };
 
+const buildPortableTrackRefForExport = (track: TrackRow): PortableTrackRef => ({
+  fullPath: track.full_path,
+  relativePath: track.relative_path,
+  title: track.title ?? "",
+  artist: track.artist ?? "",
+});
+
+const buildPlaylistExportManifest = (): PlaylistExportManifest => {
+  const createdAt = new Date().toISOString();
+  const validCortinaIndices = new Set(getCortinaRowIndices(playlistItems));
+  return {
+    format: "tanda-forge-playlist",
+    version: PLAYLIST_EXPORT_VERSION,
+    createdAt,
+    appVersion: "renderer",
+    cortinaSet: getCortinaSet() || undefined,
+    cortinaAssignments: [...validCortinaIndices]
+      .map((index) => {
+        const track = getCortinaRowTrack(index);
+        return track ? { index, track: buildPortableTrackRefForExport(track) } : null;
+      })
+      .filter((entry): entry is { index: number; track: PortableTrackRef } => Boolean(entry))
+      .sort((a, b) => a.index - b.index),
+    items: playlistItems.map((item) => {
+      if (!item) {
+        return null;
+      }
+      if (item.kind === "track") {
+        return { kind: "track", track: buildPortableTrackRefForExport(item.track) };
+      }
+      const tanda = resolveTandaDraft(item.tandaId);
+      if (!tanda) {
+        return null;
+      }
+      const tracks = tanda.trackSlots
+        .map((trackId) => (trackId ? trackCache.get(trackId) ?? null : null))
+        .filter((track): track is TrackRow => Boolean(track));
+      return {
+        kind: "tanda",
+        name: tanda.name,
+        styles: [...tanda.styles],
+        rating: tanda.rating,
+        instrumental: deriveInstrumental(tracks),
+        mismatch: item.mismatch,
+        totalDurationMs: tanda.totalDurationMs,
+        trackRefs: tanda.trackSlots.map((trackId) => {
+          if (!trackId) {
+            return null;
+          }
+          const track = trackCache.get(trackId);
+          return track ? buildPortableTrackRefForExport(track) : null;
+        }),
+      };
+    }),
+  };
+};
+
 const savePlaylistToStorage = () => {
   const serialized = serializePlaylistState();
   if (serialized === playlistSaveSnapshot) {
@@ -7863,6 +7944,13 @@ const loadPlaylistFromStorage = async () => {
   if (!storedState || storedState.items.length === 0) {
     return;
   }
+  await applyStoredPlaylistState(storedState);
+};
+
+const applyStoredPlaylistState = async (storedState: StoredPlaylistState) => {
+  if (!window.tanda) {
+    return { resolvedCount: 0, missingCount: 0 };
+  }
   const trackIds = collectStoredPlaylistTrackIds(storedState);
   const tandaIds = storedState.items
     .filter((item): item is { kind: "tanda"; id: string } =>
@@ -7875,7 +7963,7 @@ const loadPlaylistFromStorage = async () => {
   const tandaMap = new Map(tandas.map((tanda) => [tanda.id, tanda]));
   tandas.forEach((tanda) => upsertTandaCache(tanda));
   tracks.forEach((track) => trackCache.set(track.id, track));
-  playlistItems = storedState.items.map((item) => {
+  const hydratedItems = storedState.items.map((item): PlaylistItem | null => {
     if (!item) {
       return null;
     }
@@ -7904,6 +7992,7 @@ const loadPlaylistFromStorage = async () => {
     }
     return null;
   });
+  playlistItems = hydratedItems;
   cortinaOverrideByIndex.clear();
   resetCortinaPlans();
   if (storedState.cortinaSet === getCortinaSet()) {
@@ -7916,6 +8005,30 @@ const loadPlaylistFromStorage = async () => {
   }
   maybeRepairLeadingPlaylistSlot();
   playlistSaveSnapshot = serializePlaylistState();
+  clearPlaylistTarget();
+  return {
+    resolvedCount: hydratedItems.filter((item) => Boolean(item)).length,
+    missingCount:
+      storedState.items.filter((item) => Boolean(item)).length -
+      hydratedItems.filter((item) => Boolean(item)).length,
+  };
+};
+
+const resetPlaylistRuntimeStateForImport = () => {
+  playlistPlayback.status = "idle";
+  playlistPlayback.resume = null;
+  playlistPlayback.currentIndex = 0;
+  playlistPlayback.currentTrackIndex = 0;
+  playlistPlayback.playedThroughIndex = -1;
+  playlistPlayback.activeTrackId = null;
+  playlistPlayback.activeTandaId = null;
+  playlistPlayback.liveBaseStartMs = null;
+  cortinaDisplayPhase = "none";
+  isMarkedLastFinalCortinaActive = false;
+  isPerformanceStopFinalCortinaActive = false;
+  isPausedForPerformanceStop = false;
+  lastPausedPerformanceStopCortinaLabel = null;
+  holdPerformanceStopDisplayBlankWhenIdle = false;
   clearPlaylistTarget();
 };
 
@@ -12711,6 +12824,9 @@ const renderDiagnosticsDataReadiness = async () => {
     return;
   }
   await controller.renderDiagnosticsDataReadiness(diagnosticsDataReadinessEl);
+  if (diagnosticsTrackLengthIssuesEl) {
+    await controller.renderDiagnosticsTrackLengthIssues(diagnosticsTrackLengthIssuesEl);
+  }
 };
 
 const verifyLegacyReadiness = async () => {
@@ -13483,6 +13599,9 @@ const init = async () => {
       startupFlowResult,
       startupFlowPhaseItems,
       startupFlowPhaseDetail,
+      startupFlowProgressLabel,
+      startupFlowEta,
+      startupFlowProgressEl,
       scanMusicBtn,
       scanCortinasBtn,
       exportSystemBtn,
@@ -14891,6 +15010,25 @@ const init = async () => {
     await refreshLegacyStyleRows();
   });
 
+  exportTandasBtn?.addEventListener("click", async () => {
+    if (!window.tanda || !tandaExportResult) {
+      return;
+    }
+    tandaExportResult.textContent = t("tandaExportRunning");
+    const result = await window.tanda.exportTandasData();
+    if (result.cancelled) {
+      tandaExportResult.textContent = t("playlistTransferCancelled");
+      return;
+    }
+    if (!result.ok) {
+      tandaExportResult.textContent = t("tandaExportFailed", {
+        message: result.error ?? t("statusUnknownError"),
+      });
+      return;
+    }
+    tandaExportResult.textContent = t("tandaExportDone", { path: result.path });
+  });
+
   scanMusicBtn?.addEventListener("click", () => {
     void settingsLibraryController.runScan("music");
   });
@@ -14941,6 +15079,67 @@ const init = async () => {
     await settingsLibraryController.runImportSystemData(async () =>
       showConfirmModal(t("confirmSystemImport"), t("systemImport")),
     );
+  });
+
+  playlistSaveBtn?.addEventListener("click", async () => {
+    if (!window.tanda || !playlistTransferResult) {
+      return;
+    }
+    playlistTransferResult.textContent = t("playlistExportRunning");
+    const result = await window.tanda.exportPlaylistData(buildPlaylistExportManifest());
+    if (result.cancelled) {
+      playlistTransferResult.textContent = t("playlistTransferCancelled");
+      return;
+    }
+    if (!result.ok) {
+      playlistTransferResult.textContent = t("playlistExportFailed", {
+        message: result.error ?? t("statusUnknownError"),
+      });
+      return;
+    }
+    playlistTransferResult.textContent = t("playlistExportDone", { path: result.path });
+  });
+
+  playlistImportBtn?.addEventListener("click", async () => {
+    if (!window.tanda || !playlistTransferResult) {
+      return;
+    }
+    if (playlistPlayback.status !== "idle") {
+      setStatus(t("statusPlaylistImportDuringPlayback"));
+      return;
+    }
+    playlistTransferResult.textContent = t("playlistImportRunning");
+    const result = await window.tanda.importPlaylistData();
+    if (result.cancelled) {
+      playlistTransferResult.textContent = t("playlistTransferCancelled");
+      return;
+    }
+    if (!result.ok || !result.state) {
+      playlistTransferResult.textContent = t("playlistImportFailed", {
+        message: result.error ?? t("statusUnknownError"),
+      });
+      return;
+    }
+    resetPlaylistRuntimeStateForImport();
+    const applied = await applyStoredPlaylistState(result.state);
+    renderPlaylist();
+    renderAllLists();
+    updateNowPlayingDisplay();
+    const warnings = [...(result.warnings ?? [])];
+    if (applied.missingCount > 0) {
+      warnings.push(t("playlistImportMissingItems", { count: applied.missingCount }));
+    }
+    const formatLabel =
+      result.format === "m3u" ? t("playlistImportFormatM3u") : t("playlistImportFormatJson");
+    playlistTransferResult.textContent = t("playlistImportDone", {
+      path: result.path,
+      format: formatLabel,
+      count: applied.resolvedCount,
+      warnings: warnings.length,
+    });
+    if (warnings.length > 0) {
+      playlistTransferResult.textContent += `\n${warnings.join("\n")}`;
+    }
   });
 
   resetDbBtn?.addEventListener("click", async () => {

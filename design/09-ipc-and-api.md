@@ -59,9 +59,12 @@ identified as `IPC-<section>.R<n>` in order under each section. Sub-bullets use
 - IPC-003.R5.a: `app:resetDatabase(): { ok: boolean }`
 - IPC-003.R5.b: `app:exportSystemData(): { ok, cancelled?, path, error? }`
 - IPC-003.R5.c: `app:importSystemData(): { ok, cancelled?, path, error? }`
-- IPC-003.R5.d: `app:close(): void`
-- IPC-003.R5.e: `app:logClientError(payload): void`
-- IPC-003.R5.f: `diagnostics:getDataReadiness(): { totalTracks, missingDuration, missingLoudness, missingTrimSignals, analysisErrors, missingWaveforms }`
+- IPC-003.R5.d: `app:exportTandasData(): { ok, cancelled?, path, error? }`
+- IPC-003.R5.e: `app:exportPlaylistData(manifest): { ok, cancelled?, path, error? }`
+- IPC-003.R5.f: `app:importPlaylistData(): { ok, cancelled?, path, format?, state?, warnings?, error? }`
+- IPC-003.R5.g: `app:close(): void`
+- IPC-003.R5.h: `app:logClientError(payload): void`
+- IPC-003.R5.i: `diagnostics:getDataReadiness(): { totalTracks, missingDuration, missingLoudness, missingTrimSignals, analysisErrors, missingWaveforms }`
 
 ## IPC-004 — Versioning
 

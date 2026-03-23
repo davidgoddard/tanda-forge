@@ -5,6 +5,115 @@
 - Version: `0.1.1` (from `package.json`)
 
 ### What I was doing last
+- Fixed a stale recovery E2E after legacy import was split out of the resumable
+  startup flow:
+  - `tests/e2e/workflows.e2e.ts` now performs `Legacy Import` explicitly before
+    running `Startup Flow` in the reset/rebuild scenario
+  - this aligns the test with the current product behavior where startup flow
+    is resumable/non-destructive and legacy import is a separate migration step
+- Updated files:
+  - `tests/e2e/workflows.e2e.ts`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g "37 - reset plus startup flow rebuilds legacy metadata, waveforms, and compressed cache"`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - result: targeted Playwright case passed; build passed; full suite passed (85 files / 415 tests)
+- Expanded the user guide import/export documentation:
+  - documented playlist JSON vs grouped M3U/M3U8 save/import in more detail
+  - documented what each format preserves and what it does not
+  - documented cross-laptop playlist transfer assumptions and warnings
+  - documented the difference between Playlist Files, Export Tandas, and
+    System Export / Import
+  - added restore/recovery workflows for legacy import, startup flow, and full
+    system backup import
+- Updated files:
+  - `docs/user-guide.md`
+- Verification:
+  - not rerun; documentation-only change
+- Added a Diagnostics-tab suspicious track-length report for debugging scan
+  anomalies:
+  - lists all music tracks with raw duration under 1 minute
+  - lists tracks where trims remove 20 seconds or more from the FFmpeg-reported
+    duration
+  - each line includes title, relative path, raw duration, effective duration,
+    and removed time
+- Updated files:
+  - `app/src/main/diagnostics.ts`
+  - `app/src/shared/types.ts`
+  - `app/src/renderer/controllers/settings-diagnostics-controller.ts`
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/i18n.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/main-diagnostics.test.ts`
+  - `tests/settings-diagnostics-controller.test.ts`
+  - `design/05-ui-principles-and-components.md`
+  - `design/tracking-and-feature-matrix.md`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/main-diagnostics.test.ts tests/settings-diagnostics-controller.test.ts tests/i18n.test.ts`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - result: targeted tests passed; build passed; full suite passed (85 files / 415 tests)
+- Extended playlist interchange and hardened silence-based duration trimming:
+  - playlist save/import now supports grouped `m3u` / `m3u8` as well as JSON
+  - contiguous `group-title` / `EXTGRP` sections import as tanda snapshots
+  - grouped M3U export writes relative paths for better cross-machine reuse when
+    the music library layout matches but the absolute root differs
+  - audio analysis now derives end trim only from truly trailing silence instead
+    of blindly using the last `silence_start`, which could previously shorten
+    tracks incorrectly when earlier quiet passages appeared in FFmpeg output
+- Updated files:
+  - `app/src/main/library-transfer.ts`
+  - `app/src/main/library/analysis.ts`
+  - `app/src/main/main.ts`
+  - `app/src/shared/library-transfer.ts`
+  - `app/src/renderer/i18n.ts`
+  - `tests/analysis-command-line.test.ts`
+  - `tests/library-transfer.test.ts`
+  - `design/02-functional-requirements.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/user-guide.md`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/library-transfer.test.ts tests/analysis-command-line.test.ts tests/i18n.test.ts`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - result: targeted tests passed; build passed; full suite passed (85 files / 413 tests)
+- Adjusted Library-tab visual order so the `Legacy Import` migration card now
+  appears above the resumable `Startup Flow` card, matching the logical setup
+  sequence for users migrating from the old system.
+- Updated files:
+  - `app/src/renderer/index.html`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+- Added portable tanda and playlist transfer features:
+  - Library settings now include `Export Tandas`, which writes saved tandas to
+    portable JSON with track path references
+  - Playlist settings now include `Save Playlist` and `Import Playlist`
+  - playlist import supports:
+    - Tanda Forge JSON playlists with tanda snapshots and cortina assignments
+    - standard `m3u` / `m3u8` playlists as track-only imports
+  - M3U import warns and skips entries that are remote, missing locally, or
+    ambiguous across multiple roots
+- Updated files:
+  - `app/src/main/library-transfer.ts`
+  - `app/src/main/main.ts`
+  - `app/src/preload/preload.ts`
+  - `app/src/shared/library-transfer.ts`
+  - `app/src/shared/types.ts`
+  - `app/src/renderer/index.html`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/i18n.ts`
+  - `tests/library-transfer.test.ts`
+  - `design/02-functional-requirements.md`
+  - `design/05-ui-principles-and-components.md`
+  - `design/09-ipc-and-api.md`
+  - `design/tracking-and-feature-matrix.md`
+  - `docs/user-guide.md`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/library-transfer.test.ts tests/i18n.test.ts`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - result: targeted tests passed; build passed; full suite passed (85 files / 407 tests)
 - Added a visual startup-flow phase line in Library settings:
   - complete setup now shows a phase tracker for:
     - legacy import
@@ -8012,6 +8121,46 @@
   - The section also states that the project does not currently maintain a separate private security reporting process.
 - Verification:
   - Not rerun; README-only documentation change.
+- Fixed the startup-flow completion state and made the Library setup area more human-readable.
+  - In `app/src/renderer/controllers/settings-library-controller.ts`, the final `complete` phase now marks the `Done` node as completed so it shows the tick styling instead of remaining in the pulsing current state.
+  - In `tests/settings-library-controller.test.ts`, the startup-flow phase test now asserts that the final step is completed rather than current.
+  - In `app/src/renderer/index.html` and `app/src/renderer/styles.css`, the Library setup tab now uses clearer setup cards with recommended/manual guidance, plain-language summaries, and rerun-safe messaging.
+  - In `app/src/renderer/i18n.ts`, added the new Library setup guidance strings across all supported languages.
+  - Updated `design/05-ui-principles-and-components.md`, `design/tracking-and-feature-matrix.md`, and `docs/user-guide.md` to reflect the guided setup presentation and rerun-safe startup flow.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-library-controller.test.ts tests/i18n.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`84` files, `400` tests).
+- Grouped all manual Library tools under one outer visual shell and mirrored one-stop setup progress into the startup card with a rough ETA.
+  - In `app/src/renderer/index.html`, all optional legacy/scan/cache/maintenance/system-transfer controls now sit inside a shared `manual-setup-shell`.
+  - The startup card now includes a combined progress label, progress bar, and rough remaining-time line.
+  - In `app/src/renderer/controllers/settings-library-controller.ts`, startup flow now mirrors scan progress and compressed-cache progress into that combined startup area and derives a coarse estimate for the active step only, waiting for enough progress before showing a numeric time.
+  - In `tests/settings-library-controller.test.ts`, added startup-area progress coverage and preserved the final-phase completion regression.
+  - In `app/src/renderer/i18n.ts`, added the new startup progress and ETA strings across all supported languages.
+  - Updated `design/05-ui-principles-and-components.md`, `design/tracking-and-feature-matrix.md`, and `docs/user-guide.md` to reflect the shared manual container and one-stop progress behavior.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-library-controller.test.ts tests/i18n.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`84` files, `401` tests).
+- Tightened the startup ETA so it no longer shows an implausible whole-flow estimate early in long scans.
+  - In `app/src/renderer/controllers/settings-library-controller.ts`, the ETA now estimates only the active step (`music`, `cortina`, or `compression`) and only after enough elapsed time and item progress have been observed.
+  - Early in a long run the UI now shows a waiting-for-enough-progress message instead of a misleading number.
+  - In `tests/settings-library-controller.test.ts`, the startup progress coverage now checks both the hold-back behavior and the later step ETA.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-library-controller.test.ts tests/i18n.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`84` files, `401` tests).
+- Separated destructive legacy migration from the resumable startup flow.
+  - In `app/src/main/main.ts` and `app/src/shared/types.ts`, `library:runStartupFlow` no longer performs legacy import or reports legacy-import results; it now covers only music scan, cortina scan, and compressed-cache preparation.
+  - In `app/src/renderer/index.html`, the startup phase tracker now has four phases (`music`, `cortina`, `compression`, `done`), and `Legacy Import` is presented as its own one-time migration card outside the resumable startup card.
+  - In `app/src/renderer/controllers/settings-library-controller.ts`, startup-flow progress/result handling was simplified to the non-destructive path only.
+  - In `app/src/renderer/i18n.ts`, updated startup-flow wording to remove the misleading legacy-import promise and added the new one-time-migration copy for all supported languages.
+  - In `tests/settings-library-controller.test.ts`, updated the startup result shape and phase expectations to match the new non-destructive flow.
+  - Updated `design/02-functional-requirements.md`, `design/tracking-and-feature-matrix.md`, and `docs/user-guide.md` so the docs now distinguish one-time legacy migration from resumable setup/recovery.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-library-controller.test.ts tests/i18n.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`84` files, `401` tests).
 - Reworked the README `How It Works` section to describe the real preparation and workflow model in more detail.
   - In `README.md`, `How It Works` now covers:
     - separate folders for music, cortinas, and display board images

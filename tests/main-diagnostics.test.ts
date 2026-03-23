@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 import {
   appendLogEntry,
+  getDiagnosticsDataReadiness,
   getDiagnosticsPaths,
   PLAYBACK_DIAGNOSTIC_LOG,
   readLogTail,
@@ -47,5 +48,63 @@ describe("main diagnostics helpers", () => {
     const result = readLogTail(getPaths, PLAYBACK_DIAGNOSTIC_LOG, 2);
     expect(result.lines).toEqual(["two", "three"]);
     expect(result.path).toBe(path.join(root, PLAYBACK_DIAGNOSTIC_LOG));
+  });
+
+  it("reports suspiciously short and aggressively trimmed tracks", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "tanda-diag-"));
+    const summary = getDiagnosticsDataReadiness(
+      {
+        prepare: () => ({
+          all: () => [
+            {
+              id: "track-short",
+              title: "Short Song",
+              relative_path: "Tango/short.mp3",
+              duration_ms: 42000,
+              start_offset_ms: 0,
+              end_trim_ms: 0,
+              loudness_db: -14,
+              gain_db: -1,
+              tag_error: "",
+              analysis_error: "",
+            },
+            {
+              id: "track-trimmed",
+              title: "Trimmed Song",
+              relative_path: "Tango/trimmed.mp3",
+              duration_ms: 180000,
+              start_offset_ms: 5000,
+              end_trim_ms: 22000,
+              loudness_db: -14,
+              gain_db: -1,
+              tag_error: "",
+              analysis_error: "",
+            },
+          ],
+        }),
+      },
+      createDataPaths(root),
+    );
+
+    expect(summary.shortDurationTracks).toEqual([
+      {
+        id: "track-short",
+        title: "Short Song",
+        relativePath: "Tango/short.mp3",
+        durationMs: 42000,
+        effectiveDurationMs: 42000,
+        removedMs: 0,
+      },
+    ]);
+    expect(summary.aggressivelyTrimmedTracks).toEqual([
+      {
+        id: "track-trimmed",
+        title: "Trimmed Song",
+        relativePath: "Tango/trimmed.mp3",
+        durationMs: 180000,
+        effectiveDurationMs: 153000,
+        removedMs: 27000,
+      },
+    ]);
   });
 });

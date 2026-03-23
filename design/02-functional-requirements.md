@@ -49,14 +49,15 @@ Analysis:
 ### FR-001.4 Guided Setup and Recovery
 - FR-001.4.R1: The system must provide a single guided library-setup flow for
   configured roots.
-- FR-001.4.R2: When legacy data is detected for the configured roots, the
-  guided flow must import it before scanning.
+- FR-001.4.R2: Legacy migration must be exposed as a separate explicit action,
+  not folded into the resumable guided setup flow, because it may replace
+  existing tanda data.
 - FR-001.4.R3: The guided flow must scan music and cortina roots, ensure
   waveform PNGs are available, and bulk-render compressed companion files.
 - FR-001.4.R4: The guided flow must remain valid after a database reset so a
   user can rebuild a complete working library without manual step ordering.
-- FR-001.4.R5: Combined import/scan/precompute failures must be surfaced to the
-  user without aborting unrelated successful work.
+- FR-001.4.R5: Combined scan/precompute failures must be surfaced to the user
+  without aborting unrelated successful work.
 
 ### FR-001.5 System Backup and Restore
 - FR-001.5.R1: The system must export the full application data root as a
@@ -113,6 +114,7 @@ Analysis:
 - FR-011.R6: Tanda styles may be one or more styles.
 - FR-011.R7: Style filtering for search/clipboard updates immediately when a tanda is selected.
 - FR-011.R8: Tracks without an instrumental flag are treated as non-instrumental.
+- FR-011.R9: DJs may export saved tandas as a portable JSON file containing tanda metadata and track path references.
 
 ---
 
@@ -131,6 +133,10 @@ Analysis:
 - FR-020.3.R1: The current playlist auto-saves after edits.
 - FR-020.3.R2: The playlist reloads on app start and restores its slots.
 - FR-020.3.R3: Only a single unnamed playlist is required for now.
+- FR-020.3.R4: DJs may manually save the current playlist as a portable JSON file.
+- FR-020.3.R5: DJs may import a previously saved portable playlist file.
+- FR-020.3.R6: Imported playlist files must restore playlist items, tanda snapshots, and compatible cortina assignments when matching local tracks can be found.
+- FR-020.3.R7: DJs may manually save or import the current playlist in grouped `m3u` / `m3u8` form for cross-machine interchange when the same relative music layout exists.
 
 ---
 
@@ -152,6 +158,9 @@ Behavior:
 - FR-021.R7: Generated playlists may be played directly.
 - FR-021.R8: Generated playlists may be converted into an absolute playlist.
 - FR-021.R9: Generated playlists may have individual tandas saved permanently.
+- FR-021.R10: Standard playlist files such as `m3u`/`m3u8` may be imported as track-only sources into the current playlist.
+- FR-021.R11: Grouped `m3u` / `m3u8` import may treat contiguous `group-title` or `EXTGRP` sections as tandas.
+- FR-021.R12: Standard playlist import/export may discard full tanda metadata, playlist rules, and explicit cortina planning when those concepts are not represented by the source format.
 
 ---
 

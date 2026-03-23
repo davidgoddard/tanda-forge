@@ -108,8 +108,8 @@ Fix common audio issues before they reach the floor.
 Handle cortinas without breaking flow.
 
 * Global or per-slot cortina settings
-* Built-in fade behaviour
-* Manual override when needed
+* Built-in auto-fade-out behaviour
+* Manual override when needed to play entire track with option to fade out anyway later
 
 ---
 

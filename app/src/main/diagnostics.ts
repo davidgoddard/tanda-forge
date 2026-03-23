@@ -17,6 +17,18 @@ type DbLike = {
   };
 };
 
+const SHORT_TRACK_DURATION_MS = 60_000;
+const AGGRESSIVE_TRIM_REMOVED_MS = 20_000;
+
+type SuspiciousTrackLength = {
+  id: string;
+  title: string;
+  relativePath: string;
+  durationMs: number;
+  effectiveDurationMs: number;
+  removedMs: number;
+};
+
 export const RENDERER_ERROR_LOG = "renderer-errors.log";
 export const PLAYBACK_DIAGNOSTIC_LOG = "playback-diagnostics.log";
 const MAX_LOG_BYTES = 5 * 1024 * 1024;
@@ -167,7 +179,7 @@ export const verifyCachedFiles = (db: DbLike, getDataPaths: () => DataPaths) => 
 export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => DataPaths) => {
   const rows = db
     .prepare(
-      `select t.id, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.loudness_db, t.gain_db,
+      `select t.id, t.title, t.relative_path, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.loudness_db, t.gain_db,
           t.tag_error, t.analysis_error
        from tracks t
        join library_roots r on r.id = t.root_id
@@ -175,6 +187,8 @@ export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => Data
     )
     .all() as {
     id: string;
+    title?: string | null;
+    relative_path?: string | null;
     duration_ms?: number | null;
     start_offset_ms?: number | null;
     end_trim_ms?: number | null;
@@ -206,6 +220,8 @@ export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => Data
   let missingTrimSignals = 0;
   let analysisErrors = 0;
   let missingWaveforms = 0;
+  const shortDurationTracks: SuspiciousTrackLength[] = [];
+  const aggressivelyTrimmedTracks: SuspiciousTrackLength[] = [];
   rows.forEach((row) => {
     const durationMs =
       typeof row.duration_ms === "number" && Number.isFinite(row.duration_ms) ? row.duration_ms : 0;
@@ -226,6 +242,8 @@ export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => Data
       typeof row.end_trim_ms === "number" && Number.isFinite(row.end_trim_ms)
         ? row.end_trim_ms
         : 0;
+    const effectiveDurationMs = Math.max(0, durationMs - startOffsetMs - endTrimMs);
+    const removedMs = Math.max(0, durationMs - effectiveDurationMs);
     if (startOffsetMs <= 0 && endTrimMs <= 0) {
       missingTrimSignals += 1;
     }
@@ -235,6 +253,20 @@ export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => Data
     if (!waveformTrackIds.has(row.id)) {
       missingWaveforms += 1;
     }
+    const suspiciousTrack = {
+      id: row.id,
+      title: row.title?.trim() || "(untitled)",
+      relativePath: row.relative_path?.trim() || row.id,
+      durationMs,
+      effectiveDurationMs,
+      removedMs,
+    };
+    if (durationMs > 0 && durationMs < SHORT_TRACK_DURATION_MS) {
+      shortDurationTracks.push(suspiciousTrack);
+    }
+    if (removedMs >= AGGRESSIVE_TRIM_REMOVED_MS) {
+      aggressivelyTrimmedTracks.push(suspiciousTrack);
+    }
   });
   return {
     totalTracks: rows.length,
@@ -243,5 +275,7 @@ export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => Data
     missingTrimSignals,
     analysisErrors,
     missingWaveforms,
+    shortDurationTracks,
+    aggressivelyTrimmedTracks,
   };
 };

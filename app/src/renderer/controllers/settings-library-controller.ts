@@ -6,6 +6,7 @@ import type {
 } from "../../shared/types.js";
 
 type ScanIssue = { filePath: string; message: string };
+type StartupProgressMode = "scan" | "compression" | null;
 
 type PrecomputeProgress = Parameters<AppApi["onPrecomputeCompressedProgress"]>[0] extends (
   value: infer T,
@@ -31,6 +32,9 @@ type LibraryMaintenanceElements = {
   startupFlowResult?: HTMLElement | null;
   startupFlowPhaseItems?: HTMLElement[] | null;
   startupFlowPhaseDetail?: HTMLElement | null;
+  startupFlowProgressLabel?: HTMLElement | null;
+  startupFlowEta?: HTMLElement | null;
+  startupFlowProgressEl?: HTMLProgressElement | null;
   scanMusicBtn?: HTMLButtonElement | null;
   scanCortinasBtn?: HTMLButtonElement | null;
   exportSystemBtn?: HTMLButtonElement | null;
@@ -66,7 +70,6 @@ export type LibraryMaintenanceControllerDeps = {
 const MAX_SCAN_ISSUES = 50;
 const MAX_PRECOMPUTE_FAILURE_LINES = 20;
 const STARTUP_PHASE_DETAIL_KEYS: Record<StartupFlowPhase, string> = {
-  legacy: "startupFlowPhaseDetailLegacy",
   music: "startupFlowPhaseDetailMusic",
   cortina: "startupFlowPhaseDetailCortina",
   compression: "startupFlowPhaseDetailCompression",
@@ -121,6 +124,9 @@ const renderPrecomputeFailureResult = (
   }
   target.textContent = lines.join("\n");
 };
+const STARTUP_ETA_MIN_PROGRESS_COUNT = 25;
+const STARTUP_ETA_MIN_PROGRESS_FRACTION = 0.02;
+const STARTUP_ETA_MIN_ELAPSED_MS = 20000;
 
 export const createSettingsLibraryController = (deps: LibraryMaintenanceControllerDeps) => {
   let currentIssueErrors: ScanIssue[] = [];
@@ -131,14 +137,114 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
   let startupFlowInProgress = false;
   let currentStartupPhase: StartupFlowPhase | null = null;
   let lastStartupActivePhase: StartupFlowPhase | null = null;
+  let startupPhaseStartedAt = 0;
+  let startupProgressMode: StartupProgressMode = null;
+  let latestStartupScanProgress: ScanProgress | null = null;
+  let latestStartupPrecomputeProgress: PrecomputeProgress | null = null;
 
   const startupPhaseOrder: StartupFlowPhase[] = [
-    "legacy",
     "music",
     "cortina",
     "compression",
     "complete",
   ];
+
+  const formatStartupEtaDuration = (ms: number) => {
+    const totalSeconds = Math.max(1, Math.round(ms / 1000));
+    if (totalSeconds < 60) {
+      return deps.translate("startupFlowEtaSeconds", { seconds: totalSeconds });
+    }
+    if (totalSeconds < 3600) {
+      return deps.translate("startupFlowEtaMinutesSeconds", {
+        minutes: Math.floor(totalSeconds / 60),
+        seconds: totalSeconds % 60,
+      });
+    }
+    return deps.translate("startupFlowEtaHoursMinutes", {
+      hours: Math.floor(totalSeconds / 3600),
+      minutes: Math.floor((totalSeconds % 3600) / 60),
+    });
+  };
+
+  const setStartupUnifiedProgress = (
+    label: string,
+    current: number,
+    total: number,
+    etaLabel?: string,
+  ) => {
+    if (deps.elements.startupFlowProgressLabel) {
+      deps.elements.startupFlowProgressLabel.textContent = label;
+    }
+    if (deps.elements.startupFlowProgressEl) {
+      deps.elements.startupFlowProgressEl.max = Math.max(1, total || 1);
+      deps.elements.startupFlowProgressEl.value = Math.min(current, Math.max(1, total || 1));
+    }
+    if (deps.elements.startupFlowEta) {
+      deps.elements.startupFlowEta.textContent =
+        etaLabel ?? deps.translate("startupFlowEtaCalculating");
+    }
+  };
+
+  const getStartupActiveStepProgress = () => {
+    if (currentStartupPhase === "music" || currentStartupPhase === "cortina") {
+      if (!latestStartupScanProgress || latestStartupScanProgress.total <= 0) {
+        return null;
+      }
+      return {
+        current: latestStartupScanProgress.current,
+        total: latestStartupScanProgress.total,
+      };
+    }
+    if (currentStartupPhase === "compression") {
+      if (!latestStartupPrecomputeProgress || latestStartupPrecomputeProgress.total <= 0) {
+        return null;
+      }
+      return {
+        current: latestStartupPrecomputeProgress.current,
+        total: latestStartupPrecomputeProgress.total,
+      };
+    }
+    return null;
+  };
+
+  const updateStartupEta = () => {
+    if (!startupFlowInProgress) {
+      if (currentStartupPhase === "complete") {
+        return deps.translate("startupFlowEtaDone");
+      }
+      if (currentStartupPhase === "failed") {
+        return deps.translate("startupFlowEtaStopped");
+      }
+      return deps.translate("startupFlowEtaCalculating");
+    }
+    const activeProgress = getStartupActiveStepProgress();
+    if (!activeProgress || startupPhaseStartedAt <= 0) {
+      return deps.translate("startupFlowEtaCalculating");
+    }
+    const fraction = activeProgress.current / activeProgress.total;
+    const elapsedMs = Date.now() - startupPhaseStartedAt;
+    if (
+      activeProgress.current < STARTUP_ETA_MIN_PROGRESS_COUNT ||
+      fraction < STARTUP_ETA_MIN_PROGRESS_FRACTION ||
+      elapsedMs < STARTUP_ETA_MIN_ELAPSED_MS
+    ) {
+      return deps.translate("startupFlowEtaCollecting");
+    }
+    const remainingMs = elapsedMs * ((1 / fraction) - 1);
+    if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
+      return deps.translate("startupFlowEtaCalculating");
+    }
+    return deps.translate("startupFlowEtaStepRough", {
+      time: formatStartupEtaDuration(remainingMs),
+    });
+  };
+
+  const resetStartupFlowProgress = () => {
+    startupProgressMode = null;
+    latestStartupScanProgress = null;
+    latestStartupPrecomputeProgress = null;
+    setStartupUnifiedProgress(deps.translate("startupFlowProgressIdle"), 0, 1);
+  };
 
   const setScanButtonsDisabled = (disabled: boolean) => {
     if (deps.elements.scanMusicBtn) {
@@ -236,6 +342,19 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     if (deps.elements.progressLabelSettings) {
       deps.elements.progressLabelSettings.textContent = progressText;
     }
+    if (
+      startupFlowInProgress &&
+      (currentStartupPhase === "music" || currentStartupPhase === "cortina")
+    ) {
+      startupProgressMode = "scan";
+      latestStartupScanProgress = progress;
+      setStartupUnifiedProgress(
+        progressText,
+        progress.current,
+        progress.total || 1,
+        updateStartupEta(),
+      );
+    }
   };
 
   const handlePrecomputeProgress = (progress: PrecomputeProgress) => {
@@ -269,6 +388,32 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
             cached: progress.cached,
             failed: progress.failed,
           });
+    }
+    if (startupFlowInProgress && currentStartupPhase === "compression") {
+      startupProgressMode = "compression";
+      latestStartupPrecomputeProgress = progress;
+      const startupProgressText = progress.currentFile
+        ? deps.translate("statusPrecomputeCompressionProgressWithFile", {
+            current: progress.current,
+            total: progress.total,
+            rendered: progress.rendered,
+            cached: progress.cached,
+            failed: progress.failed,
+            file: progress.currentFile,
+          })
+        : deps.translate("statusPrecomputeCompressionProgress", {
+            current: progress.current,
+            total: progress.total,
+            rendered: progress.rendered,
+            cached: progress.cached,
+            failed: progress.failed,
+          });
+      setStartupUnifiedProgress(
+        startupProgressText,
+        progress.current,
+        progress.total || 1,
+        updateStartupEta(),
+      );
     }
   };
 
@@ -398,6 +543,37 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
           ? deps.translate("startupFlowPhaseDetailIdle")
           : deps.translate(STARTUP_PHASE_DETAIL_KEYS[phase]);
     }
+    if (phase === null) {
+      resetStartupFlowProgress();
+    } else if (phase === "complete") {
+      setStartupUnifiedProgress(
+        deps.translate("startupFlowProgressComplete"),
+        1,
+        1,
+        deps.translate("startupFlowEtaDone"),
+      );
+    } else if (phase === "failed") {
+      if (deps.elements.startupFlowEta) {
+        deps.elements.startupFlowEta.textContent = deps.translate("startupFlowEtaStopped");
+      }
+    } else if (phase === "music" || phase === "cortina" || phase === "compression") {
+      startupPhaseStartedAt = Date.now();
+      if (phase === "compression") {
+        latestStartupPrecomputeProgress = null;
+      } else {
+        latestStartupScanProgress = null;
+      }
+      if (startupProgressMode === null) {
+        setStartupUnifiedProgress(
+          deps.translate("startupFlowProgressPreparing"),
+          0,
+          1,
+          deps.translate("startupFlowEtaCalculating"),
+        );
+      } else if (deps.elements.startupFlowEta) {
+        deps.elements.startupFlowEta.textContent = updateStartupEta();
+      }
+    }
     const items = deps.elements.startupFlowPhaseItems ?? [];
     if (items.length === 0) {
       return;
@@ -420,6 +596,10 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
       if (phase === null) {
         return;
       }
+      if (phase === "complete") {
+        item.classList.add("completed");
+        return;
+      }
       if (currentIndex > itemIndex) {
         item.classList.add("completed");
         return;
@@ -432,11 +612,6 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
         item.classList.add("skipped");
       }
     });
-    if (phase === "music") {
-      items
-        .filter((item) => item.dataset.phase === "legacy")
-        .forEach((item) => item.classList.add("skipped"));
-    }
   };
 
   const runStartupFlow = async () => {
@@ -448,6 +623,7 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     currentPrecomputeIssueErrors = [];
     renderPrecomputeFailureResult(deps.elements.precomputeCompressedResult, deps.translate, []);
     startupFlowInProgress = true;
+    startupPhaseStartedAt = 0;
     lastStartupActivePhase = null;
     setStartupPhase(null);
     setStartupFlowButtonDisabled(true);
@@ -456,6 +632,12 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     deps.clearAlert();
     renderStartupFlowResult(deps.translate("startupFlowRunning"));
     deps.setStatus(deps.translate("startupFlowRunning"));
+    setStartupUnifiedProgress(
+      deps.translate("startupFlowProgressPreparing"),
+      0,
+      1,
+      deps.translate("startupFlowEtaCalculating"),
+    );
     if (deps.elements.precomputeProgressElSettings) {
       deps.elements.precomputeProgressElSettings.max = 1;
       deps.elements.precomputeProgressElSettings.value = 0;
@@ -473,20 +655,10 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
         deps.setStatus(message);
         return;
       }
-      updateScanIssues([
-        ...result.legacyImport.missingFiles,
-        ...result.musicScan.errors,
-        ...result.cortinaScan.errors,
-        ...result.precompute.errors,
-      ]);
+      updateScanIssues([...result.musicScan.errors, ...result.cortinaScan.errors, ...result.precompute.errors]);
       result.precompute.errors.forEach((error) => appendPrecomputeIssue(error));
       renderStartupFlowResult(
         deps.translate("startupFlowDone", {
-          legacy: result.legacyImported
-            ? deps.translate("startupFlowLegacyImported")
-            : result.legacyDetected
-              ? deps.translate("startupFlowLegacyDetected")
-              : deps.translate("startupFlowLegacySkipped"),
           music: result.musicScan.scanned,
           cortinas: result.cortinaScan.scanned,
           rendered: result.precompute.rendered,
@@ -513,6 +685,8 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
       deps.setStatus(message);
     } finally {
       startupFlowInProgress = false;
+      startupProgressMode = null;
+      startupPhaseStartedAt = 0;
       setStartupFlowButtonDisabled(false);
       setScanButtonsDisabled(false);
       setPrecomputeButtonsDisabled(false);

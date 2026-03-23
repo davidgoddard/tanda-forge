@@ -1,3 +1,6 @@
+import type { PlaylistExportManifest } from "./library-transfer";
+import type { StoredPlaylistState } from "./playlist-storage";
+
 export type LibraryRoot = {
   id: string;
   kind: "music" | "cortina" | "background";
@@ -87,13 +90,16 @@ export type ScanProgress = {
   errors: number;
 };
 
-export type StartupFlowPhase =
-  | "legacy"
-  | "music"
-  | "cortina"
-  | "compression"
-  | "complete"
-  | "failed";
+export type SuspiciousTrackLength = {
+  id: string;
+  title: string;
+  relativePath: string;
+  durationMs: number;
+  effectiveDurationMs: number;
+  removedMs: number;
+};
+
+export type StartupFlowPhase = "music" | "cortina" | "compression" | "complete" | "failed";
 
 export type TrackPageRequest = {
   offset?: number;
@@ -203,16 +209,6 @@ export type AppApi = {
   }) => Promise<
     | {
         ok: true;
-        legacyDetected: boolean;
-        legacyImported: boolean;
-        legacyImport: {
-          imported: boolean;
-          tandasImported: number;
-          tracksUpdated: number;
-          missingTracks: number;
-          missingFiles: { filePath: string; message: string }[];
-          rootPath: string;
-        };
         musicScan: ScanSummary;
         cortinaScan: ScanSummary;
         precompute: {
@@ -245,6 +241,27 @@ export type AppApi = {
     cancelled?: boolean;
     path: string;
     error?: string;
+  }>;
+  exportTandasData: () => Promise<{
+    ok: boolean;
+    cancelled?: boolean;
+    path: string;
+    error?: string;
+  }>;
+  exportPlaylistData: (manifest: PlaylistExportManifest) => Promise<{
+    ok: boolean;
+    cancelled?: boolean;
+    path: string;
+    error?: string;
+  }>;
+  importPlaylistData: () => Promise<{
+    ok: boolean;
+    cancelled?: boolean;
+    path: string;
+    error?: string;
+    format?: "tanda-forge-playlist" | "m3u";
+    state?: StoredPlaylistState;
+    warnings?: string[];
   }>;
   listTrackPage: (params: TrackPageRequest) => Promise<TrackRow[]>;
   jumpToPrefix: (params: JumpRequest) => Promise<{ offset: number }>;
@@ -384,6 +401,8 @@ export type AppApi = {
     missingTrimSignals: number;
     analysisErrors: number;
     missingWaveforms: number;
+    shortDurationTracks: SuspiciousTrackLength[];
+    aggressivelyTrimmedTracks: SuspiciousTrackLength[];
   }>;
   logPlaybackDiagnostic: (params: {
     channel: "main" | "headphone";

@@ -47,6 +47,89 @@ some tangos, then a break such as a Waltz followed by more tangos and a milonga 
 and letters; 3t or 4T etc.  So a simple playlist might be "4T 4T 3W 4T 4T 3M".  When adding tandas to the playlist the application will check the target position's size
 and style and warn if the user is about to drop a mis-matching tanda into it.
 
+In the same Playlist settings tab there is now a **Playlist Files** section.  This is for saving or moving the current working playlist without touching the rest of the system data.
+
+#### Playlist Save / Import
+
+- **Save Playlist** opens a normal file-save dialog.
+- The filename extension controls the format:
+  - save as `.json` for the native Tanda Forge playlist format
+  - save as `.m3u` or `.m3u8` for grouped M3U interchange
+- **Import Playlist** opens a file picker and loads either format back into the current playlist.
+- For safety, playlist import is only allowed while playlist playback is idle.
+
+#### Native JSON Playlist Format
+
+This is the recommended format when the destination machine is also running Tanda Forge.
+
+What JSON preserves:
+
+- playlist order
+- individual track rows
+- tanda rows as tanda snapshots
+- tanda names
+- tanda track membership
+- mismatch markers
+- selected cortina set name
+- compatible saved cortina slot assignments
+
+What JSON still depends on:
+
+- the destination laptop having access to the same music files
+- those files being matchable by full path or, preferably, by relative path inside the configured music roots
+
+If a track cannot be matched locally during import, that item is skipped and the import result reports warnings.
+
+#### Grouped M3U / M3U8 Playlist Format
+
+This is the portability format.  It is useful when:
+
+- you want to move a playlist to another laptop that has the same music folder layout
+- you want a format that other playlist tools can still open
+- you want a simpler text-based interchange file
+
+How Tanda Forge writes grouped M3U:
+
+- each tanda is written as a contiguous grouped block
+- group information is written using `group-title` and `#EXTGRP`
+- track entries are written using relative paths where possible
+- plain standalone track rows are written as normal ungrouped entries
+
+How Tanda Forge reads grouped M3U:
+
+- contiguous entries with the same `group-title` or `#EXTGRP` are treated as one tanda
+- ungrouped entries are imported as standalone track rows
+- tanda boundaries behave like normal tanda gaps after import
+- cortinas are not stored as explicit playlist items in M3U, so the receiving system uses its own normal cortina behavior for those tanda boundaries
+
+What grouped M3U does **not** fully preserve:
+
+- full tanda metadata beyond basic grouping
+- playlist sequence rules
+- expected tanda sizes from the configured sequence
+- saved cortina slot choices
+- richer Tanda Forge-specific state
+
+So grouped M3U should be treated as a best-effort interchange format, not as the canonical archive format.
+
+#### Cross-Laptop Use
+
+If you are sending a playlist to another laptop, the most reliable arrangement is:
+
+- both machines have the same relative folder structure inside the music roots
+- for example both contain something like `Tango/Di Sarli/...` and `Vals/...`
+- the absolute root path can differ between laptops
+
+This is why relative paths are preferred for grouped M3U import/export.
+
+Things that can still cause warnings or skipped items:
+
+- files missing on the destination machine
+- duplicate relative paths in different roots
+- a playlist built from a library that is not organized the same way on the receiving machine
+
+For a reliable backup and restore of a playlist between Tanda Forge systems, JSON remains the recommended format. Grouped M3U is useful when you want a more portable interchange file that other playlist tools can also open.
+
 The playlist timing values affect how one item leads into the next:
 - Positive value: silence/pause before the next track or cortina starts.
 - Zero: immediate handover with no added silence.
@@ -254,6 +337,90 @@ All non built-in collections including **General** can be cleard with a single c
 
 Tandas and tracks can be moved from one collection to another and to General by default using the **M** menu option and if there are multiple possible targets, it will offer a picklist otherwise if there is only one writable (i.e. not build-in rule based collection) then it will not prompt and will just move.
 
+### Export and Backup
+
+There are three different import/export areas in the app and they serve different purposes:
+
+- **Playlist Files** in **Settings > Playlist**
+- **Export Tandas** in **Settings > Library**
+- **System Export / Import** in **Settings > Library**
+
+They are deliberately separate because they back up different levels of information.
+
+#### 1) Playlist Files
+
+Use this when you want to save or move the current playlist only.
+
+- save as JSON for the highest-fidelity Tanda Forge playlist backup
+- save as grouped M3U/M3U8 for broader interoperability
+- import either format back into the current playlist
+
+This does **not** back up your whole library database, saved tandas collection, waveform cache, compressed cache, or all app settings.
+
+#### 2) Export Tandas
+
+Use this when you want to preserve your curated saved tandas without exporting the whole application.
+
+What **Export Tandas** includes:
+
+- saved tanda definitions
+- tanda names
+- tanda styles
+- tanda ratings
+- tanda track membership
+- portable track references for matching on another machine
+
+What it does **not** include:
+
+- the audio files themselves
+- playlist state
+- waveform images
+- compressed playback files
+- application settings
+- logs
+
+This is useful when:
+
+- you have built up good tandas and want to archive them
+- you want to move tanda curation separately from the rest of the app state
+- you want a smaller export than a full system backup
+
+#### 3) System Export / Import
+
+Use this when you want a complete backup or a machine-to-machine restoration of the app state.
+
+What **System Export** includes:
+
+- database records
+- saved tandas
+- playlist persistence state
+- waveform cache
+- compressed cache
+- logs
+- persisted application settings
+
+What it does **not** include:
+
+- the external music files in your configured music folder
+- the external cortina files in your configured cortina folder
+- the external display-image files in your configured background-image folder
+
+This is the right option when:
+
+- you are backing up the working state of the application
+- you are moving to another laptop and want the same database and caches
+- you want the easiest restore path after corruption or accidental reset
+
+#### Practical Recommendation
+
+Choose the export/import path based on what you are trying to preserve:
+
+- **Current playlist only**: use **Playlist Files**
+- **Saved tandas only**: use **Export Tandas**
+- **Everything about the app state**: use **System Export / Import**
+
+If in doubt, use **System Export** for backup and **JSON playlist export** for sharing or transferring a currently prepared playlist.
+
 ### Working With Tandas
 
 There are several ways a tanda can be created or filled:
@@ -335,8 +502,54 @@ You need at least one music folder, and optionally a cortina folder.
 1. Open **Settings** (gear icon).
 2. In **System**, click **Add Music Folder** and choose a folder.
 3. (Optional) Click **Add Cortina Folder** and choose a folder.
-4. Import legacy Tanda Player tandas and track data (titles, artists, tempo etc.) - See below
-5. Click **Scan Music** (and **Scan Cortinas** if needed).
+4. If migrating from an older Tanda Player system, use **Legacy Import** first.
+5. Then run **Startup Flow** to scan music/cortinas and build waveform and compressed caches.
+
+### 2) Importing Legacy Data
+
+If you are migrating from the previous system:
+
+1. Open **Settings > Library**.
+2. Use **Legacy Import**.
+3. This imports legacy tandas and metadata into the database.
+4. Then run **Startup Flow** to scan the files properly and build the derived assets.
+
+This is intentionally separate from the resumable startup flow because legacy import replaces tanda data rather than simply repairing caches.
+
+### 3) Restoring From a Full Backup
+
+If you have a previous **System Export**:
+
+1. Open **Settings > Library**.
+2. Click **Import System**.
+3. Confirm the replacement.
+4. Restart or continue using the restored system state.
+
+This restores the full application data root, not just a playlist or tanda file.
+
+### 4) Rebuilding After Database Loss
+
+If the database has been erased or corrupted and you do **not** have a full system backup:
+
+1. Re-add the music and cortina roots if needed.
+2. If you have old-system data, run **Legacy Import** first.
+3. Run **Startup Flow**.
+4. Wait for music scan, cortina scan, waveform generation, and compressed cache preparation to finish.
+
+### 5) Importing a Playlist Onto Another Laptop
+
+For a second laptop with access to the same music library layout:
+
+1. Export the playlist from the first laptop:
+   - use JSON for the most faithful Tanda Forge transfer
+   - use grouped M3U/M3U8 for broader compatibility
+2. Copy the playlist file to the second laptop.
+3. Ensure the second laptop has the same music collection available through configured music roots.
+4. Open **Settings > Playlist** on the second laptop.
+5. Use **Import Playlist**.
+6. Review any warnings about missing or ambiguous files.
+
+If your goal is to move the whole application state rather than just the playlist, use **System Export / Import** instead.
 
 
 ### 2) Select Audio Outputs
@@ -403,14 +616,21 @@ Although the old legacy data does include some information to help normalise the
 In **Settings -> Library**, the buttons are grouped by purpose:
 
 - **Startup Flow** runs the recommended end-to-end setup in one action.
-  - If legacy data is detected for the configured roots, it imports that first.
-  - It then scans music and cortinas, generates missing waveform PNGs, and precomputes compressed companion files.
+  - It scans music and cortinas, generates missing waveform PNGs, and precomputes compressed companion files.
+  - The phase line ends with a ticked **Done** step when the workflow finishes successfully.
+  - It is safe to run again after a shutdown or interruption; finished scans and cache work are reused where possible.
+  - The one-stop setup card now mirrors scan and compression progress directly in that area and shows a rough time-remaining estimate for the current step once enough progress has been observed.
   - This is the recommended path after adding roots for the first time or after using **Erase Database**.
+- **Legacy Import** is now a separate one-time migration step.
+  - Use it only if you are bringing tandas and metadata across from the old system.
+  - It is separate from **Startup Flow** because it replaces existing tanda data rather than behaving like a resumable rebuild step.
 - **Library Scan** refreshes the database, analysis, and waveform PNG cache from the music and cortina folders.
 - Re-running **Scan Music** or **Scan Cortinas** skips unchanged files, so adding new songs normally just means copying them into an existing root and scanning that root again.
 - **Derived Caches** manages the expensive on-disk cache files.
 - **Library Maintenance** contains database-only cleanup.
 - **System Export / Import** backs up or restores the complete application data folder (database, caches, logs, and persisted settings).
+
+The legacy migration card is shown separately from the resumable startup flow, and the remaining scan/cache/maintenance/backup tools sit inside one shared manual-tools area so their optional/manual role is clear.
 
 If **compression** (dynamic range reduction) is enabled, the system can generate compressed files on demand when a track starts, but this may cause a short delay or CPU spike. Clicking **Precompute compressed cache** renders those compressed companions in advance. This takes a long time, but it is optional and only needed if compression will be used.
 

@@ -65,8 +65,10 @@ const createElements = () => ({
   startupFlowBtn: new FakeElement(),
   startupFlowResult: new FakeElement(),
   startupFlowPhaseDetail: new FakeElement(),
+  startupFlowProgressLabel: new FakeElement(),
+  startupFlowEta: new FakeElement(),
+  startupFlowProgressEl: new FakeElement(),
   startupFlowPhaseItems: [
-    Object.assign(new FakeElement(), { dataset: { phase: "legacy" } }),
     Object.assign(new FakeElement(), { dataset: { phase: "music" } }),
     Object.assign(new FakeElement(), { dataset: { phase: "cortina" } }),
     Object.assign(new FakeElement(), { dataset: { phase: "compression" } }),
@@ -293,16 +295,6 @@ describe("settings library controller", () => {
         scanKind: vi.fn(),
         runStartupFlow: vi.fn(async () => ({
           ok: true,
-          legacyDetected: true,
-          legacyImported: true,
-          legacyImport: {
-            imported: true,
-            tandasImported: 4,
-            tracksUpdated: 20,
-            missingTracks: 1,
-            missingFiles: [{ filePath: "/legacy/missing.mp3", message: "File not found" }],
-            rootPath: "/legacy",
-          },
           musicScan: {
             scanned: 10,
             added: 2,
@@ -360,7 +352,7 @@ describe("settings library controller", () => {
     await controller.runStartupFlow();
 
     expect(elements.startupFlowResult.textContent).toContain("startupFlowDone");
-    expect(elements.errorList.querySelectorAll("li")).toHaveLength(1);
+    expect(elements.errorList.querySelectorAll("li")).toHaveLength(0);
     expect(setStatus).toHaveBeenCalledWith(
       'startupFlowStatusDone:{"music":10,"cortinas":5,"rendered":7,"cached":8,"failed":0}',
     );
@@ -384,16 +376,6 @@ describe("settings library controller", () => {
               resolveStartup = () =>
                 resolve({
                   ok: true,
-                  legacyDetected: false,
-                  legacyImported: false,
-                  legacyImport: {
-                    imported: false,
-                    tandasImported: 0,
-                    tracksUpdated: 0,
-                    missingTracks: 0,
-                    missingFiles: [],
-                    rootPath: "",
-                  },
                   musicScan: {
                     scanned: 1,
                     added: 1,
@@ -451,6 +433,7 @@ describe("settings library controller", () => {
     });
 
     const startupPromise = controller.runStartupFlow();
+    controller.handleStartupFlowProgress({ phase: "compression" });
     controller.handlePrecomputeProgress({
       current: 1,
       total: 2,
@@ -467,6 +450,9 @@ describe("settings library controller", () => {
     expect(elements.precomputeProgressLabelSettings.textContent).toContain(
       "statusPrecomputeCompressionProgressWithFile",
     );
+    expect(elements.startupFlowProgressLabel.textContent).toContain(
+      "statusPrecomputeCompressionProgressWithFile",
+    );
   });
 
   it("marks startup phases as skipped, current, and completed", () => {
@@ -474,23 +460,101 @@ describe("settings library controller", () => {
     const controller = createController(elements);
 
     controller.handleStartupFlowProgress({ phase: "music" });
-    expect(elements.startupFlowPhaseItems[0].classList.contains("skipped")).toBe(true);
-    expect(elements.startupFlowPhaseItems[1].classList.contains("current")).toBe(true);
+    expect(elements.startupFlowPhaseItems[0].classList.contains("current")).toBe(true);
     expect(elements.startupFlowPhaseDetail.textContent).toBe("startupFlowPhaseDetailMusic:");
 
     controller.handleStartupFlowProgress({ phase: "compression" });
+    expect(elements.startupFlowPhaseItems[0].classList.contains("completed")).toBe(true);
     expect(elements.startupFlowPhaseItems[1].classList.contains("completed")).toBe(true);
-    expect(elements.startupFlowPhaseItems[2].classList.contains("completed")).toBe(true);
-    expect(elements.startupFlowPhaseItems[3].classList.contains("current")).toBe(true);
+    expect(elements.startupFlowPhaseItems[2].classList.contains("current")).toBe(true);
     expect(elements.startupFlowPhaseDetail.textContent).toBe(
       "startupFlowPhaseDetailCompression:",
     );
 
     controller.handleStartupFlowProgress({ phase: "complete" });
+    expect(elements.startupFlowPhaseItems[2].classList.contains("completed")).toBe(true);
     expect(elements.startupFlowPhaseItems[3].classList.contains("completed")).toBe(true);
-    expect(elements.startupFlowPhaseItems[4].classList.contains("current")).toBe(true);
+    expect(elements.startupFlowPhaseItems[3].classList.contains("current")).toBe(false);
     expect(elements.startupFlowPhaseDetail.textContent).toBe(
       "startupFlowPhaseDetailComplete:",
     );
+  });
+
+  it("waits for enough startup progress before showing a step eta", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-23T12:00:00Z"));
+    const elements = createElements();
+    let resolveStartup: (() => void) | null = null;
+    const controller = createSettingsLibraryController({
+      translate: (key, params) => `${key}:${params ? JSON.stringify(params) : ""}`,
+      basenameForDisplay: (filePath) => filePath ?? "",
+      api: {
+        scanKind: vi.fn(),
+        runStartupFlow: vi.fn(
+          () =>
+            new Promise((resolve) => {
+              resolveStartup = () =>
+                resolve({
+                  ok: true,
+                  musicScan: { scanned: 4, added: 4, updated: 0, removed: 0, errors: [] },
+                  cortinaScan: { scanned: 1, added: 1, updated: 0, removed: 0, errors: [] },
+                  precompute: { rendered: 5, cached: 0, failed: 0, errors: [] },
+                });
+            }),
+        ),
+        precomputeCompressedTracks: vi.fn(),
+        verifyCachedFiles: vi.fn(),
+        clearCachedFiles: vi.fn(),
+        exportSystemData: vi.fn(),
+        importSystemData: vi.fn(),
+      },
+      elements,
+      setStatus: vi.fn(),
+      clearAlert: vi.fn(),
+      getCompressionConfig: () => ({
+        mode: "upward",
+        liftThresholdDb: -24,
+        maxLiftDb: 8,
+        ratio: 4,
+        attackMs: 5,
+        releaseMs: 250,
+        gateThresholdDb: -50,
+        limiterCeilingDb: -1,
+        limiterReleaseMs: 150,
+      }),
+      scheduleCompressionPrefetch: vi.fn(),
+      onScanCompleted: vi.fn(async () => {}),
+      onCachedFilesCleared: vi.fn(async () => {}),
+      onStartupFlowCompleted: vi.fn(async () => {}),
+      onSystemImported: vi.fn(async () => {}),
+    });
+
+    const startupPromise = controller.runStartupFlow();
+    controller.handleStartupFlowProgress({ phase: "music" });
+    vi.advanceTimersByTime(30000);
+    controller.handleScanProgress({
+      current: 26,
+      total: 2256,
+      filePath: "music/Di Sarli - Bahia Blanca.mp3",
+      rootLabel: "Music",
+      errors: 0,
+    });
+
+    expect(elements.startupFlowEta.textContent).toBe("startupFlowEtaCollecting:");
+
+    vi.advanceTimersByTime(90000);
+    controller.handleScanProgress({
+      current: 120,
+      total: 2256,
+      filePath: "music/Di Sarli - Bahia Blanca.mp3",
+      rootLabel: "Music",
+      errors: 0,
+    });
+    resolveStartup?.();
+    await startupPromise;
+
+    expect(elements.startupFlowProgressLabel.textContent).toContain("statusScanProgressWithFile");
+    expect(elements.startupFlowEta.textContent).toContain("startupFlowEtaStepRough:");
+    vi.useRealTimers();
   });
 });

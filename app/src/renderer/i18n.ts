@@ -185,10 +185,25 @@ export const translations = {
     scanLibrary: "Scan Library",
     startupFlowTitle: "Startup Flow",
     startupFlowHelp:
-      "Runs the complete setup for configured roots. If legacy data is detected it is imported first, then music and cortinas are scanned, waveform images are built, and compressed cache files are rendered.",
+      "Runs the resumable setup for configured roots. Music and cortinas are scanned, waveform images are built, and compressed cache files are rendered.",
     startupFlowCompressionPending:
       "Compressed cache stage will appear here once music and cortina scans finish.",
     startupFlowButton: "Run complete setup",
+    startupFlowBadge: "Recommended",
+    startupFlowRerunHelp:
+      "Safe to run again later. Existing scans and caches are reused where possible, so reruns behave like repair and completion rather than starting from zero.",
+    startupFlowProgressIdle: "Progress will appear here while complete setup runs.",
+    startupFlowProgressPreparing: "Preparing detailed progress...",
+    startupFlowProgressLegacy: "Checking for legacy data and preparing setup.",
+    startupFlowProgressComplete: "Complete setup finished.",
+    startupFlowEtaCalculating: "Time remaining for this step: calculating...",
+    startupFlowEtaCollecting: "Time remaining for this step: waiting for enough progress...",
+    startupFlowEtaStepRough: "Rough time remaining for this step: {time}",
+    startupFlowEtaDone: "Time remaining for this step: done",
+    startupFlowEtaStopped: "Time remaining for this step: stopped",
+    startupFlowEtaSeconds: "{seconds}s",
+    startupFlowEtaMinutesSeconds: "{minutes}m {seconds}s",
+    startupFlowEtaHoursMinutes: "{hours}h {minutes}m",
     startupPhaseLegacy: "Legacy import",
     startupPhaseMusic: "Music scan",
     startupPhaseCortina: "Cortina scan",
@@ -210,22 +225,30 @@ export const translations = {
       "Complete setup stopped because one stage failed. Check the result message below.",
     startupFlowRunning: "Running complete setup...",
     startupFlowDone:
-      "Setup complete. Legacy: {legacy}. Music scanned {music}. Cortinas scanned {cortinas}. Compressed rendered {rendered}, cached {cached}, failed {failed}.",
+      "Setup complete. Music scanned {music}. Cortinas scanned {cortinas}. Compressed rendered {rendered}, cached {cached}, failed {failed}.",
     startupFlowStatusDone:
       "Setup complete: music {music}, cortinas {cortinas}, rendered {rendered}, cached {cached}, failed {failed}.",
     startupFlowFailed: "Setup failed: {message}",
+    legacyImportBadge: "One-time migration",
+    legacyImportHelp:
+      "Import legacy tandas and metadata only if you are migrating from the old system. This is separate from Startup Flow because it replaces existing tanda data.",
     startupFlowLegacyImported: "imported",
     startupFlowLegacyDetected: "detected but not imported",
     startupFlowLegacySkipped: "not detected",
     manualLibraryToolsTitle: "Manual Setup / Maintenance",
+    manualLibraryToolsBadge: "Only if needed",
     manualLibraryToolsHelp:
       "The controls below are only needed for manual setup, targeted reruns, or maintenance after the complete setup flow.",
     libraryScanTitle: "Library Scan",
+    libraryScanSummary:
+      "Use this when you only want to refresh music or cortinas after adding files.",
     libraryScanHelp:
       "Scanning builds or refreshes the track database, analysis, and waveform cache. Re-running Scan Music or Scan Cortinas skips unchanged files, so adding new songs only requires scanning that root again.",
     scanMusic: "Scan Music",
     scanCortinas: "Scan Cortinas",
     derivedCacheTitle: "Derived Caches",
+    derivedCacheSummary:
+      "Use this to verify, rebuild, or clear waveform and compressed playback caches.",
     precomputeCompression: "Precompute compressed cache",
     precomputeCompressionHelp:
       "Optional: pre-renders compressed versions for tracks and cortinas. Only needed if compression will be used.",
@@ -240,7 +263,16 @@ export const translations = {
       "This will remove cached waveform and compressed audio files. They can be regenerated later, but this may take time. Continue?",
     eraseCachedFilesDone: "Cached files erased.",
     libraryMaintenanceTitle: "Library Maintenance",
+    libraryMaintenanceSummary: "Use this only for recovery or deliberate rebuilds.",
+    tandaExportTitle: "Tandas Export",
+    tandaExportSummary: "Export saved tandas only as a portable JSON file.",
+    tandaExportButton: "Export Tandas",
+    tandaExportRunning: "Exporting tandas...",
+    tandaExportDone: "Tandas export created at {path}",
+    tandaExportFailed: "Tandas export failed: {message}",
     systemTransferTitle: "System Export / Import",
+    systemTransferSummary:
+      "Export a portable backup of the full app state or restore one later.",
     systemTransferHelp:
       "Export or restore the full application data root, including database records, waveform images, compressed cache files, logs, and saved settings.",
     systemExport: "Export System",
@@ -316,6 +348,24 @@ export const translations = {
       "Use terms like 3t or grouped alternatives like (2c 3m).",
     playlistSequenceInvalidSyntax: "Invalid sequence syntax.",
     playlistSequenceUnknownCodes: "Unknown sequence code(s): {codes}.",
+    playlistTransferTitle: "Playlist Files",
+    playlistTransferSummary:
+      "Save the current playlist to JSON or grouped M3U/M3U8, or import either format.",
+    playlistTransferHelp:
+      "Grouped M3U import/export is best-effort only. Contiguous group-title or EXTGRP sections become tandas on import, while full Tanda Forge metadata still requires JSON.",
+    playlistSaveButton: "Save Playlist",
+    playlistImportButton: "Import Playlist",
+    playlistExportRunning: "Saving playlist...",
+    playlistExportDone: "Playlist saved at {path}",
+    playlistExportFailed: "Playlist save failed: {message}",
+    playlistImportRunning: "Importing playlist...",
+    playlistImportDone: "Imported {count} items from {format}. Warnings: {warnings}. File: {path}",
+    playlistImportFailed: "Playlist import failed: {message}",
+    playlistTransferCancelled: "Playlist transfer cancelled.",
+    playlistImportMissingItems: "{count} playlist entries could not be matched locally.",
+    playlistImportFormatJson: "Tanda Forge playlist",
+    playlistImportFormatM3u: "M3U playlist",
+    statusPlaylistImportDuringPlayback: "Stop playlist playback before importing a playlist.",
     playlistStyleMapLabel: "Style mapping",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     playlistArtistRepeatGapLabel: "Artist repeat gap aspiration (min)",
@@ -373,6 +423,14 @@ export const translations = {
     diagnosticsWaveformSuccess: "Waveform generated: {path}",
     diagnosticsWaveformFailed: "Waveform failed: {message}",
     diagnosticsDataReadiness: "Data readiness",
+    diagnosticsTrackLengthIssues: "Suspicious track lengths",
+    diagnosticsTrackLengthIssuesHelp:
+      "Lists tracks shorter than 1 minute and tracks where trims remove 20 seconds or more from the ffmpeg duration.",
+    diagnosticsTrackLengthShortHeading: "Under 1 minute: {count}",
+    diagnosticsTrackLengthTrimHeading: "20 seconds or more removed by trims: {count}",
+    diagnosticsTrackLengthNone: "None",
+    diagnosticsTrackLengthIssueLine:
+      "{title} [{path}] raw {duration}s, effective {effective}s, removed {removed}s",
     diagnosticsReadinessTotalTracks: "Tracks",
     diagnosticsReadinessMissingDuration: "Missing duration",
     diagnosticsReadinessMissingLoudness: "Missing loudness+gain",
@@ -800,10 +858,27 @@ export const translations = {
     scanLibrary: "Escanear biblioteca",
     startupFlowTitle: "Flujo inicial",
     startupFlowHelp:
-      "Ejecuta la preparacion completa para las raices configuradas. Si hay datos legacy, los importa primero; despues escanea musica y cortinas, genera formas de onda y renderiza la cache comprimida.",
+      "Ejecuta la preparacion reanudable para las raices configuradas. Escanea musica y cortinas, genera formas de onda y renderiza la cache comprimida.",
     startupFlowCompressionPending:
       "La etapa de cache comprimida aparecera aqui cuando terminen los escaneos de musica y cortinas.",
     startupFlowButton: "Ejecutar preparacion completa",
+    startupFlowBadge: "Recomendado",
+    startupFlowRerunHelp:
+      "Se puede ejecutar otra vez mas adelante. Los escaneos y caches existentes se reutilizan cuando es posible, asi que funciona mas como reparar y completar que como empezar desde cero.",
+    startupFlowProgressIdle:
+      "El progreso aparecera aqui mientras se ejecuta la preparacion completa.",
+    startupFlowProgressPreparing: "Preparando progreso detallado...",
+    startupFlowProgressLegacy: "Comprobando datos legacy y preparando la configuracion.",
+    startupFlowProgressComplete: "Preparacion completa terminada.",
+    startupFlowEtaCalculating: "Tiempo restante de este paso: calculando...",
+    startupFlowEtaCollecting:
+      "Tiempo restante de este paso: esperando progreso suficiente...",
+    startupFlowEtaStepRough: "Tiempo restante aproximado de este paso: {time}",
+    startupFlowEtaDone: "Tiempo restante de este paso: terminado",
+    startupFlowEtaStopped: "Tiempo restante de este paso: detenido",
+    startupFlowEtaSeconds: "{seconds}s",
+    startupFlowEtaMinutesSeconds: "{minutes}m {seconds}s",
+    startupFlowEtaHoursMinutes: "{hours}h {minutes}m",
     startupPhaseLegacy: "Importacion legacy",
     startupPhaseMusic: "Escaneo de musica",
     startupPhaseCortina: "Escaneo de cortinas",
@@ -825,22 +900,30 @@ export const translations = {
       "La configuracion completa se detuvo porque una etapa fallo. Revise el mensaje de resultado abajo.",
     startupFlowRunning: "Ejecutando preparacion completa...",
     startupFlowDone:
-      "Preparacion completa. Legacy: {legacy}. Musica escaneada {music}. Cortinas escaneadas {cortinas}. Comprimidos renderizados {rendered}, en cache {cached}, fallidos {failed}.",
+      "Preparacion completa. Musica escaneada {music}. Cortinas escaneadas {cortinas}. Comprimidos renderizados {rendered}, en cache {cached}, fallidos {failed}.",
     startupFlowStatusDone:
       "Preparacion completa: musica {music}, cortinas {cortinas}, renderizados {rendered}, en cache {cached}, fallidos {failed}.",
     startupFlowFailed: "La preparacion fallo: {message}",
+    legacyImportBadge: "Migracion unica",
+    legacyImportHelp:
+      "Importa tandas y metadatos legacy solo si estas migrando desde el sistema anterior. Esto se mantiene separado del Flujo inicial porque reemplaza los datos de tandas existentes.",
     startupFlowLegacyImported: "importado",
     startupFlowLegacyDetected: "detectado pero no importado",
     startupFlowLegacySkipped: "no detectado",
     manualLibraryToolsTitle: "Configuracion manual / mantenimiento",
+    manualLibraryToolsBadge: "Solo si hace falta",
     manualLibraryToolsHelp:
       "Los controles de abajo solo se necesitan para configuracion manual, repeticiones puntuales o mantenimiento despues del flujo completo.",
     libraryScanTitle: "Escaneo de biblioteca",
+    libraryScanSummary:
+      "Usa esto cuando solo quieras refrescar musica o cortinas despues de agregar archivos.",
     libraryScanHelp:
       "El escaneo crea o actualiza la base de pistas, el analisis y la cache de formas de onda. Al repetir Escanear musica o Escanear cortinas se omiten los archivos sin cambios, asi que agregar canciones nuevas solo requiere escanear esa raiz otra vez.",
     scanMusic: "Escanear musica",
     scanCortinas: "Escanear cortinas",
     derivedCacheTitle: "Caches derivadas",
+    derivedCacheSummary:
+      "Usa esto para verificar, reconstruir o borrar las caches de formas de onda y audio comprimido.",
     precomputeCompression: "Precalcular cache comprimida",
     precomputeCompressionHelp:
       "Opcional: prerenderiza versiones comprimidas para pistas y cortinas. Solo es necesario si se usara compresion.",
@@ -855,7 +938,17 @@ export const translations = {
       "Esto eliminara las formas de onda y el audio comprimido en cache. Se pueden regenerar despues, pero puede tardar. Continuar?",
     eraseCachedFilesDone: "Archivos en cache borrados.",
     libraryMaintenanceTitle: "Mantenimiento de biblioteca",
+    libraryMaintenanceSummary:
+      "Usa esto solo para recuperacion o reconstrucciones deliberadas.",
+    tandaExportTitle: "Exportar tandas",
+    tandaExportSummary: "Exporta solo las tandas guardadas como un archivo JSON portable.",
+    tandaExportButton: "Exportar tandas",
+    tandaExportRunning: "Exportando tandas...",
+    tandaExportDone: "Exportacion de tandas creada en {path}",
+    tandaExportFailed: "La exportacion de tandas fallo: {message}",
     systemTransferTitle: "Exportar / importar sistema",
+    systemTransferSummary:
+      "Exporta una copia portable del estado completo de la aplicacion o restaura una despues.",
     systemTransferHelp:
       "Exporta o restaura toda la carpeta de datos de la aplicacion, incluyendo base de datos, formas de onda, cache comprimida, registros y ajustes guardados.",
     systemExport: "Exportar sistema",
@@ -932,6 +1025,27 @@ export const translations = {
       "Usa terminos como 3t o alternativas agrupadas como (2c 3m).",
     playlistSequenceInvalidSyntax: "Sintaxis de secuencia invalida.",
     playlistSequenceUnknownCodes: "Codigo(s) de secuencia desconocido(s): {codes}.",
+    playlistTransferTitle: "Archivos de playlist",
+    playlistTransferSummary:
+      "Guarda la playlist actual en JSON o M3U/M3U8 agrupado, o importa cualquiera de los dos formatos.",
+    playlistTransferHelp:
+      "La importacion y exportacion M3U agrupada es de mejor esfuerzo. Las secciones contiguas con group-title o EXTGRP se convierten en tandas al importar, pero los metadatos completos siguen requiriendo JSON.",
+    playlistSaveButton: "Guardar playlist",
+    playlistImportButton: "Importar playlist",
+    playlistExportRunning: "Guardando playlist...",
+    playlistExportDone: "Playlist guardada en {path}",
+    playlistExportFailed: "El guardado de playlist fallo: {message}",
+    playlistImportRunning: "Importando playlist...",
+    playlistImportDone:
+      "Se importaron {count} elementos desde {format}. Advertencias: {warnings}. Archivo: {path}",
+    playlistImportFailed: "La importacion de playlist fallo: {message}",
+    playlistTransferCancelled: "Transferencia de playlist cancelada.",
+    playlistImportMissingItems:
+      "{count} entradas de playlist no pudieron asociarse localmente.",
+    playlistImportFormatJson: "playlist de Tanda Forge",
+    playlistImportFormatM3u: "playlist M3U",
+    statusPlaylistImportDuringPlayback:
+      "Deten la reproduccion de la playlist antes de importarla.",
     playlistStyleMapLabel: "Mapa de estilos",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     playlistArtistRepeatGapLabel: "Objetivo de separacion de artista (min)",
@@ -987,6 +1101,14 @@ export const translations = {
     diagnosticsWaveformSuccess: "Forma de onda generada: {path}",
     diagnosticsWaveformFailed: "Fallo al generar forma de onda: {message}",
     diagnosticsDataReadiness: "Estado de datos",
+    diagnosticsTrackLengthIssues: "Duraciones sospechosas",
+    diagnosticsTrackLengthIssuesHelp:
+      "Lista pistas de menos de 1 minuto y pistas donde los recortes quitan 20 segundos o mas de la duracion de ffmpeg.",
+    diagnosticsTrackLengthShortHeading: "Menos de 1 minuto: {count}",
+    diagnosticsTrackLengthTrimHeading: "20 segundos o mas eliminados por recortes: {count}",
+    diagnosticsTrackLengthNone: "Ninguna",
+    diagnosticsTrackLengthIssueLine:
+      "{title} [{path}] original {duration}s, efectiva {effective}s, quitados {removed}s",
     diagnosticsReadinessTotalTracks: "Pistas",
     diagnosticsReadinessMissingDuration: "Duracion faltante",
     diagnosticsReadinessMissingLoudness: "Sonoridad+ganancia faltante",
@@ -1431,10 +1553,27 @@ export const translations = {
     scanLibrary: "Scanner la bibliotheque",
     startupFlowTitle: "Flux de demarrage",
     startupFlowHelp:
-      "Lance la preparation complete pour les racines configurees. Si des donnees legacy sont detectees elles sont importees d'abord, puis la musique et les cortinas sont scannees, les formes d'onde sont generees et le cache compresse est calcule.",
+      "Lance la preparation repriseable pour les racines configurees. La musique et les cortinas sont scannees, les formes d'onde sont generees et le cache compresse est calcule.",
     startupFlowCompressionPending:
       "L'etape de cache compresse apparaitra ici une fois les scans musique et cortinas termines.",
     startupFlowButton: "Lancer la preparation complete",
+    startupFlowBadge: "Recommande",
+    startupFlowRerunHelp:
+      "Peut etre relance plus tard. Les scans et caches existants sont reutilises quand c'est possible, donc cela sert plutot de reparation et completion que de redemarrage total.",
+    startupFlowProgressIdle:
+      "La progression apparaitra ici pendant l'execution de la preparation complete.",
+    startupFlowProgressPreparing: "Preparation des details de progression...",
+    startupFlowProgressLegacy: "Verification des donnees legacy et preparation du flux.",
+    startupFlowProgressComplete: "Preparation complete terminee.",
+    startupFlowEtaCalculating: "Temps restant pour cette etape: calcul en cours...",
+    startupFlowEtaCollecting:
+      "Temps restant pour cette etape: attente de suffisamment de progression...",
+    startupFlowEtaStepRough: "Temps restant approximatif pour cette etape: {time}",
+    startupFlowEtaDone: "Temps restant pour cette etape: termine",
+    startupFlowEtaStopped: "Temps restant pour cette etape: arrete",
+    startupFlowEtaSeconds: "{seconds}s",
+    startupFlowEtaMinutesSeconds: "{minutes}m {seconds}s",
+    startupFlowEtaHoursMinutes: "{hours}h {minutes}m",
     startupPhaseLegacy: "Import legacy",
     startupPhaseMusic: "Scan musique",
     startupPhaseCortina: "Scan cortinas",
@@ -1456,22 +1595,30 @@ export const translations = {
       "La configuration complete s'est arretee car une etape a echoue. Consultez le message de resultat ci-dessous.",
     startupFlowRunning: "Preparation complete en cours...",
     startupFlowDone:
-      "Preparation terminee. Legacy: {legacy}. Musique scannee {music}. Cortinas scannees {cortinas}. Compresses rendus {rendered}, en cache {cached}, echecs {failed}.",
+      "Preparation terminee. Musique scannee {music}. Cortinas scannees {cortinas}. Compresses rendus {rendered}, en cache {cached}, echecs {failed}.",
     startupFlowStatusDone:
       "Preparation terminee: musique {music}, cortinas {cortinas}, rendus {rendered}, en cache {cached}, echecs {failed}.",
     startupFlowFailed: "La preparation a echoue: {message}",
+    legacyImportBadge: "Migration unique",
+    legacyImportHelp:
+      "Importez les tandas et metadonnees legacy seulement si vous migrez depuis l'ancien systeme. Cette etape est separee du flux de demarrage car elle remplace les donnees de tandas existantes.",
     startupFlowLegacyImported: "importe",
     startupFlowLegacyDetected: "detecte mais non importe",
     startupFlowLegacySkipped: "non detecte",
     manualLibraryToolsTitle: "Configuration manuelle / maintenance",
+    manualLibraryToolsBadge: "Seulement si necessaire",
     manualLibraryToolsHelp:
       "Les commandes ci-dessous ne servent qu'a la configuration manuelle, aux relances ciblees, ou a la maintenance apres le flux complet.",
     libraryScanTitle: "Scan de bibliotheque",
+    libraryScanSummary:
+      "Utilisez ceci seulement pour rafraichir musique ou cortinas apres ajout de fichiers.",
     libraryScanHelp:
       "Le scan construit ou rafraichit la base de titres, l'analyse et le cache de formes d'onde. Relancer Scanner musique ou Scanner cortinas ignore les fichiers inchanges, donc l'ajout de nouveaux morceaux ne demande qu'un nouveau scan de cette racine.",
     scanMusic: "Scanner musique",
     scanCortinas: "Scanner cortinas",
     derivedCacheTitle: "Caches derives",
+    derivedCacheSummary:
+      "Utilisez ceci pour verifier, reconstruire ou effacer les caches de formes d'onde et d'audio compresse.",
     precomputeCompression: "Precalculer le cache compresse",
     precomputeCompressionHelp:
       "Optionnel: pre-genere des versions compressees pour pistes et cortinas. Necessaire seulement si la compression sera utilisee.",
@@ -1486,7 +1633,18 @@ export const translations = {
       "Cette action supprimera les formes d'onde et l'audio compresse en cache. Ils pourront etre regeneres plus tard, mais cela peut prendre du temps. Continuer ?",
     eraseCachedFilesDone: "Fichiers en cache effaces.",
     libraryMaintenanceTitle: "Maintenance de bibliotheque",
+    libraryMaintenanceSummary:
+      "Utilisez ceci uniquement pour la recuperation ou une reconstruction volontaire.",
+    tandaExportTitle: "Export des tandas",
+    tandaExportSummary:
+      "Exporte uniquement les tandas enregistrees dans un fichier JSON portable.",
+    tandaExportButton: "Exporter les tandas",
+    tandaExportRunning: "Export des tandas...",
+    tandaExportDone: "Export des tandas cree dans {path}",
+    tandaExportFailed: "Echec de l'export des tandas: {message}",
     systemTransferTitle: "Export / import systeme",
+    systemTransferSummary:
+      "Exporte une sauvegarde portable de tout l'etat de l'application ou restaure-en une plus tard.",
     systemTransferHelp:
       "Exporte ou restaure tout le dossier de donnees de l'application, y compris la base, les formes d'onde, le cache compresse, les journaux et les reglages sauvegardes.",
     systemExport: "Exporter le systeme",
@@ -1563,6 +1721,27 @@ export const translations = {
       "Utilisez des termes comme 3t ou des alternatives groupees comme (2c 3m).",
     playlistSequenceInvalidSyntax: "Syntaxe de sequence invalide.",
     playlistSequenceUnknownCodes: "Code(s) de sequence inconnu(s): {codes}.",
+    playlistTransferTitle: "Fichiers de playlist",
+    playlistTransferSummary:
+      "Enregistrez la playlist actuelle en JSON ou M3U/M3U8 groupe, ou importez l'un ou l'autre format.",
+    playlistTransferHelp:
+      "L'import/export M3U groupe reste une solution approximative. Les sections contigues avec group-title ou EXTGRP deviennent des tandas a l'import, mais les metadonnees completes exigent toujours le JSON.",
+    playlistSaveButton: "Enregistrer la playlist",
+    playlistImportButton: "Importer une playlist",
+    playlistExportRunning: "Enregistrement de la playlist...",
+    playlistExportDone: "Playlist enregistree dans {path}",
+    playlistExportFailed: "Echec de l'enregistrement de la playlist: {message}",
+    playlistImportRunning: "Import de la playlist...",
+    playlistImportDone:
+      "{count} elements importes depuis {format}. Avertissements: {warnings}. Fichier: {path}",
+    playlistImportFailed: "Echec de l'import de la playlist: {message}",
+    playlistTransferCancelled: "Transfert de playlist annule.",
+    playlistImportMissingItems:
+      "{count} elements de playlist n'ont pas pu etre associes localement.",
+    playlistImportFormatJson: "playlist Tanda Forge",
+    playlistImportFormatM3u: "playlist M3U",
+    statusPlaylistImportDuringPlayback:
+      "Arretez la lecture de la playlist avant d'en importer une.",
     playlistStyleMapLabel: "Mapping de styles",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     playlistArtistRepeatGapLabel: "Ecart souhaite entre artistes (min)",
@@ -1618,6 +1797,14 @@ export const translations = {
     diagnosticsWaveformSuccess: "Forme d'onde generee: {path}",
     diagnosticsWaveformFailed: "Echec de la forme d'onde: {message}",
     diagnosticsDataReadiness: "Etat des donnees",
+    diagnosticsTrackLengthIssues: "Durees suspectes",
+    diagnosticsTrackLengthIssuesHelp:
+      "Liste les pistes de moins d'une minute et celles dont les trims retirent 20 secondes ou plus de la duree ffmpeg.",
+    diagnosticsTrackLengthShortHeading: "Moins d'une minute : {count}",
+    diagnosticsTrackLengthTrimHeading: "20 secondes ou plus retirees par les trims : {count}",
+    diagnosticsTrackLengthNone: "Aucune",
+    diagnosticsTrackLengthIssueLine:
+      "{title} [{path}] brut {duration}s, effectif {effective}s, retire {removed}s",
     diagnosticsReadinessTotalTracks: "Pistes",
     diagnosticsReadinessMissingDuration: "Duree manquante",
     diagnosticsReadinessMissingLoudness: "Loudness+gain manquants",
@@ -2070,10 +2257,27 @@ export const translations = {
     scanLibrary: "Bibliothek scannen",
     startupFlowTitle: "Startablauf",
     startupFlowHelp:
-      "Fuehrt die komplette Einrichtung fuer konfigurierte Wurzeln aus. Wenn Legacy-Daten gefunden werden, werden sie zuerst importiert; danach werden Musik und Cortinas gescannt, Wellenformen erzeugt und der komprimierte Cache gerendert.",
+      "Fuehrt die wiederaufnehmbare Einrichtung fuer konfigurierte Wurzeln aus. Musik und Cortinas werden gescannt, Wellenformen erzeugt und der komprimierte Cache gerendert.",
     startupFlowCompressionPending:
       "Die Stufe fuer den komprimierten Cache erscheint hier, sobald Musik- und Cortina-Scans abgeschlossen sind.",
     startupFlowButton: "Komplette Einrichtung starten",
+    startupFlowBadge: "Empfohlen",
+    startupFlowRerunHelp:
+      "Kann spaeter erneut ausgefuehrt werden. Vorhandene Scans und Caches werden wenn moeglich wiederverwendet, daher wirkt der Ablauf eher wie Reparatur und Vervollstaendigung als wie ein Neustart bei null.",
+    startupFlowProgressIdle:
+      "Der Fortschritt erscheint hier, waehrend die komplette Einrichtung laeuft.",
+    startupFlowProgressPreparing: "Detaillierten Fortschritt vorbereiten...",
+    startupFlowProgressLegacy: "Legacy-Daten werden geprueft und die Einrichtung vorbereitet.",
+    startupFlowProgressComplete: "Komplette Einrichtung abgeschlossen.",
+    startupFlowEtaCalculating: "Restzeit fuer diesen Schritt: wird berechnet...",
+    startupFlowEtaCollecting:
+      "Restzeit fuer diesen Schritt: warte auf genug Fortschritt...",
+    startupFlowEtaStepRough: "Grobe Restzeit fuer diesen Schritt: {time}",
+    startupFlowEtaDone: "Restzeit fuer diesen Schritt: fertig",
+    startupFlowEtaStopped: "Restzeit fuer diesen Schritt: gestoppt",
+    startupFlowEtaSeconds: "{seconds}s",
+    startupFlowEtaMinutesSeconds: "{minutes}m {seconds}s",
+    startupFlowEtaHoursMinutes: "{hours}h {minutes}m",
     startupPhaseLegacy: "Legacy-Import",
     startupPhaseMusic: "Musikscan",
     startupPhaseCortina: "Cortina-Scan",
@@ -2095,22 +2299,30 @@ export const translations = {
       "Das komplette Setup wurde gestoppt, weil eine Phase fehlgeschlagen ist. Pruefen Sie die Ergebnisnachricht unten.",
     startupFlowRunning: "Komplette Einrichtung laeuft...",
     startupFlowDone:
-      "Einrichtung abgeschlossen. Legacy: {legacy}. Musik gescannt {music}. Cortinas gescannt {cortinas}. Komprimiert gerendert {rendered}, im Cache {cached}, fehlgeschlagen {failed}.",
+      "Einrichtung abgeschlossen. Musik gescannt {music}. Cortinas gescannt {cortinas}. Komprimiert gerendert {rendered}, im Cache {cached}, fehlgeschlagen {failed}.",
     startupFlowStatusDone:
       "Einrichtung abgeschlossen: Musik {music}, Cortinas {cortinas}, gerendert {rendered}, im Cache {cached}, fehlgeschlagen {failed}.",
     startupFlowFailed: "Einrichtung fehlgeschlagen: {message}",
+    legacyImportBadge: "Einmalige Migration",
+    legacyImportHelp:
+      "Importieren Sie Legacy-Tandas und Metadaten nur, wenn Sie vom alten System migrieren. Dieser Schritt ist vom Startablauf getrennt, weil er bestehende Tanda-Daten ersetzt.",
     startupFlowLegacyImported: "importiert",
     startupFlowLegacyDetected: "erkannt aber nicht importiert",
     startupFlowLegacySkipped: "nicht erkannt",
     manualLibraryToolsTitle: "Manuelle Einrichtung / Wartung",
+    manualLibraryToolsBadge: "Nur wenn noetig",
     manualLibraryToolsHelp:
       "Die folgenden Steuerelemente werden nur fuer manuelle Einrichtung, gezielte Wiederholungen oder Wartung nach dem Komplettablauf benoetigt.",
     libraryScanTitle: "Bibliothek scannen",
+    libraryScanSummary:
+      "Verwenden Sie dies nur, wenn Musik oder Cortinas nach neuen Dateien gezielt aufgefrischt werden sollen.",
     libraryScanHelp:
       "Der Scan erstellt oder aktualisiert Track-Datenbank, Analyse und Wellenform-Cache. Ein erneutes Scannen von Musik oder Cortinas uberspringt unveranderte Dateien, daher reicht fur neue Titel ein weiterer Scan dieses Wurzelordners.",
     scanMusic: "Musik scannen",
     scanCortinas: "Cortinas scannen",
     derivedCacheTitle: "Abgeleitete Caches",
+    derivedCacheSummary:
+      "Verwenden Sie dies zum Pruefen, Neuaufbauen oder Loeschen von Wellenform- und komprimierten Wiedergabe-Caches.",
     precomputeCompression: "Komprimierten Cache vorberechnen",
     precomputeCompressionHelp:
       "Optional: rendert komprimierte Versionen fur Tracks und Cortinas vor. Nur notig, wenn Kompression verwendet wird.",
@@ -2125,7 +2337,18 @@ export const translations = {
       "Dadurch werden zwischengespeicherte Wellenformen und komprimierte Audiodateien entfernt. Sie konnen spater neu erzeugt werden, dies kann aber Zeit kosten. Fortfahren?",
     eraseCachedFilesDone: "Cache-Dateien geloscht.",
     libraryMaintenanceTitle: "Bibliothekswartung",
+    libraryMaintenanceSummary:
+      "Verwenden Sie dies nur fuer Wiederherstellung oder bewusstes Neuaufbauen.",
+    tandaExportTitle: "Tandas exportieren",
+    tandaExportSummary:
+      "Exportiert nur gespeicherte Tandas als portable JSON-Datei.",
+    tandaExportButton: "Tandas exportieren",
+    tandaExportRunning: "Tandas werden exportiert...",
+    tandaExportDone: "Tanda-Export erstellt unter {path}",
+    tandaExportFailed: "Tanda-Export fehlgeschlagen: {message}",
     systemTransferTitle: "System exportieren / importieren",
+    systemTransferSummary:
+      "Exportiert eine portable Sicherung des kompletten App-Zustands oder stellt spaeter eine wieder her.",
     systemTransferHelp:
       "Exportiert oder stellt das komplette App-Datenverzeichnis wieder her, einschliesslich Datenbank, Wellenformen, komprimiertem Cache, Logs und gespeicherten Einstellungen.",
     systemExport: "System exportieren",
@@ -2203,6 +2426,27 @@ export const translations = {
       "Nutze Angaben wie 3t oder gruppierte Alternativen wie (2c 3m).",
     playlistSequenceInvalidSyntax: "Ungueltige Sequenzsyntax.",
     playlistSequenceUnknownCodes: "Unbekannte Sequenzcodes: {codes}.",
+    playlistTransferTitle: "Playlist-Dateien",
+    playlistTransferSummary:
+      "Speichert die aktuelle Playlist als JSON oder gruppierte M3U/M3U8 und importiert beide Formate.",
+    playlistTransferHelp:
+      "Gruppierter M3U-Import/-Export ist nur Best-Effort. Zusammenhaengende group-title- oder EXTGRP-Abschnitte werden beim Import zu Tandas, vollstaendige Tanda-Forge-Metadaten bleiben aber JSON vorbehalten.",
+    playlistSaveButton: "Playlist speichern",
+    playlistImportButton: "Playlist importieren",
+    playlistExportRunning: "Playlist wird gespeichert...",
+    playlistExportDone: "Playlist gespeichert unter {path}",
+    playlistExportFailed: "Playlist-Speichern fehlgeschlagen: {message}",
+    playlistImportRunning: "Playlist wird importiert...",
+    playlistImportDone:
+      "{count} Elemente aus {format} importiert. Warnungen: {warnings}. Datei: {path}",
+    playlistImportFailed: "Playlist-Import fehlgeschlagen: {message}",
+    playlistTransferCancelled: "Playlist-Transfer abgebrochen.",
+    playlistImportMissingItems:
+      "{count} Playlist-Eintraege konnten lokal nicht zugeordnet werden.",
+    playlistImportFormatJson: "Tanda-Forge-Playlist",
+    playlistImportFormatM3u: "M3U-Playlist",
+    statusPlaylistImportDuringPlayback:
+      "Stoppen Sie die Playlist-Wiedergabe, bevor Sie eine Playlist importieren.",
     playlistStyleMapLabel: "Stil-Zuordnung",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     playlistArtistRepeatGapLabel: "Gewunschter Abstand zwischen demselben Artist (Min)",
@@ -2258,6 +2502,14 @@ export const translations = {
     diagnosticsWaveformSuccess: "Wellenform erzeugt: {path}",
     diagnosticsWaveformFailed: "Wellenform fehlgeschlagen: {message}",
     diagnosticsDataReadiness: "Datenbereitschaft",
+    diagnosticsTrackLengthIssues: "Verdaechtige Tracklaengen",
+    diagnosticsTrackLengthIssuesHelp:
+      "Listet Tracks unter 1 Minute und Tracks, bei denen Trims 20 Sekunden oder mehr von der ffmpeg-Dauer entfernen.",
+    diagnosticsTrackLengthShortHeading: "Unter 1 Minute: {count}",
+    diagnosticsTrackLengthTrimHeading: "20 Sekunden oder mehr durch Trims entfernt: {count}",
+    diagnosticsTrackLengthNone: "Keine",
+    diagnosticsTrackLengthIssueLine:
+      "{title} [{path}] roh {duration}s, effektiv {effective}s, entfernt {removed}s",
     diagnosticsReadinessTotalTracks: "Titel",
     diagnosticsReadinessMissingDuration: "Dauer fehlt",
     diagnosticsReadinessMissingLoudness: "Lautheit/Gain fehlt",
@@ -2711,10 +2963,27 @@ export const translations = {
     scanLibrary: "Escanear biblioteca",
     startupFlowTitle: "Fluxo inicial",
     startupFlowHelp:
-      "Executa a preparacao completa para as raizes configuradas. Se existirem dados legacy, sao importados primeiro; depois a musica e as cortinas sao analisadas, as formas de onda sao geradas e a cache comprimida e renderizada.",
+      "Executa a preparacao retomavel para as raizes configuradas. A musica e as cortinas sao analisadas, as formas de onda sao geradas e a cache comprimida e renderizada.",
     startupFlowCompressionPending:
       "A etapa da cache comprimida aparece aqui quando os scans de musica e cortinas terminarem.",
     startupFlowButton: "Executar preparacao completa",
+    startupFlowBadge: "Recomendado",
+    startupFlowRerunHelp:
+      "Pode ser executado novamente mais tarde. Os scans e caches existentes sao reutilizados quando possivel, por isso funciona mais como reparacao e conclusao do que como recomeco do zero.",
+    startupFlowProgressIdle:
+      "O progresso aparecera aqui enquanto a preparacao completa estiver em execucao.",
+    startupFlowProgressPreparing: "A preparar progresso detalhado...",
+    startupFlowProgressLegacy: "A verificar dados legacy e a preparar a configuracao.",
+    startupFlowProgressComplete: "Preparacao completa concluida.",
+    startupFlowEtaCalculating: "Tempo restante deste passo: a calcular...",
+    startupFlowEtaCollecting:
+      "Tempo restante deste passo: a aguardar progresso suficiente...",
+    startupFlowEtaStepRough: "Tempo restante aproximado deste passo: {time}",
+    startupFlowEtaDone: "Tempo restante deste passo: concluido",
+    startupFlowEtaStopped: "Tempo restante deste passo: parado",
+    startupFlowEtaSeconds: "{seconds}s",
+    startupFlowEtaMinutesSeconds: "{minutes}m {seconds}s",
+    startupFlowEtaHoursMinutes: "{hours}h {minutes}m",
     startupPhaseLegacy: "Importacao legacy",
     startupPhaseMusic: "Analise de musica",
     startupPhaseCortina: "Analise de cortinas",
@@ -2736,22 +3005,30 @@ export const translations = {
       "A configuracao completa parou porque uma etapa falhou. Verifique a mensagem de resultado abaixo.",
     startupFlowRunning: "A executar preparacao completa...",
     startupFlowDone:
-      "Preparacao concluida. Legacy: {legacy}. Musica analisada {music}. Cortinas analisadas {cortinas}. Comprimidos renderizados {rendered}, em cache {cached}, falhados {failed}.",
+      "Preparacao concluida. Musica analisada {music}. Cortinas analisadas {cortinas}. Comprimidos renderizados {rendered}, em cache {cached}, falhados {failed}.",
     startupFlowStatusDone:
       "Preparacao concluida: musica {music}, cortinas {cortinas}, renderizados {rendered}, em cache {cached}, falhados {failed}.",
     startupFlowFailed: "A preparacao falhou: {message}",
+    legacyImportBadge: "Migracao unica",
+    legacyImportHelp:
+      "Importe tandas e metadados legacy apenas se estiver a migrar do sistema antigo. Isto fica separado do Fluxo inicial porque substitui os dados de tandas existentes.",
     startupFlowLegacyImported: "importado",
     startupFlowLegacyDetected: "detetado mas nao importado",
     startupFlowLegacySkipped: "nao detetado",
     manualLibraryToolsTitle: "Configuracao manual / manutencao",
+    manualLibraryToolsBadge: "So se necessario",
     manualLibraryToolsHelp:
       "Os controlos abaixo so sao necessarios para configuracao manual, repeticoes dirigidas ou manutencao apos o fluxo completo.",
     libraryScanTitle: "Escanear biblioteca",
+    libraryScanSummary:
+      "Use isto apenas para atualizar musica ou cortinas depois de adicionar ficheiros.",
     libraryScanHelp:
       "O scan cria ou atualiza a base de faixas, a analise e a cache de formas de onda. Repetir Escanear musica ou Escanear cortinas ignora ficheiros sem alteracoes, por isso adicionar faixas novas so exige novo scan dessa raiz.",
     scanMusic: "Escanear musica",
     scanCortinas: "Escanear cortinas",
     derivedCacheTitle: "Caches derivados",
+    derivedCacheSummary:
+      "Use isto para verificar, reconstruir ou limpar as caches de formas de onda e audio comprimido.",
     precomputeCompression: "Precalcular cache comprimida",
     precomputeCompressionHelp:
       "Opcional: pregera versoes comprimidas para faixas e cortinas. So e necessario se a compressao for usada.",
@@ -2766,7 +3043,18 @@ export const translations = {
       "Isto vai remover as formas de onda e o audio comprimido em cache. Podem ser regenerados depois, mas pode demorar. Continuar?",
     eraseCachedFilesDone: "Ficheiros em cache apagados.",
     libraryMaintenanceTitle: "Manutencao da biblioteca",
+    libraryMaintenanceSummary:
+      "Use isto apenas para recuperacao ou reconstrucao deliberada.",
+    tandaExportTitle: "Exportar tandas",
+    tandaExportSummary:
+      "Exporta apenas as tandas guardadas como um ficheiro JSON portatil.",
+    tandaExportButton: "Exportar tandas",
+    tandaExportRunning: "A exportar tandas...",
+    tandaExportDone: "Exportacao de tandas criada em {path}",
+    tandaExportFailed: "A exportacao de tandas falhou: {message}",
     systemTransferTitle: "Exportar / importar sistema",
+    systemTransferSummary:
+      "Exporta uma copia portatil do estado completo da aplicacao ou restaura uma mais tarde.",
     systemTransferHelp:
       "Exporta ou restaura toda a pasta de dados da aplicacao, incluindo base de dados, formas de onda, cache comprimida, registos e definicoes guardadas.",
     systemExport: "Exportar sistema",
@@ -2844,6 +3132,27 @@ export const translations = {
       "Use termos como 3t ou alternativas agrupadas como (2c 3m).",
     playlistSequenceInvalidSyntax: "Sintaxe de sequencia invalida.",
     playlistSequenceUnknownCodes: "Codigo(s) de sequencia desconhecido(s): {codes}.",
+    playlistTransferTitle: "Ficheiros de playlist",
+    playlistTransferSummary:
+      "Guarda a playlist atual em JSON ou M3U/M3U8 agrupado, ou importa qualquer um dos formatos.",
+    playlistTransferHelp:
+      "A importacao/exportacao M3U agrupada e apenas de melhor esforco. Secoes contiguas com group-title ou EXTGRP tornam-se tandas na importacao, mas os metadados completos continuam a exigir JSON.",
+    playlistSaveButton: "Guardar playlist",
+    playlistImportButton: "Importar playlist",
+    playlistExportRunning: "A guardar playlist...",
+    playlistExportDone: "Playlist guardada em {path}",
+    playlistExportFailed: "Falha ao guardar playlist: {message}",
+    playlistImportRunning: "A importar playlist...",
+    playlistImportDone:
+      "Foram importados {count} itens de {format}. Avisos: {warnings}. Ficheiro: {path}",
+    playlistImportFailed: "Falha ao importar playlist: {message}",
+    playlistTransferCancelled: "Transferencia de playlist cancelada.",
+    playlistImportMissingItems:
+      "{count} entradas da playlist nao puderam ser associadas localmente.",
+    playlistImportFormatJson: "playlist Tanda Forge",
+    playlistImportFormatM3u: "playlist M3U",
+    statusPlaylistImportDuringPlayback:
+      "Pare a reproducao da playlist antes de importar uma playlist.",
     playlistStyleMapLabel: "Mapa de estilos",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     playlistArtistRepeatGapLabel: "Objetivo de intervalo entre artistas (min)",
@@ -2899,6 +3208,14 @@ export const translations = {
     diagnosticsWaveformSuccess: "Forma de onda gerada: {path}",
     diagnosticsWaveformFailed: "Falha na forma de onda: {message}",
     diagnosticsDataReadiness: "Prontidao de dados",
+    diagnosticsTrackLengthIssues: "Duracoes suspeitas",
+    diagnosticsTrackLengthIssuesHelp:
+      "Lista faixas com menos de 1 minuto e faixas em que os cortes removem 20 segundos ou mais da duracao do ffmpeg.",
+    diagnosticsTrackLengthShortHeading: "Menos de 1 minuto: {count}",
+    diagnosticsTrackLengthTrimHeading: "20 segundos ou mais removidos pelos cortes: {count}",
+    diagnosticsTrackLengthNone: "Nenhuma",
+    diagnosticsTrackLengthIssueLine:
+      "{title} [{path}] bruto {duration}s, efetivo {effective}s, removido {removed}s",
     diagnosticsReadinessTotalTracks: "Faixas",
     diagnosticsReadinessMissingDuration: "Duracao ausente",
     diagnosticsReadinessMissingLoudness: "Loudness+ganho ausentes",
@@ -3352,10 +3669,27 @@ export const translations = {
     scanLibrary: "Scansiona libreria",
     startupFlowTitle: "Flusso iniziale",
     startupFlowHelp:
-      "Esegue la preparazione completa per le radici configurate. Se vengono rilevati dati legacy, li importa prima; poi scansiona musica e cortine, genera le forme d'onda e rende la cache compressa.",
+      "Esegue la preparazione riprendibile per le radici configurate. Musica e cortine vengono scansionate, le forme d'onda vengono generate e la cache compressa viene creata.",
     startupFlowCompressionPending:
       "La fase della cache compressa comparira qui quando saranno terminati i controlli di musica e cortine.",
     startupFlowButton: "Esegui preparazione completa",
+    startupFlowBadge: "Consigliato",
+    startupFlowRerunHelp:
+      "Si puo eseguire di nuovo piu tardi. Scansioni e cache esistenti vengono riutilizzate quando possibile, quindi il flusso si comporta piu come riparazione e completamento che come ripartenza da zero.",
+    startupFlowProgressIdle:
+      "L'avanzamento apparira qui mentre la preparazione completa e in esecuzione.",
+    startupFlowProgressPreparing: "Preparazione del progresso dettagliato...",
+    startupFlowProgressLegacy: "Controllo dei dati legacy e preparazione del flusso.",
+    startupFlowProgressComplete: "Preparazione completa terminata.",
+    startupFlowEtaCalculating: "Tempo restante per questo passo: calcolo in corso...",
+    startupFlowEtaCollecting:
+      "Tempo restante per questo passo: in attesa di progresso sufficiente...",
+    startupFlowEtaStepRough: "Tempo restante approssimativo per questo passo: {time}",
+    startupFlowEtaDone: "Tempo restante per questo passo: completato",
+    startupFlowEtaStopped: "Tempo restante per questo passo: interrotto",
+    startupFlowEtaSeconds: "{seconds}s",
+    startupFlowEtaMinutesSeconds: "{minutes}m {seconds}s",
+    startupFlowEtaHoursMinutes: "{hours}h {minutes}m",
     startupPhaseLegacy: "Import legacy",
     startupPhaseMusic: "Scansione musica",
     startupPhaseCortina: "Scansione cortine",
@@ -3377,22 +3711,30 @@ export const translations = {
       "La configurazione completa si e fermata per un errore in una fase. Controlla il messaggio di risultato qui sotto.",
     startupFlowRunning: "Preparazione completa in corso...",
     startupFlowDone:
-      "Preparazione completata. Legacy: {legacy}. Musica scansionata {music}. Cortine scansionate {cortinas}. Compressi renderizzati {rendered}, in cache {cached}, falliti {failed}.",
+      "Preparazione completata. Musica scansionata {music}. Cortine scansionate {cortinas}. Compressi renderizzati {rendered}, in cache {cached}, falliti {failed}.",
     startupFlowStatusDone:
       "Preparazione completata: musica {music}, cortine {cortinas}, renderizzati {rendered}, in cache {cached}, falliti {failed}.",
     startupFlowFailed: "Preparazione non riuscita: {message}",
+    legacyImportBadge: "Migrazione una tantum",
+    legacyImportHelp:
+      "Importa tandas e metadati legacy solo se stai migrando dal vecchio sistema. Questa fase resta separata dal Flusso iniziale perche sostituisce i dati tanda esistenti.",
     startupFlowLegacyImported: "importato",
     startupFlowLegacyDetected: "rilevato ma non importato",
     startupFlowLegacySkipped: "non rilevato",
     manualLibraryToolsTitle: "Configurazione manuale / manutenzione",
+    manualLibraryToolsBadge: "Solo se serve",
     manualLibraryToolsHelp:
       "I controlli sotto servono solo per impostazione manuale, riesecuzioni mirate o manutenzione dopo il flusso completo.",
     libraryScanTitle: "Scansione libreria",
+    libraryScanSummary:
+      "Usa questo solo quando vuoi aggiornare musica o cortine dopo aver aggiunto file.",
     libraryScanHelp:
       "La scansione crea o aggiorna database brani, analisi e cache delle forme d'onda. Ripetere Scansiona musica o Scansiona cortine salta i file invariati, quindi per aggiungere nuovi brani basta rieseguire la scansione di quella radice.",
     scanMusic: "Scansiona musica",
     scanCortinas: "Scansiona cortine",
     derivedCacheTitle: "Cache derivate",
+    derivedCacheSummary:
+      "Usa questo per verificare, ricostruire o cancellare le cache di forme d'onda e audio compresso.",
     precomputeCompression: "Precalcola cache compressa",
     precomputeCompressionHelp:
       "Opzionale: prerenderizza versioni compresse per brani e cortine. Serve solo se verra usata la compressione.",
@@ -3407,7 +3749,18 @@ export const translations = {
       "Questa azione rimuovera forme d'onda e audio compresso in cache. Potranno essere rigenerati in seguito, ma potrebbe volerci tempo. Continuare?",
     eraseCachedFilesDone: "File in cache cancellati.",
     libraryMaintenanceTitle: "Manutenzione libreria",
+    libraryMaintenanceSummary:
+      "Usa questo solo per recupero o ricostruzioni deliberate.",
+    tandaExportTitle: "Esporta tandas",
+    tandaExportSummary:
+      "Esporta solo le tandas salvate come file JSON portatile.",
+    tandaExportButton: "Esporta tandas",
+    tandaExportRunning: "Esportazione tandas in corso...",
+    tandaExportDone: "Esportazione tandas creata in {path}",
+    tandaExportFailed: "Esportazione tandas non riuscita: {message}",
     systemTransferTitle: "Esporta / importa sistema",
+    systemTransferSummary:
+      "Esporta un backup portatile dello stato completo dell'applicazione o ripristinane uno in seguito.",
     systemTransferHelp:
       "Esporta o ripristina l'intera cartella dati dell'applicazione, inclusi database, forme d'onda, cache compressa, log e impostazioni salvate.",
     systemExport: "Esporta sistema",
@@ -3485,6 +3838,27 @@ export const translations = {
       "Usa termini come 3t o alternative raggruppate come (2c 3m).",
     playlistSequenceInvalidSyntax: "Sintassi sequenza non valida.",
     playlistSequenceUnknownCodes: "Codice/i sequenza sconosciuto/i: {codes}.",
+    playlistTransferTitle: "File playlist",
+    playlistTransferSummary:
+      "Salva la playlist corrente in JSON o M3U/M3U8 raggruppato, oppure importa uno dei due formati.",
+    playlistTransferHelp:
+      "L'import/export M3U raggruppato e solo best-effort. Le sezioni contigue con group-title o EXTGRP diventano tandas in importazione, ma i metadati completi di Tanda Forge richiedono ancora JSON.",
+    playlistSaveButton: "Salva playlist",
+    playlistImportButton: "Importa playlist",
+    playlistExportRunning: "Salvataggio playlist in corso...",
+    playlistExportDone: "Playlist salvata in {path}",
+    playlistExportFailed: "Salvataggio playlist non riuscito: {message}",
+    playlistImportRunning: "Importazione playlist in corso...",
+    playlistImportDone:
+      "Importati {count} elementi da {format}. Avvisi: {warnings}. File: {path}",
+    playlistImportFailed: "Importazione playlist non riuscita: {message}",
+    playlistTransferCancelled: "Trasferimento playlist annullato.",
+    playlistImportMissingItems:
+      "{count} elementi della playlist non hanno trovato una corrispondenza locale.",
+    playlistImportFormatJson: "playlist Tanda Forge",
+    playlistImportFormatM3u: "playlist M3U",
+    statusPlaylistImportDuringPlayback:
+      "Ferma la riproduzione della playlist prima di importarne una.",
     playlistStyleMapLabel: "Mappa stili",
     playlistStyleMapPlaceholder: "T=Tango;Tango Nuevo\nW=Vals;Waltz\nM=Milonga",
     playlistArtistRepeatGapLabel: "Intervallo desiderato tra artisti (min)",
@@ -3540,6 +3914,14 @@ export const translations = {
     diagnosticsWaveformSuccess: "Forma d'onda generata: {path}",
     diagnosticsWaveformFailed: "Generazione forma d'onda fallita: {message}",
     diagnosticsDataReadiness: "Stato dati",
+    diagnosticsTrackLengthIssues: "Durate sospette",
+    diagnosticsTrackLengthIssuesHelp:
+      "Elenca i brani sotto 1 minuto e quelli in cui i trim rimuovono 20 secondi o piu dalla durata ffmpeg.",
+    diagnosticsTrackLengthShortHeading: "Sotto 1 minuto: {count}",
+    diagnosticsTrackLengthTrimHeading: "20 secondi o piu rimossi dai trim: {count}",
+    diagnosticsTrackLengthNone: "Nessuno",
+    diagnosticsTrackLengthIssueLine:
+      "{title} [{path}] grezzo {duration}s, effettivo {effective}s, rimosso {removed}s",
     diagnosticsReadinessTotalTracks: "Brani",
     diagnosticsReadinessMissingDuration: "Durata mancante",
     diagnosticsReadinessMissingLoudness: "Loudness+gain mancanti",
@@ -3934,10 +4316,27 @@ translations.is = {
   scanLibrary: "Skanna safn",
   startupFlowTitle: "Ræsingarferli",
   startupFlowHelp:
-    "Keyrir alla upphafsstillingu fyrir skilgreindar rætur. Ef eldri gögn finnast eru þau flutt inn fyrst; svo er tónlist og cortinum skannað, bylgjumyndir gerðar og þjappað skyndiminni reiknað.",
+    "Keyrir endurkeyranlega uppsetningu fyrir skilgreindar raetur. Tonlist og cortinum er skannad, bylgjumyndir búnar til og þjappad skyndiminni reiknad.",
   startupFlowCompressionPending:
     "Þjappaða skyndiminnisstigið birtist hér þegar tónlistar- og cortinuskönnun lýkur.",
   startupFlowButton: "Keyra fulla uppsetningu",
+  startupFlowBadge: "Maelt med",
+  startupFlowRerunHelp:
+    "Haegt er að keyra þetta aftur seinna. Fyrri skonnun og skyndiminni eru endurnytt þegar það er haegt, svo þetta hegdar ser frekar eins og vidgerd og lokafrágangur en alveg fra grunni.",
+  startupFlowProgressIdle:
+    "Framvinda birtist her meðan full uppsetning keyrir.",
+  startupFlowProgressPreparing: "Undirby nari framvindu...",
+  startupFlowProgressLegacy: "Athugar legacy-gogn og undirbyr uppsetningu.",
+  startupFlowProgressComplete: "Fullri uppsetningu lokid.",
+  startupFlowEtaCalculating: "Timi eftir i þessu skrefi: reikna...",
+  startupFlowEtaCollecting:
+    "Timi eftir i þessu skrefi: bíd eftir nogum framvindu...",
+  startupFlowEtaStepRough: "Aetladur timi eftir i þessu skrefi: {time}",
+  startupFlowEtaDone: "Timi eftir i þessu skrefi: lokid",
+  startupFlowEtaStopped: "Timi eftir i þessu skrefi: stoppað",
+  startupFlowEtaSeconds: "{seconds}s",
+  startupFlowEtaMinutesSeconds: "{minutes}m {seconds}s",
+  startupFlowEtaHoursMinutes: "{hours}h {minutes}m",
   startupPhaseLegacy: "Innflutningur eldra safns",
   startupPhaseMusic: "Tónlistarskönnun",
   startupPhaseCortina: "Cortinuskönnun",
@@ -3959,22 +4358,30 @@ translations.is = {
     "Full uppsetning stoppaði vegna villu i einu þrepi. Skoðaðu niðurstöðuskilaboðin her fyrir neðan.",
   startupFlowRunning: "Keyri fulla uppsetningu...",
   startupFlowDone:
-    "Uppsetningu lokið. Legacy: {legacy}. Tónlist skönnuð {music}. Cortinur skannaðar {cortinas}. Þjappað renderað {rendered}, í skyndiminni {cached}, mistókst {failed}.",
+    "Uppsetningu lokið. Tónlist skönnuð {music}. Cortinur skannaðar {cortinas}. Þjappað renderað {rendered}, í skyndiminni {cached}, mistókst {failed}.",
   startupFlowStatusDone:
     "Uppsetningu lokið: tónlist {music}, cortinur {cortinas}, renderað {rendered}, í skyndiminni {cached}, mistókst {failed}.",
   startupFlowFailed: "Uppsetning mistókst: {message}",
+  legacyImportBadge: "Einskipt flutningur",
+  legacyImportHelp:
+    "Flyttu inn legacy-tandas og lysigogn aðeins ef þú ert að flytja fra eldra kerfinu. Þetta er adskilid fra Ræsingarferli vegna þess ad þad skiptir ut núverandi tanda-gognum.",
   startupFlowLegacyImported: "flutt inn",
   startupFlowLegacyDetected: "fannst en ekki flutt inn",
   startupFlowLegacySkipped: "fannst ekki",
   manualLibraryToolsTitle: "Handvirk uppsetning / viðhald",
+  manualLibraryToolsBadge: "Adeins ef þarf",
   manualLibraryToolsHelp:
     "Stýringarnar hér að neðan eru aðeins fyrir handvirka uppsetningu, markvissar endurkeyrslur eða viðhald eftir fulla uppsetningu.",
   libraryScanTitle: "Skönnun safns",
+  libraryScanSummary:
+    "Notadu þetta aðeins ef tu vilt endurnyja tonlist eða cortinur eftir ad hafa bætt vid skrám.",
   libraryScanHelp:
     "Skönnun byggir upp eða endurnýjar lagagagnagrunn, greiningu og bylgjuformsminni. Endurskönnun tónlistar eða cortina sleppir óbreyttum skrám.",
   scanMusic: "Skanna tónlist",
   scanCortinas: "Skanna cortinur",
   derivedCacheTitle: "Afleidd skyndiminni",
+  derivedCacheSummary:
+    "Notadu þetta til ad stadfesta, endurbyggja eda hreinsa bylgjumynda- og thjappad hljodskyndiminni.",
   precomputeCompression: "Forreikna þjappað skyndiminni",
   precomputeCompressionHelp:
     "Valfrjálst: býr til þjappaðar útgáfur fyrir lög og cortinur fyrirfram. Aðeins þörf ef nota á þjöppun.",
@@ -3989,7 +4396,17 @@ translations.is = {
     "Þetta mun eyða skyndivistuðum bylgjuformum og þjöppuðum hljóðskrám. Hægt er að búa þær til aftur síðar. Halda áfram?",
   eraseCachedFilesDone: "Skyndiminni eytt.",
   libraryMaintenanceTitle: "Viðhald safns",
+  libraryMaintenanceSummary:
+    "Notadu þetta aðeins fyrir endurheimt eða viljandi endurbyggingu.",
+  tandaExportTitle: "Flytja ut tandur",
+  tandaExportSummary: "Flytur aðeins vistaðar tandur út sem færanlega JSON-skrá.",
+  tandaExportButton: "Flytja ut tandur",
+  tandaExportRunning: "Flyt ut tandur...",
+  tandaExportDone: "Tanda-utflutningur vistaður i {path}",
+  tandaExportFailed: "Tanda-utflutningur mistókst: {message}",
   systemTransferTitle: "Kerfisútflutningur / innflutningur",
+  systemTransferSummary:
+    "Flyttu ut færanlegt afrit af ollu app-stodunni eða fluttu eitt inn seinna.",
   systemTransferHelp:
     "Flytur út eða endurheimtir alla gagnamöppu forritsins, þar á meðal gagnagrunn, bylgjumyndir, þjappað skyndiminni, logs og vistaðar stillingar.",
   systemExport: "Flytja út kerfi",
@@ -4061,6 +4478,27 @@ translations.is = {
     "Notaðu lið eins og 3t eða hópaða valkosti eins og (2c 3m).",
   playlistSequenceInvalidSyntax: "Ógild setningafræði í röð.",
   playlistSequenceUnknownCodes: "Óþekktir kóðar í röð: {codes}.",
+  playlistTransferTitle: "Spilunarlistaskrár",
+  playlistTransferSummary:
+    "Vistaðu núverandi spilunarlista sem JSON eða hopað M3U/M3U8, eða flyttu inn hvort sem er.",
+  playlistTransferHelp:
+    "Hopaður M3U inn- og útflutningur er aðeins besta tilraun. Samfelld group-title eða EXTGRP svæði verða að töndum við innflutning, en full Tanda Forge lysigogn krefjast enn JSON.",
+  playlistSaveButton: "Vista spilunarlista",
+  playlistImportButton: "Flytja inn spilunarlista",
+  playlistExportRunning: "Vista spilunarlista...",
+  playlistExportDone: "Spilunarlisti vistaður i {path}",
+  playlistExportFailed: "Vistun spilunarlista mistókst: {message}",
+  playlistImportRunning: "Flyt inn spilunarlista...",
+  playlistImportDone:
+    "Flutti inn {count} atriði ur {format}. Advaranir: {warnings}. Skrá: {path}",
+  playlistImportFailed: "Innflutningur spilunarlista mistókst: {message}",
+  playlistTransferCancelled: "Spilunarlistaflutningi hætt við.",
+  playlistImportMissingItems:
+    "{count} spilunarlistafærslur fengu enga staðbundna samsvörun.",
+  playlistImportFormatJson: "Tanda Forge spilunarlisti",
+  playlistImportFormatM3u: "M3U spilunarlisti",
+  statusPlaylistImportDuringPlayback:
+    "Stodvadu afspilun spilunarlista adur en tu flytur inn annan lista.",
   playlistStartTimeLabel: "Byrjunartími spilunarlista",
   playlistEndTimeLabel: "Áætlaður lokatími spilunarlista",
   playlistArtistRepeatGapLabel: "Æskilegt bil milli sama flytjanda (mín)",
@@ -4117,6 +4555,14 @@ translations.is = {
   diagnosticsWaveformSuccess: "Bylgjuform búið til: {path}",
   diagnosticsWaveformFailed: "Bylgjuform mistókst: {message}",
   diagnosticsDataReadiness: "Gagnastaða",
+  diagnosticsTrackLengthIssues: "Grunsamlegar lagalengdir",
+  diagnosticsTrackLengthIssuesHelp:
+    "Sýnir lög styttri en 1 mínúta og lög þar sem klippingar fjarlægja 20 sekúndur eða meira af ffmpeg-lengdinni.",
+  diagnosticsTrackLengthShortHeading: "Undir 1 mínútu: {count}",
+  diagnosticsTrackLengthTrimHeading: "20 sekúndur eða meira fjarlægt með klippingu: {count}",
+  diagnosticsTrackLengthNone: "Engin",
+  diagnosticsTrackLengthIssueLine:
+    "{title} [{path}] hrátt {duration}s, virkt {effective}s, fjarlægt {removed}s",
   diagnosticsReadinessTotalTracks: "Lög",
   diagnosticsReadinessMissingDuration: "Vantar lengd",
   diagnosticsReadinessMissingLoudness: "Vantar hljóðstyrk+gain",

@@ -24,6 +24,8 @@ export const SILENCE_DETECT_NOISE_DB = -40;
 export const SILENCE_DETECT_MIN_DURATION_SECONDS = 0.2;
 export const buildSilenceDetectFilter = () =>
   `silencedetect=noise=${SILENCE_DETECT_NOISE_DB}dB:d=${SILENCE_DETECT_MIN_DURATION_SECONDS}`;
+const SILENCE_AT_START_EPSILON_SECONDS = 0.05;
+const SILENCE_AT_END_EPSILON_MS = 1500;
 
 const extractJsonPayload = (payload: string) => {
   const trimmed = payload.trim();
@@ -281,6 +283,81 @@ const sanitizeFfmpegError = (stderr: string) => {
     return line?.trim();
   }
   return undefined;
+};
+
+type SilenceInterval = {
+  startSec: number;
+  endSec: number;
+};
+
+export const parseSilenceDetectOutput = (output: string) => {
+  const silenceStarts: number[] = [];
+  const silenceEnds: number[] = [];
+
+  output.split("\n").forEach((line) => {
+    const startMatch = line.match(/silence_start:\s*([0-9.]+)/);
+    if (startMatch) {
+      silenceStarts.push(Number.parseFloat(startMatch[1]));
+    }
+    const endMatch = line.match(/silence_end:\s*([0-9.]+)/);
+    if (endMatch) {
+      silenceEnds.push(Number.parseFloat(endMatch[1]));
+    }
+  });
+
+  return { silenceStarts, silenceEnds };
+};
+
+export const buildSilenceIntervals = (
+  silenceStarts: number[],
+  silenceEnds: number[],
+  durationMs: number,
+): SilenceInterval[] => {
+  const intervals: SilenceInterval[] = [];
+  const sortedStarts = [...silenceStarts].sort((a, b) => a - b);
+  const remainingEnds = [...silenceEnds].sort((a, b) => a - b);
+
+  sortedStarts.forEach((startSec) => {
+    while (remainingEnds.length > 0 && remainingEnds[0] < startSec) {
+      remainingEnds.shift();
+    }
+    const endSec =
+      remainingEnds.length > 0
+        ? (remainingEnds.shift() as number)
+        : Math.max(startSec, durationMs / 1000);
+    intervals.push({ startSec, endSec });
+  });
+
+  return intervals;
+};
+
+export const deriveTrimOffsetsFromSilence = (
+  durationMs: number,
+  silenceStarts: number[],
+  silenceEnds: number[],
+) => {
+  let startOffsetMs = 0;
+  let endTrimMs = 0;
+  if (durationMs <= 0) {
+    return { startOffsetMs, endTrimMs };
+  }
+
+  const intervals = buildSilenceIntervals(silenceStarts, silenceEnds, durationMs);
+  const leadingInterval = intervals.find(
+    (interval) => interval.startSec <= SILENCE_AT_START_EPSILON_SECONDS,
+  );
+  if (leadingInterval) {
+    startOffsetMs = Math.max(0, Math.round(leadingInterval.endSec * 1000));
+  }
+
+  const trailingInterval = [...intervals]
+    .reverse()
+    .find((interval) => durationMs - Math.round(interval.endSec * 1000) <= SILENCE_AT_END_EPSILON_MS);
+  if (trailingInterval && trailingInterval.startSec > 0) {
+    endTrimMs = Math.max(0, durationMs - Math.round(trailingInterval.startSec * 1000));
+  }
+
+  return { startOffsetMs, endTrimMs };
 };
 
 const parseTags = (payload: string): TagResult => {
@@ -628,26 +705,8 @@ const readSilenceBounds = async (filePath: string) => {
     "-",
   ];
 
-  const parseOutput = (output: string) => {
-    const silenceStarts: number[] = [];
-    const silenceEnds: number[] = [];
-
-    output.split("\n").forEach((line) => {
-      const startMatch = line.match(/silence_start:\s*([0-9.]+)/);
-      if (startMatch) {
-        silenceStarts.push(Number.parseFloat(startMatch[1]));
-      }
-      const endMatch = line.match(/silence_end:\s*([0-9.]+)/);
-      if (endMatch) {
-        silenceEnds.push(Number.parseFloat(endMatch[1]));
-      }
-    });
-
-    return { silenceStarts, silenceEnds };
-  };
-
   const primary = await runCommandAllowFailure(binary, args);
-  const primaryParsed = parseOutput(primary.stderr);
+  const primaryParsed = parseSilenceDetectOutput(primary.stderr);
   if (primary.code === 0 || primaryParsed.silenceStarts.length > 0 || primaryParsed.silenceEnds.length > 0) {
     return {
       ...primaryParsed,
@@ -656,7 +715,7 @@ const readSilenceBounds = async (filePath: string) => {
   }
   const secondary = await runCommandAllowFailure(fallback, args);
   return {
-    ...parseOutput(secondary.stderr),
+    ...parseSilenceDetectOutput(secondary.stderr),
     error: secondary.code === 0 ? undefined : sanitizeFfmpegError(secondary.stderr),
   };
 };
@@ -734,20 +793,11 @@ export const analyzeTrack = async (filePath: string): Promise<TrackAnalysis> => 
       ? undefined
       : loudness.error;
 
-  let startOffsetMs = 0;
-  if (silence.silenceStarts[0] === 0 && silence.silenceEnds.length > 0) {
-    startOffsetMs = Math.round(silence.silenceEnds[0] * 1000);
-  }
-
-  let endTrimMs = 0;
-  if (durationMs > 0 && silence.silenceStarts.length > 0) {
-    const lastSilenceStart =
-      silence.silenceStarts[silence.silenceStarts.length - 1];
-    if (lastSilenceStart > 0) {
-      const trim = durationMs - Math.round(lastSilenceStart * 1000);
-      endTrimMs = Math.max(0, trim);
-    }
-  }
+  const { startOffsetMs, endTrimMs } = deriveTrimOffsetsFromSilence(
+    durationMs,
+    silence.silenceStarts,
+    silence.silenceEnds,
+  );
 
   const analysisError = silence.error ?? loudnessError;
 

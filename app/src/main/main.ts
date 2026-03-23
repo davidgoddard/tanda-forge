@@ -92,6 +92,16 @@ import {
   writeSystemBackup,
 } from "./system-transfer";
 import type { StartupFlowPhase } from "../shared/types";
+import {
+  buildPlaylistExportFileName,
+  buildTandasExportFileName,
+  buildTandasExportManifest,
+  importPlaylistFile,
+  serializePlaylistExportAsM3u,
+  writePlaylistExport,
+  writeTandasExport,
+} from "./library-transfer";
+import type { PlaylistExportManifest } from "../shared/library-transfer";
 
 const forcedUserDataRoot = process.env.TANDA_USER_DATA_ROOT?.trim();
 if (forcedUserDataRoot) {
@@ -759,6 +769,83 @@ const registerIpc = () => {
     return { ok: true, cancelled: false, path: backupRoot };
   });
 
+  ipcMain.handle("app:exportTandasData", async () => {
+    const createdAt = new Date().toISOString();
+    const result = await dialog.showSaveDialog({
+      title: "Export Tandas",
+      defaultPath: buildTandasExportFileName(createdAt),
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (result.canceled || !result.filePath) {
+      return { ok: false, cancelled: true, path: "" };
+    }
+    const db = getDb();
+    const manifest = buildTandasExportManifest(listTandas(db), createdAt, app.getVersion());
+    writeTandasExport(result.filePath, manifest);
+    return { ok: true, cancelled: false, path: result.filePath };
+  });
+
+  ipcMain.handle("app:exportPlaylistData", async (_event, manifest: PlaylistExportManifest) => {
+    const createdAt = new Date().toISOString();
+    const result = await dialog.showSaveDialog({
+      title: "Save Playlist",
+      defaultPath: buildPlaylistExportFileName(createdAt),
+      filters: [
+        { name: "JSON", extensions: ["json"] },
+        { name: "M3U", extensions: ["m3u", "m3u8"] },
+      ],
+    });
+    if (result.canceled || !result.filePath) {
+      return { ok: false, cancelled: true, path: "" };
+    }
+    const exportManifest = {
+      ...manifest,
+      appVersion: app.getVersion(),
+    };
+    const ext = path.extname(result.filePath).toLowerCase();
+    if (ext === ".m3u" || ext === ".m3u8") {
+      fs.writeFileSync(result.filePath, serializePlaylistExportAsM3u(exportManifest), "utf-8");
+    } else {
+      writePlaylistExport(result.filePath, exportManifest);
+    }
+    return { ok: true, cancelled: false, path: result.filePath };
+  });
+
+  ipcMain.handle("app:importPlaylistData", async () => {
+    const result = await dialog.showOpenDialog({
+      title: "Import Playlist",
+      properties: ["openFile"],
+      filters: [
+        { name: "Playlist files", extensions: ["json", "m3u", "m3u8"] },
+        { name: "JSON", extensions: ["json"] },
+        { name: "M3U", extensions: ["m3u", "m3u8"] },
+      ],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false, cancelled: true, path: "" };
+    }
+    const filePath = result.filePaths[0];
+    try {
+      const db = getDb();
+      const imported = importPlaylistFile(db, filePath);
+      return {
+        ok: true,
+        cancelled: false,
+        path: filePath,
+        format: imported.format,
+        state: imported.state,
+        warnings: imported.warnings,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        cancelled: false,
+        path: filePath,
+        error: error instanceof Error ? error.message : "Playlist import failed",
+      };
+    }
+  });
+
   ipcMain.handle(
     "library:addRoot",
     async (_event, kind: "music" | "cortina" | "background", rootPath: string) => {
@@ -974,30 +1061,6 @@ const registerIpc = () => {
             error: "Configure music or cortina roots before running setup",
           };
         }
-        const legacy = detectLegacyFromRoots(roots);
-        let legacyImportSummary = {
-          imported: false,
-          tandasImported: 0,
-          tracksUpdated: 0,
-          missingTracks: 0,
-          missingFiles: [] as { filePath: string; message: string }[],
-          rootPath: legacy?.rootPath ?? "",
-        };
-        if (legacy) {
-          pushStartupFlowPhase("legacy");
-          const { waveformsDir } = getDataPaths();
-          const result = await importLegacyData(legacy.rootPath, roots, { waveformsDir });
-          legacyOverridesByRootId = result.overridesByRootId;
-          saveLegacyOverrides();
-          legacyImportSummary = {
-            imported: true,
-            tandasImported: result.tandasImported,
-            tracksUpdated: result.tracksUpdated,
-            missingTracks: result.missingTracks,
-            missingFiles: result.missingFiles,
-            rootPath: result.rootPath,
-          };
-        }
         pushStartupFlowPhase("music");
         const musicScan =
           musicRoots.length > 0
@@ -1013,9 +1076,6 @@ const registerIpc = () => {
         pushStartupFlowPhase("complete");
         return {
           ok: true,
-          legacyDetected: Boolean(legacy),
-          legacyImported: legacyImportSummary.imported,
-          legacyImport: legacyImportSummary,
           musicScan,
           cortinaScan,
           precompute,
