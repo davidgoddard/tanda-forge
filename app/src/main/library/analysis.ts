@@ -13,6 +13,7 @@ export type TrackAnalysis = {
   loudnessDb?: number;
   gainDb?: number;
   error?: string;
+  pipelineVersion?: number;
 };
 
 export type TagResult = {
@@ -26,6 +27,7 @@ export const buildSilenceDetectFilter = () =>
   `silencedetect=noise=${SILENCE_DETECT_NOISE_DB}dB:d=${SILENCE_DETECT_MIN_DURATION_SECONDS}`;
 const SILENCE_AT_START_EPSILON_SECONDS = 0.05;
 const SILENCE_AT_END_EPSILON_MS = 1500;
+export const ANALYSIS_PIPELINE_VERSION = 2;
 
 const extractJsonPayload = (payload: string) => {
   const trimmed = payload.trim();
@@ -808,5 +810,6 @@ export const analyzeTrack = async (filePath: string): Promise<TrackAnalysis> => 
     loudnessDb: loudness.loudnessDb,
     gainDb: loudness.gainDb,
     error: analysisError,
+    pipelineVersion: ANALYSIS_PIPELINE_VERSION,
   };
 };

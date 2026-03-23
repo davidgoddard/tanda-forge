@@ -8171,3 +8171,17 @@
     - collections for long-term favourites, crowd-pleasers, and last-tanda candidates
 - Verification:
   - Not rerun; README-only documentation change.
+- Hardened upgrade/rebuild behavior and fixed a real compressed-cache lookup mismatch.
+  - In `app/src/main/library/analysis.ts`, added `ANALYSIS_PIPELINE_VERSION` and persisted it into fresh scan analysis so newer app builds can invalidate stale stored analysis.
+  - In `app/src/main/library/scan.ts`, unchanged-file reuse now also requires the current analysis pipeline version, so reinstalling/upgrading and rerunning setup will re-analyze tracks when the analysis pipeline changes instead of silently reusing obsolete results.
+  - In `app/src/main/library/compression-cache.ts`, added a shared cache-path helper.
+  - In `app/src/main/main.ts`, added `audio:getCompressedTrackPath` and updated `library:listTracks` to include `loudness_db`/`gain_db`.
+  - In `app/src/main/library/tandas.ts`, tanda detail tracks now include `loudness_db` so playlist/tanda playback asks for the same compressed-cache key precompute used.
+  - In `app/src/preload/preload.ts`, [app/src/shared/types.ts], and `app/src/renderer/renderer.ts`, track-editor compressed-path display now queries actual cache readiness for the current fixed playback profile instead of showing `(pending)` merely because this renderer session had not requested the file yet.
+  - In `tests/scan-reuse-analysis.test.ts` and `tests/audio-compression-cache.test.ts`, added regressions for analysis-version invalidation and shared compressed-cache path construction.
+  - In `tests/e2e/workflows.e2e.ts`, workflow `37` now asserts both a library track row and a tanda/playlist-sourced track can resolve a real compressed companion after legacy import plus startup flow, which catches the loudness/key mismatch that let precompute appear complete while playlist playback still missed the compressed file.
+  - Updated `design/tracking-and-feature-matrix.md` to reflect analysis-pipeline invalidation and the cache-readiness UI behavior, and updated `docs/dialogue.md`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test -- tests/scan-reuse-analysis.test.ts tests/audio-compression-cache.test.ts tests/settings-library-controller.test.ts` passed earlier during the change.
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g "37 - reset plus startup flow rebuilds legacy metadata, waveforms, and compressed cache"` passed.

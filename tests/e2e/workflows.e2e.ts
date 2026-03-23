@@ -369,9 +369,9 @@ const writeLegacyStartupFixture = (tempRoot: string) => {
   ensureDir(musicRoot);
   ensureDir(cortinaRoot);
 
-  writeTestWav(path.join(musicRoot, "legacy-alpha.wav"), { frequency: 220 });
-  writeTestWav(path.join(musicRoot, "legacy-beta.wav"), { frequency: 330 });
-  writeTestWav(path.join(cortinaRoot, "cortina-a.wav"), { seconds: 0.35, frequency: 440 });
+  writeTestWav(path.join(musicRoot, "legacy-alpha.wav"), { seconds: 3.2, frequency: 220 });
+  writeTestWav(path.join(musicRoot, "legacy-beta.wav"), { seconds: 3.1, frequency: 330 });
+  writeTestWav(path.join(cortinaRoot, "cortina-a.wav"), { seconds: 1.2, frequency: 440 });
 
   fs.writeFileSync(path.join(musicRoot, "config.js"), "module.exports = {};\n", "utf-8");
   fs.writeFileSync(
@@ -386,9 +386,9 @@ const writeLegacyStartupFixture = (tempRoot: string) => {
             date: "1941-01-01",
           },
           analysis: {
-            duration: 0.6,
+            duration: 3.2,
             start: 0.02,
-            silence: 0.55,
+            silence: 3.05,
             meanGain: -18,
           },
           classifiers: {
@@ -406,9 +406,9 @@ const writeLegacyStartupFixture = (tempRoot: string) => {
             date: "1942-01-01",
           },
           analysis: {
-            duration: 0.6,
+            duration: 3.1,
             start: 0.02,
-            silence: 0.56,
+            silence: 2.96,
             meanGain: -17.5,
           },
           classifiers: {
@@ -436,7 +436,7 @@ const writeLegacyStartupFixture = (tempRoot: string) => {
             date: "1940-01-01",
           },
           analysis: {
-            duration: 0.35,
+            duration: 1.2,
             meanGain: -19,
           },
           classifiers: {
@@ -3077,6 +3077,7 @@ test.describe("Electron app end-to-end workflows", () => {
     try {
       await page.evaluate(
         async ({ musicRoot: nextMusicRoot, cortinaRoot: nextCortinaRoot }) => {
+          localStorage.setItem("tanda-audio-dynamics-enabled", "1");
           await window.tanda?.addRoot("music", nextMusicRoot);
           await window.tanda?.addRoot("cortina", nextCortinaRoot);
         },
@@ -3103,6 +3104,47 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator('button[data-tab="search-tracks"]').click();
       await runSearch(page, "Legacy Alpha");
       await expect(searchTrackRow(page, "Legacy Alpha")).toBeVisible();
+      await expect
+        .poll(async () => {
+          const compressedPaths = await page.evaluate(async () => {
+            const lookup = async (track: any) => {
+              if (!track) {
+                return null;
+              }
+              const result = await window.tanda?.getCompressedTrackPath({
+                trackId: track.id,
+                filePath: track.full_path,
+                loudnessDb: track.loudness_db,
+                depthPercent: 100,
+                mode: "track-leveler",
+                liftThresholdDb: -60,
+                maxLiftDb: 15,
+                ratio: 5,
+                attackMs: 35,
+                releaseMs: 3000,
+                gateThresholdDb: -65,
+                limiterCeilingDb: -1,
+                limiterReleaseMs: 260,
+              });
+              return result?.ok ? result.filePath ?? null : null;
+            };
+            const listTrack = (await window.tanda?.listTracks())?.find(
+              (entry: any) => entry.title === "Legacy Alpha",
+            );
+            const tandaTrack = (await window.tanda?.listTandas())
+              ?.find((tanda: any) => tanda.name === "Legacy Tango Pair")
+              ?.tracks.find((entry: any) => entry.title === "Legacy Alpha");
+            return {
+              listTrackPath: await lookup(listTrack),
+              tandaTrackPath: await lookup(tandaTrack),
+            };
+          });
+          return (
+            Boolean(compressedPaths?.listTrackPath && fs.existsSync(compressedPaths.listTrackPath)) &&
+            Boolean(compressedPaths?.tandaTrackPath && fs.existsSync(compressedPaths.tandaTrackPath))
+          );
+        })
+        .toBe(true);
       await expect
         .poll(async () => {
           const tandas = await page.evaluate(async () => await window.tanda?.listTandas());
@@ -3160,6 +3202,7 @@ test.describe("Electron app end-to-end workflows", () => {
 
       await page.evaluate(
         async ({ musicRoot: nextMusicRoot, cortinaRoot: nextCortinaRoot }) => {
+          localStorage.setItem("tanda-audio-dynamics-enabled", "1");
           await window.tanda?.addRoot("music", nextMusicRoot);
           await window.tanda?.addRoot("cortina", nextCortinaRoot);
         },
@@ -3186,6 +3229,47 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator('button[data-tab="search-tracks"]').click();
       await runSearch(page, "Legacy Alpha");
       await expect(searchTrackRow(page, "Legacy Alpha")).toBeVisible();
+      await expect
+        .poll(async () => {
+          const compressedPaths = await page.evaluate(async () => {
+            const lookup = async (track: any) => {
+              if (!track) {
+                return null;
+              }
+              const result = await window.tanda?.getCompressedTrackPath({
+                trackId: track.id,
+                filePath: track.full_path,
+                loudnessDb: track.loudness_db,
+                depthPercent: 100,
+                mode: "track-leveler",
+                liftThresholdDb: -60,
+                maxLiftDb: 15,
+                ratio: 5,
+                attackMs: 35,
+                releaseMs: 3000,
+                gateThresholdDb: -65,
+                limiterCeilingDb: -1,
+                limiterReleaseMs: 260,
+              });
+              return result?.ok ? result.filePath ?? null : null;
+            };
+            const listTrack = (await window.tanda?.listTracks())?.find(
+              (entry: any) => entry.title === "Legacy Alpha",
+            );
+            const tandaTrack = (await window.tanda?.listTandas())
+              ?.find((tanda: any) => tanda.name === "Legacy Tango Pair")
+              ?.tracks.find((entry: any) => entry.title === "Legacy Alpha");
+            return {
+              listTrackPath: await lookup(listTrack),
+              tandaTrackPath: await lookup(tandaTrack),
+            };
+          });
+          return (
+            Boolean(compressedPaths?.listTrackPath && fs.existsSync(compressedPaths.listTrackPath)) &&
+            Boolean(compressedPaths?.tandaTrackPath && fs.existsSync(compressedPaths.tandaTrackPath))
+          );
+        })
+        .toBe(true);
       await expect
         .poll(async () => {
           const tandas = await page.evaluate(async () => await window.tanda?.listTandas());

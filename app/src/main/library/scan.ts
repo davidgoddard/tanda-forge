@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
 import {
+  ANALYSIS_PIPELINE_VERSION,
   analyzeTrack,
   hasUsableWaveformPng,
   readTags,
@@ -61,6 +62,15 @@ const isLegacyImportAnalysis = (analysisJson: string) => {
   }
 };
 
+const hasCurrentAnalysisPipeline = (analysisJson: string) => {
+  try {
+    const parsed = JSON.parse(analysisJson) as { pipelineVersion?: unknown };
+    return parsed.pipelineVersion === ANALYSIS_PIPELINE_VERSION;
+  } catch {
+    return false;
+  }
+};
+
 export const shouldReuseUnchangedAnalysis = (
   existing: ExistingTrackAnalysisState | undefined,
   stat: { size: number; mtimeMs: number },
@@ -81,6 +91,9 @@ export const shouldReuseUnchangedAnalysis = (
     return false;
   }
   if (isLegacyImportAnalysis(existing.analysis_json)) {
+    return false;
+  }
+  if (!hasCurrentAnalysisPipeline(existing.analysis_json)) {
     return false;
   }
   const durationMs = existing.duration_ms ?? 0;

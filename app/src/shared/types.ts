@@ -101,6 +101,22 @@ export type SuspiciousTrackLength = {
 
 export type StartupFlowPhase = "music" | "cortina" | "compression" | "complete" | "failed";
 
+export type CompressedTrackLookupParams = {
+  trackId: string;
+  filePath: string;
+  loudnessDb?: number | null;
+  depthPercent: number;
+  mode: "upward" | "track-leveler";
+  liftThresholdDb: number;
+  maxLiftDb: number;
+  ratio: number;
+  attackMs: number;
+  releaseMs: number;
+  gateThresholdDb: number;
+  limiterCeilingDb: number;
+  limiterReleaseMs: number;
+};
+
 export type TrackPageRequest = {
   offset?: number;
   limit?: number;
@@ -307,21 +323,18 @@ export type AppApi = {
   }) => Promise<TrackRow | null>;
   getWaveform: (trackId: string) => Promise<string | null>;
   generateWaveform: (trackId: string) => Promise<{ ok: boolean; path?: string; error?: string }>;
-  renderCompressedTrack: (params: {
-    trackId: string;
-    filePath: string;
-    loudnessDb?: number | null;
-    depthPercent: number;
-    mode: "upward" | "track-leveler";
-    liftThresholdDb: number;
-    maxLiftDb: number;
-    ratio: number;
-    attackMs: number;
-    releaseMs: number;
-    gateThresholdDb: number;
-    limiterCeilingDb: number;
-    limiterReleaseMs: number;
-  }) => Promise<{ ok: boolean; filePath?: string; cached?: boolean; error?: string }>;
+  getCompressedTrackPath: (params: CompressedTrackLookupParams) => Promise<{
+    ok: boolean;
+    filePath?: string;
+    cached?: boolean;
+    error?: string;
+  }>;
+  renderCompressedTrack: (params: CompressedTrackLookupParams) => Promise<{
+    ok: boolean;
+    filePath?: string;
+    cached?: boolean;
+    error?: string;
+  }>;
   precomputeCompressedTracks: (params: {
     mode: "upward" | "track-leveler";
     liftThresholdDb: number;

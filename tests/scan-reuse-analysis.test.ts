@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ANALYSIS_PIPELINE_VERSION } from "../app/src/main/library/analysis";
 import { shouldReuseUnchangedAnalysis } from "../app/src/main/library/scan";
 
 describe("shouldReuseUnchangedAnalysis", () => {
@@ -14,7 +15,7 @@ describe("shouldReuseUnchangedAnalysis", () => {
           start_offset_ms: 200,
           end_trim_ms: 100,
           tag_json: "{}",
-          analysis_json: "{}",
+          analysis_json: JSON.stringify({ pipelineVersion: ANALYSIS_PIPELINE_VERSION }),
           tag_error: "",
           analysis_error: "",
         },
@@ -33,7 +34,7 @@ describe("shouldReuseUnchangedAnalysis", () => {
           start_offset_ms: 0,
           end_trim_ms: 0,
           tag_json: "{}",
-          analysis_json: "{}",
+          analysis_json: JSON.stringify({ pipelineVersion: ANALYSIS_PIPELINE_VERSION }),
           tag_error: "",
           analysis_error: "",
         },
@@ -53,6 +54,25 @@ describe("shouldReuseUnchangedAnalysis", () => {
           end_trim_ms: 0,
           tag_json: "{}",
           analysis_json: '{"source":"legacy-import"}',
+          tag_error: "",
+          analysis_error: "",
+        },
+        stat,
+      ),
+    ).toBe(false);
+  });
+
+  it("forces re-analysis when stored analysis comes from an older pipeline version", () => {
+    expect(
+      shouldReuseUnchangedAnalysis(
+        {
+          file_size: 1000,
+          file_mtime_ms: 1000,
+          duration_ms: 120000,
+          start_offset_ms: 0,
+          end_trim_ms: 0,
+          tag_json: "{}",
+          analysis_json: JSON.stringify({ pipelineVersion: ANALYSIS_PIPELINE_VERSION - 1 }),
           tag_error: "",
           analysis_error: "",
         },

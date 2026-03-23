@@ -33,7 +33,7 @@ import {
   renderWaveformPng,
   setCustomFfmpegToolsDir,
 } from "./library/analysis";
-import { buildCompressedCacheKey } from "./library/compression-cache";
+import { buildCompressedCacheKey, buildCompressedCachePath } from "./library/compression-cache";
 import {
   buildJumpIndex,
   getSortKeySql,
@@ -205,6 +205,24 @@ const walkImageFiles = async (rootPath: string): Promise<string[]> => {
 
 const getCompressedCacheDir = () => path.join(getDataRoot(), "compressed-audio-cache");
 
+const getCompressedCacheOutputPath = (
+  filePath: string,
+  stat: fs.Stats,
+  params: {
+    loudnessDb?: number | null;
+    depthPercent: number;
+    mode: "upward" | "track-leveler";
+    liftThresholdDb: number;
+    maxLiftDb: number;
+    ratio: number;
+    attackMs: number;
+    releaseMs: number;
+    gateThresholdDb: number;
+    limiterCeilingDb: number;
+    limiterReleaseMs: number;
+  },
+) => buildCompressedCachePath(getCompressedCacheDir(), filePath, stat, params);
+
 const detectCortinaSetsFromRoot = (rootPath: string) => {
   const sets = new Set<string>();
   if (!rootPath || !fs.existsSync(rootPath)) {
@@ -359,22 +377,20 @@ const precomputeCompressedTracksWithProgress = async (
         continue;
       }
       const stat = fs.statSync(row.full_path);
-      const outputPath = path.join(
-        cacheDir,
-        `${buildCompressedCacheKey(row.full_path, stat, {
-          loudnessDb: row.loudness_db,
-          depthPercent: 100,
-          mode: params.mode,
-          liftThresholdDb: params.liftThresholdDb,
-          maxLiftDb: params.maxLiftDb,
-          ratio: params.ratio,
-          attackMs: params.attackMs,
-          releaseMs: params.releaseMs,
-          gateThresholdDb: params.gateThresholdDb,
-          limiterCeilingDb: params.limiterCeilingDb,
-          limiterReleaseMs: params.limiterReleaseMs,
-        })}.wav`,
-      );
+      const renderParams = {
+        loudnessDb: row.loudness_db,
+        depthPercent: 100,
+        mode: params.mode,
+        liftThresholdDb: params.liftThresholdDb,
+        maxLiftDb: params.maxLiftDb,
+        ratio: params.ratio,
+        attackMs: params.attackMs,
+        releaseMs: params.releaseMs,
+        gateThresholdDb: params.gateThresholdDb,
+        limiterCeilingDb: params.limiterCeilingDb,
+        limiterReleaseMs: params.limiterReleaseMs,
+      } as const;
+      const outputPath = getCompressedCacheOutputPath(row.full_path, stat, renderParams);
       if (hasUsableCompressedRender(outputPath)) {
         cached += 1;
         pushProgress(false, relativeFile);
@@ -382,19 +398,7 @@ const precomputeCompressedTracksWithProgress = async (
       }
       fs.rmSync(outputPath, { force: true });
       await runWithCompressedRenderSlot(async () => {
-        await renderCompressedAudio(row.full_path, outputPath, {
-          loudnessDb: row.loudness_db,
-          depthPercent: 100,
-          mode: params.mode,
-          liftThresholdDb: params.liftThresholdDb,
-          maxLiftDb: params.maxLiftDb,
-          ratio: params.ratio,
-          attackMs: params.attackMs,
-          releaseMs: params.releaseMs,
-          gateThresholdDb: params.gateThresholdDb,
-          limiterCeilingDb: params.limiterCeilingDb,
-          limiterReleaseMs: params.limiterReleaseMs,
-        });
+        await renderCompressedAudio(row.full_path, outputPath, renderParams);
       });
       rendered += 1;
       pushProgress(false, relativeFile);
@@ -1103,7 +1107,7 @@ const registerIpc = () => {
       .prepare(
         `select t.id, t.full_path, t.relative_path, t.title, t.artist, t.artist_summary, t.singer, t.album,
           t.year, t.genre, t.bpm, t.notes, t.instrumental, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.analysis_json,
-          t.tag_error, t.analysis_error
+          t.loudness_db, t.gain_db, t.tag_error, t.analysis_error
          from tracks t
          join library_roots r on r.id = t.root_id
          where r.kind = 'music'
@@ -1798,6 +1802,45 @@ const registerIpc = () => {
   });
 
   ipcMain.handle(
+    "audio:getCompressedTrackPath",
+    async (
+      _event,
+      params: {
+        trackId: string;
+        filePath: string;
+        loudnessDb?: number | null;
+        depthPercent: number;
+        mode: "upward" | "track-leveler";
+        liftThresholdDb: number;
+        maxLiftDb: number;
+        ratio: number;
+        attackMs: number;
+        releaseMs: number;
+        gateThresholdDb: number;
+        limiterCeilingDb: number;
+        limiterReleaseMs: number;
+      },
+    ) => {
+      try {
+        if (!params?.filePath || !fs.existsSync(params.filePath)) {
+          return { ok: false, error: "Track file not found" };
+        }
+        const stat = fs.statSync(params.filePath);
+        const outputPath = getCompressedCacheOutputPath(params.filePath, stat, params);
+        if (hasUsableCompressedRender(outputPath)) {
+          return { ok: true, filePath: outputPath, cached: true };
+        }
+        return { ok: true, filePath: undefined, cached: false };
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : "Compression cache lookup failed",
+        };
+      }
+    },
+  );
+
+  ipcMain.handle(
     "audio:renderCompressedTrack",
     async (
       _event,
@@ -1824,7 +1867,7 @@ const registerIpc = () => {
         const stat = fs.statSync(params.filePath);
         const cacheKey = buildCompressedCacheKey(params.filePath, stat, params);
         const cacheDir = getCompressedCacheDir();
-        const outputPath = path.join(cacheDir, `${cacheKey}.wav`);
+        const outputPath = getCompressedCacheOutputPath(params.filePath, stat, params);
         fs.mkdirSync(cacheDir, { recursive: true });
         if (hasUsableCompressedRender(outputPath)) {
           return { ok: true, filePath: outputPath, cached: true };

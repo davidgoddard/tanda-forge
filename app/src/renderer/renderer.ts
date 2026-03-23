@@ -1413,6 +1413,60 @@ const resolveCompressedPathForTrack = (track: TrackRow): string | null => {
   return cachedPath || null;
 };
 
+const renderTrackEditorPathHints = (
+  track: TrackRow,
+  compressionEnabled: boolean,
+  compressedPath: string | null,
+) => {
+  if (!trackEditorPathHint && !trackEditorCompressedPathHint) {
+    return;
+  }
+  const pathLines = resolveTrackEditorPathLines({
+    originalPath: track.full_path ?? "",
+    compressionEnabled,
+    compressedPath,
+    compressedLabel: t("trackEditorCompressedPathLabel"),
+    pendingLabel: t("audioDynamicsPathPending"),
+  });
+  if (trackEditorPathHint) {
+    trackEditorPathHint.textContent = pathLines.originalLine;
+    trackEditorPathHint.title = pathLines.originalLine;
+  }
+  if (trackEditorCompressedPathHint) {
+    trackEditorCompressedPathHint.textContent = pathLines.compressedLine;
+    trackEditorCompressedPathHint.title = pathLines.compressedLine;
+  }
+};
+
+const refreshTrackEditorCompressedPath = async (track: TrackRow) => {
+  const config = getAudioDynamicsConfig();
+  const compressionEnabled = config.enabled;
+  renderTrackEditorPathHints(track, compressionEnabled, resolveCompressedPathForTrack(track));
+  if (!compressionEnabled || !window.tanda) {
+    return;
+  }
+  const result = await window.tanda.getCompressedTrackPath({
+    trackId: track.id,
+    filePath: track.full_path,
+    loudnessDb: track.loudness_db,
+    depthPercent: 100,
+    mode: config.mode,
+    liftThresholdDb: config.liftThresholdDb,
+    maxLiftDb: config.maxLiftDb,
+    ratio: config.ratio,
+    attackMs: config.attackMs,
+    releaseMs: config.releaseMs,
+    gateThresholdDb: config.gateThresholdDb,
+    limiterCeilingDb: config.limiterCeilingDb,
+    limiterReleaseMs: config.limiterReleaseMs,
+  });
+  if (trackEditorState.track?.id !== track.id) {
+    return;
+  }
+  const compressedPath = result?.ok ? result.filePath?.trim() || null : null;
+  renderTrackEditorPathHints(track, compressionEnabled, compressedPath);
+};
+
 const requestCompressedSource = async (
   track: TrackRow,
   config: AudioDynamicsConfig,
@@ -1474,6 +1528,9 @@ const requestCompressedSource = async (
     }
     compressedSourceErrorByTrackId.delete(track.id);
     compressedSourceCache.set(requestKey, result.filePath);
+    if (trackEditorState.track?.id === track.id) {
+      renderTrackEditorPathHints(track, getAudioDynamicsConfig().enabled, result.filePath);
+    }
     return result.filePath;
   })();
   compressedSourceRequests.set(requestKey, request);
@@ -1918,27 +1975,11 @@ const fillTrackEditorFields = (track: TrackRow) => {
   trackEditorNotesInput.value = track.notes ?? "";
   trackEditorBpmInput.value =
     track.bpm !== null && track.bpm !== undefined ? `${Math.round(track.bpm)}` : "";
-  if (trackEditorPathHint || trackEditorCompressedPathHint) {
-    const compressionEnabled = getAudioDynamicsConfig().enabled;
-    const compressedPath = compressionEnabled
-      ? resolveCompressedPathForTrack(track)
-      : null;
-    const pathLines = resolveTrackEditorPathLines({
-      originalPath: track.full_path ?? "",
-      compressionEnabled,
-      compressedPath,
-      compressedLabel: t("trackEditorCompressedPathLabel"),
-      pendingLabel: t("audioDynamicsPathPending"),
-    });
-    if (trackEditorPathHint) {
-      trackEditorPathHint.textContent = pathLines.originalLine;
-      trackEditorPathHint.title = pathLines.originalLine;
-    }
-    if (trackEditorCompressedPathHint) {
-      trackEditorCompressedPathHint.textContent = pathLines.compressedLine;
-      trackEditorCompressedPathHint.title = pathLines.compressedLine;
-    }
-  }
+  renderTrackEditorPathHints(
+    track,
+    getAudioDynamicsConfig().enabled,
+    resolveCompressedPathForTrack(track),
+  );
   resetTapTempo();
 };
 
@@ -1959,6 +2000,7 @@ const openTrackEditor = async (trackId: string) => {
   trackEditorState.track = { ...track };
   fillTrackEditorFields(track);
   setTrackEditorOpen(true);
+  void refreshTrackEditorCompressedPath(track);
 };
 
 const updateTrackCaches = (track: TrackRow) => {

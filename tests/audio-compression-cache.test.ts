@@ -6,6 +6,7 @@ import {
   buildCompressedRenderTempPath,
   hasUsableCompressedRender,
 } from "../app/src/main/library/analysis";
+import { buildCompressedCachePath } from "../app/src/main/library/compression-cache";
 
 describe("compressed render cache helpers", () => {
   it("derives a temp path beside the final cache target", () => {
@@ -29,5 +30,29 @@ describe("compressed render cache helpers", () => {
     expect(hasUsableCompressedRender(empty)).toBe(false);
     expect(hasUsableCompressedRender(tiny)).toBe(false);
     expect(hasUsableCompressedRender(valid)).toBe(true);
+  });
+
+  it("builds a stable cache output path for a track/config pair", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tanda-compression-cache-key-"));
+    const filePath = path.join(dir, "track.wav");
+    fs.writeFileSync(filePath, Buffer.alloc(64));
+    const stat = fs.statSync(filePath);
+
+    const cachePath = buildCompressedCachePath(dir, filePath, stat, {
+      loudnessDb: -18,
+      depthPercent: 100,
+      mode: "upward",
+      liftThresholdDb: -24,
+      maxLiftDb: 8,
+      ratio: 4,
+      attackMs: 5,
+      releaseMs: 250,
+      gateThresholdDb: -50,
+      limiterCeilingDb: -1,
+      limiterReleaseMs: 150,
+    });
+
+    expect(cachePath).toMatch(/\.wav$/);
+    expect(path.dirname(cachePath)).toBe(dir);
   });
 });

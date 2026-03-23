@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import fs from "fs";
+import path from "path";
 
 export const COMPRESSED_RENDER_PIPELINE_VERSION = 5;
 
@@ -40,3 +41,10 @@ export const buildCompressedCacheKey = (
   });
   return createHash("sha1").update(fingerprint).digest("hex");
 };
+
+export const buildCompressedCachePath = (
+  cacheDir: string,
+  filePath: string,
+  stat: fs.Stats,
+  params: CompressedCacheParams,
+) => path.join(cacheDir, `${buildCompressedCacheKey(filePath, stat, params)}.wav`);
