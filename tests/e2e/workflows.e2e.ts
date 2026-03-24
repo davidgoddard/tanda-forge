@@ -1331,19 +1331,12 @@ test.describe("Electron app end-to-end workflows", () => {
       await clickRowAction(row, "add-playlist-track");
       await confirmIfPrompted(page);
       await ensurePlaylistTab(page);
-      await expect
-        .poll(
-          async () => {
-            const playlistText = ((await page.locator("#playlist-list").innerText()) ?? "").toLowerCase();
-            const playlistEditorText = (
-              (await page.locator('#playlist-tanda-editor[data-state="visible"]').innerText()) ??
-              ""
-            ).toLowerCase();
-            return playlistText.includes("tempo 72 test") || playlistEditorText.includes("tempo 72 test");
-          },
-          { timeout: 10_000 },
-        )
-        .toBe(true);
+      const playlistRow = page.locator("#playlist-list .tanda-row").first();
+      await expect(playlistRow).toBeVisible();
+      await playlistRow.locator(".tanda-summary").first().click();
+      await expect(
+        playlistRow.locator(".tanda-detail-line", { hasText: "Tempo 72 Test" }).first(),
+      ).toBeVisible();
     } finally {
       await launched.close();
     }

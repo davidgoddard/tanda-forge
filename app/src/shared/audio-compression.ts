@@ -1,3 +1,27 @@
+export type CompressionRenderProfile = {
+  mode: "upward" | "track-leveler";
+  liftThresholdDb: number;
+  maxLiftDb: number;
+  ratio: number;
+  attackMs: number;
+  releaseMs: number;
+  gateThresholdDb: number;
+  limiterCeilingDb: number;
+  limiterReleaseMs: number;
+};
+
+export const DEFAULT_COMPRESSION_RENDER_PROFILE: CompressionRenderProfile = {
+  mode: "track-leveler",
+  liftThresholdDb: -60,
+  maxLiftDb: 15,
+  ratio: 5,
+  attackMs: 35,
+  releaseMs: 3000,
+  gateThresholdDb: -65,
+  limiterCeilingDb: -1,
+  limiterReleaseMs: 260,
+};
+
 export const shouldUseCompressionSource = (params: {
   channel: "main" | "headphone";
   isCortinaPlayback: boolean;

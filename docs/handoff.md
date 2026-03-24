@@ -8185,3 +8185,23 @@
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test -- tests/scan-reuse-analysis.test.ts tests/audio-compression-cache.test.ts tests/settings-library-controller.test.ts` passed earlier during the change.
   - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g "37 - reset plus startup flow rebuilds legacy metadata, waveforms, and compressed cache"` passed.
+- Simplified the compression model around one canonical eligibility/readiness audit.
+  - Added `app/src/main/library/compression-readiness.ts`, which now owns the single eligibility query for compression, the single cache-path rule, and the single readiness audit (`eligible`, `ready`, `missing`, `invalid-source`) used across the app.
+  - In `app/src/shared/audio-compression.ts`, added the canonical fixed compression render profile constants that match the current real playback behavior.
+  - In `app/src/main/main.ts`, precompute/startup flow now iterate that canonical eligible-track set and return readiness totals plus missing-track details, instead of only rendered/cached counters.
+  - In `app/src/main/diagnostics.ts`, both `Verify cached files` and `Data readiness` now include compression readiness totals computed from the same audit, so diagnostics reflect the actual playback contract rather than just raw `.wav` file counts.
+  - In `app/src/renderer/controllers/settings-diagnostics-controller.ts`, the diagnostics readiness panel now shows compression eligible/ready/missing rows.
+  - In `app/src/renderer/controllers/settings-library-controller.ts`, startup/precompute/cache-verification summaries now surface the readiness counts, so the app no longer bluffs with cache-file counts alone.
+  - In `app/src/renderer/i18n.ts`, added the new readiness labels and updated setup/cache-completion summaries across all supported languages.
+  - Updated `tests/main-diagnostics.test.ts`, `tests/settings-diagnostics-controller.test.ts`, `tests/settings-library-controller.test.ts`, and reran workflow `37` to keep the simplified model covered.
+  - Updated `design/tracking-and-feature-matrix.md` and `docs/dialogue.md`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`85` files, `417` tests).
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g "37 - reset plus startup flow rebuilds legacy metadata, waveforms, and compressed cache"` passed.
+- Stabilized E2E workflow `12` against the real playlist structure.
+  - In `tests/e2e/workflows.e2e.ts`, `12 - search-track menu action adds track to playlist` no longer scrapes whole-panel text after the add action. It now asserts the actual resulting playlist structure: the added track appears inside the first playlist tanda row once that row is expanded.
+  - This matches the current product behavior where adding a single track to the playlist creates a single-track tanda row rather than exposing the title in a brittle flat text view.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g "12 - search-track menu action adds track to playlist|37 - reset plus startup flow rebuilds legacy metadata, waveforms, and compressed cache"` passed.

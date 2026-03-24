@@ -2,6 +2,11 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { hasUsableCompressedRender, hasUsableWaveformPng } from "./library/analysis";
+import {
+  auditCompressionReadiness,
+  listCompressionEligibleTracks,
+} from "./library/compression-readiness";
+import { DEFAULT_COMPRESSION_RENDER_PROFILE } from "../shared/audio-compression";
 
 type DataPaths = {
   root: string;
@@ -173,6 +178,11 @@ export const verifyCachedFiles = (db: DbLike, getDataPaths: () => DataPaths) => 
     waveformRemoved,
     compressedFiles,
     compressedRemoved,
+    ...auditCompressionReadiness(
+      compressedCacheDir,
+      listCompressionEligibleTracks(db),
+      DEFAULT_COMPRESSION_RENDER_PROFILE,
+    ),
   };
 };
 
@@ -220,6 +230,11 @@ export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => Data
   let missingTrimSignals = 0;
   let analysisErrors = 0;
   let missingWaveforms = 0;
+  const compressedReadiness = auditCompressionReadiness(
+    getDataPaths().compressedCacheDir,
+    listCompressionEligibleTracks(db),
+    DEFAULT_COMPRESSION_RENDER_PROFILE,
+  );
   const shortDurationTracks: SuspiciousTrackLength[] = [];
   const aggressivelyTrimmedTracks: SuspiciousTrackLength[] = [];
   rows.forEach((row) => {
@@ -275,6 +290,18 @@ export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => Data
     missingTrimSignals,
     analysisErrors,
     missingWaveforms,
+    compressedEligible: compressedReadiness.eligible,
+    compressedReady: compressedReadiness.ready,
+    compressedMissing: compressedReadiness.missing,
+    compressedInvalidSource: compressedReadiness.invalidSource,
+    missingCompressedTracks: compressedReadiness.tracks
+      .filter((track) => track.status !== "ready")
+      .map((track) => ({
+        id: track.trackId,
+        relativePath: track.relativePath,
+        rootKind: track.rootKind,
+        status: track.status,
+      })),
     shortDurationTracks,
     aggressivelyTrimmedTracks,
   };

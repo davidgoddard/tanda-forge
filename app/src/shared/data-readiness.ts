@@ -5,6 +5,7 @@ export type DataReadinessSummary = {
   missingTrimSignals: number;
   analysisErrors: number;
   missingWaveforms: number;
+  compressedMissing?: number;
 };
 
 export type DataReadinessDecision = {
@@ -20,7 +21,8 @@ export const evaluateDataReadiness = (
     summary.missingDuration +
     summary.missingLoudness +
     summary.missingTrimSignals +
-    summary.analysisErrors;
+    summary.analysisErrors +
+    (summary.compressedMissing ?? 0);
   const warnings = summary.missingWaveforms;
   if (summary.totalTracks <= 0 || blockers > 0) {
     return {

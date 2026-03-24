@@ -509,6 +509,9 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
           rendered: result.rendered,
           cached: result.cached,
           failed: result.failed,
+          eligible: result.eligible,
+          ready: result.ready,
+          missing: result.missing,
         }),
       );
       result.errors?.forEach((error) => appendPrecomputeIssue(error));
@@ -664,6 +667,9 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
           rendered: result.precompute.rendered,
           cached: result.precompute.cached,
           failed: result.precompute.failed,
+          eligible: result.precompute.eligible,
+          ready: result.precompute.ready,
+          missing: result.precompute.missing,
         }),
       );
       deps.setStatus(
@@ -673,6 +679,9 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
           rendered: result.precompute.rendered,
           cached: result.precompute.cached,
           failed: result.precompute.failed,
+          eligible: result.precompute.eligible,
+          ready: result.precompute.ready,
+          missing: result.precompute.missing,
         }),
       );
       deps.scheduleCompressionPrefetch();
@@ -713,6 +722,10 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
         waveformRemoved: result.waveformRemoved,
         compressedFiles: result.compressedFiles,
         compressedRemoved: result.compressedRemoved,
+        eligible: result.eligible,
+        ready: result.ready,
+        missing: result.missing,
+        invalidSource: result.invalidSource,
       });
     } catch (error) {
       deps.elements.cacheVerifyResult.textContent = deps.translate(

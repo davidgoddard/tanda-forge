@@ -99,6 +99,13 @@ export type SuspiciousTrackLength = {
   removedMs: number;
 };
 
+export type CompressionReadinessIssue = {
+  id: string;
+  relativePath: string;
+  rootKind: "music" | "cortina";
+  status: "missing" | "invalid-source";
+};
+
 export type StartupFlowPhase = "music" | "cortina" | "compression" | "complete" | "failed";
 
 export type CompressedTrackLookupParams = {
@@ -231,6 +238,11 @@ export type AppApi = {
           rendered: number;
           cached: number;
           failed: number;
+          eligible: number;
+          ready: number;
+          missing: number;
+          invalidSource: number;
+          missingTracks: CompressionReadinessIssue[];
           errors: { filePath: string; message: string }[];
         };
       }
@@ -350,6 +362,11 @@ export type AppApi = {
     rendered: number;
     cached: number;
     failed: number;
+    eligible: number;
+    ready: number;
+    missing: number;
+    invalidSource: number;
+    missingTracks?: CompressionReadinessIssue[];
     errors?: { filePath: string; message: string }[];
     error?: string;
   }>;
@@ -401,6 +418,10 @@ export type AppApi = {
     waveformRemoved: number;
     compressedFiles: number;
     compressedRemoved: number;
+    eligible: number;
+    ready: number;
+    missing: number;
+    invalidSource: number;
   }>;
   getDiagnosticsLogs: (params: {
     kind: "playback" | "renderer";
@@ -414,6 +435,11 @@ export type AppApi = {
     missingTrimSignals: number;
     analysisErrors: number;
     missingWaveforms: number;
+    compressedEligible: number;
+    compressedReady: number;
+    compressedMissing: number;
+    compressedInvalidSource: number;
+    missingCompressedTracks: CompressionReadinessIssue[];
     shortDurationTracks: SuspiciousTrackLength[];
     aggressivelyTrimmedTracks: SuspiciousTrackLength[];
   }>;

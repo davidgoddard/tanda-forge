@@ -1,5 +1,9 @@
 import { evaluateDataReadiness } from "../../shared/data-readiness.js";
-import type { AppApi, SuspiciousTrackLength } from "../../shared/types.js";
+import type {
+  AppApi,
+  CompressionReadinessIssue,
+  SuspiciousTrackLength,
+} from "../../shared/types.js";
 
 export type DiagnosticsControllerDeps = {
   translate: (key: string, params?: Record<string, string | number>) => string;
@@ -26,6 +30,11 @@ export type DiagnosticsControllerDeps = {
     missingTrimSignals: number;
     analysisErrors: number;
     missingWaveforms: number;
+    compressedEligible: number;
+    compressedReady: number;
+    compressedMissing: number;
+    compressedInvalidSource: number;
+    missingCompressedTracks: CompressionReadinessIssue[];
     shortDurationTracks: SuspiciousTrackLength[];
     aggressivelyTrimmedTracks: SuspiciousTrackLength[];
   }>;
@@ -169,6 +178,18 @@ export const createSettingsDiagnosticsController = (deps: DiagnosticsControllerD
         {
           label: deps.translate("diagnosticsReadinessMissingWaveforms"),
           value: summary.missingWaveforms,
+        },
+        {
+          label: deps.translate("diagnosticsReadinessCompressedEligible"),
+          value: summary.compressedEligible,
+        },
+        {
+          label: deps.translate("diagnosticsReadinessCompressedReady"),
+          value: summary.compressedReady,
+        },
+        {
+          label: deps.translate("diagnosticsReadinessCompressedMissing"),
+          value: summary.compressedMissing,
         },
       ];
       target.innerHTML = "";

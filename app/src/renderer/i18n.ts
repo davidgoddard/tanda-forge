@@ -225,9 +225,9 @@ export const translations = {
       "Complete setup stopped because one stage failed. Check the result message below.",
     startupFlowRunning: "Running complete setup...",
     startupFlowDone:
-      "Setup complete. Music scanned {music}. Cortinas scanned {cortinas}. Compressed rendered {rendered}, cached {cached}, failed {failed}.",
+      "Setup complete. Music scanned {music}. Cortinas scanned {cortinas}. Compression ready {ready}/{eligible}; rendered {rendered}, cached {cached}, missing {missing}, failed {failed}.",
     startupFlowStatusDone:
-      "Setup complete: music {music}, cortinas {cortinas}, rendered {rendered}, cached {cached}, failed {failed}.",
+      "Setup complete: music {music}, cortinas {cortinas}, compression ready {ready}/{eligible}, rendered {rendered}, cached {cached}, missing {missing}, failed {failed}.",
     startupFlowFailed: "Setup failed: {message}",
     legacyImportBadge: "One-time migration",
     legacyImportHelp:
@@ -255,7 +255,7 @@ export const translations = {
     verifyCachedFiles: "Verify cached files",
     verifyCachedFilesRunning: "Verifying cached files...",
     verifyCachedFilesSummary:
-      "Cache verification complete. Waveforms checked {waveformFiles}, removed {waveformRemoved}. Compressed checked {compressedFiles}, removed {compressedRemoved}.",
+      "Cache verification complete. Waveforms checked {waveformFiles}, removed {waveformRemoved}. Compressed files checked {compressedFiles}, removed {compressedRemoved}. Compression readiness {ready}/{eligible}, missing {missing}, invalid source {invalidSource}.",
     verifyCachedFilesFailed: "Cache verification failed.",
     verifyCachedFilesFailedDetail: "Cache verification failed: {message}",
     eraseCachedFiles: "Erase Cached Files",
@@ -437,6 +437,9 @@ export const translations = {
     diagnosticsReadinessMissingTrimSignals: "No trim signals",
     diagnosticsReadinessAnalysisErrors: "Analysis errors",
     diagnosticsReadinessMissingWaveforms: "Missing waveforms",
+    diagnosticsReadinessCompressedEligible: "Compression eligible",
+    diagnosticsReadinessCompressedReady: "Compression ready",
+    diagnosticsReadinessCompressedMissing: "Compression missing",
     diagnosticsPlaybackLog: "Playback leveling log",
     diagnosticsPlaybackLogRun: "Load recent playback leveling entries",
     diagnosticsClearLogs: "Clear diagnostics logs",
@@ -505,7 +508,7 @@ export const translations = {
     statusPrecomputeCompressionProgressWithFile:
       "Precomputing compressed cache {current}/{total} (rendered {rendered}, cached {cached}, failed {failed}) - {file}",
     statusPrecomputeCompressionDone:
-      "Compressed cache complete. Rendered {rendered}, already cached {cached}, failed {failed}.",
+      "Compressed cache complete. Ready {ready}/{eligible}; rendered {rendered}, already cached {cached}, missing {missing}, failed {failed}.",
     statusPrecomputeCompressionFailed: "Compressed cache failed: {message}",
     statusFullscreenUnavailable: "Fullscreen is unavailable.",
     statusFullscreenFailed: "Fullscreen toggle failed.",
@@ -900,9 +903,9 @@ export const translations = {
       "La configuracion completa se detuvo porque una etapa fallo. Revise el mensaje de resultado abajo.",
     startupFlowRunning: "Ejecutando preparacion completa...",
     startupFlowDone:
-      "Preparacion completa. Musica escaneada {music}. Cortinas escaneadas {cortinas}. Comprimidos renderizados {rendered}, en cache {cached}, fallidos {failed}.",
+      "Preparacion completa. Musica escaneada {music}. Cortinas escaneadas {cortinas}. Compresion lista {ready}/{eligible}; renderizados {rendered}, en cache {cached}, faltantes {missing}, fallidos {failed}.",
     startupFlowStatusDone:
-      "Preparacion completa: musica {music}, cortinas {cortinas}, renderizados {rendered}, en cache {cached}, fallidos {failed}.",
+      "Preparacion completa: musica {music}, cortinas {cortinas}, compresion lista {ready}/{eligible}, renderizados {rendered}, en cache {cached}, faltantes {missing}, fallidos {failed}.",
     startupFlowFailed: "La preparacion fallo: {message}",
     legacyImportBadge: "Migracion unica",
     legacyImportHelp:
@@ -930,7 +933,7 @@ export const translations = {
     verifyCachedFiles: "Verificar archivos en cache",
     verifyCachedFilesRunning: "Verificando archivos en cache...",
     verifyCachedFilesSummary:
-      "Verificacion completada. Formas de onda revisadas {waveformFiles}, eliminadas {waveformRemoved}. Comprimidos revisados {compressedFiles}, eliminados {compressedRemoved}.",
+      "Verificacion completada. Formas de onda revisadas {waveformFiles}, eliminadas {waveformRemoved}. Comprimidos revisados {compressedFiles}, eliminados {compressedRemoved}. Compresion lista {ready}/{eligible}, faltantes {missing}, origen invalido {invalidSource}.",
     verifyCachedFilesFailed: "La verificacion de cache fallo.",
     verifyCachedFilesFailedDetail: "La verificacion de cache fallo: {message}",
     eraseCachedFiles: "Borrar archivos en cache",
@@ -1115,6 +1118,9 @@ export const translations = {
     diagnosticsReadinessMissingTrimSignals: "Sin senales de recorte",
     diagnosticsReadinessAnalysisErrors: "Errores de analisis",
     diagnosticsReadinessMissingWaveforms: "Formas de onda faltantes",
+    diagnosticsReadinessCompressedEligible: "Con compresion posible",
+    diagnosticsReadinessCompressedReady: "Compresion lista",
+    diagnosticsReadinessCompressedMissing: "Compresion faltante",
     eraseDatabase: "Borrar base de datos",
     eraseDatabaseHelp:
       "Elimina solo los registros de la base. Las formas de onda y archivos comprimidos en cache se conservan salvo que se borren aparte.",
@@ -1327,7 +1333,7 @@ export const translations = {
     statusPrecomputeCompressionProgress:
       "Precalculando cache comprimida {current}/{total} (renderizados {rendered}, en cache {cached}, fallidos {failed})",
     statusPrecomputeCompressionDone:
-      "Cache comprimida completada. Renderizados {rendered}, ya en cache {cached}, fallidos {failed}.",
+      "Cache comprimida completada. Listos {ready}/{eligible}; renderizados {rendered}, ya en cache {cached}, faltantes {missing}, fallidos {failed}.",
     statusPrecomputeCompressionFailed: "La cache comprimida fallo: {message}",
     statusRendererErrorDetail: "Ocurrio un problema: {message}",
     statusPlaylistSwapInvalid: "Seleccione una tanda marcada e intercambiela con otra tanda.",
@@ -1595,9 +1601,9 @@ export const translations = {
       "La configuration complete s'est arretee car une etape a echoue. Consultez le message de resultat ci-dessous.",
     startupFlowRunning: "Preparation complete en cours...",
     startupFlowDone:
-      "Preparation terminee. Musique scannee {music}. Cortinas scannees {cortinas}. Compresses rendus {rendered}, en cache {cached}, echecs {failed}.",
+      "Preparation terminee. Musique scannee {music}. Cortinas scannees {cortinas}. Compression prete {ready}/{eligible}; rendus {rendered}, en cache {cached}, manquants {missing}, echecs {failed}.",
     startupFlowStatusDone:
-      "Preparation terminee: musique {music}, cortinas {cortinas}, rendus {rendered}, en cache {cached}, echecs {failed}.",
+      "Preparation terminee: musique {music}, cortinas {cortinas}, compression prete {ready}/{eligible}, rendus {rendered}, en cache {cached}, manquants {missing}, echecs {failed}.",
     startupFlowFailed: "La preparation a echoue: {message}",
     legacyImportBadge: "Migration unique",
     legacyImportHelp:
@@ -1625,7 +1631,7 @@ export const translations = {
     verifyCachedFiles: "Verifier les fichiers en cache",
     verifyCachedFilesRunning: "Verification des fichiers en cache...",
     verifyCachedFilesSummary:
-      "Verification terminee. Formes d'onde verifiees {waveformFiles}, supprimees {waveformRemoved}. Fichiers compresses verifies {compressedFiles}, supprimes {compressedRemoved}.",
+      "Verification terminee. Formes d'onde verifiees {waveformFiles}, supprimees {waveformRemoved}. Fichiers compresses verifies {compressedFiles}, supprimes {compressedRemoved}. Compression prete {ready}/{eligible}, manquants {missing}, source invalide {invalidSource}.",
     verifyCachedFilesFailed: "La verification du cache a echoue.",
     verifyCachedFilesFailedDetail: "La verification du cache a echoue: {message}",
     eraseCachedFiles: "Effacer les fichiers en cache",
@@ -1811,6 +1817,9 @@ export const translations = {
     diagnosticsReadinessMissingTrimSignals: "Aucun signal de trim",
     diagnosticsReadinessAnalysisErrors: "Erreurs d'analyse",
     diagnosticsReadinessMissingWaveforms: "Formes d'onde manquantes",
+    diagnosticsReadinessCompressedEligible: "Eligibles a la compression",
+    diagnosticsReadinessCompressedReady: "Compression prete",
+    diagnosticsReadinessCompressedMissing: "Compression manquante",
     eraseDatabase: "Effacer la base",
     eraseDatabaseHelp:
       "Supprime seulement les enregistrements de base. Les formes d'onde et fichiers compresses en cache sont conserves sauf suppression separee.",
@@ -2028,7 +2037,7 @@ export const translations = {
     statusPrecomputeCompressionProgress:
       "Precalcul du cache compresse {current}/{total} (rendus {rendered}, en cache {cached}, echecs {failed})",
     statusPrecomputeCompressionDone:
-      "Cache compresse termine. Rendus {rendered}, deja en cache {cached}, echecs {failed}.",
+      "Cache compresse termine. Prets {ready}/{eligible}; rendus {rendered}, deja en cache {cached}, manquants {missing}, echecs {failed}.",
     statusPrecomputeCompressionFailed: "Le cache compresse a echoue : {message}",
     statusRendererErrorDetail: "Un probleme est survenu : {message}",
     statusPlaylistSwapInvalid:
@@ -2299,9 +2308,9 @@ export const translations = {
       "Das komplette Setup wurde gestoppt, weil eine Phase fehlgeschlagen ist. Pruefen Sie die Ergebnisnachricht unten.",
     startupFlowRunning: "Komplette Einrichtung laeuft...",
     startupFlowDone:
-      "Einrichtung abgeschlossen. Musik gescannt {music}. Cortinas gescannt {cortinas}. Komprimiert gerendert {rendered}, im Cache {cached}, fehlgeschlagen {failed}.",
+      "Einrichtung abgeschlossen. Musik gescannt {music}. Cortinas gescannt {cortinas}. Kompression bereit {ready}/{eligible}; gerendert {rendered}, im Cache {cached}, fehlend {missing}, fehlgeschlagen {failed}.",
     startupFlowStatusDone:
-      "Einrichtung abgeschlossen: Musik {music}, Cortinas {cortinas}, gerendert {rendered}, im Cache {cached}, fehlgeschlagen {failed}.",
+      "Einrichtung abgeschlossen: Musik {music}, Cortinas {cortinas}, Kompression bereit {ready}/{eligible}, gerendert {rendered}, im Cache {cached}, fehlend {missing}, fehlgeschlagen {failed}.",
     startupFlowFailed: "Einrichtung fehlgeschlagen: {message}",
     legacyImportBadge: "Einmalige Migration",
     legacyImportHelp:
@@ -2329,7 +2338,7 @@ export const translations = {
     verifyCachedFiles: "Cache-Dateien prufen",
     verifyCachedFilesRunning: "Cache-Dateien werden gepruft...",
     verifyCachedFilesSummary:
-      "Cache-Prufung abgeschlossen. Wellenformen gepruft {waveformFiles}, entfernt {waveformRemoved}. Komprimierte Dateien gepruft {compressedFiles}, entfernt {compressedRemoved}.",
+      "Cache-Prufung abgeschlossen. Wellenformen gepruft {waveformFiles}, entfernt {waveformRemoved}. Komprimierte Dateien gepruft {compressedFiles}, entfernt {compressedRemoved}. Kompression bereit {ready}/{eligible}, fehlend {missing}, ungultige Quelle {invalidSource}.",
     verifyCachedFilesFailed: "Cache-Prufung fehlgeschlagen.",
     verifyCachedFilesFailedDetail: "Cache-Prufung fehlgeschlagen: {message}",
     eraseCachedFiles: "Cache-Dateien loschen",
@@ -2516,6 +2525,9 @@ export const translations = {
     diagnosticsReadinessMissingTrimSignals: "Keine Trim-Signale",
     diagnosticsReadinessAnalysisErrors: "Analysefehler",
     diagnosticsReadinessMissingWaveforms: "Wellenformen fehlen",
+    diagnosticsReadinessCompressedEligible: "Kompression moglich",
+    diagnosticsReadinessCompressedReady: "Kompression bereit",
+    diagnosticsReadinessCompressedMissing: "Kompression fehlt",
     eraseDatabase: "Datenbank loschen",
     eraseDatabaseHelp:
       "Entfernt nur Datenbankeintrage. Wellenform- und komprimierte Cache-Dateien bleiben erhalten, bis sie separat geloscht werden.",
@@ -2733,7 +2745,7 @@ export const translations = {
     statusPrecomputeCompressionProgress:
       "Komprimierten Cache vorberechnen {current}/{total} (gerendert {rendered}, im Cache {cached}, fehlgeschlagen {failed})",
     statusPrecomputeCompressionDone:
-      "Komprimierter Cache fertig. Gerendert {rendered}, bereits im Cache {cached}, fehlgeschlagen {failed}.",
+      "Komprimierter Cache fertig. Bereit {ready}/{eligible}; gerendert {rendered}, bereits im Cache {cached}, fehlend {missing}, fehlgeschlagen {failed}.",
     statusPrecomputeCompressionFailed:
       "Komprimierter Cache fehlgeschlagen: {message}",
     statusRendererErrorDetail: "Ein Fehler ist aufgetreten: {message}",
@@ -3005,9 +3017,9 @@ export const translations = {
       "A configuracao completa parou porque uma etapa falhou. Verifique a mensagem de resultado abaixo.",
     startupFlowRunning: "A executar preparacao completa...",
     startupFlowDone:
-      "Preparacao concluida. Musica analisada {music}. Cortinas analisadas {cortinas}. Comprimidos renderizados {rendered}, em cache {cached}, falhados {failed}.",
+      "Preparacao concluida. Musica analisada {music}. Cortinas analisadas {cortinas}. Compressao pronta {ready}/{eligible}; renderizados {rendered}, em cache {cached}, em falta {missing}, falhados {failed}.",
     startupFlowStatusDone:
-      "Preparacao concluida: musica {music}, cortinas {cortinas}, renderizados {rendered}, em cache {cached}, falhados {failed}.",
+      "Preparacao concluida: musica {music}, cortinas {cortinas}, compressao pronta {ready}/{eligible}, renderizados {rendered}, em cache {cached}, em falta {missing}, falhados {failed}.",
     startupFlowFailed: "A preparacao falhou: {message}",
     legacyImportBadge: "Migracao unica",
     legacyImportHelp:
@@ -3035,7 +3047,7 @@ export const translations = {
     verifyCachedFiles: "Verificar ficheiros em cache",
     verifyCachedFilesRunning: "A verificar ficheiros em cache...",
     verifyCachedFilesSummary:
-      "Verificacao concluida. Formas de onda verificadas {waveformFiles}, removidas {waveformRemoved}. Ficheiros comprimidos verificados {compressedFiles}, removidos {compressedRemoved}.",
+      "Verificacao concluida. Formas de onda verificadas {waveformFiles}, removidas {waveformRemoved}. Ficheiros comprimidos verificados {compressedFiles}, removidos {compressedRemoved}. Compressao pronta {ready}/{eligible}, em falta {missing}, origem invalida {invalidSource}.",
     verifyCachedFilesFailed: "A verificacao da cache falhou.",
     verifyCachedFilesFailedDetail: "A verificacao da cache falhou: {message}",
     eraseCachedFiles: "Apagar ficheiros em cache",
@@ -3222,6 +3234,9 @@ export const translations = {
     diagnosticsReadinessMissingTrimSignals: "Sem sinais de trim",
     diagnosticsReadinessAnalysisErrors: "Erros de analise",
     diagnosticsReadinessMissingWaveforms: "Formas de onda ausentes",
+    diagnosticsReadinessCompressedEligible: "Elegiveis para compressao",
+    diagnosticsReadinessCompressedReady: "Compressao pronta",
+    diagnosticsReadinessCompressedMissing: "Compressao em falta",
     eraseDatabase: "Apagar base",
     eraseDatabaseHelp:
       "Remove apenas os registos da base de dados. As formas de onda e os ficheiros comprimidos em cache ficam guardados ate serem apagados separadamente.",
@@ -3440,7 +3455,7 @@ export const translations = {
     statusPrecomputeCompressionProgress:
       "A precomputar cache comprimida {current}/{total} (renderizados {rendered}, em cache {cached}, falhados {failed})",
     statusPrecomputeCompressionDone:
-      "Cache comprimida concluida. Renderizados {rendered}, ja em cache {cached}, falhados {failed}.",
+      "Cache comprimida concluida. Prontos {ready}/{eligible}; renderizados {rendered}, ja em cache {cached}, em falta {missing}, falhados {failed}.",
     statusPrecomputeCompressionFailed: "A cache comprimida falhou: {message}",
     statusRendererErrorDetail: "Ocorreu um problema: {message}",
     statusPlaylistSwapInvalid:
@@ -3711,9 +3726,9 @@ export const translations = {
       "La configurazione completa si e fermata per un errore in una fase. Controlla il messaggio di risultato qui sotto.",
     startupFlowRunning: "Preparazione completa in corso...",
     startupFlowDone:
-      "Preparazione completata. Musica scansionata {music}. Cortine scansionate {cortinas}. Compressi renderizzati {rendered}, in cache {cached}, falliti {failed}.",
+      "Preparazione completata. Musica scansionata {music}. Cortine scansionate {cortinas}. Compressione pronta {ready}/{eligible}; renderizzati {rendered}, in cache {cached}, mancanti {missing}, falliti {failed}.",
     startupFlowStatusDone:
-      "Preparazione completata: musica {music}, cortine {cortinas}, renderizzati {rendered}, in cache {cached}, falliti {failed}.",
+      "Preparazione completata: musica {music}, cortine {cortinas}, compressione pronta {ready}/{eligible}, renderizzati {rendered}, in cache {cached}, mancanti {missing}, falliti {failed}.",
     startupFlowFailed: "Preparazione non riuscita: {message}",
     legacyImportBadge: "Migrazione una tantum",
     legacyImportHelp:
@@ -3741,7 +3756,7 @@ export const translations = {
     verifyCachedFiles: "Verifica file in cache",
     verifyCachedFilesRunning: "Verifica dei file in cache...",
     verifyCachedFilesSummary:
-      "Verifica completata. Forme d'onda controllate {waveformFiles}, rimosse {waveformRemoved}. File compressi controllati {compressedFiles}, rimossi {compressedRemoved}.",
+      "Verifica completata. Forme d'onda controllate {waveformFiles}, rimosse {waveformRemoved}. File compressi controllati {compressedFiles}, rimossi {compressedRemoved}. Compressione pronta {ready}/{eligible}, mancanti {missing}, origine non valida {invalidSource}.",
     verifyCachedFilesFailed: "Verifica cache non riuscita.",
     verifyCachedFilesFailedDetail: "Verifica cache non riuscita: {message}",
     eraseCachedFiles: "Cancella file in cache",
@@ -3928,6 +3943,9 @@ export const translations = {
     diagnosticsReadinessMissingTrimSignals: "Nessun segnale di trim",
     diagnosticsReadinessAnalysisErrors: "Errori di analisi",
     diagnosticsReadinessMissingWaveforms: "Forme d'onda mancanti",
+    diagnosticsReadinessCompressedEligible: "Idonei alla compressione",
+    diagnosticsReadinessCompressedReady: "Compressione pronta",
+    diagnosticsReadinessCompressedMissing: "Compressione mancante",
     eraseDatabase: "Cancella database",
     eraseDatabaseHelp:
       "Rimuove solo i record del database. Forme d'onda e file compressi in cache restano finche non vengono cancellati separatamente.",
@@ -4150,7 +4168,7 @@ export const translations = {
     statusPrecomputeCompressionProgress:
       "Precalcolo cache compressa {current}/{total} (renderizzati {rendered}, in cache {cached}, falliti {failed})",
     statusPrecomputeCompressionDone:
-      "Cache compressa completata. Renderizzati {rendered}, gia in cache {cached}, falliti {failed}.",
+      "Cache compressa completata. Pronti {ready}/{eligible}; renderizzati {rendered}, gia in cache {cached}, mancanti {missing}, falliti {failed}.",
     statusPrecomputeCompressionFailed: "La cache compressa e fallita: {message}",
     statusRendererErrorDetail: "Si e verificato un problema: {message}",
     statusPlaylistSwapInvalid:
@@ -4358,9 +4376,9 @@ translations.is = {
     "Full uppsetning stoppaði vegna villu i einu þrepi. Skoðaðu niðurstöðuskilaboðin her fyrir neðan.",
   startupFlowRunning: "Keyri fulla uppsetningu...",
   startupFlowDone:
-    "Uppsetningu lokið. Tónlist skönnuð {music}. Cortinur skannaðar {cortinas}. Þjappað renderað {rendered}, í skyndiminni {cached}, mistókst {failed}.",
+    "Uppsetningu lokið. Tónlist skönnuð {music}. Cortinur skannaðar {cortinas}. Þjöppun tilbúin {ready}/{eligible}; renderað {rendered}, í skyndiminni {cached}, vantar {missing}, mistókst {failed}.",
   startupFlowStatusDone:
-    "Uppsetningu lokið: tónlist {music}, cortinur {cortinas}, renderað {rendered}, í skyndiminni {cached}, mistókst {failed}.",
+    "Uppsetningu lokið: tónlist {music}, cortinur {cortinas}, þjöppun tilbúin {ready}/{eligible}, renderað {rendered}, í skyndiminni {cached}, vantar {missing}, mistókst {failed}.",
   startupFlowFailed: "Uppsetning mistókst: {message}",
   legacyImportBadge: "Einskipt flutningur",
   legacyImportHelp:
@@ -4388,7 +4406,7 @@ translations.is = {
   verifyCachedFiles: "Staðfesta skyndiminni",
   verifyCachedFilesRunning: "Staðfesti skyndiminni...",
   verifyCachedFilesSummary:
-    "Staðfestingu skyndiminnis lokið. Bylgjuform athuguð {waveformFiles}, fjarlægð {waveformRemoved}. Þjappaðar skrár athugaðar {compressedFiles}, fjarlægðar {compressedRemoved}.",
+    "Staðfestingu skyndiminnis lokið. Bylgjuform athuguð {waveformFiles}, fjarlægð {waveformRemoved}. Þjappaðar skrár athugaðar {compressedFiles}, fjarlægðar {compressedRemoved}. Þjöppun tilbúin {ready}/{eligible}, vantar {missing}, ógild uppspretta {invalidSource}.",
   verifyCachedFilesFailed: "Staðfesting skyndiminnis mistókst.",
   verifyCachedFilesFailedDetail: "Staðfesting skyndiminnis mistókst: {message}",
   eraseCachedFiles: "Eyða skyndiminni",
@@ -4569,6 +4587,9 @@ translations.is = {
   diagnosticsReadinessMissingTrimSignals: "Engin klippimerki",
   diagnosticsReadinessAnalysisErrors: "Greiningarvillur",
   diagnosticsReadinessMissingWaveforms: "Vantar bylgjuform",
+  diagnosticsReadinessCompressedEligible: "Hæft til þjöppunar",
+  diagnosticsReadinessCompressedReady: "Þjöppun tilbúin",
+  diagnosticsReadinessCompressedMissing: "Þjöppun vantar",
   diagnosticsPlaybackLog: "Hljóðstyrksskrá spilunar",
   diagnosticsPlaybackLogRun: "Hlaða nýlegum færslum úr hljóðstyrksskrá",
   diagnosticsClearLogs: "Hreinsa greiningarskrár",
@@ -4631,7 +4652,7 @@ translations.is = {
   statusScanFailed: "Skönnun mistókst.",
   statusPrecomputeCompressionRunning: "Forreikna þjappað skyndiminni...",
   statusPrecomputeCompressionDone:
-    "Þjöppuðu skyndiminni lokið. Myndað {rendered}, þegar til {cached}, mistókst {failed}.",
+    "Þjöppuðu skyndiminni lokið. Tilbúið {ready}/{eligible}; myndað {rendered}, þegar til {cached}, vantar {missing}, mistókst {failed}.",
   statusLanguageSet: "Tungumál stillt á {language}.",
   statusPlayCountsCleared: "Spilunarteljarar hreinsaðir.",
   statusNoApi: "API tenging ekki tiltæk.",

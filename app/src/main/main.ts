@@ -35,6 +35,10 @@ import {
 } from "./library/analysis";
 import { buildCompressedCacheKey, buildCompressedCachePath } from "./library/compression-cache";
 import {
+  auditCompressionReadiness,
+  listCompressionEligibleTracks,
+} from "./library/compression-readiness";
+import {
   buildJumpIndex,
   getSortKeySql,
   getSortSql,
@@ -61,6 +65,7 @@ import {
   DEFAULT_CORTINA_SET_ID,
   getCortinaSetName,
 } from "../shared/cortina-utils";
+import { type CompressionRenderProfile } from "../shared/audio-compression";
 import { normalizeStyleName, summarizeArtistName } from "../shared/tanda-utils";
 import { mergeStyleAliases, parseStyleDefinition } from "../shared/style-definitions";
 import {
@@ -305,37 +310,14 @@ const clearDiagnosticsArtifacts = () => {
   });
 };
 
-type CompressionRenderConfig = {
-  mode: "upward" | "track-leveler";
-  liftThresholdDb: number;
-  maxLiftDb: number;
-  ratio: number;
-  attackMs: number;
-  releaseMs: number;
-  gateThresholdDb: number;
-  limiterCeilingDb: number;
-  limiterReleaseMs: number;
-};
+type CompressionRenderConfig = CompressionRenderProfile;
 
 const precomputeCompressedTracksWithProgress = async (
   sender: Electron.WebContents,
   params: CompressionRenderConfig,
 ) => {
   const db = getDb();
-  const rows = db
-    .prepare(
-      `select t.id, t.full_path, t.loudness_db, r.path as root_path, r.kind as root_kind
-       from tracks t
-       join library_roots r on r.id = t.root_id
-       where r.kind in ('music', 'cortina')`,
-    )
-    .all() as {
-    id: string;
-    full_path: string;
-    loudness_db: number | null;
-    root_path: string;
-    root_kind: "music" | "cortina";
-  }[];
+  const rows = listCompressionEligibleTracks(db);
   const cacheDir = getCompressedCacheDir();
   fs.mkdirSync(cacheDir, { recursive: true });
   let rendered = 0;
@@ -361,36 +343,25 @@ const precomputeCompressedTracksWithProgress = async (
   };
   pushProgress(false);
   for (const row of rows) {
-    const relativeFile =
-      row.root_path && row.full_path
-        ? path.relative(row.root_path, row.full_path) || path.basename(row.full_path)
-        : path.basename(row.full_path || row.id);
+    const relativeFile = row.relativePath;
     try {
-      if (!row.full_path || !fs.existsSync(row.full_path)) {
+      if (!row.fullPath || !fs.existsSync(row.fullPath)) {
         failed += 1;
         const latestError = {
-          filePath: row.full_path || row.id,
+          filePath: row.fullPath || row.id,
           message: "Compression: Track file not found",
         };
         errors.push(latestError);
         pushProgress(false, relativeFile, latestError);
         continue;
       }
-      const stat = fs.statSync(row.full_path);
+      const stat = fs.statSync(row.fullPath);
       const renderParams = {
-        loudnessDb: row.loudness_db,
+        loudnessDb: row.loudnessDb,
         depthPercent: 100,
-        mode: params.mode,
-        liftThresholdDb: params.liftThresholdDb,
-        maxLiftDb: params.maxLiftDb,
-        ratio: params.ratio,
-        attackMs: params.attackMs,
-        releaseMs: params.releaseMs,
-        gateThresholdDb: params.gateThresholdDb,
-        limiterCeilingDb: params.limiterCeilingDb,
-        limiterReleaseMs: params.limiterReleaseMs,
+        ...params,
       } as const;
-      const outputPath = getCompressedCacheOutputPath(row.full_path, stat, renderParams);
+      const outputPath = getCompressedCacheOutputPath(row.fullPath, stat, renderParams);
       if (hasUsableCompressedRender(outputPath)) {
         cached += 1;
         pushProgress(false, relativeFile);
@@ -398,14 +369,14 @@ const precomputeCompressedTracksWithProgress = async (
       }
       fs.rmSync(outputPath, { force: true });
       await runWithCompressedRenderSlot(async () => {
-        await renderCompressedAudio(row.full_path, outputPath, renderParams);
+        await renderCompressedAudio(row.fullPath, outputPath, renderParams);
       });
       rendered += 1;
       pushProgress(false, relativeFile);
     } catch (error) {
       failed += 1;
       const latestError = {
-        filePath: row.full_path,
+        filePath: row.fullPath,
         message: `Compression: ${
           error instanceof Error ? error.message : "Compression render failed"
         }`,
@@ -415,7 +386,18 @@ const precomputeCompressedTracksWithProgress = async (
     }
   }
   pushProgress(true);
-  return { rendered, cached, failed, errors };
+  const readiness = auditCompressionReadiness(cacheDir, rows, params);
+  return {
+    rendered,
+    cached,
+    failed,
+    eligible: readiness.eligible,
+    ready: readiness.ready,
+    missing: readiness.missing,
+    invalidSource: readiness.invalidSource,
+    missingTracks: readiness.tracks.filter((track) => track.status !== "ready"),
+    errors,
+  };
 };
 
 const saveLegacyOverrides = () => {
@@ -1928,6 +1910,11 @@ const registerIpc = () => {
           rendered: 0,
           cached: 0,
           failed: 0,
+          eligible: 0,
+          ready: 0,
+          missing: 0,
+          invalidSource: 0,
+          missingTracks: [],
           errors: [],
           error: error instanceof Error ? error.message : "Precompute failed",
         };
