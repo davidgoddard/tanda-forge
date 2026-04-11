@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolveCurrentProgressText,
+  resolveLastTandaCountdownText,
   resolveNextTandaLabel,
   resolveNextTandaStyle,
 } from "../app/src/renderer/modules/display-view";
@@ -13,9 +14,9 @@ describe("display view helpers", () => {
       currentTrackIndex: 1,
       playlistItems: [{ kind: "tanda", tandaId: "td1" }],
       resolveTandaTrackCount: () => 3,
-      translatePlayingTrack: (idx, count) => `${idx}/${count}`,
+      translatePlayingTrack: (idx, count) => `Playing ${idx}/${count}`,
     });
-    expect(text).toBe("2/3");
+    expect(text).toBe("Playing 2/3");
   });
 
   it("resolves next tanda style/label", () => {
@@ -37,20 +38,22 @@ describe("display view helpers", () => {
     const label = resolveNextTandaLabel({
       isMarkedLast: false,
       nextStyle: style,
+      nextArtist: "Di Sarli",
       translateLast: () => "LAST",
-      translateNext: (s) => `Next ${s}`,
+      translateNext: (s, a) => `Next: ${s}\n${a}`,
     });
-    expect(label).toBe("Next Tango");
+    expect(label).toBe("Next: Tango\nDi Sarli");
   });
 
   it("keeps next-style label before final cortina even when marked-last is enabled", () => {
     const label = resolveNextTandaLabel({
       isMarkedLast: true,
       nextStyle: "Tango",
+      nextArtist: "Various artists",
       translateLast: () => "LAST",
-      translateNext: (s) => `Next ${s}`,
+      translateNext: (s, a) => `Next: ${s}\n${a}`,
     });
-    expect(label).toBe("Next Tango");
+    expect(label).toBe("Next: Tango\nVarious artists");
   });
 
   it("suppresses next-style lookup during final cortina phase when marked-last is enabled", () => {
@@ -70,7 +73,7 @@ describe("display view helpers", () => {
       isMarkedLast: true,
       nextStyle: style,
       translateLast: () => "LAST",
-      translateNext: (s) => `Next ${s}`,
+      translateNext: (s, a) => `Next: ${s}\n${a}`,
     });
     expect(label).toBe("LAST");
   });
@@ -99,10 +102,10 @@ describe("display view helpers", () => {
       nextStyle: style,
       useCurrentLabel: true,
       translateLast: () => "LAST",
-      translateCurrent: (s) => `This ${s}`,
-      translateNext: (s) => `Next ${s}`,
+      translateCurrent: (s) => `Now: ${s}`,
+      translateNext: (s, a) => `Next: ${s}\n${a}`,
     });
-    expect(label).toBe("This Milonga");
+    expect(label).toBe("Now: Milonga");
   });
 
   it("uses explicit last-tanda label override when requested", () => {
@@ -111,8 +114,31 @@ describe("display view helpers", () => {
       nextStyle: "Tango",
       forceLastLabel: true,
       translateLast: () => "LAST",
-      translateNext: (s) => `Next ${s}`,
+      translateNext: (s, a) => `Next ${s} from ${a}`,
     });
     expect(label).toBe("LAST");
+  });
+
+  it("builds the countdown label for the last tanda window", () => {
+    expect(
+      resolveLastTandaCountdownText({
+        remainingTandas: 2,
+        translateCount: (count) => `Last ${count}`,
+      }),
+    ).toBe("Last 2");
+
+    expect(
+      resolveLastTandaCountdownText({
+        remainingTandas: 1,
+        translateCount: (count) => `Last ${count}`,
+      }),
+    ).toBe("");
+
+    expect(
+      resolveLastTandaCountdownText({
+        remainingTandas: 0,
+        translateCount: (count) => `Last ${count}`,
+      }),
+    ).toBe("");
   });
 });

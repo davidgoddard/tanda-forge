@@ -14,7 +14,14 @@ const titleCase = (value: string) =>
   value
     .split(" ")
     .filter(Boolean)
-    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .map((part) =>
+      part
+        .split("'")
+        .map((segment) =>
+          segment ? segment.slice(0, 1).toUpperCase() + segment.slice(1) : segment,
+        )
+        .join("'"),
+    )
     .join(" ");
 
 const artistNoise = [
@@ -124,8 +131,34 @@ const cleanArtistCandidate = (value: string) => {
   return titleCase(swapped.toLowerCase());
 };
 
-export const extractArtistCandidates = (input: string) => {
+const stripSingerSuffixForArtistSummary = (input: string) => {
   const raw = collapseWhitespace(input);
+  if (!raw) {
+    return "";
+  }
+  const normalized = stripDiacritics(raw).toUpperCase();
+  const singerMarkerMatch = normalized.match(
+    /\b(WITH|CON|CANTA|CANT|CANTOR|CANTORES|FEAT\.|FT\.)\b/i,
+  );
+  if (singerMarkerMatch && singerMarkerMatch.index !== undefined) {
+    return raw.slice(0, singerMarkerMatch.index).trim().replace(/[,:;/\-\s]+$/, "");
+  }
+  const commaIndex = raw.indexOf(",");
+  if (commaIndex > 0) {
+    const leaderPart = raw.slice(0, commaIndex).trim();
+    const tailPart = raw.slice(commaIndex + 1).trim();
+    if (
+      leaderPart.split(/\s+/).filter(Boolean).length > 1 &&
+      /[\/&]/.test(tailPart)
+    ) {
+      return leaderPart;
+    }
+  }
+  return raw;
+};
+
+export const extractArtistCandidates = (input: string) => {
+  const raw = stripSingerSuffixForArtistSummary(input);
   if (!raw) {
     return [];
   }
@@ -173,11 +206,12 @@ export const extractArtistCandidates = (input: string) => {
 };
 
 export const summarizeArtistName = (input: string) => {
-  const candidates = extractArtistCandidates(input);
+  const raw = stripSingerSuffixForArtistSummary(input);
+  const candidates = extractArtistCandidates(raw);
   if (candidates.length > 0) {
     return candidates[0];
   }
-  const cleaned = collapseWhitespace(stripDiacritics(input));
+  const cleaned = collapseWhitespace(stripDiacritics(raw));
   return cleaned ? titleCase(cleaned.toLowerCase()) : "";
 };
 
@@ -189,7 +223,7 @@ export const extractSingerName = (input: string) => {
     return "";
   }
   const normalized = stripDiacritics(raw).toUpperCase();
-  const singerMarkers = /\b(WITH|CON|CANTA|CANTOR|CANTORES|FEAT\.|FT\.)\b/i;
+  const singerMarkers = /\b(WITH|CON|CANTA|CANT|CANTOR|CANTORES|FEAT\.|FT\.)\b/i;
   const match = normalized.match(singerMarkers);
   if (!match || match.index === undefined) {
     return "";
@@ -231,7 +265,7 @@ export const extractSingerName = (input: string) => {
   }
   const candidates = extractArtistCandidates(singerPart);
   if (candidates.length > 0) {
-    return candidates[0];
+    return candidates.join(" / ");
   }
   return summarizeArtistName(singerPart);
 };

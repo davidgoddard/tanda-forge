@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  clampLastTandaOffset,
+  decrementLastTandaRemainingCount,
   findPlaylistPositionForTrack,
+  resolveLastTandaRemainingCount,
   resolveContinuationIndexAfterEndCortina,
   resolveOverlapFadeMs,
   resolveScheduledTransitionTimeSeconds,
@@ -183,13 +186,35 @@ describe("overlap helpers", () => {
 });
 
 describe("shouldStopAfterMarkedLastTanda", () => {
-  it("stops after tanda when marked as last", () => {
-    expect(shouldStopAfterMarkedLastTanda("tanda", true)).toBe(true);
+  it("stops after tanda when the countdown reaches the final tanda", () => {
+    expect(shouldStopAfterMarkedLastTanda("tanda", 1)).toBe(true);
+    expect(shouldStopAfterMarkedLastTanda("tanda", 0)).toBe(true);
   });
 
-  it("does not stop for tracks or when not marked", () => {
-    expect(shouldStopAfterMarkedLastTanda("track", true)).toBe(false);
-    expect(shouldStopAfterMarkedLastTanda("tanda", false)).toBe(false);
+  it("does not stop for tracks or when the countdown has more tandas left", () => {
+    expect(shouldStopAfterMarkedLastTanda("track", 1)).toBe(false);
+    expect(shouldStopAfterMarkedLastTanda("tanda", 2)).toBe(false);
+    expect(shouldStopAfterMarkedLastTanda("tanda", null)).toBe(false);
+  });
+});
+
+describe("last tanda countdown helpers", () => {
+  it("clamps the UI offset to the supported range", () => {
+    expect(clampLastTandaOffset(Number.NaN)).toBe(1);
+    expect(clampLastTandaOffset(-3)).toBe(0);
+    expect(clampLastTandaOffset(7)).toBe(4);
+  });
+
+  it("converts offsets to inclusive remaining tanda counts", () => {
+    expect(resolveLastTandaRemainingCount(0)).toBe(1);
+    expect(resolveLastTandaRemainingCount(1)).toBe(2);
+    expect(resolveLastTandaRemainingCount(4)).toBe(5);
+  });
+
+  it("counts completed tandas down to zero", () => {
+    expect(decrementLastTandaRemainingCount(2)).toBe(1);
+    expect(decrementLastTandaRemainingCount(1)).toBe(0);
+    expect(decrementLastTandaRemainingCount(null)).toBeNull();
   });
 });
 

@@ -147,6 +147,26 @@ Rules:
 - UI-009.R4: Playlist and System settings use multi-column layout on wide screens,
   collapsing to a single column on narrow screens.
 - UI-009.R5: Display-board controls live in a dedicated Display Board settings tab.
+- UI-009.R6: The playlist `Remaining Tandas` number field remains editable while
+  the stop-after-N-tandas toggle is off, so DJs can set the count before
+  enabling the feature and avoid transient display-board countdown flashes.
+
+## UI-009b — Audience Display Board
+
+- UI-009b.R1: The main track title uses the largest display text.
+- UI-009b.R2: The normalized orchestra/artist line is smaller than the title.
+- UI-009b.R2.a: The artist line should sit visually close to the title size
+  while remaining clearly secondary.
+- UI-009b.R3: When singer metadata is present, a third line appears below the
+  artist in a smaller size again, prefixed by a localized noun label such as
+  `Singer:`.
+- UI-009b.R4: The progress text shows a short localized playing label plus the
+  track position within the tanda, such as `Playing 2/4`.
+- UI-009b.R5: Tanda guidance text uses short localized labels and may wrap onto
+  two lines, with style on the first line and the related artist on the second.
+- UI-009b.R6: The final-tanda countdown line is shown only when more than one
+  tanda remains; once the actual final tanda starts, the board shows only the
+  final warning text.
 
 ### UI-009a — Jump Index Bar
 
@@ -637,11 +657,23 @@ Features:
   not sit hard against screen edges.
 - UI-060.R13: Cortina-mode typography supports an independent font scale (%)
   configured in Settings > Display Board.
-- UI-060.R14: When "Current tanda is the last tanda" is enabled:
-  - lead-in cortinas before that tanda remain normal ("Cortina" + "This tanda: {style}"),
-  - while tracks of that tanda are playing, next-item text shows "This is the last tanda",
-  - the final cortina after that tanda shows only the farewell headline (localized
-    equivalent of "That's all folks") with no secondary line.
+- UI-060.R14.a: The playlist footer marked-last control is presented as
+  `Remaining Tandas` followed by a numeric field supporting integer values
+  `0` through `4` and defaulting to `1`.
+- UI-060.R14.b: When that control is enabled, the configured value is interpreted
+  relative to the currently playing tanda: `0` stops after the current tanda,
+  `1` stops after the next tanda, and so on. Each completed tanda decrements the
+  countdown until playback ends.
+- UI-060.R14.c: When the marked-last countdown is active:
+  - lead-in cortinas before a remaining tanda stay normal ("Cortina" + "This tanda: {style}"),
+  - that lead-in cortina subline includes the localized artist summary for the
+    upcoming tanda (`This tanda: {style} from {artist}`),
+  - while tracks of a counted-down tanda are playing, the bottom-right display
+    adds a localized countdown line such as "Last two tandas",
+  - while tracks of the actual final tanda are playing, that countdown line sits
+    above the localized "This is the last tanda" message,
+  - the final cortina after the stop-triggering tanda shows only the farewell
+    headline (localized equivalent of "That's all folks") with no secondary line.
 - UI-060.R15: After the final cortina of a marked-last tanda ends and playback
   stops, the display remains on the farewell cortina state (does not revert to
   generic "Cortina" idle text) until superseded by later playback/display updates.
@@ -649,6 +681,12 @@ Features:
   preview must never replace or populate the audience-facing title or artist
   shown on the display board. If main output is idle, headphone-only preview
   must not appear there.
+- UI-060.R16.a: During normal track playback, the bottom-right "Next tanda"
+  text includes both the next tanda style and a localized artist summary:
+  `Next tanda: {style} from {artist}`. If the next tanda contains more than one
+  distinct normalized artist, the artist portion uses the localized equivalent
+  of `Various artists`. The next-tanda area should prefer staying on one line by
+  using a smaller font and near-full available width while remaining right-aligned.
 - UI-060.R17: When the playlist is paused at the live-performance stop point,
   the marked tanda's track phase and its final cortina must suppress the
   bottom-right tanda text entirely instead of showing either "Next tanda" or

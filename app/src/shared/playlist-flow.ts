@@ -1,3 +1,20 @@
+export const clampLastTandaOffset = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+  return Math.min(4, Math.max(0, Math.trunc(value)));
+};
+
+export const resolveLastTandaRemainingCount = (offset: number) =>
+  clampLastTandaOffset(offset) + 1;
+
+export const decrementLastTandaRemainingCount = (remainingCount: number | null) => {
+  if (remainingCount === null) {
+    return null;
+  }
+  return Math.max(0, remainingCount - 1);
+};
+
 export const shouldContinueAfterEndCortina = (
   currentIndex: number,
   playlistLength: number,
@@ -114,8 +131,8 @@ export const resolveScheduledTransitionTimeSeconds = (
 
 export const shouldStopAfterMarkedLastTanda = (
   itemKind: "track" | "tanda",
-  markedLast: boolean,
-) => itemKind === "tanda" && markedLast;
+  remainingTandas: number | null,
+) => itemKind === "tanda" && remainingTandas !== null && remainingTandas <= 1;
 
 export const shouldPauseAfterMarkedPerformanceStop = (
   itemKind: "track" | "tanda",

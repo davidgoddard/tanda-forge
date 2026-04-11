@@ -248,12 +248,38 @@ normal use the DJ should set this to 0%.
 
 <img src="../images/user-guide/09-now-playing.png" width="500px">
 
-When the DJ is playing the last tanda of the evening they can click on the "This is the last tanda" check-box and this will ensure that the music stops after this tanda has played
-completely and, if using cortinas, the final cortina has played.  Display behavior is:
-- lead-in cortina before that tanda stays normal ("Cortina" + "This tanda: {style}");
-- while tracks in that tanda are playing, bottom-right text changes to "This is the last tanda";
+When the DJ wants the evening to finish automatically they can set the
+`Remaining Tandas` number first and then enable the control when ready. The
+field stays editable even while the option is off, so the display board does
+not briefly announce the wrong countdown while the DJ changes the value. The
+field supports `0` to `4` and defaults to `1`.
+The current tanda counts as `1`, so:
+- `0` means stop after the current tanda;
+- `1` means stop after the next tanda;
+- higher values keep counting down one tanda at a time until the stop point is reached.
+
+If cortinas are enabled, playback still includes the final cortina after the
+stop-triggering tanda. Display behavior is:
+- the final-tanda countdown line appears only when more than one tanda remains;
+- once the actual final tanda starts, the board shows only the final warning, not
+  both a countdown and a duplicate final-tanda message;
+- the audience display uses the full style or sub-style label, then a slightly
+  larger normalized artist line, and then an optional `Singer:` line when singer
+  metadata exists;
+- the progress line shows `Playing N/M`.
+- lead-in cortinas before counted-down tandas stay normal ("Cortina" + "This tanda: {style} from {artist}");
+- while tracks in the counted-down tandas are playing, the bottom-right area adds
+  a localized countdown line such as "Last two tandas";
+- while tracks in the actual final tanda are playing, that countdown line sits
+  above the localized "This is the last tanda" message;
 - the final cortina after that tanda shows only "That's all folks";
 - after that final cortina ends and playback stops, the display remains on "That's all folks" until new playback/display state replaces it.
+
+During normal playback, the bottom-right `Next tanda` line now includes the
+next tanda style and artist summary, for example `Next tanda: Tango from Di
+Sarli`. If the upcoming tanda has more than one distinct normalized artist, the
+artist part becomes the localized equivalent of `Various artists`. The display
+uses a smaller size and wider right-aligned line there so it is less likely to wrap.
 
 <img src="../images/user-guide/10-last-tanda.png" width="500px">
 

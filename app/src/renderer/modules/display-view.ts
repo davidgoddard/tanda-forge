@@ -68,11 +68,12 @@ export const resolveNextTandaStyle = (params: {
 export const resolveNextTandaLabel = (params: {
   isMarkedLast: boolean;
   nextStyle: string;
+  nextArtist?: string;
   forceLastLabel?: boolean;
   useCurrentLabel?: boolean;
   translateLast: () => string;
   translateCurrent?: (style: string) => string;
-  translateNext: (style: string) => string;
+  translateNext: (style: string, artist: string) => string;
 }) => {
   if (params.forceLastLabel) {
     return params.translateLast();
@@ -84,7 +85,18 @@ export const resolveNextTandaLabel = (params: {
     if (params.useCurrentLabel && params.translateCurrent) {
       return params.translateCurrent(params.nextStyle);
     }
-    return params.translateNext(params.nextStyle);
+    return params.translateNext(params.nextStyle, params.nextArtist ?? "");
   }
   return "";
+};
+
+export const resolveLastTandaCountdownText = (params: {
+  remainingTandas: number | null;
+  translateCount: (count: number) => string;
+}) => {
+  if (params.remainingTandas === null || params.remainingTandas <= 1) {
+    return "";
+  }
+  const clampedCount = Math.min(5, Math.max(1, Math.trunc(params.remainingTandas)));
+  return params.translateCount(clampedCount);
 };

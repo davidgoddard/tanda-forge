@@ -14,10 +14,16 @@
 - PKG-FFM-004: Packaged builds resolve binaries from `process.resourcesPath/ffmpeg/<platform>/`.
 - PKG-FFM-005: Use `scripts/fetch-ffmpeg.sh` to download binaries for macOS, Windows, and Linux.
 
-## Update Policy
+## Release Delivery
 
-- PKG-UPD-001: Auto-update is optional and can be disabled by default.
-- PKG-UPD-002: When enabled, updates must not block playback or library access.
+- PKG-REL-001: Releases publish manual-download installables only.
+- PKG-REL-002: Published GitHub release assets are limited to platform-usable
+  deliverables:
+  - macOS: `.dmg` per supported architecture
+  - Windows: `.exe`
+  - Linux: `.AppImage` and `.deb`
+- PKG-REL-003: Updater metadata and differential-update helper artifacts are not
+  published as release assets.
 
 ## Filesystem Permissions
 

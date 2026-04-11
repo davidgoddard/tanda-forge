@@ -80,9 +80,16 @@ describe("tanda utils", () => {
     expect(summarizeArtistName("Anibal Troilo and his orchestra")).toBe(
       "Anibal Troilo",
     );
+    expect(summarizeArtistName("Juan D'Arienzo")).toBe("Juan D'Arienzo");
+    expect(summarizeArtistName("Alfredo De Angelis, Dante/ Martel")).toBe(
+      "Alfredo De Angelis",
+    );
+    expect(summarizeArtistName("Alfredo De Angelis canta Dante/Martel")).toBe(
+      "Alfredo De Angelis",
+    );
     expect(
       extractArtistCandidates("D'Agostino, Angel y su orquesta tipica"),
-    ).toContain("Angel D'agostino");
+    ).toContain("Angel D'Agostino");
   });
 
   it("extracts singer names from markers", () => {
@@ -94,6 +101,12 @@ describe("tanda utils", () => {
     );
     expect(extractSingerName("Julio De Caro canta Ada Falcon")).toBe(
       "Ada Falcon",
+    );
+    expect(extractSingerName("Alfredo De Angelis cant Oscar Larroca")).toBe(
+      "Oscar Larroca",
+    );
+    expect(extractSingerName("Francisco Canaro canta Arenas/ Lucero")).toBe(
+      "Arenas / Lucero",
     );
     expect(extractSingerName("Di Sarli with his orchestra")).toBe("");
   });

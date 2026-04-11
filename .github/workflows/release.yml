@@ -23,22 +23,15 @@ jobs:
             arch: x64
             upload_glob: |
               dist/*-mac-x64.dmg
-              dist/*-mac-x64.zip
-              dist/*-mac-x64.dmg.blockmap
-              dist/*-mac-x64.zip.blockmap
           - os: macos-14
             target: mac-arm64
             arch: arm64
             upload_glob: |
               dist/*-mac-arm64.dmg
-              dist/*-mac-arm64.zip
-              dist/*-mac-arm64.dmg.blockmap
-              dist/*-mac-arm64.zip.blockmap
           - os: windows-latest
             target: windows
             upload_glob: |
               dist/*.exe
-              dist/*.blockmap
           - os: ubuntu-latest
             target: linux
             upload_glob: |
@@ -78,7 +71,6 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.target }}" = "mac-x64" ]; then
-            npx --no-install electron-builder --publish=never --mac zip --x64
             for attempt in 1 2 3; do
               if npx --no-install electron-builder --publish=never --mac dmg --x64; then
                 break
@@ -94,7 +86,6 @@ jobs:
               sleep 5
             done
           elif [ "${{ matrix.target }}" = "mac-arm64" ]; then
-            npx --no-install electron-builder --publish=never --mac zip --arm64
             for attempt in 1 2 3; do
               if npx --no-install electron-builder --publish=never --mac dmg --arm64; then
                 break
@@ -121,11 +112,8 @@ jobs:
         run: |
           set -euo pipefail
           dmg=$(ls dist/*-${{ matrix.target }}.dmg)
-          zipf=$(ls dist/*-${{ matrix.target }}.zip)
           test -s "$dmg"
-          test -s "$zipf"
           hdiutil verify "$dmg"
-          unzip -t "$zipf" >/dev/null
           APP_BIN=$(find dist -type f -path "*Tanda Forge.app/Contents/MacOS/Tanda Forge" | head -n 1)
           APP_ROOT=$(dirname "$(dirname "$(dirname "$APP_BIN")")")
           if [ -z "$APP_BIN" ] || [ -z "$APP_ROOT" ]; then
@@ -180,11 +168,8 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $exe = Get-ChildItem -Path dist -Filter *.exe | Select-Object -First 1
-          $blockmap = Get-ChildItem -Path dist -Filter *.exe.blockmap | Select-Object -First 1
           if (-not $exe) { throw "Missing .exe artifact in dist/" }
-          if (-not $blockmap) { throw "Missing .exe.blockmap artifact in dist/" }
           if ($exe.Length -le 0) { throw "Installer .exe is empty: $($exe.FullName)" }
-          if ($blockmap.Length -le 0) { throw "Blockmap is empty: $($blockmap.FullName)" }
 
       - name: Verify package integrity (Linux)
         if: matrix.target == 'linux'
@@ -245,11 +230,7 @@ jobs:
           mkdir -p release-assets
           find dist -type f \
             \( -name "*.dmg" \
-            -o -name "*.zip" \
-            -o -name "*.dmg.blockmap" \
-            -o -name "*.zip.blockmap" \
             -o -name "*.exe" \
-            -o -name "*.exe.blockmap" \
             -o -name "*.AppImage" \
             -o -name "*.deb" \) \
             -print0 | while IFS= read -r -d '' file; do
@@ -275,15 +256,8 @@ jobs:
         with:
           files: |
             release-assets/*-mac-x64.dmg
-            release-assets/*-mac-x64.zip
-            release-assets/*-mac-x64.dmg.blockmap
-            release-assets/*-mac-x64.zip.blockmap
             release-assets/*-mac-arm64.dmg
-            release-assets/*-mac-arm64.zip
-            release-assets/*-mac-arm64.dmg.blockmap
-            release-assets/*-mac-arm64.zip.blockmap
             release-assets/*-win-*.exe
-            release-assets/*-win-*.exe.blockmap
             release-assets/*.AppImage
             release-assets/*.deb
           fail_on_unmatched_files: true

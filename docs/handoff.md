@@ -7669,6 +7669,35 @@
 - Verification:
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed.
+- Refined remaining-tandas editing, simplified display-board text, and tightened manual prep-mode playback transitions.
+  - In `app/src/renderer/controllers/settings-playlist-controller.ts`, the `Remaining Tandas` numeric field now stays editable while the stop-after-N-tandas toggle is off, so DJs can set the count before enabling the feature.
+  - In `app/src/renderer/modules/display-view.ts`, the audience countdown helper now suppresses the extra countdown line once the app is already on the actual final tanda.
+  - In `app/src/shared/types.ts`, `app/src/renderer/display.html`, `app/src/renderer/display.js`, and `app/src/renderer/display.css`, the display payload/layout now support a dedicated singer line below the normalized artist, with title/artist/singer descending in font size and the right-side guidance text wrapped as compact multiline `Now`/`Next` plus `By`.
+  - In `app/src/renderer/renderer.ts` and `app/src/renderer/i18n.ts`, the display board now uses normalized artist text for the main artist line, optional localized singer text below it, `Now:` during cortinas, `Next:` for upcoming tanda hints, full style/sub-style labels, and `N/M` progress text without the old `Playing track` prefix.
+  - In `app/src/renderer/renderer.ts`, zero-fade manual track changes now stop both the previous dry and compressed-companion audio immediately instead of waiting for the next animation frame, which closes the prep-mode overlap bug reported when clicking another track after a compressed companion became active.
+  - Updated `tests/display-view.test.ts` and `tests/settings-playlist-controller.test.ts` to cover the new display wording and editable count field behavior, and refreshed `design/05-ui-principles-and-components.md` plus `docs/user-guide.md`.
+- Refined the short progress label, aligned `Next` / `By` display text, and expanded singer parsing.
+  - In `app/src/renderer/i18n.ts` and `app/src/renderer/renderer.ts`, the display progress line now uses the shorter localized equivalent of `Playing 2/4` instead of the bare `2/4`.
+  - In `app/src/renderer/i18n.ts` and `app/src/renderer/display.css`, the `Now`, `Next`, and `By` lines now preserve tab spacing so the value text aligns visually like a compact two-column table on the display board.
+  - In `app/src/shared/tanda-utils.ts`, singer extraction now also treats `cant` as a valid marker alongside `canta`, `con`, `with`, and similar forms, so strings like `Alfredo de Angelis cant Oscar Larroca` populate the singer field correctly.
+  - Added regressions in `tests/display-view.test.ts` and `tests/tanda-utils.test.ts`, and updated `design/05-ui-principles-and-components.md` plus `docs/user-guide.md`.
+- Refined singer labeling and multi-singer parsing.
+  - In `app/src/shared/tanda-utils.ts`, singer extraction now preserves multiple singer candidates instead of dropping everything after the first one, so strings like `Francisco Canaro canta Arenas/ Lucero` now resolve to `Arenas / Lucero`.
+  - In `app/src/renderer/i18n.ts`, the display singer line now uses localized noun labels such as `Singer: {singer}` instead of the previous verb-style `sings {singer}` phrasing.
+  - Added regression coverage in `tests/tanda-utils.test.ts`, and updated `design/05-ui-principles-and-components.md` plus `docs/user-guide.md`.
+- Increased artist emphasis and simplified the `Next` block.
+  - In `app/src/renderer/display.css`, the main artist line now renders slightly larger so it sits closer to the title visually.
+  - In `app/src/renderer/i18n.ts`, the bottom-right `Next` block now omits the extra `By:` label and instead shows the artist directly on the second line under the upcoming style.
+  - Updated `tests/display-view.test.ts`, `design/05-ui-principles-and-components.md`, and `docs/user-guide.md`.
+- Removed tab-based spacing from the audience display guidance copy.
+  - In `app/src/renderer/i18n.ts` and `app/src/renderer/display.css`, the `Now` and `Next` strings now use plain multiline text without embedded tab spacing, which removes the visible gap after labels such as `Next:`.
+  - Updated `tests/display-view.test.ts`.
+- Fixed artist-summary parsing for stored orchestra-plus-singer credits.
+  - In `app/src/shared/tanda-utils.ts`, artist summary extraction now strips explicit singer-marker suffixes and also treats comma-plus-slash singer lists like `Alfredo De Angelis, Dante/ Martel` as orchestra-plus-singer credits rather than `Surname, Firstname` swaps.
+  - Added regressions in `tests/tanda-utils.test.ts` for both `canta` and comma-separated singer-list forms.
+- Fixed apostrophe casing in normalized artist names.
+  - In `app/src/shared/tanda-utils.ts`, the shared title-casing helper now preserves capitalization after apostrophes, so normalized artist names like `Juan D'Arienzo` no longer degrade to `Juan D'arienzo` in display payloads.
+  - Added a regression in `tests/tanda-utils.test.ts`.
 - Stabilized workflow `43 - performance stop pauses after tanda, blanks display text, and resumes via the same cortina`.
   - The failure was not another generic timing flake: the workflow was treating any post-`tango uno` now-playing text as the final cortina, so on longer media stubs it could capture later tanda tracks instead and then incorrectly expect the playlist to already be paused.
   - In `tests/e2e/workflows.e2e.ts`, workflow `43` now waits for the real paused performance-stop transport state first (`#playlist-start` enabled, `#playlist-stop` disabled), then captures the final cortina label from the settled active cortina row and continues with the one-off performance-track assertions.
@@ -8205,3 +8234,45 @@
 - Verification:
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g "12 - search-track menu action adds track to playlist|37 - reset plus startup flow rebuilds legacy metadata, waveforms, and compressed cache"` passed.
+- Extended marked-last playback from a boolean stop to a countdown.
+  - In `app/src/renderer/index.html` and `app/src/renderer/styles.css`, added a `tandas before end` numeric field beside the existing `Current tanda is the last tanda` checkbox.
+  - In `app/src/renderer/controllers/settings-playlist-controller.ts`, persisted and clamped that field to `0..4` so the display countdown stays truthful up to five total tandas, kept it disabled unless the checkbox is active, and kept it mutually exclusive with the live-performance stop toggle.
+  - In `app/src/renderer/renderer.ts` and `app/src/shared/playlist-flow.ts`, replaced the marked-last boolean stop test with a real remaining-tandas countdown that decrements after each completed tanda and stops only when the configured countdown reaches the final tanda.
+  - In `app/src/shared/types.ts`, `app/src/renderer/display.html`, `app/src/renderer/display.js`, `app/src/renderer/display.css`, and `app/src/renderer/modules/display-view.ts`, added a separate display-board countdown line so the audience screen can show localized text such as `Last two tandas` above the existing final-tanda message.
+  - In `app/src/renderer/i18n.ts`, added the new field label plus localized countdown strings for values `1..5` in every supported language.
+  - Updated `tests/display-view.test.ts`, `tests/playlist-flow.test.ts`, and `tests/settings-playlist-controller.test.ts`, plus refreshed `design/05-ui-principles-and-components.md`, `design/tracking-and-feature-matrix.md`, and `docs/user-guide.md`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test -- --run tests/display-view.test.ts tests/playlist-flow.test.ts tests/settings-playlist-controller.test.ts tests/i18n.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`85` files, `422` tests).
+- Expanded the display-board `Next tanda` copy to include orchestra summary.
+  - In `app/src/renderer/renderer.ts`, the next-tanda label now resolves a normalized artist summary from the upcoming tanda's tracks and falls back to a localized `Various artists` when more than one distinct artist is present.
+  - In `app/src/renderer/modules/display-view.ts` and `app/src/renderer/i18n.ts`, the localized `displayNextTanda` message now takes both `{style}` and `{artist}` parameters across all supported languages.
+  - Updated `tests/display-view.test.ts`, `design/05-ui-principles-and-components.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`85` files, `422` tests).
+- Refined the marked-last footer copy, widened the display-board next-text layout, and added artist summaries to cortina "This tanda" text.
+  - In `app/src/renderer/index.html`, `app/src/renderer/styles.css`, and `app/src/renderer/i18n.ts`, the playlist footer control now reads `Remaining Tandas` with the numeric field immediately after it.
+  - In `app/src/renderer/display.css`, widened the right-hand display text area to near full width and reduced the hint/next font sizing so `Next tanda` text is less likely to wrap while staying right-aligned.
+  - In `app/src/renderer/renderer.ts` and `app/src/renderer/i18n.ts`, cortina lead-in sublines now include the upcoming tanda artist summary as well as style.
+  - In `tests/e2e/workflows.e2e.ts`, hardened the settings-opening helper with retries for workflow `01` and updated workflow `34` to set the marked-last count explicitly to `0`, which matches the new countdown semantics.
+  - Updated `design/05-ui-principles-and-components.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test -- --run tests/display-view.test.ts tests/settings-playlist-controller.test.ts tests/i18n.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed (`85` files, `422` tests).
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g "01 - shows empty-library banner on first run setup|34 - display keeps farewell headline after final cortina completes"` passed.
+- Cleaned release publishing down to manual-download assets only.
+  - In `.github/workflows/release.yml`, removed mac `.zip` artifacts and all published updater-only helper assets (`*.blockmap`) from workflow artifact upload and GitHub release upload.
+  - The macOS release jobs now build and verify only `.dmg` outputs, while Windows release verification now checks only the installer `.exe`.
+  - Updated `design/11-packaging-and-bundled-tools.md` so the packaging design now states manual-download release delivery and explicitly says updater metadata/differential helper artifacts are not published.
+  - Updated `docs/dialogue.md`.
+- Verification:
+  - Not rerun locally; change is limited to GitHub Actions release packaging and packaging documentation.
+- Adjusted the English display-board artist preposition from `from` to `by`.
+  - In `app/src/renderer/i18n.ts`, updated the English `displayThisTanda` and `displayNextTanda` strings so phrases like `Milonga by various artists` read naturally.
+  - Updated `docs/dialogue.md`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed.

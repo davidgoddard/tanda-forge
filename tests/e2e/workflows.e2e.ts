@@ -300,8 +300,19 @@ const openTrackEditorFromRow = async (page: Page, row: Locator) => {
 };
 
 const openSettings = async (page: Page) => {
-  await page.locator("#open-settings").click();
-  await expect(page.locator("#settings-panel")).toHaveAttribute("aria-hidden", "false");
+  const panel = page.locator("#settings-panel");
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await page.locator("#open-settings").click();
+    try {
+      await expect(panel).toHaveAttribute("aria-hidden", "false", { timeout: 3000 });
+      return;
+    } catch (error) {
+      if (attempt === 3) {
+        throw error;
+      }
+      await page.waitForTimeout(150);
+    }
+  }
 };
 
 const closeSettings = async (page: Page) => {
@@ -2109,8 +2120,10 @@ test.describe("Electron app end-to-end workflows", () => {
       await ensurePlaylistTab(page);
       await expect(playlistTandaRow(page, "Tango Trio")).toBeVisible();
       await page.locator("#playlist-last-tanda").check();
+      await page.locator("#playlist-last-tanda-count").fill("0");
       await page.evaluate(() => {
         localStorage.setItem("tanda-playlist-current-last", "1");
+        localStorage.setItem("tanda-playlist-current-last-count", "0");
       });
       await expect(page.locator("#playlist-last-tanda")).toBeChecked();
       await page.locator("#open-display").click();

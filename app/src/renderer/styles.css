@@ -1884,6 +1884,13 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   color: var(--muted);
 }
 
+.playlist-last-control {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
 .playlist-last-toggle {
   display: flex;
   align-items: center;
@@ -1896,6 +1903,17 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
 .playlist-last-toggle input[type="checkbox"] {
   width: 16px;
   height: 16px;
+}
+
+.playlist-last-count {
+  display: inline-flex;
+  align-items: center;
+}
+
+.playlist-last-toggle input[type="number"] {
+  width: 3.6rem;
+  min-width: 3.6rem;
+  padding: 0.2rem 0.35rem;
 }
 
 .error-list {

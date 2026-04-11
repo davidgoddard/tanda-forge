@@ -2,6 +2,7 @@ type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
 type PlaylistSettingsElements = {
   playlistLastTandaToggle?: HTMLInputElement | null;
+  playlistLastTandaCountInput?: HTMLInputElement | null;
   playlistPerformanceStopToggle?: HTMLInputElement | null;
   playlistCortinaSetSelect?: HTMLSelectElement | null;
   playlistCortinaDurationInput?: HTMLInputElement | null;
@@ -21,6 +22,7 @@ export type SettingsPlaylistControllerDeps = {
   elements: PlaylistSettingsElements;
   keys: {
     playlistLastTanda: string;
+    playlistLastTandaCount: string;
     playlistPerformanceStop: string;
     cortinaSet: string;
     cortinaDuration: string;
@@ -35,6 +37,7 @@ export type SettingsPlaylistControllerDeps = {
     playlistArtistRepeatGapMinutes: string;
   };
   readers: {
+    getPlaylistLastTandaCount: () => number;
     getCortinaSet: () => string;
     getCortinaDuration: () => number;
     getDisplayBackgroundIntervalSec: () => number;
@@ -50,6 +53,7 @@ export type SettingsPlaylistControllerDeps = {
   actions: {
     resetPlaylistLastTandaState: () => void;
     resetPlaylistPerformanceStopState: () => void;
+    onPlaylistLastTandaChanged: () => void;
     updateExternalDisplay: () => void;
     onCortinaSetChanged: (value: string) => Promise<void>;
     onCortinaDurationChanged: () => void;
@@ -121,6 +125,7 @@ export const createSettingsPlaylistController = (deps: SettingsPlaylistControlle
   const initialize = () => {
     const {
       playlistLastTandaToggle,
+      playlistLastTandaCountInput,
       playlistPerformanceStopToggle,
       playlistCortinaSetSelect,
       playlistCortinaDurationInput,
@@ -147,9 +152,24 @@ export const createSettingsPlaylistController = (deps: SettingsPlaylistControlle
           deps.keys.playlistLastTanda,
           playlistLastTandaToggle.checked ? "1" : "0",
         );
+        deps.actions.onPlaylistLastTandaChanged();
         deps.actions.updateExternalDisplay();
       });
     }
+
+    bindNumberInput(playlistLastTandaCountInput, {
+      read: deps.readers.getPlaylistLastTandaCount,
+      write: (value) => deps.storage.setItem(deps.keys.playlistLastTandaCount, value.toString()),
+      min: 0,
+      max: 4,
+      parse: (raw) => Number.parseInt(raw, 10),
+      afterWrite: () => {
+        deps.actions.onPlaylistLastTandaChanged();
+        deps.actions.updateExternalDisplay();
+      },
+      events: ["change", "input"],
+      resetOnBlur: true,
+    });
 
     if (playlistPerformanceStopToggle) {
       deps.actions.resetPlaylistPerformanceStopState();
@@ -158,6 +178,7 @@ export const createSettingsPlaylistController = (deps: SettingsPlaylistControlle
         if (playlistPerformanceStopToggle.checked && playlistLastTandaToggle) {
           playlistLastTandaToggle.checked = false;
           deps.storage.setItem(deps.keys.playlistLastTanda, "0");
+          deps.actions.onPlaylistLastTandaChanged();
         }
         deps.storage.setItem(
           deps.keys.playlistPerformanceStop,

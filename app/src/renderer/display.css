@@ -149,9 +149,12 @@ body {
       var(--display-fit-scale-cortina)
   );
   max-width: 96%;
+  white-space: pre-line;
 }
 
+.display-content.cortina-mode .display-singer,
 .display-content.cortina-mode .display-progress,
+.display-content.cortina-mode .display-next-hint,
 .display-content.cortina-mode .display-next {
   display: none;
 }
@@ -176,7 +179,7 @@ body {
 
 .display-artist {
   font-size: calc(
-    clamp(38px, 13.2vmin, 332px) * var(--display-font-scale) *
+    clamp(31px, 10.7vmin, 250px) * var(--display-font-scale) *
       var(--display-fit-scale-normal)
   );
   line-height: 1.02;
@@ -192,24 +195,14 @@ body {
   max-height: 2.28em;
 }
 
-.display-progress {
+.display-singer {
   font-size: calc(
-    clamp(18px, 4.7vmin, 116px) * var(--display-font-scale) *
+    clamp(20px, 6.5vmin, 156px) * var(--display-font-scale) *
       var(--display-fit-scale-normal)
   );
-  opacity: 0.75;
-  margin-top: 1.2vmin;
-}
-
-.display-next {
-  font-size: calc(
-    clamp(24px, 6.2vmin, 156px) * var(--display-font-scale) *
-      var(--display-fit-scale-normal)
-  );
-  text-align: right;
-  opacity: 0.85;
-  align-self: flex-end;
-  max-width: 74%;
+  line-height: 1.02;
+  opacity: 0.8;
+  max-width: 95%;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -217,5 +210,56 @@ body {
   text-overflow: ellipsis;
   overflow-wrap: anywhere;
   padding-bottom: 0.12em;
-  max-height: 2.42em;
+  max-height: 2.24em;
+}
+
+.display-progress {
+  font-size: calc(
+    clamp(18px, 4.7vmin, 116px) * var(--display-font-scale) *
+      var(--display-fit-scale-normal)
+  );
+  opacity: 0.75;
+  margin-top: 0.8vmin;
+}
+
+.display-next-hint {
+  font-size: calc(
+    clamp(16px, 3.4vmin, 84px) * var(--display-font-scale) *
+      var(--display-fit-scale-normal)
+  );
+  text-align: right;
+  opacity: 0.72;
+  align-self: flex-end;
+  width: 96%;
+  max-width: 96%;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: break-word;
+  white-space: pre-line;
+  padding-bottom: 0.08em;
+  max-height: 2.38em;
+}
+
+.display-next {
+  font-size: calc(
+    clamp(20px, 4.8vmin, 124px) * var(--display-font-scale) *
+      var(--display-fit-scale-normal)
+  );
+  text-align: right;
+  opacity: 0.85;
+  align-self: flex-end;
+  width: 96%;
+  max-width: 96%;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: break-word;
+  white-space: pre-line;
+  padding-bottom: 0.12em;
+  max-height: 3.6em;
 }

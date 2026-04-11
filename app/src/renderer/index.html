@@ -425,12 +425,22 @@
                 class="tanda-list playlist-tanda-editor hidden"
                 data-state="hidden"
               ></div>
-                <label class="playlist-last-toggle" for="playlist-last-tanda">
-                  <input id="playlist-last-tanda" type="checkbox" />
-                  <span data-i18n="playlistCurrentIsLast">
-                    Current tanda is the last tanda
-                  </span>
-                </label>
+                <div class="playlist-last-control">
+                  <label class="playlist-last-toggle" for="playlist-last-tanda">
+                    <input id="playlist-last-tanda" type="checkbox" />
+                    <span data-i18n="playlistRemainingTandas">
+                      Remaining Tandas
+                    </span>
+                    <input
+                      id="playlist-last-tanda-count"
+                      type="number"
+                      min="0"
+                      max="4"
+                      step="1"
+                      inputmode="numeric"
+                    />
+                  </label>
+                </div>
                 <label class="playlist-last-toggle" for="playlist-performance-stop">
                   <input id="playlist-performance-stop" type="checkbox" />
                   <span data-i18n="playlistCurrentPerformanceStop">

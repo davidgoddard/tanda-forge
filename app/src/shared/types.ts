@@ -12,7 +12,9 @@ export type LibraryRoot = {
 export type DisplayUpdatePayload = {
   title?: string;
   artist?: string;
+  singer?: string;
   progressText?: string;
+  nextTandaHintText?: string;
   nextTandaText?: string;
   backgroundIntervalSec?: number;
   useBackgroundImages?: boolean;

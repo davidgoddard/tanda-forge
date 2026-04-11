@@ -1,6 +1,8 @@
 const titleEl = document.getElementById("display-title");
 const artistEl = document.getElementById("display-artist");
+const singerEl = document.getElementById("display-singer");
 const progressEl = document.getElementById("display-progress");
+const nextHintEl = document.getElementById("display-next-hint");
 const nextEl = document.getElementById("display-next");
 const contentEl = document.querySelector(".display-content");
 const swirlLayer = document.querySelector(".swirl-layer");
@@ -321,8 +323,16 @@ const applyDisplayUpdate = (payload) => {
   if (artistEl && payload.artist !== undefined) {
     artistEl.textContent = payload.artist || "";
   }
+  if (singerEl && payload.singer !== undefined) {
+    singerEl.textContent = payload.singer || "";
+    singerEl.style.opacity = payload.singer ? "0.8" : "0";
+  }
   if (progressEl && payload.progressText !== undefined) {
     progressEl.textContent = payload.progressText || "";
+  }
+  if (nextHintEl && payload.nextTandaHintText !== undefined) {
+    nextHintEl.textContent = payload.nextTandaHintText || "";
+    nextHintEl.style.opacity = payload.nextTandaHintText ? "0.72" : "0";
   }
   if (nextEl && payload.nextTandaText !== undefined) {
     nextEl.textContent = payload.nextTandaText || "";
