@@ -221,6 +221,13 @@ export type AppApi = {
   }>;
   scanAll: () => Promise<ScanSummary>;
   scanKind: (kind: "music" | "cortina") => Promise<ScanSummary>;
+  refreshStoredMetadata: () => Promise<{
+    ok: boolean;
+    total: number;
+    updated: number;
+    unchanged: number;
+    error?: string;
+  }>;
   runStartupFlow: (params: {
     mode: "upward" | "track-leveler";
     liftThresholdDb: number;

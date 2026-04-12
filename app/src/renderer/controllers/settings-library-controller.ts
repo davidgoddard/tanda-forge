@@ -26,8 +26,10 @@ type LibraryMaintenanceElements = {
   precomputeProgressElSettings?: HTMLProgressElement | null;
   precomputeProgressLabelSettings?: HTMLElement | null;
   precomputeCompressedResult?: HTMLElement | null;
+  refreshStoredMetadataResult?: HTMLElement | null;
   precomputeCompressedBtn?: HTMLButtonElement | null;
   precomputeCompressedShortcutBtn?: HTMLButtonElement | null;
+  refreshStoredMetadataBtn?: HTMLButtonElement | null;
   startupFlowBtn?: HTMLButtonElement | null;
   startupFlowResult?: HTMLElement | null;
   startupFlowPhaseItems?: HTMLElement[] | null;
@@ -51,6 +53,7 @@ export type LibraryMaintenanceControllerDeps = {
     | "scanKind"
     | "runStartupFlow"
     | "precomputeCompressedTracks"
+    | "refreshStoredMetadata"
     | "verifyCachedFiles"
     | "clearCachedFiles"
     | "exportSystemData"
@@ -62,6 +65,7 @@ export type LibraryMaintenanceControllerDeps = {
   getCompressionConfig: () => CompressionConfig;
   scheduleCompressionPrefetch: () => void;
   onScanCompleted: (kind: "music" | "cortina", summary: ScanSummary) => Promise<void>;
+  onStoredMetadataRefreshed: () => Promise<void>;
   onCachedFilesCleared: () => Promise<void>;
   onStartupFlowCompleted: (result: Extract<StartupFlowResult, { ok: true }>) => Promise<void>;
   onSystemImported: () => Promise<void>;
@@ -261,6 +265,12 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     }
     if (deps.elements.precomputeCompressedShortcutBtn) {
       deps.elements.precomputeCompressedShortcutBtn.disabled = disabled;
+    }
+  };
+
+  const setStoredMetadataRefreshButtonDisabled = (disabled: boolean) => {
+    if (deps.elements.refreshStoredMetadataBtn) {
+      deps.elements.refreshStoredMetadataBtn.disabled = disabled;
     }
   };
 
@@ -526,6 +536,49 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
       precomputeCompressionInProgress = false;
       currentPrecomputeIssueKeys = new Set<string>();
       setPrecomputeButtonsDisabled(false);
+    }
+  };
+
+  const runRefreshStoredMetadata = async () => {
+    const resultEl = deps.elements.refreshStoredMetadataResult;
+    setStoredMetadataRefreshButtonDisabled(true);
+    deps.clearAlert();
+    deps.setStatus(deps.translate("storedMetadataRefreshRunning"));
+    if (resultEl) {
+      resultEl.textContent = deps.translate("storedMetadataRefreshRunning");
+    }
+    try {
+      const result = await deps.api.refreshStoredMetadata();
+      if (!result?.ok) {
+        const message = deps.translate("storedMetadataRefreshFailed", {
+          message: deps.translate("statusUnknownError"),
+        });
+        deps.setStatus(message);
+        if (resultEl) {
+          resultEl.textContent = message;
+        }
+        return;
+      }
+      const message = deps.translate("storedMetadataRefreshDone", {
+        total: result.total,
+        updated: result.updated,
+        unchanged: result.unchanged,
+      });
+      deps.setStatus(message);
+      if (resultEl) {
+        resultEl.textContent = message;
+      }
+      await deps.onStoredMetadataRefreshed();
+    } catch (error) {
+      const message = deps.translate("storedMetadataRefreshFailed", {
+        message: error instanceof Error ? error.message : deps.translate("statusUnknownError"),
+      });
+      deps.setStatus(message);
+      if (resultEl) {
+        resultEl.textContent = message;
+      }
+    } finally {
+      setStoredMetadataRefreshButtonDisabled(false);
     }
   };
 
@@ -826,6 +879,7 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     runScan,
     runStartupFlow,
     runPrecomputeCompressedTracks,
+    runRefreshStoredMetadata,
     runVerifyCachedFiles,
     runClearCachedFiles,
     runExportSystemData,

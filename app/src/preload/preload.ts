@@ -16,6 +16,7 @@ const api: AppApi = {
     ipcRenderer.invoke("legacy:listStyles", rootPath),
   scanAll: async () => ipcRenderer.invoke("library:scanAll"),
   scanKind: async (kind) => ipcRenderer.invoke("library:scanKind", kind),
+  refreshStoredMetadata: async () => ipcRenderer.invoke("library:refreshStoredMetadata"),
   runStartupFlow: async (params) => ipcRenderer.invoke("library:runStartupFlow", params),
   listTracks: async () => ipcRenderer.invoke("library:listTracks"),
   onScanProgress: (handler) => {

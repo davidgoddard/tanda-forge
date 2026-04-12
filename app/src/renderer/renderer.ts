@@ -257,6 +257,10 @@ const scanMusicBtn =
   document.querySelector<HTMLButtonElement>("#scan-music");
 const scanCortinasBtn =
   document.querySelector<HTMLButtonElement>("#scan-cortinas");
+const refreshStoredMetadataBtn =
+  document.querySelector<HTMLButtonElement>("#refresh-stored-metadata");
+const refreshStoredMetadataResult =
+  document.querySelector<HTMLDivElement>("#refresh-stored-metadata-result");
 const startupFlowBtn =
   document.querySelector<HTMLButtonElement>("#startup-flow-button");
 const startupFlowResult =
@@ -13757,6 +13761,7 @@ const init = async () => {
       scanKind: (kind) => window.tanda!.scanKind(kind),
       runStartupFlow: (params) => window.tanda!.runStartupFlow(params),
       precomputeCompressedTracks: (params) => window.tanda!.precomputeCompressedTracks(params),
+      refreshStoredMetadata: () => window.tanda!.refreshStoredMetadata(),
       verifyCachedFiles: () => window.tanda!.verifyCachedFiles(),
       clearCachedFiles: () => window.tanda!.clearCachedFiles(),
       exportSystemData: () => window.tanda!.exportSystemData(),
@@ -13773,6 +13778,8 @@ const init = async () => {
       precomputeCompressedResult,
       precomputeCompressedBtn,
       precomputeCompressedShortcutBtn,
+      refreshStoredMetadataResult,
+      refreshStoredMetadataBtn,
       startupFlowBtn,
       startupFlowResult,
       startupFlowPhaseItems,
@@ -13800,6 +13807,12 @@ const init = async () => {
       await refreshSearch();
       await renderDiagnosticsDataReadiness();
       renderAllLists();
+    },
+    onStoredMetadataRefreshed: async () => {
+      await refreshNewCollectionTracks();
+      await refreshSearch();
+      renderAllLists();
+      updateNowPlayingDisplay();
     },
     onCachedFilesCleared: async () => {
       await renderDiagnosticsPaths();
@@ -14936,8 +14949,13 @@ const init = async () => {
       }
       updateTrackCaches(updated);
       setStatus(t("statusTrackUpdated"));
-      setTrackEditorOpen(false);
-      clearTrackEditorState();
+      if (appMode === "edit") {
+        trackEditorState.track = { ...updated };
+        fillTrackEditorFields(updated);
+      } else {
+        setTrackEditorOpen(false);
+        clearTrackEditorState();
+      }
       await loadStyles();
       await refreshSearch();
       renderAllLists();
@@ -15219,6 +15237,9 @@ const init = async () => {
   });
   scanCortinasBtn?.addEventListener("click", () => {
     void settingsLibraryController.runScan("cortina");
+  });
+  refreshStoredMetadataBtn?.addEventListener("click", () => {
+    void settingsLibraryController.runRefreshStoredMetadata();
   });
   startupFlowBtn?.addEventListener("click", async () => {
     await settingsLibraryController.runStartupFlow();

@@ -119,8 +119,36 @@ const artistSwaps = new Map<string, string>([
   ["R. RUFINO", "ROBERTO RUFINO"],
 ]);
 
+const singerWordMarkerPattern =
+  /\b(?:WITH|CON|CANTA:|CANTA|CANTAN|CANT|CANTOR(?:ES)?|SINGS?)\b/i;
+const singerFeaturingMarkerPattern = /\b(?:FEATURING|FEAT|FT)\.?/i;
+const singerMarkerTailPattern = /(?=$|[\s,;:/\\()[\]&+\-])/i;
+
+const findSingerMarker = (input: string) => {
+  const wordMatch = singerWordMarkerPattern.exec(input);
+  const featuringMatch = singerFeaturingMarkerPattern.exec(input);
+  const candidates = [wordMatch, featuringMatch]
+    .filter((match): match is RegExpExecArray => Boolean(match && match.index !== undefined))
+    .sort((a, b) => {
+      const indexDelta = (a.index ?? 0) - (b.index ?? 0);
+      if (indexDelta !== 0) {
+        return indexDelta;
+      }
+      return b[0].length - a[0].length;
+    });
+  const match = candidates[0];
+  if (!match || match.index === undefined) {
+    return null;
+  }
+  const tail = input.slice(match.index + match[0].length);
+  if (!singerMarkerTailPattern.test(tail)) {
+    return null;
+  }
+  return match;
+};
+
 const artistSeparators =
-  /(( +(FEAT\.|FT\.|CANTOR|CANTA|CANTA:|CANTAN|CANTORES|AND|WITH|MEETS|MEET|CON|Y|&) +)|[>\(\)\-\:\;\~\_\+\/\\])/g;
+  /(( +(FEAT(?:\.|URING)?|FT\.?|CANTOR|CANTA|CANTA:|CANTAN|CANTORES|AND|WITH|MEETS|MEET|CON|Y|&) +)|[>\(\)\-\:\;\~\_\+\/\\])/g;
 
 const cleanArtistCandidate = (value: string) => {
   const trimmed = collapseWhitespace(value);
@@ -137,9 +165,7 @@ const stripSingerSuffixForArtistSummary = (input: string) => {
     return "";
   }
   const normalized = stripDiacritics(raw).toUpperCase();
-  const singerMarkerMatch = normalized.match(
-    /\b(WITH|CON|CANTA|CANT|CANTOR|CANTORES|FEAT\.|FT\.)\b/i,
-  );
+  const singerMarkerMatch = findSingerMarker(normalized);
   if (singerMarkerMatch && singerMarkerMatch.index !== undefined) {
     return raw.slice(0, singerMarkerMatch.index).trim().replace(/[,:;/\-\s]+$/, "");
   }
@@ -217,14 +243,13 @@ export const summarizeArtistName = (input: string) => {
 
 export const normalizeArtistName = (input: string) => summarizeArtistName(input);
 
-export const extractSingerName = (input: string) => {
+const extractSingerNameFromText = (input: string) => {
   const raw = collapseWhitespace(input);
   if (!raw) {
     return "";
   }
   const normalized = stripDiacritics(raw).toUpperCase();
-  const singerMarkers = /\b(WITH|CON|CANTA|CANT|CANTOR|CANTORES|FEAT\.|FT\.)\b/i;
-  const match = normalized.match(singerMarkers);
+  const match = findSingerMarker(normalized);
   if (!match || match.index === undefined) {
     return "";
   }
@@ -269,6 +294,43 @@ export const extractSingerName = (input: string) => {
   }
   return summarizeArtistName(singerPart);
 };
+
+const extractSingerNameFromTitle = (title: string) => {
+  const raw = collapseWhitespace(title);
+  if (!raw) {
+    return "";
+  }
+  const parentheticalBlocks = Array.from(raw.matchAll(/\(([^)]*)\)/g))
+    .map((match) => match[1]?.trim() ?? "")
+    .filter(Boolean);
+  for (const block of parentheticalBlocks) {
+    const singer = extractSingerNameFromText(block);
+    if (singer) {
+      return singer;
+    }
+  }
+  const normalized = stripDiacritics(raw).toUpperCase();
+  const match = singerFeaturingMarkerPattern.exec(normalized);
+  if (!match || match.index === undefined) {
+    return "";
+  }
+  const tail = normalized.slice(match.index + match[0].length);
+  if (!singerMarkerTailPattern.test(tail)) {
+    return "";
+  }
+  const singerPart = raw.slice(match.index + match[0].length).trim();
+  if (!singerPart) {
+    return "";
+  }
+  const candidates = extractArtistCandidates(singerPart);
+  if (candidates.length > 0) {
+    return candidates.join(" / ");
+  }
+  return summarizeArtistName(singerPart);
+};
+
+export const extractSingerName = (artistOrCredit: string, title = "") =>
+  extractSingerNameFromText(artistOrCredit) || extractSingerNameFromTitle(title);
 
 export const normalizeStyleName = (
   input: string | string[] | undefined,

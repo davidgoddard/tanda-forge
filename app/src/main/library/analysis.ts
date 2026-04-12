@@ -21,6 +21,12 @@ export type TagResult = {
   error?: string;
 };
 
+export type TrackMetadataResult = {
+  tags: Record<string, string>;
+  durationMs: number;
+  error?: string;
+};
+
 export const SILENCE_DETECT_NOISE_DB = -40;
 export const SILENCE_DETECT_MIN_DURATION_SECONDS = 0.2;
 export const buildSilenceDetectFilter = () =>
@@ -388,7 +394,38 @@ const parseTags = (payload: string): TagResult => {
   }
 };
 
-export const readTags = async (filePath: string): Promise<TagResult> => {
+const parseTrackMetadata = (payload: string): TrackMetadataResult => {
+  try {
+    const jsonPayload = extractJsonPayload(payload) ?? payload;
+    const data = JSON.parse(jsonPayload) as {
+      format?: {
+        duration?: string | number;
+        tags?: Record<string, unknown>;
+      };
+    };
+    const rawTags = data.format?.tags ?? {};
+    const tags: Record<string, string> = {};
+    Object.entries(rawTags).forEach(([key, value]) => {
+      if (value === null || value === undefined) {
+        return;
+      }
+      tags[key.toLowerCase()] = typeof value === "string" ? value : String(value);
+    });
+    const duration = Number.parseFloat(String(data.format?.duration ?? ""));
+    return {
+      tags,
+      durationMs: Number.isFinite(duration) ? Math.round(duration * 1000) : 0,
+    };
+  } catch (error) {
+    return {
+      tags: {},
+      durationMs: 0,
+      error: error instanceof Error ? error.message : "Metadata parse failed",
+    };
+  }
+};
+
+export const readTrackMetadata = async (filePath: string): Promise<TrackMetadataResult> => {
   const { binary, fallback } = resolveFfprobe();
   const args = [
     "-v",
@@ -396,27 +433,31 @@ export const readTags = async (filePath: string): Promise<TagResult> => {
     "-print_format",
     "json",
     "-show_entries",
-    "format_tags",
+    "format=duration:format_tags",
     filePath,
   ];
 
   try {
     const { stdout } = await runCommand(binary, args);
-    return parseTags(stdout);
-  } catch (error) {
+    return parseTrackMetadata(stdout);
+  } catch {
     try {
       const { stdout } = await runCommand(fallback, args);
-      return parseTags(stdout);
+      return parseTrackMetadata(stdout);
     } catch (innerError) {
       return {
         tags: {},
+        durationMs: 0,
         error:
-          innerError instanceof Error
-            ? innerError.message
-            : "Tag read failed",
+          innerError instanceof Error ? innerError.message : "Metadata read failed",
       };
     }
   }
+};
+
+export const readTags = async (filePath: string): Promise<TagResult> => {
+  const metadata = await readTrackMetadata(filePath);
+  return { tags: metadata.tags, error: metadata.error };
 };
 
 export const renderWaveformPng = async (
@@ -667,62 +708,7 @@ export const renderCompressedAudio = async (
   }
 };
 
-const readDurationMs = async (filePath: string) => {
-  const { binary, fallback } = resolveFfprobe();
-  const args = [
-    "-v",
-    "error",
-    "-show_entries",
-    "format=duration",
-    "-of",
-    "default=noprint_wrappers=1:nokey=1",
-    filePath,
-  ];
-
-  try {
-    const { stdout } = await runCommand(binary, args);
-    const duration = Number.parseFloat(stdout.trim());
-    return Number.isFinite(duration) ? Math.round(duration * 1000) : 0;
-  } catch {
-    const { stdout } = await runCommand(fallback, args);
-    const duration = Number.parseFloat(stdout.trim());
-    return Number.isFinite(duration) ? Math.round(duration * 1000) : 0;
-  }
-};
-
-const readSilenceBounds = async (filePath: string) => {
-  const { binary, fallback } = resolveFfmpeg();
-  const args = [
-    "-i",
-    filePath,
-    "-map",
-    "0:a:0",
-    "-vn",
-    "-sn",
-    "-dn",
-    "-af",
-    buildSilenceDetectFilter(),
-    "-f",
-    "null",
-    "-",
-  ];
-
-  const primary = await runCommandAllowFailure(binary, args);
-  const primaryParsed = parseSilenceDetectOutput(primary.stderr);
-  if (primary.code === 0 || primaryParsed.silenceStarts.length > 0 || primaryParsed.silenceEnds.length > 0) {
-    return {
-      ...primaryParsed,
-      error: primary.code === 0 ? undefined : sanitizeFfmpegError(primary.stderr),
-    };
-  }
-  const secondary = await runCommandAllowFailure(fallback, args);
-  return {
-    ...parseSilenceDetectOutput(secondary.stderr),
-    error: secondary.code === 0 ? undefined : sanitizeFfmpegError(secondary.stderr),
-  };
-};
-
-const readLoudness = async (filePath: string) => {
+const readSilenceAndLoudness = async (filePath: string) => {
   const { binary, fallback } = resolveFfmpeg();
   const args = [
     "-v",
@@ -736,79 +722,80 @@ const readLoudness = async (filePath: string) => {
     "-sn",
     "-dn",
     "-af",
-    "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json",
+    `${buildSilenceDetectFilter()},loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json`,
     "-f",
     "null",
     "-",
   ];
 
-  try {
-    const primary = await runCommandAllowFailure(binary, args);
-    const primaryParsed = parseLoudnessJson(primary.stderr);
-    if (primary.code === 0 || primaryParsed.loudnessDb !== undefined) {
-      return {
-        ...primaryParsed,
-        error:
-          primary.code === 0
-            ? primaryParsed.error
-            : sanitizeFfmpegError(primary.stderr),
-      };
-    }
-    const secondary = await runCommandAllowFailure(fallback, args);
-    const secondaryParsed = parseLoudnessJson(secondary.stderr);
+  const primary = await runCommandAllowFailure(binary, args);
+  const primaryParsed = parseSilenceDetectOutput(primary.stderr);
+  const primaryLoudness = parseLoudnessJson(primary.stderr);
+  if (
+    primary.code === 0 ||
+    primaryParsed.silenceStarts.length > 0 ||
+    primaryParsed.silenceEnds.length > 0 ||
+    primaryLoudness.loudnessDb !== undefined
+  ) {
     return {
-      ...secondaryParsed,
-      error:
-        secondary.code === 0
-          ? secondaryParsed.error
-          : sanitizeFfmpegError(secondary.stderr),
-    };
-  } catch (error) {
-    const normalized = normalizeJsonParseError(error);
-    return {
-      loudnessDb: undefined,
-      gainDb: undefined,
-      error: normalized ?? (error instanceof Error ? error.message : "Loudness failed"),
+      ...primaryParsed,
+      loudnessDb: primaryLoudness.loudnessDb,
+      gainDb: primaryLoudness.gainDb,
+      error: primary.code === 0 ? undefined : sanitizeFfmpegError(primary.stderr),
     };
   }
+  const secondary = await runCommandAllowFailure(fallback, args);
+  const secondaryParsed = parseSilenceDetectOutput(secondary.stderr);
+  const secondaryLoudness = parseLoudnessJson(secondary.stderr);
+  return {
+    ...secondaryParsed,
+    loudnessDb: secondaryLoudness.loudnessDb,
+    gainDb: secondaryLoudness.gainDb,
+    error: secondary.code === 0 ? undefined : sanitizeFfmpegError(secondary.stderr),
+  };
 };
 
-export const analyzeTrack = async (filePath: string): Promise<TrackAnalysis> => {
-  const [durationMs, silence, loudness] = await Promise.all([
-    readDurationMs(filePath).catch(() => 0),
-    readSilenceBounds(filePath).catch((error) => ({
-      silenceStarts: [],
-      silenceEnds: [],
-      error: error instanceof Error ? error.message : "Silence analysis failed",
-    })),
-    readLoudness(filePath).catch((error) => {
-      const normalized = normalizeJsonParseError(error);
-      return {
-        loudnessDb: undefined,
-        gainDb: undefined,
-        error: normalized ?? (error instanceof Error ? error.message : "Loudness failed"),
-      };
-    }),
+export const analyzeTrack = async (
+  filePath: string,
+  prefetchedDurationMs?: number,
+): Promise<TrackAnalysis> => {
+  const durationPromise =
+    typeof prefetchedDurationMs === "number"
+      ? Promise.resolve(prefetchedDurationMs)
+      : readTrackMetadata(filePath)
+          .then((result) => result.durationMs)
+          .catch(() => 0);
+  const analysisResultPromise = readSilenceAndLoudness(filePath).catch((error) => ({
+    silenceStarts: [],
+    silenceEnds: [],
+    loudnessDb: undefined,
+    gainDb: undefined,
+    error:
+      error instanceof Error ? error.message : "Silence and loudness analysis failed",
+  }));
+  const [durationMs, analysisResult] = await Promise.all([
+    durationPromise,
+    analysisResultPromise,
   ]);
   const loudnessError =
-    loudness.error && loudness.error === "No loudness JSON"
+    analysisResult.error && analysisResult.error === "No loudness JSON"
       ? undefined
-      : loudness.error;
+      : analysisResult.error;
 
   const { startOffsetMs, endTrimMs } = deriveTrimOffsetsFromSilence(
     durationMs,
-    silence.silenceStarts,
-    silence.silenceEnds,
+    analysisResult.silenceStarts,
+    analysisResult.silenceEnds,
   );
 
-  const analysisError = silence.error ?? loudnessError;
+  const analysisError = analysisResult.error ?? loudnessError;
 
   return {
     durationMs,
     startOffsetMs,
     endTrimMs,
-    loudnessDb: loudness.loudnessDb,
-    gainDb: loudness.gainDb,
+    loudnessDb: analysisResult.loudnessDb,
+    gainDb: analysisResult.gainDb,
     error: analysisError,
     pipelineVersion: ANALYSIS_PIPELINE_VERSION,
   };

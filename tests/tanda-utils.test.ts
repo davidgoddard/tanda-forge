@@ -105,9 +105,24 @@ describe("tanda utils", () => {
     expect(extractSingerName("Alfredo De Angelis cant Oscar Larroca")).toBe(
       "Oscar Larroca",
     );
+    expect(extractSingerName("Orquesta Tipica Andariega feat. Marisol Martinez")).toBe(
+      "Marisol Martinez",
+    );
+    expect(
+      extractSingerName("Orquesta Tipica Andariega featuring Marisol Martinez"),
+    ).toBe("Marisol Martinez");
     expect(extractSingerName("Francisco Canaro canta Arenas/ Lucero")).toBe(
       "Arenas / Lucero",
     );
+    expect(
+      extractSingerName("Orquesta Tipica Andariega", "Vida mia feat. Marisol Martinez"),
+    ).toBe("Marisol Martinez");
+    expect(
+      extractSingerName("Carlos Di Sarli", "Mala Suerte (Canta ERNESTO FAMA)"),
+    ).toBe("Ernesto Fama");
+    expect(
+      extractSingerName("Orquesta Misteriosa", "Tango Featuring Ricardo 'Ricardito' Reveira"),
+    ).toBe("Ricardo 'Ricardito' Reveira");
     expect(extractSingerName("Di Sarli with his orchestra")).toBe("");
   });
 

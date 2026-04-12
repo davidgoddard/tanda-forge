@@ -84,6 +84,21 @@ describe("fuzzy search helpers", () => {
     expect(result.length).toBe(1);
   });
 
+  it("keeps exact multi-token singer matches above the default threshold", () => {
+    const singerMatch = buildTrack({
+      singer: "Alberto Podesta",
+      artist: "Carlos Di Sarli",
+      artist_summary: "Carlos Di Sarli",
+      title: "Milonga sentimental",
+    });
+    const result = filterAndScoreTracks([singerMatch], {
+      query: "Alberto Podestá",
+      minScore: 0.25,
+      bpmRange: 5,
+    });
+    expect(result).toHaveLength(1);
+  });
+
   it("prefers closer token matches when trigrams tie", () => {
     const francisco = buildTrack({ artist: "Francisco Canaro", title: "Test A" });
     const francini = buildTrack({ artist: "Francini - Pontier", title: "Test B" });
@@ -390,6 +405,22 @@ describe("fuzzy search helpers", () => {
       sortDir: "desc",
     });
     expect(result[0].track.id).toBe("close");
+  });
+
+  it("keeps exact numeric titles above the default threshold", () => {
+    const exact = buildTrack({
+      id: "exact",
+      title: "Tempo 72 Test",
+      artist: "Ricardo Tanturi",
+      bpm: 72,
+      year: "1942",
+    });
+    const result = filterAndScoreTracks([exact], {
+      query: "Tempo 72 Test",
+      minScore: 0.25,
+      bpmRange: 5,
+    });
+    expect(result).toHaveLength(1);
   });
 
   it("treats short orchestra-like text queries as similarity searches", () => {

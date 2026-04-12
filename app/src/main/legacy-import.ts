@@ -454,7 +454,7 @@ const importLegacyTracks = async (
       const bpm =
         typeof override.bpm === "number" ? override.bpm : existing?.bpm ?? null;
       const notes = override.notes?.trim() || existing?.notes || "";
-      const singer = existing?.singer || extractSingerName(artist);
+      const singer = existing?.singer || extractSingerName(artist, title);
       const instrumental =
         typeof override.instrumental === "boolean"
           ? override.instrumental

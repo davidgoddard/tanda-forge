@@ -37,6 +37,10 @@ and stores both the measured loudness and gain offset.
   concurrently; failures are isolated and logged independently.
 - AUD-002.R9.a: Waveform cache files are written atomically and invalid/missing
   waveform PNGs must be regenerated on scan or on-demand playback access.
+- AUD-002.R10: Scan-time metadata extraction should minimize external tool
+  launches by combining tag and duration reads into one `ffprobe` invocation,
+  and by combining silence and loudness analysis into one `ffmpeg` invocation
+  where that does not change stored results.
 
 ## AUD-003 — Playback Pipeline
 

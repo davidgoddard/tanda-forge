@@ -7669,6 +7669,25 @@
 - Verification:
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed.
+- Added a standalone repair utility for appended `instrumental` markers in track metadata.
+  - Added `app/src/shared/instrumental-marker-cleanup.ts` with the shared detection/cleanup rules for trailing `instrumental` markers in title/artist text.
+  - Added `scripts/repair-instrumental-markers.js`, a standalone SQLite repair script that scans the `tracks` table, strips appended `instrumental` from `title` and/or `artist`, recomputes `artist_summary`, clears `singer`, and forces `instrumental = 1`. The script supports `--db /path/to/tanda-player.db` and `--dry-run`.
+  - Added `tests/instrumental-marker-cleanup.test.ts`.
+  - Updated `design/tracking-and-feature-matrix.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test -- tests/instrumental-marker-cleanup.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed.
+- Added a metadata-only manual refresh action to the Library tab.
+  - Added `app/src/main/library/stored-metadata-refresh.ts` plus `library:refreshStoredMetadata` IPC in `app/src/main/main.ts` so stored `tag_json` can be reparsed into `title`, `artist`, `artist_summary`, and `singer` without rerunning ffprobe/ffmpeg analysis.
+  - In `app/src/renderer/index.html`, added a dedicated `Re-parse Stored Metadata` card inside the manual maintenance area, with its own explanation and result line.
+  - In `app/src/renderer/controllers/settings-library-controller.ts`, `app/src/renderer/renderer.ts`, `app/src/preload/preload.ts`, and `app/src/shared/types.ts`, wired the new button, status handling, and renderer refresh flow.
+  - In `app/src/renderer/i18n.ts`, added the new button/help/result strings for every supported language.
+  - Added or updated coverage in `tests/stored-metadata-refresh.test.ts` and `tests/settings-library-controller.test.ts`.
+  - Updated `design/05-ui-principles-and-components.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && npm test` passed.
 - Refined remaining-tandas editing, simplified display-board text, and tightened manual prep-mode playback transitions.
   - In `app/src/renderer/controllers/settings-playlist-controller.ts`, the `Remaining Tandas` numeric field now stays editable while the stop-after-N-tandas toggle is off, so DJs can set the count before enabling the feature.
   - In `app/src/renderer/modules/display-view.ts`, the audience countdown helper now suppresses the extra countdown line once the app is already on the actual final tanda.
@@ -7698,6 +7717,16 @@
 - Fixed apostrophe casing in normalized artist names.
   - In `app/src/shared/tanda-utils.ts`, the shared title-casing helper now preserves capitalization after apostrophes, so normalized artist names like `Juan D'Arienzo` no longer degrade to `Juan D'arienzo` in display payloads.
   - Added a regression in `tests/tanda-utils.test.ts`.
+- Audited real legacy credit patterns from `tmp/library.dat` and expanded singer inference.
+  - Checked the actual artist/title strings in `tmp/library.dat` and confirmed the useful explicit marker forms include `canta`, `cant`, `with`, `feat.`, `ft.`, `featuring`, malformed `Feat,`, and title-parenthetical credits such as `(Canta ERNESTO FAMA)`.
+  - In `app/src/shared/tanda-utils.ts`, singer-marker detection now handles `feat.` / `ft.` / `featuring` correctly without the broken trailing word-boundary assumption, and title fallback now parses explicit singer credits inside parenthetical title blocks as well as featuring markers in titles.
+  - In `app/src/main/library/scan.ts` and `app/src/main/legacy-import.ts`, singer inference now passes both artist and title text into the shared extractor.
+  - Added regressions in `tests/tanda-utils.test.ts` for `feat.`, `featuring`, and parenthetical title credit forms.
+- Reduced media-tool launches during scan-time analysis.
+  - In `app/src/main/library/analysis.ts`, added `readTrackMetadata(...)` so tags and duration now come from one `ffprobe` JSON read instead of separate tag and duration probes.
+  - In `app/src/main/library/analysis.ts`, merged silence and loudness analysis into one `ffmpeg` pass by running `silencedetect` and `loudnorm` in the same filter chain and parsing both outputs from the same stderr stream.
+  - In `app/src/main/library/scan.ts`, changed changed-track scan flow to pass prefetched duration into `analyzeTrack(...)`, so a changed track now uses one `ffprobe` for metadata, one `ffmpeg` for silence+loudness, and one `ffmpeg` for waveform generation.
+  - Updated `design/10-audio-pipeline.md`.
 - Stabilized workflow `43 - performance stop pauses after tanda, blanks display text, and resumes via the same cortina`.
   - The failure was not another generic timing flake: the workflow was treating any post-`tango uno` now-playing text as the final cortina, so on longer media stubs it could capture later tanda tracks instead and then incorrectly expect the playlist to already be paused.
   - In `tests/e2e/workflows.e2e.ts`, workflow `43` now waits for the real paused performance-stop transport state first (`#playlist-start` enabled, `#playlist-stop` disabled), then captures the final cortina label from the settled active cortina row and continues with the one-off performance-track assertions.
@@ -8276,3 +8305,23 @@
 - Verification:
   - `source ~/.nvm/nvm.sh && npm run build` passed.
   - `source ~/.nvm/nvm.sh && npm test` passed.
+- Broadened the instrumental-marker cleanup helper to catch additional real-world suffix formats.
+  - In `app/src/shared/instrumental-marker-cleanup.ts`, replaced the single trailing regex with iterative cleanup rules that now remove dotted suffixes like `Carlos Di Sarli.Instrumental`, preserve trailing qualifiers when stripping nested forms like `Sube y Baja (Instrumental (Remasterizado))`, and remove `(Instrumental)` even when followed by trailing tags such as `(short).mp3`.
+  - In `tests/instrumental-marker-cleanup.test.ts`, added regressions for those three cases.
+  - Updated `docs/user-guide.md` and `docs/dialogue.md`.
+- Verification:
+  - `source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && npm test -- tests/instrumental-marker-cleanup.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && npm test` passed (`87` files, `427` tests).
+- Fixed edit-mode track editor persistence and restored singer-search scoring.
+  - In `app/src/renderer/renderer.ts`, saving a track now keeps the editor open in `edit` mode, refreshes the in-place form with the saved track data, and still closes normally outside `edit` mode.
+  - In `app/src/main/library/fuzzy-search.ts`, added a dedicated singer-field score/weight so exact singer matches such as `Alberto Podestá` are no longer dragged below the default search threshold by unrelated title/notes fields.
+  - In `tests/library-search.test.ts`, added regressions that require an exact two-token singer query and a numeric title query like `Tempo 72 Test` to survive the default `0.25` minimum score.
+- Verification:
+  - `source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && npm test -- tests/library-search.test.ts` passed.
+  - `source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build` passed.
+  - `source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && npm test` passed (`87` files, `429` tests).
+  - `source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && npx playwright test tests/e2e/workflows.e2e.ts -g "12 - search-track menu action adds track to playlist|13 - search-track menu action adds track to tanda designer|17 - clipboard-track menu remove action removes track|19 - playlist clear shows modal in playlist tab|20 - playlist clear in designer tab resets drafts without modal|23 - edited first playlist tanda persists after app restart|28 - style variants rename pill, apply exact filtering, and tanda multi-style badge|29 - track editor style search uses exact style pills and filters results"` did not complete here because Electron aborted at launch with `Process failed to launch!`, so the targeted E2E rerun could not confirm the fix in this shell.
+- Removed the `By:` label from the cortina/current-tanda artist line.
+  - In `app/src/renderer/i18n.ts`, updated `displayNowTanda` in every supported language so the cortina display now shows the artist alone on the second line, matching the existing `Next` layout.
+  - Updated `design/05-ui-principles-and-components.md`, `docs/user-guide.md`, and `docs/dialogue.md`.

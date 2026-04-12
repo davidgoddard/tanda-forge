@@ -5,7 +5,7 @@ import {
   ANALYSIS_PIPELINE_VERSION,
   analyzeTrack,
   hasUsableWaveformPng,
-  readTags,
+  readTrackMetadata,
   renderWaveformPng,
   type TagResult,
   type TrackAnalysis,
@@ -330,15 +330,16 @@ export const scanLibraryRoots = async (
             return {};
           }
         };
-        const tagPromise: Promise<TagResult> = unchanged
+        const tagPromise: Promise<TagResult & { durationMs?: number }> = unchanged
           ? Promise.resolve({
               tags: parseExistingTags(),
+              durationMs: existingAnalysis.durationMs,
               error: existing?.tag_error ?? undefined,
             })
-          : readTags(filePath);
+          : readTrackMetadata(filePath);
         const analysisPromise: Promise<TrackAnalysis> = unchanged
           ? Promise.resolve(existingAnalysis)
-          : analyzeTrack(filePath);
+          : tagPromise.then((metadata) => analyzeTrack(filePath, metadata.durationMs));
         const waveformPath = waveformsDir ? path.join(waveformsDir, `${trackId}.png`) : "";
         if (waveformsDir && waveformPath && !hasUsableWaveformPng(waveformPath)) {
           fs.rmSync(waveformPath, { force: true });
@@ -428,7 +429,7 @@ export const scanLibraryRoots = async (
           tags.soloist ||
           "";
         const singer =
-          existing?.singer || singerFromTags || extractSingerName(artist);
+          existing?.singer || singerFromTags || extractSingerName(artist, title);
 
         const needsMetadataUpdate =
           !existing ||

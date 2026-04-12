@@ -267,7 +267,7 @@ stop-triggering tanda. Display behavior is:
   larger normalized artist line, and then an optional `Singer:` line when singer
   metadata exists;
 - the progress line shows `Playing N/M`.
-- lead-in cortinas before counted-down tandas stay normal ("Cortina" + "This tanda: {style} from {artist}");
+- lead-in cortinas before counted-down tandas stay normal ("Cortina" + "This tanda: {style}" with the artist on the next line);
 - while tracks in the counted-down tandas are playing, the bottom-right area adds
   a localized countdown line such as "Last two tandas";
 - while tracks in the actual final tanda are playing, that countdown line sits
@@ -652,6 +652,8 @@ In **Settings -> Library**, the buttons are grouped by purpose:
   - It is separate from **Startup Flow** because it replaces existing tanda data rather than behaving like a resumable rebuild step.
 - **Library Scan** refreshes the database, analysis, and waveform PNG cache from the music and cortina folders.
 - Re-running **Scan Music** or **Scan Cortinas** skips unchanged files, so adding new songs normally just means copying them into an existing root and scanning that root again.
+- **Re-parse Stored Metadata** rebuilds title, artist, artist summary, and singer from already stored tag data.
+  - Use this after parser changes or metadata cleanup when you want to refresh credits without rerunning ffmpeg analysis, waveform PNG generation, or compressed-cache work.
 - **Derived Caches** manages the expensive on-disk cache files.
 - **Library Maintenance** contains database-only cleanup.
 - **System Export / Import** backs up or restores the complete application data folder (database, caches, logs, and persisted settings).
@@ -663,6 +665,15 @@ If **compression** (dynamic range reduction) is enabled, the system can generate
 If you want to keep the cache files on disk but do not fully trust them, use **Verify cached files**. This checks waveform PNGs and compressed cache files, removes broken or incomplete entries, and leaves valid cached files in place. Use **Erase Cached Files** only if you want to remove those derived files entirely and force them to be rebuilt later.
 
 **Erase Database** now removes only the database records. It does not remove waveform or compressed cache files. After using it, run **Startup Flow** to rebuild a complete working library from the configured roots.
+
+For one-off metadata cleanup outside the app, there is also a standalone repair utility:
+
+```bash
+node scripts/repair-instrumental-markers.js --db /path/to/tanda-player.db --dry-run
+node scripts/repair-instrumental-markers.js --db /path/to/tanda-player.db
+```
+
+This scans the `tracks` table for title or artist values with a trailing `instrumental` marker, strips that marker cleanly even when it is written with dotted separators or followed by trailing qualifiers such as remaster/short tags, clears `Singer`, and forces the track's instrumental flag on.
 
 In **Settings -> Diagnostics**, the app shows the actual `ffmpeg` and `ffprobe` paths it is using and whether each one came from the bundled app resources, a custom tools folder, or the system `PATH`.
 

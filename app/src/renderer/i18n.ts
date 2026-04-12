@@ -244,6 +244,16 @@ export const translations = {
       "Use this when you only want to refresh music or cortinas after adding files.",
     libraryScanHelp:
       "Scanning builds or refreshes the track database, analysis, and waveform cache. Re-running Scan Music or Scan Cortinas skips unchanged files, so adding new songs only requires scanning that root again.",
+    storedMetadataRefreshTitle: "Re-parse Stored Metadata",
+    storedMetadataRefreshSummary:
+      "Rebuild artist and singer fields from already scanned tag data without rerunning audio analysis.",
+    storedMetadataRefreshButton: "Re-parse stored metadata",
+    storedMetadataRefreshHelp:
+      "Use this after parser improvements or metadata fixes. It refreshes title, artist, artist summary, and singer from stored scan data only, without rebuilding waveforms or compressed files.",
+    storedMetadataRefreshRunning: "Refreshing stored metadata...",
+    storedMetadataRefreshDone:
+      "Stored metadata refreshed. Checked {total}; updated {updated}; unchanged {unchanged}.",
+    storedMetadataRefreshFailed: "Stored metadata refresh failed: {message}",
     scanMusic: "Scan Music",
     scanCortinas: "Scan Cortinas",
     derivedCacheTitle: "Derived Caches",
@@ -664,7 +674,7 @@ export const translations = {
     rootCortina: "Cortina",
     rootBackground: "Background",
     displayPlayingTrack: "Playing {index}/{count}",
-    displayNowTanda: "Now: {style}\nBy: {artist}",
+    displayNowTanda: "Now: {style}\n{artist}",
     displayNextTanda: "Next: {style}\n{artist}",
     displaySinger: "Singer: {singer}",
     displayVariousArtists: "Various artists",
@@ -929,6 +939,16 @@ export const translations = {
       "Usa esto cuando solo quieras refrescar musica o cortinas despues de agregar archivos.",
     libraryScanHelp:
       "El escaneo crea o actualiza la base de pistas, el analisis y la cache de formas de onda. Al repetir Escanear musica o Escanear cortinas se omiten los archivos sin cambios, asi que agregar canciones nuevas solo requiere escanear esa raiz otra vez.",
+    storedMetadataRefreshTitle: "Releer metadatos guardados",
+    storedMetadataRefreshSummary:
+      "Reconstruye artista y cantante desde los tags ya escaneados sin repetir el analisis de audio.",
+    storedMetadataRefreshButton: "Releer metadatos guardados",
+    storedMetadataRefreshHelp:
+      "Usa esto tras mejorar el parser o corregir metadatos. Refresca titulo, artista, resumen de artista y cantante solo desde los datos ya guardados, sin reconstruir formas de onda ni archivos comprimidos.",
+    storedMetadataRefreshRunning: "Refrescando metadatos guardados...",
+    storedMetadataRefreshDone:
+      "Metadatos guardados refrescados. Revisadas {total}; actualizadas {updated}; sin cambios {unchanged}.",
+    storedMetadataRefreshFailed: "Fallo al refrescar metadatos guardados: {message}",
     scanMusic: "Escanear musica",
     scanCortinas: "Escanear cortinas",
     derivedCacheTitle: "Caches derivadas",
@@ -1286,7 +1306,7 @@ export const translations = {
     rootCortina: "Cortina",
     rootBackground: "Fondo",
     displayPlayingTrack: "Reproduciendo {index}/{count}",
-    displayNowTanda: "Ahora: {style}\nPor: {artist}",
+    displayNowTanda: "Ahora: {style}\n{artist}",
     displayNextTanda: "Sigue: {style}\n{artist}",
     displaySinger: "Cantor: {singer}",
     displayVariousArtists: "Varios artistas",
@@ -1634,6 +1654,16 @@ export const translations = {
       "Utilisez ceci seulement pour rafraichir musique ou cortinas apres ajout de fichiers.",
     libraryScanHelp:
       "Le scan construit ou rafraichit la base de titres, l'analyse et le cache de formes d'onde. Relancer Scanner musique ou Scanner cortinas ignore les fichiers inchanges, donc l'ajout de nouveaux morceaux ne demande qu'un nouveau scan de cette racine.",
+    storedMetadataRefreshTitle: "Relire les metadonnees stockees",
+    storedMetadataRefreshSummary:
+      "Reconstruit artiste et chanteur depuis les tags deja scannes sans relancer l'analyse audio.",
+    storedMetadataRefreshButton: "Relire les metadonnees stockees",
+    storedMetadataRefreshHelp:
+      "A utiliser apres une amelioration du parseur ou une correction de metadonnees. Rafraichit titre, artiste, resume artiste et chanteur depuis les donnees deja stockees, sans reconstruire les formes d'onde ni les fichiers compresses.",
+    storedMetadataRefreshRunning: "Rafraichissement des metadonnees stockees...",
+    storedMetadataRefreshDone:
+      "Metadonnees stockees rafraichies. Verifie {total}; mis a jour {updated}; inchanges {unchanged}.",
+    storedMetadataRefreshFailed: "Le rafraichissement des metadonnees a echoue: {message}",
     scanMusic: "Scanner musique",
     scanCortinas: "Scanner cortinas",
     derivedCacheTitle: "Caches derives",
@@ -1992,7 +2022,7 @@ export const translations = {
     rootCortina: "Cortina",
     rootBackground: "Fond",
     displayPlayingTrack: "Lecture {index}/{count}",
-    displayNowTanda: "Maintenant: {style}\nPar: {artist}",
+    displayNowTanda: "Maintenant: {style}\n{artist}",
     displayNextTanda: "Ensuite: {style}\n{artist}",
     displaySinger: "Chanteur: {singer}",
     displayVariousArtists: "Artistes varies",
@@ -2348,6 +2378,16 @@ export const translations = {
       "Verwenden Sie dies nur, wenn Musik oder Cortinas nach neuen Dateien gezielt aufgefrischt werden sollen.",
     libraryScanHelp:
       "Der Scan erstellt oder aktualisiert Track-Datenbank, Analyse und Wellenform-Cache. Ein erneutes Scannen von Musik oder Cortinas uberspringt unveranderte Dateien, daher reicht fur neue Titel ein weiterer Scan dieses Wurzelordners.",
+    storedMetadataRefreshTitle: "Gespeicherte Metadaten neu parsen",
+    storedMetadataRefreshSummary:
+      "Erstellt Artist- und Sangerfelder aus bereits gescannten Tags neu, ohne Audioanalyse erneut zu starten.",
+    storedMetadataRefreshButton: "Gespeicherte Metadaten neu parsen",
+    storedMetadataRefreshHelp:
+      "Nach Parser-Verbesserungen oder Metadatenkorrekturen verwenden. Aktualisiert Titel, Artist, Artist-Kurzname und Sanger nur aus gespeicherten Scandaten, ohne Waveforms oder komprimierte Dateien neu zu bauen.",
+    storedMetadataRefreshRunning: "Gespeicherte Metadaten werden aktualisiert...",
+    storedMetadataRefreshDone:
+      "Gespeicherte Metadaten aktualisiert. Gepruft {total}; aktualisiert {updated}; unverandert {unchanged}.",
+    storedMetadataRefreshFailed: "Aktualisierung gespeicherter Metadaten fehlgeschlagen: {message}",
     scanMusic: "Musik scannen",
     scanCortinas: "Cortinas scannen",
     derivedCacheTitle: "Abgeleitete Caches",
@@ -2707,7 +2747,7 @@ export const translations = {
     rootCortina: "Cortina",
     rootBackground: "Hintergrund",
     displayPlayingTrack: "Spiele {index}/{count}",
-    displayNowTanda: "Jetzt: {style}\nVon: {artist}",
+    displayNowTanda: "Jetzt: {style}\n{artist}",
     displayNextTanda: "Als Naechstes: {style}\n{artist}",
     displaySinger: "Saenger: {singer}",
     displayVariousArtists: "Verschiedene Interpreten",
@@ -3064,6 +3104,16 @@ export const translations = {
       "Use isto apenas para atualizar musica ou cortinas depois de adicionar ficheiros.",
     libraryScanHelp:
       "O scan cria ou atualiza a base de faixas, a analise e a cache de formas de onda. Repetir Escanear musica ou Escanear cortinas ignora ficheiros sem alteracoes, por isso adicionar faixas novas so exige novo scan dessa raiz.",
+    storedMetadataRefreshTitle: "Reinterpretar metadados guardados",
+    storedMetadataRefreshSummary:
+      "Reconstrui artista e cantor a partir das tags ja lidas sem repetir a analise de audio.",
+    storedMetadataRefreshButton: "Reinterpretar metadados guardados",
+    storedMetadataRefreshHelp:
+      "Use isto apos melhorias no parser ou correcoes de metadados. Atualiza titulo, artista, resumo do artista e cantor apenas com os dados guardados, sem recriar waveforms nem ficheiros comprimidos.",
+    storedMetadataRefreshRunning: "A atualizar metadados guardados...",
+    storedMetadataRefreshDone:
+      "Metadados guardados atualizados. Verificados {total}; atualizados {updated}; sem alteracoes {unchanged}.",
+    storedMetadataRefreshFailed: "Falha ao atualizar metadados guardados: {message}",
     scanMusic: "Escanear musica",
     scanCortinas: "Escanear cortinas",
     derivedCacheTitle: "Caches derivados",
@@ -3423,7 +3473,7 @@ export const translations = {
     rootCortina: "Cortina",
     rootBackground: "Fundo",
     displayPlayingTrack: "Tocando {index}/{count}",
-    displayNowTanda: "Agora: {style}\nPor: {artist}",
+    displayNowTanda: "Agora: {style}\n{artist}",
     displayNextTanda: "Depois: {style}\n{artist}",
     displaySinger: "Cantor: {singer}",
     displayVariousArtists: "Varios artistas",
@@ -3780,6 +3830,16 @@ export const translations = {
       "Usa questo solo quando vuoi aggiornare musica o cortine dopo aver aggiunto file.",
     libraryScanHelp:
       "La scansione crea o aggiorna database brani, analisi e cache delle forme d'onda. Ripetere Scansiona musica o Scansiona cortine salta i file invariati, quindi per aggiungere nuovi brani basta rieseguire la scansione di quella radice.",
+    storedMetadataRefreshTitle: "Rileggi metadati salvati",
+    storedMetadataRefreshSummary:
+      "Ricostruisce artista e cantante dai tag gia scansionati senza rieseguire l'analisi audio.",
+    storedMetadataRefreshButton: "Rileggi metadati salvati",
+    storedMetadataRefreshHelp:
+      "Usalo dopo miglioramenti del parser o correzioni dei metadati. Aggiorna titolo, artista, riepilogo artista e cantante solo dai dati gia salvati, senza rigenerare forme d'onda o file compressi.",
+    storedMetadataRefreshRunning: "Aggiornamento metadati salvati...",
+    storedMetadataRefreshDone:
+      "Metadati salvati aggiornati. Controllati {total}; aggiornati {updated}; invariati {unchanged}.",
+    storedMetadataRefreshFailed: "Aggiornamento dei metadati salvati non riuscito: {message}",
     scanMusic: "Scansiona musica",
     scanCortinas: "Scansiona cortine",
     derivedCacheTitle: "Cache derivate",
@@ -4144,7 +4204,7 @@ export const translations = {
     rootCortina: "Cortina",
     rootBackground: "Sfondo",
     displayPlayingTrack: "Riproduzione {index}/{count}",
-    displayNowTanda: "Ora: {style}\nDa: {artist}",
+    displayNowTanda: "Ora: {style}\n{artist}",
     displayNextTanda: "Poi: {style}\n{artist}",
     displaySinger: "Cantante: {singer}",
     displayVariousArtists: "Artisti vari",
@@ -4437,6 +4497,16 @@ translations.is = {
     "Notadu þetta aðeins ef tu vilt endurnyja tonlist eða cortinur eftir ad hafa bætt vid skrám.",
   libraryScanHelp:
     "Skönnun byggir upp eða endurnýjar lagagagnagrunn, greiningu og bylgjuformsminni. Endurskönnun tónlistar eða cortina sleppir óbreyttum skrám.",
+  storedMetadataRefreshTitle: "Endurlesa geymd lysigogn",
+  storedMetadataRefreshSummary:
+    "Endurbyggir artist- og singer-gogn ur þegar skonnuðum tags an þess að keyra hljodgreiningu aftur.",
+  storedMetadataRefreshButton: "Endurlesa geymd lysigogn",
+  storedMetadataRefreshHelp:
+    "Nota eftir parser-bot eða metadata-leidingar. Endurnyr titil, artist, artist-samantekt og singer ur geymdum skonnunargognum einum saman, an þess að endurbyggja bylgjumyndir eða thjappadar skrár.",
+  storedMetadataRefreshRunning: "Endurnyi geymd lysigogn...",
+  storedMetadataRefreshDone:
+    "Geymd lysigogn endurnyd. Yfirfarid {total}; uppfaert {updated}; obreytt {unchanged}.",
+  storedMetadataRefreshFailed: "Endurnyun geymdra lysigagna mistokst: {message}",
   scanMusic: "Skanna tónlist",
   scanCortinas: "Skanna cortinur",
   derivedCacheTitle: "Afleidd skyndiminni",
@@ -4754,7 +4824,7 @@ translations.is = {
   tandaDone: "Loka",
   tandaDelete: "Eyða töndu",
   displayPlayingTrack: "Spilar {index}/{count}",
-  displayNowTanda: "Nu: {style}\nFra: {artist}",
+  displayNowTanda: "Nu: {style}\n{artist}",
   displayNextTanda: "Naest: {style}\n{artist}",
   displaySinger: "Soengvari: {singer}",
   displayVariousArtists: "Ymsir listamenn",

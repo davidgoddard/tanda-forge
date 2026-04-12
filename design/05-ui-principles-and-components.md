@@ -150,6 +150,10 @@ Rules:
 - UI-009.R6: The playlist `Remaining Tandas` number field remains editable while
   the stop-after-N-tandas toggle is off, so DJs can set the count before
   enabling the feature and avoid transient display-board countdown flashes.
+- UI-009.R7: The Library tab includes a dedicated manual `Re-parse Stored Metadata`
+  card that rebuilds title, artist, artist-summary, and singer fields from
+  stored scan tags without rerunning audio analysis, waveform generation, or
+  compressed-cache work.
 
 ## UI-009b — Audience Display Board
 
@@ -667,7 +671,7 @@ Features:
 - UI-060.R14.c: When the marked-last countdown is active:
   - lead-in cortinas before a remaining tanda stay normal ("Cortina" + "This tanda: {style}"),
   - that lead-in cortina subline includes the localized artist summary for the
-    upcoming tanda (`This tanda: {style} from {artist}`),
+    upcoming tanda on its own next line (`This tanda: {style}` followed by `{artist}`),
   - while tracks of a counted-down tanda are playing, the bottom-right display
     adds a localized countdown line such as "Last two tandas",
   - while tracks of the actual final tanda are playing, that countdown line sits

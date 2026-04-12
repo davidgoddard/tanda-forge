@@ -75,8 +75,10 @@ const createElements = () => ({
     Object.assign(new FakeElement(), { dataset: { phase: "complete" } }),
   ],
   precomputeCompressedResult: new FakeElement(),
+  refreshStoredMetadataResult: new FakeElement(),
   precomputeCompressedBtn: new FakeElement(),
   precomputeCompressedShortcutBtn: new FakeElement(),
+  refreshStoredMetadataBtn: new FakeElement(),
   scanMusicBtn: new FakeElement(),
   scanCortinasBtn: new FakeElement(),
   exportSystemBtn: new FakeElement(),
@@ -104,6 +106,12 @@ const createController = (elements = createElements()) =>
         missingTracks: [],
         errors: [],
       })),
+      refreshStoredMetadata: vi.fn(async () => ({
+        ok: true,
+        total: 0,
+        updated: 0,
+        unchanged: 0,
+      })),
       verifyCachedFiles: vi.fn(),
       clearCachedFiles: vi.fn(),
       exportSystemData: vi.fn(),
@@ -125,6 +133,7 @@ const createController = (elements = createElements()) =>
     }),
     scheduleCompressionPrefetch: vi.fn(),
     onScanCompleted: vi.fn(async () => {}),
+    onStoredMetadataRefreshed: vi.fn(async () => {}),
     onCachedFilesCleared: vi.fn(async () => {}),
     onStartupFlowCompleted: vi.fn(async () => {}),
     onSystemImported: vi.fn(async () => {}),
@@ -174,6 +183,7 @@ describe("settings library controller", () => {
                 });
             }),
         ),
+        refreshStoredMetadata: vi.fn(),
         verifyCachedFiles: vi.fn(),
         clearCachedFiles: vi.fn(),
         exportSystemData: vi.fn(),
@@ -195,6 +205,7 @@ describe("settings library controller", () => {
       }),
       scheduleCompressionPrefetch: vi.fn(),
       onScanCompleted: vi.fn(async () => {}),
+      onStoredMetadataRefreshed: vi.fn(async () => {}),
       onCachedFilesCleared: vi.fn(async () => {}),
       onStartupFlowCompleted: vi.fn(async () => {}),
       onSystemImported: vi.fn(async () => {}),
@@ -270,6 +281,7 @@ describe("settings library controller", () => {
           missingTracks: [],
           errors: [],
         })),
+        refreshStoredMetadata: vi.fn(),
         verifyCachedFiles: vi.fn(),
         clearCachedFiles: vi.fn(),
         exportSystemData: vi.fn(),
@@ -291,6 +303,7 @@ describe("settings library controller", () => {
       }),
       scheduleCompressionPrefetch: vi.fn(),
       onScanCompleted,
+      onStoredMetadataRefreshed: vi.fn(async () => {}),
       onCachedFilesCleared: vi.fn(async () => {}),
       onStartupFlowCompleted: vi.fn(async () => {}),
       onSystemImported: vi.fn(async () => {}),
@@ -356,6 +369,7 @@ describe("settings library controller", () => {
           missingTracks: [],
           errors: [],
         })),
+        refreshStoredMetadata: vi.fn(),
         verifyCachedFiles: vi.fn(),
         clearCachedFiles: vi.fn(),
         exportSystemData: vi.fn(),
@@ -377,6 +391,7 @@ describe("settings library controller", () => {
       }),
       scheduleCompressionPrefetch: vi.fn(),
       onScanCompleted: vi.fn(async () => {}),
+      onStoredMetadataRefreshed: vi.fn(async () => {}),
       onCachedFilesCleared: vi.fn(async () => {}),
       onStartupFlowCompleted,
       onSystemImported: vi.fn(async () => {}),
@@ -449,6 +464,7 @@ describe("settings library controller", () => {
           missingTracks: [],
           errors: [],
         })),
+        refreshStoredMetadata: vi.fn(),
         verifyCachedFiles: vi.fn(),
         clearCachedFiles: vi.fn(),
         exportSystemData: vi.fn(),
@@ -470,6 +486,7 @@ describe("settings library controller", () => {
       }),
       scheduleCompressionPrefetch: vi.fn(),
       onScanCompleted: vi.fn(async () => {}),
+      onStoredMetadataRefreshed: vi.fn(async () => {}),
       onCachedFilesCleared: vi.fn(async () => {}),
       onStartupFlowCompleted: vi.fn(async () => {}),
       onSystemImported: vi.fn(async () => {}),
@@ -560,6 +577,7 @@ describe("settings library controller", () => {
             }),
         ),
         precomputeCompressedTracks: vi.fn(),
+        refreshStoredMetadata: vi.fn(),
         verifyCachedFiles: vi.fn(),
         clearCachedFiles: vi.fn(),
         exportSystemData: vi.fn(),
@@ -581,6 +599,7 @@ describe("settings library controller", () => {
       }),
       scheduleCompressionPrefetch: vi.fn(),
       onScanCompleted: vi.fn(async () => {}),
+      onStoredMetadataRefreshed: vi.fn(async () => {}),
       onCachedFilesCleared: vi.fn(async () => {}),
       onStartupFlowCompleted: vi.fn(async () => {}),
       onSystemImported: vi.fn(async () => {}),
@@ -613,5 +632,60 @@ describe("settings library controller", () => {
     expect(elements.startupFlowProgressLabel.textContent).toContain("statusScanProgressWithFile");
     expect(elements.startupFlowEta.textContent).toContain("startupFlowEtaStepRough:");
     vi.useRealTimers();
+  });
+
+  it("runs stored metadata refresh and reports counts", async () => {
+    const elements = createElements();
+    const setStatus = vi.fn();
+    const onStoredMetadataRefreshed = vi.fn(async () => {});
+    const controller = createSettingsLibraryController({
+      translate: (key, params) => `${key}:${params ? JSON.stringify(params) : ""}`,
+      basenameForDisplay: (filePath) => filePath ?? "",
+      api: {
+        scanKind: vi.fn(),
+        runStartupFlow: vi.fn(),
+        precomputeCompressedTracks: vi.fn(),
+        refreshStoredMetadata: vi.fn(async () => ({
+          ok: true,
+          total: 12,
+          updated: 5,
+          unchanged: 7,
+        })),
+        verifyCachedFiles: vi.fn(),
+        clearCachedFiles: vi.fn(),
+        exportSystemData: vi.fn(),
+        importSystemData: vi.fn(),
+      },
+      elements,
+      setStatus,
+      clearAlert: vi.fn(),
+      getCompressionConfig: () => ({
+        mode: "upward",
+        liftThresholdDb: -24,
+        maxLiftDb: 8,
+        ratio: 4,
+        attackMs: 5,
+        releaseMs: 250,
+        gateThresholdDb: -50,
+        limiterCeilingDb: -1,
+        limiterReleaseMs: 150,
+      }),
+      scheduleCompressionPrefetch: vi.fn(),
+      onScanCompleted: vi.fn(async () => {}),
+      onStoredMetadataRefreshed,
+      onCachedFilesCleared: vi.fn(async () => {}),
+      onStartupFlowCompleted: vi.fn(async () => {}),
+      onSystemImported: vi.fn(async () => {}),
+    });
+
+    await controller.runRefreshStoredMetadata();
+
+    expect(setStatus).toHaveBeenCalledWith(
+      'storedMetadataRefreshDone:{"total":12,"updated":5,"unchanged":7}',
+    );
+    expect(elements.refreshStoredMetadataResult.textContent).toBe(
+      'storedMetadataRefreshDone:{"total":12,"updated":5,"unchanged":7}',
+    );
+    expect(onStoredMetadataRefreshed).toHaveBeenCalled();
   });
 });

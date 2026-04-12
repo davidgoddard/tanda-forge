@@ -38,6 +38,7 @@ import {
   auditCompressionReadiness,
   listCompressionEligibleTracks,
 } from "./library/compression-readiness";
+import { refreshStoredTrackMetadata } from "./library/stored-metadata-refresh";
 import {
   buildJumpIndex,
   getSortKeySql,
@@ -1026,6 +1027,56 @@ const registerIpc = () => {
       ).run(message, kind);
       throw error;
     }
+  });
+
+  ipcMain.handle("library:refreshStoredMetadata", async () => {
+    const db = getDb();
+    const rows = db
+      .prepare("select id, title, artist, singer, tag_json from tracks")
+      .all() as Array<{
+      id: string;
+      title: string | null;
+      artist: string | null;
+      singer: string | null;
+      tag_json: string | null;
+    }>;
+    const updateTrack = db.prepare(`
+      update tracks
+      set title = ?, artist = ?, artist_summary = ?, singer = ?, updated_at = ?
+      where id = ?
+    `);
+    const now = new Date().toISOString();
+    let updated = 0;
+    rows.forEach((row) => {
+      const refreshed = refreshStoredTrackMetadata(row);
+      const currentTitle = (row.title ?? "").trim();
+      const currentArtist = (row.artist ?? "").trim();
+      const currentSinger = (row.singer ?? "").trim();
+      const currentArtistSummary = currentArtist ? summarizeArtistName(currentArtist) : "";
+      if (
+        currentTitle === refreshed.title &&
+        currentArtist === refreshed.artist &&
+        currentArtistSummary === refreshed.artistSummary &&
+        currentSinger === refreshed.singer
+      ) {
+        return;
+      }
+      updateTrack.run(
+        refreshed.title || null,
+        refreshed.artist || null,
+        refreshed.artistSummary || null,
+        refreshed.singer || null,
+        now,
+        row.id,
+      );
+      updated += 1;
+    });
+    return {
+      ok: true,
+      total: rows.length,
+      updated,
+      unchanged: Math.max(0, rows.length - updated),
+    };
   });
 
   ipcMain.handle(

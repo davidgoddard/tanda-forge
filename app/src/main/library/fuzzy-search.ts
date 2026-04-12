@@ -658,12 +658,14 @@ const scoreTrackWithBreakdown = (
   const lookupWeights = {
     title: 0.3,
     artist: 0.42,
+    singer: 0.28,
     year: 0.1,
     tempo: 0.05,
     notes: 0.1,
   };
   const similarityWeights = {
     artist: 0.4,
+    singer: 0.18,
     tempo: 0.16,
     year: 0.16,
     title: 0.04,
@@ -685,9 +687,15 @@ const scoreTrackWithBreakdown = (
     .join(" ");
   const expandedArtistField = buildArtistFieldWithAliases(artistField);
   const titleField = track.title || "";
+  const singerField = track.singer || "";
   const artistTermScore = scoreTermsAgainstField(textTerms, expandedArtistField);
+  const singerTermScore = scoreTermsAgainstField(textTerms, singerField);
   const titleTermScore = scoreTermsAgainstField(textTerms, titleField);
+  const titleCoverageMetrics = buildTokenMatchMetrics(queryCoverageTokens, titleField);
   const artistCoverageScore = scoreQueryTokensAgainstField(queryCoverageTokens, artistField, {
+    ignoreStopwords: true,
+  });
+  const singerCoverageScore = scoreQueryTokensAgainstField(queryCoverageTokens, singerField, {
     ignoreStopwords: true,
   });
   const titleCoverageScore = scoreQueryTokensAgainstField(queryCoverageTokens, titleField);
@@ -725,8 +733,20 @@ const scoreTrackWithBreakdown = (
         applyFieldScore(titleCoverageScore, titleTermScore) +
           (parsed.mode === "lookup" ? 0.15 * phraseBoost : 0),
       );
+  const singerScore = singerTermScore === null
+    ? 0
+    : Math.min(
+        1,
+        Math.max(
+          applyFieldScore(singerCoverageScore, singerTermScore),
+          parsed.hasQuotedPhrase && parsed.phraseTokens.length > 0
+            ? Math.max(...parsed.phraseTokens.map((phrase) => scorePhraseInQuery(phrase, singerField)))
+            : 0,
+        ),
+      );
   if (textTerms.length > 0) {
     components.push({ score: artistScore, weight: weights.artist });
+    components.push({ score: singerScore, weight: weights.singer });
     components.push({ score: titleScore, weight: weights.title });
   }
   const yearScore = scoreYearIntent(parsed.yearTokens, track.year ?? "");
@@ -801,8 +821,14 @@ const scoreTrackWithBreakdown = (
     ? 0
     : components.reduce((sum, component) => sum + component.score * component.weight, 0) /
       totalWeight;
+  const titleCoverageBoost = parsed.mode === "similarity" &&
+      parsed.textTokens.length >= 2 &&
+      (parsed.yearTokens.length > 0 || parsed.tempoTokens.length > 0) &&
+      (titleCoverageMetrics?.queryCoverage ?? 0) >= 0.999
+    ? Math.max(titleScore, tempoScore ?? 0, yearScore ?? 0)
+    : 0;
   return {
-    score: Math.min(1, Math.max(0, weighted)),
+    score: Math.min(1, Math.max(0, Math.max(weighted, titleCoverageBoost))),
     mode: parsed.mode,
     artistScore,
     titleScore,

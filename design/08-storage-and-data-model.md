@@ -129,7 +129,10 @@ Fields:
 - DATA-005.R10: Tag-derived styles are only persisted if they match a defined system style;
   otherwise `genre` remains empty.
 - DATA-005.R11: If singer metadata is missing, infer singer from artist strings that
-  include markers such as "canta", "con", or "with".
+  include markers such as "canta", "con", "with", `feat.`, `ft.`, or
+  `featuring`.
+- DATA-005.R11.a: As a fallback, explicit guest-credit markers in titles may be
+  used to infer singer values when the artist field does not carry the credit.
 
 ## DATA-006 — Local UI State
 

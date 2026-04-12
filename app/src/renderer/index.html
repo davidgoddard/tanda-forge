@@ -893,6 +893,21 @@
                 <progress id="scan-progress-settings" value="0" max="1"></progress>
               </div>
             </div>
+            <div class="settings-section setup-card">
+              <h3 data-i18n="storedMetadataRefreshTitle">Re-parse Stored Metadata</h3>
+              <p class="settings-note settings-note-compact" data-i18n="storedMetadataRefreshSummary">
+                Rebuild artist and singer fields from already scanned tag data without rerunning audio analysis.
+              </p>
+              <div class="settings-actions">
+                <button id="refresh-stored-metadata" data-i18n="storedMetadataRefreshButton">
+                  Re-parse stored metadata
+                </button>
+              </div>
+              <p class="settings-note" data-i18n="storedMetadataRefreshHelp">
+                Use this after parser improvements or metadata fixes. It refreshes title, artist, artist summary, and singer from stored scan data only, without rebuilding waveforms or compressed files.
+              </p>
+              <div id="refresh-stored-metadata-result" class="diagnostics-result"></div>
+            </div>
             <div id="derived-caches-section" class="settings-section setup-card">
               <h3 data-i18n="derivedCacheTitle">Derived Caches</h3>
               <p class="settings-note settings-note-compact" data-i18n="derivedCacheSummary">
