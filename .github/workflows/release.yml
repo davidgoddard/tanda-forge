@@ -56,10 +56,27 @@ jobs:
           node -p "process.platform + ' ' + process.arch"
 
       - name: Install Dependencies
-        run: npm ci
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if npm ci; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "npm ci failed after 3 attempts."
+              exit 1
+            fi
+            echo "npm ci attempt $attempt failed; retrying after transient network/download error..."
+            sleep 15
+          done
         env:
           npm_config_arch: ${{ matrix.arch }}
           npm_config_target_arch: ${{ matrix.arch }}
+          npm_config_fetch_retries: 5
+          npm_config_fetch_retry_factor: 2
+          npm_config_fetch_retry_mintimeout: 10000
+          npm_config_fetch_retry_maxtimeout: 60000
 
       - name: Build
         run: npm run build

@@ -59,12 +59,18 @@ Board, Diagnostics, System).
 - CFG-SYS-005: Output selection persists across sessions and reuses the preferred device
   when available (matching by device ID, label, or group); it falls back gracefully
   without overwriting the stored preference if the device is missing.
+- CFG-SYS-005.b: If a user-selected non-default output is temporarily unavailable
+  during device refresh, the app must preserve that explicit preference and must
+  not silently reroute main playback onto the OS default output.
 - CFG-SYS-005.a: Output enumeration de-duplicates repeated OS-reported endpoints
   (for example repeated AirPlay routes with the same group/label) while preserving
   distinct physical outputs so main and headphone routing can remain independent.
 - CFG-SYS-006: Headphone output is disabled if it matches the main output or no secondary
   device is present.
 - CFG-SYS-007: Output changes update the main UI immediately (headphone controls shown/hidden).
+- CFG-SYS-007.a: If playback is blocked because an explicit output route cannot
+  be applied, the status message must identify the affected channel and target
+  device so operators can distinguish routing failure from normal idle playback.
 - CFG-SYS-008: Users can configure the default new tanda size (placeholder count).
 - CFG-SYS-009: The default size also acts as the minimum size threshold for save warnings.
 - CFG-SYS-010: Users can configure the size of the system "New" clipboard

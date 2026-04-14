@@ -3,6 +3,7 @@ import {
   chooseAvailableOutputDeviceId,
   dedupeAudioOutputs,
   getOutputCandidateIds,
+  resolveRequestedOutputDeviceId,
   resolveStoredOutputDevice,
   type AudioOutputDevice,
 } from "../app/src/shared/audio-outputs";
@@ -87,5 +88,36 @@ describe("audio output helpers", () => {
     const target = outputs[1];
     const candidates = getOutputCandidateIds(outputs, target);
     expect(candidates).toEqual(["b", "a"]);
+  });
+
+  it("keeps an explicit unavailable output request instead of falling back to default", () => {
+    const outputs: AudioOutputDevice[] = [
+      { deviceId: "speaker-a", groupId: "grp-a", label: "Speakers A" },
+      { deviceId: "speaker-b", groupId: "grp-b", label: "Speakers B" },
+    ];
+
+    const resolved = resolveRequestedOutputDeviceId(outputs, {
+      selectedId: "default",
+      storedId: "missing-device",
+      storedLabel: "Club Mixer",
+      storedGroup: "grp-club",
+    });
+
+    expect(resolved).toBe("missing-device");
+  });
+
+  it("resolves a stored output by metadata before treating it as unavailable", () => {
+    const outputs: AudioOutputDevice[] = [
+      { deviceId: "route-a", groupId: "grp-a", label: "Club Mixer" },
+      { deviceId: "route-b", groupId: "grp-b", label: "Headphones" },
+    ];
+
+    const resolved = resolveRequestedOutputDeviceId(outputs, {
+      storedId: "stale-id",
+      storedLabel: "Club Mixer",
+      storedGroup: "grp-a",
+    });
+
+    expect(resolved).toBe("route-a");
   });
 });

@@ -80,6 +80,17 @@ describe("renderer i18n", () => {
     expect(value).toContain("/tmp/example.wav");
   });
 
+  it("interpolates output routing failure details", () => {
+    const value = translate("en", "outputRoutingFailedDetail", {
+      channel: "Main output",
+      device: "USB Device",
+      message: "NotFoundError",
+    });
+    expect(value).toContain("Main output");
+    expect(value).toContain("USB Device");
+    expect(value).toContain("NotFoundError");
+  });
+
   it("falls back to the key when a translation value is unexpectedly non-string", () => {
     const mutated = translations as typeof translations & {
       en: Record<string, string | null>;
@@ -131,5 +142,13 @@ describe("renderer i18n", () => {
     expect(translations.de.diagnosticsReadinessMissingTrimSignals).toBe("Keine Trim-Signale");
     expect(translations.de.diagnosticsReadinessAnalysisErrors).toBe("Analysefehler");
     expect(translations.de.diagnosticsReadinessMissingWaveforms).toBe("Wellenformen fehlen");
+  });
+
+  it("preserves native display-board glyphs in German and Icelandic captions", () => {
+    expect(translations.de.displayNextTanda).toContain("Nächstes");
+    expect(translations.de.displaySinger).toContain("Sänger");
+    expect(translations.is.displayNowTanda).toContain("Nú");
+    expect(translations.is.displayNextTanda).toContain("Næst");
+    expect(translations.is.displaySinger).toContain("Söngvari");
   });
 });

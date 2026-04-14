@@ -5,6 +5,26 @@ Code diffs are omitted; only intent and outcomes are captured.
 
 ## Timeline Highlights
 
+- User: Reported feedback that display-board captions in Icelandic and German
+  were missing native letters and looked awkward to dancers, then asked to fix it.
+  Assistant: Updated the display-board translation strings to use proper German
+  and Icelandic characters and added regression coverage for those captions.
+
+- User: Reported that selecting two USB sound cards on macOS still left playback
+  apparently idle, with the track counter not advancing.
+  Assistant: Confirmed that the counter stays still when sink routing fails
+  before `audio.play()`, then improved the playback status message so output
+  routing failures name the affected channel and device directly.
+
+- User: Reported that changing `Main Output` had no effect and that plugging in
+  headphones during Live mode redirected house audio to the new computer default
+  output, silencing the dancers.
+  Assistant: Traced output-device refresh and playback routing, then fixed output
+  resolution so explicit output selections are preserved across `devicechange`
+  refreshes, the app no longer silently replaces them with the first/default
+  device, and missing explicit routes fail fast instead of drifting to the OS
+  default output.
+
 - User: Reported a failing Playwright workflow where the reset/recovery E2E expected `Startup Flow` alone to restore legacy metadata after database reset.
   Assistant: Updated the E2E to run `Legacy Import` explicitly before `Startup Flow`, matching the current app behavior where legacy migration is separate from the resumable setup path.
 - User: Asked for the import and export features to be documented fully in the user guide.
@@ -5610,3 +5630,5 @@ I think with the current layout, the By: on the bottom right under next can be r
 - Assistant: Updated `app/src/renderer/renderer.ts` so saving from the track editor now keeps the editor open in `edit` mode and refreshes the form with the saved track data instead of closing it. Updated `app/src/main/library/fuzzy-search.ts` so singer matches contribute through a dedicated singer-field score, and added a mixed text+number title backstop so exact numeric-title queries such as `Tempo 72 Test` survive the default threshold without weakening existing similarity ranking behavior. Added regressions in `tests/library-search.test.ts`, then reran `source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && npm test -- tests/library-search.test.ts`, `source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build`, and `source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && npm test` successfully. A targeted Playwright rerun for the previously failing `Tempo 72 Test` workflows was attempted but Electron aborted at launch in this shell with `Process failed to launch!`, so E2E confirmation was blocked by the environment rather than the original row-miss assertion.
 - User prompt: "On the cortina display, please remove the \"By: \" to leave the artist by itself on that line."
 - Assistant: Updated `app/src/renderer/i18n.ts` so the cortina/current-tanda `displayNowTanda` string now shows the artist alone on the second line in every supported language, matching the existing `Next` layout. Updated `design/05-ui-principles-and-components.md`, `docs/user-guide.md`, `docs/handoff.md`, and reran focused build/test verification.
+- User prompt: "[GitHub Actions log showing `npm ci` failing during Electron install with `getaddrinfo ENOTFOUND github.com`]"
+- Assistant: Hardened `.github/workflows/release.yml` so the `Install Dependencies` step now retries `npm ci` up to 3 times with npm fetch retry settings. This addresses transient network/DNS failures while Electron downloads its binary during CI install. Updated `docs/handoff.md` and reran local build/test verification.

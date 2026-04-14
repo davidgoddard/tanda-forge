@@ -127,6 +127,40 @@ export const chooseAvailableOutputDeviceId = (
   return null;
 };
 
+export const resolveRequestedOutputDeviceId = (
+  outputs: AudioOutputDevice[],
+  options: {
+    selectedId?: string | null;
+    storedId?: string | null;
+    storedLabel?: string | null;
+    storedGroup?: string | null;
+  },
+): string | null => {
+  const available = chooseAvailableOutputDeviceId(outputs, [
+    options.selectedId,
+    options.storedId,
+  ]);
+  if (available) {
+    return available;
+  }
+  const resolvedStored = resolveStoredOutputDevice(
+    options.storedId ?? null,
+    options.storedLabel ?? null,
+    options.storedGroup ?? null,
+    outputs,
+  );
+  if (resolvedStored && resolvedStored !== "default") {
+    return resolvedStored;
+  }
+  if (options.selectedId && options.selectedId !== "default") {
+    return options.selectedId;
+  }
+  if (options.storedId && options.storedId !== "default") {
+    return options.storedId;
+  }
+  return null;
+};
+
 export const getOutputCandidateIds = (
   outputs: AudioOutputDevice[],
   target: AudioOutputDevice,

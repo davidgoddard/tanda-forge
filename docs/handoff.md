@@ -5,6 +5,49 @@
 - Version: `0.1.1` (from `package.json`)
 
 ### What I was doing last
+- Restored native German and Icelandic characters in display-board captions:
+  - fixed German display strings to use `Nächstes` and `Sänger`
+  - fixed Icelandic display strings to use `Nú`, `Næst`, and `Söngvari`
+  - added a regression test so display-board captions keep their proper national
+    letters
+- Updated files:
+  - `app/src/renderer/i18n.ts`
+  - `tests/i18n.test.ts`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/i18n.test.ts`
+  - result: targeted tests pending full rerun in this session
+- Improved output-routing failure diagnostics during playback:
+  - when a selected output cannot be routed at play time, the status line now
+    identifies the affected channel and target device instead of only reporting
+    a generic output-selection failure
+  - added translated `outputRoutingFailedDetail` strings for all supported
+    languages and a regression test covering interpolation
+- Updated files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/i18n.ts`
+  - `tests/i18n.test.ts`
+  - `design/14-settings-and-configuration.md`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/i18n.test.ts tests/audio-outputs.test.ts tests/settings-diagnostics-controller.test.ts`
+  - result: targeted tests passed (3 files / 22 tests)
+- Fixed audio-output selection drift on device refresh in Live playback:
+  - explicit main/headphone output selections are now preserved across
+    `devicechange` refreshes instead of being silently replaced with an
+    available/default device
+  - main output now remains on `Default Output` only when the user actually chose
+    default; the app no longer auto-promotes the first enumerated device as the
+    main route
+  - when a previously selected explicit device is unavailable, playback keeps
+    that explicit request so sink assignment fails fast instead of drifting onto
+    the computer default output
+- Updated files:
+  - `app/src/shared/audio-outputs.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/audio-outputs.test.ts`
+  - `design/14-settings-and-configuration.md`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/audio-outputs.test.ts tests/settings-general-controller.test.ts`
+  - result: targeted tests passed (2 files / 9 tests)
 - Fixed a stale recovery E2E after legacy import was split out of the resumable
   startup flow:
   - `tests/e2e/workflows.e2e.ts` now performs `Legacy Import` explicitly before
@@ -8325,3 +8368,6 @@
 - Removed the `By:` label from the cortina/current-tanda artist line.
   - In `app/src/renderer/i18n.ts`, updated `displayNowTanda` in every supported language so the cortina display now shows the artist alone on the second line, matching the existing `Next` layout.
   - Updated `design/05-ui-principles-and-components.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
+- Hardened the release workflow against transient Electron download failures during install.
+  - In `.github/workflows/release.yml`, changed the `Install Dependencies` step from a single `npm ci` to a 3-attempt retry loop with npm fetch retry env settings.
+  - This specifically targets transient network/DNS failures while Electron downloads its binary during `npm ci` on GitHub Actions.

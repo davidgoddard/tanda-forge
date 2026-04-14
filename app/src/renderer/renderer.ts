@@ -123,9 +123,9 @@ import {
   smoothToward,
 } from "../shared/audio-dynamics.js";
 import {
-  chooseAvailableOutputDeviceId,
   dedupeAudioOutputs,
   getOutputCandidateIds,
+  resolveRequestedOutputDeviceId,
   resolveStoredOutputDevice,
   type AudioOutputDevice,
 } from "../shared/audio-outputs.js";
@@ -3510,12 +3510,53 @@ const resolveOutputDeviceIdForChannel = (
     channel === "main"
       ? localStorage.getItem("tanda-main-output")
       : localStorage.getItem("tanda-headphone-output");
-  const resolved = chooseAvailableOutputDeviceId(audioOutputs, [selectedId, rawId]);
+  const rawLabel =
+    channel === "main"
+      ? localStorage.getItem("tanda-main-output-label")
+      : localStorage.getItem("tanda-headphone-output-label");
+  const rawGroup =
+    channel === "main"
+      ? localStorage.getItem("tanda-main-output-group")
+      : localStorage.getItem("tanda-headphone-output-group");
+  const resolved = resolveRequestedOutputDeviceId(audioOutputs, {
+    selectedId,
+    storedId: rawId,
+    storedLabel: rawLabel,
+    storedGroup: rawGroup,
+  });
   if (resolved) {
     persistOutputDeviceSelection(channel, resolved);
   }
   return resolved;
 };
+
+const getOutputChannelLabel = (channel: OutputChannel) =>
+  channel === "headphone" ? t("nowPlayingHeadphone") : t("nowPlayingMain");
+
+const getOutputDeviceLabel = (deviceId: string | null) => {
+  if (!deviceId || deviceId === DEFAULT_OUTPUT_ID) {
+    return t("outputDefault");
+  }
+  return (
+    audioOutputs.find((output) => output.deviceId === deviceId)?.label ??
+    deviceId
+  );
+};
+
+const formatOutputRoutingFailure = (
+  channel: OutputChannel,
+  requestedDeviceId: string | null,
+  error: string | null,
+) =>
+  t("outputRoutingFailedDetail", {
+    channel: getOutputChannelLabel(channel),
+    device: getOutputDeviceLabel(requestedDeviceId),
+    message:
+      error ??
+      (channel === "headphone"
+        ? "headphone routing unavailable"
+        : "main output routing unavailable"),
+  });
 
 const persistOutputDeviceSelection = (
   channel: "main" | "headphone",
@@ -3945,13 +3986,11 @@ const playOnChannel = async (
       ],
     });
     setStatus(
-      t("outputSelectionFailedDetail", {
-        message:
-          outputRouting.error ??
-          (channel === "headphone"
-            ? "headphone routing unavailable"
-            : "main output routing unavailable"),
-      }),
+      formatOutputRoutingFailure(
+        channel,
+        requestedOutputDeviceId,
+        outputRouting.error,
+      ),
     );
     return false;
   }
@@ -4444,7 +4483,7 @@ const ensureAudioOutputs = async () => {
   );
   const mainId =
     preferredMain ??
-    (!hasStoredMain ? audioOutputs[0]?.deviceId ?? null : audioOutputs[0]?.deviceId ?? null);
+    (storedMain === DEFAULT_OUTPUT_ID || !hasStoredMain ? DEFAULT_OUTPUT_ID : null);
   let headphoneId =
     preferredHeadphone ??
     (!hasStoredHeadphone && hasSecondaryOutput
@@ -4457,12 +4496,10 @@ const ensureAudioOutputs = async () => {
     headphoneId = null;
   }
 
-  if (mainId) {
+  if (mainId !== null) {
     if (mainId !== storedMain || !hasStoredMain) {
       persistOutputDeviceSelection("main", mainId);
     }
-  } else {
-    persistOutputDeviceSelection("main", DEFAULT_OUTPUT_ID);
   }
   if (headphoneId) {
     if (headphoneId !== storedHeadphone || !hasStoredHeadphone) {

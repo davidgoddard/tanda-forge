@@ -588,6 +588,8 @@ export const translations = {
     playlistClearAutofill: "Clear and auto-fill",
     outputSelectionFailed: "Output selection failed.",
     outputSelectionFailedDetail: "Output selection failed: {message}",
+    outputRoutingFailedDetail:
+      "{channel} could not be routed to {device}: {message}",
     statusDspBypassedOutput:
       "Dynamics DSP is bypassed for non-default output devices. Use Default Output to hear compression.",
     playbackFailed: "Playback failed.",
@@ -1236,6 +1238,8 @@ export const translations = {
     playlistClearAutofill: "Borrar y autocompletar",
     outputSelectionFailed: "Fallo al seleccionar salida.",
     outputSelectionFailedDetail: "Fallo al seleccionar salida: {message}",
+    outputRoutingFailedDetail:
+      "No se pudo dirigir {channel} a {device}: {message}",
     statusDspBypassedOutput:
       "El DSP de dinamica se omite para salidas no predeterminadas. Use Salida predeterminada para oir compresion.",
     playbackFailed: "Fallo de reproduccion.",
@@ -1952,6 +1956,8 @@ export const translations = {
     playlistClearAutofill: "Effacer et remplir automatiquement",
     outputSelectionFailed: "Selection de sortie impossible.",
     outputSelectionFailedDetail: "Selection de sortie impossible: {message}",
+    outputRoutingFailedDetail:
+      "Impossible d'acheminer {channel} vers {device}: {message}",
     statusDspBypassedOutput:
       "Le DSP dynamique est ignore pour les sorties non par defaut. Utilisez la sortie par defaut pour entendre la compression.",
     playbackFailed: "Lecture impossible.",
@@ -2677,6 +2683,8 @@ export const translations = {
     playlistClearAutofill: "Leeren und automatisch fuellen",
     outputSelectionFailed: "Auswahl fehlgeschlagen.",
     outputSelectionFailedDetail: "Auswahl fehlgeschlagen: {message}",
+    outputRoutingFailedDetail:
+      "{channel} konnte nicht an {device} geleitet werden: {message}",
     statusDspBypassedOutput:
       "Dynamik-DSP wird bei nicht standardmaessigen Ausgaengen umgangen. Fuer Kompression Standardausgabe verwenden.",
     playbackFailed: "Wiedergabe fehlgeschlagen.",
@@ -2748,8 +2756,8 @@ export const translations = {
     rootBackground: "Hintergrund",
     displayPlayingTrack: "Spiele {index}/{count}",
     displayNowTanda: "Jetzt: {style}\n{artist}",
-    displayNextTanda: "Als Naechstes: {style}\n{artist}",
-    displaySinger: "Saenger: {singer}",
+    displayNextTanda: "Als Nächstes: {style}\n{artist}",
+    displaySinger: "Sänger: {singer}",
     displayVariousArtists: "Verschiedene Interpreten",
     displayLastTandas1: "Letzte Tanda",
     displayLastTandas2: "Letzte zwei Tandas",
@@ -3403,6 +3411,8 @@ export const translations = {
     playlistClearAutofill: "Limpar e preencher automaticamente",
     outputSelectionFailed: "Falha ao selecionar saida.",
     outputSelectionFailedDetail: "Falha ao selecionar saida: {message}",
+    outputRoutingFailedDetail:
+      "Nao foi possivel direcionar {channel} para {device}: {message}",
     statusDspBypassedOutput:
       "O DSP de dinamica e ignorado para saidas nao padrao. Use Saida padrao para ouvir compressao.",
     playbackFailed: "Falha na reproducao.",
@@ -4133,6 +4143,8 @@ export const translations = {
     playlistClearAutofill: "Svuota e riempi automaticamente",
     outputSelectionFailed: "Selezione uscita fallita.",
     outputSelectionFailedDetail: "Selezione uscita fallita: {message}",
+    outputRoutingFailedDetail:
+      "Impossibile instradare {channel} verso {device}: {message}",
     statusDspBypassedOutput:
       "Il DSP dinamico viene ignorato per uscite non predefinite. Usa l'uscita predefinita per sentire la compressione.",
     playbackFailed: "Riproduzione fallita.",
@@ -4792,6 +4804,8 @@ translations.is = {
   playlistClearAutofill: "Hreinsa og fylla sjálfkrafa",
   outputSelectionFailed: "Ekki tókst að velja úttak.",
   outputSelectionFailedDetail: "Ekki tókst að velja úttak: {message}",
+  outputRoutingFailedDetail:
+    "Ekki tókst að beina {channel} a {device}: {message}",
   outputDefault: "Sjálfgefið úttak",
   outputSelectHeadphones: "Velja úttak heyrnartóla",
   outputNoSecondary: "Ekkert aukaúttak tiltækt",
@@ -4824,9 +4838,9 @@ translations.is = {
   tandaDone: "Loka",
   tandaDelete: "Eyða töndu",
   displayPlayingTrack: "Spilar {index}/{count}",
-  displayNowTanda: "Nu: {style}\n{artist}",
-  displayNextTanda: "Naest: {style}\n{artist}",
-  displaySinger: "Soengvari: {singer}",
+  displayNowTanda: "Nú: {style}\n{artist}",
+  displayNextTanda: "Næst: {style}\n{artist}",
+  displaySinger: "Söngvari: {singer}",
   displayVariousArtists: "Ymsir listamenn",
   displayLastTandas1: "Sidasta tanda",
   displayLastTandas2: "Sidustu tvær tandur",
