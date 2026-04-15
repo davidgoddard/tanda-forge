@@ -1516,7 +1516,7 @@ const requestCompressedSource = async (
     if (!result?.ok || !result.filePath) {
       const reason = result?.error?.trim() || "unknown render error";
       compressedSourceErrorByTrackId.set(track.id, reason);
-      void window.tanda?.logPlaybackDiagnostic?.({
+      logPlaybackDiagnostic({
         channel: "main",
         mode: appMode,
         trackId: track.id,
@@ -1611,6 +1611,11 @@ const isDynamicsAvailableForChannel = (
   }
   return !requestedOutputDeviceId || requestedOutputDeviceId === DEFAULT_OUTPUT_ID;
 };
+
+const shouldUseAudioDspForOutput = (
+  channel: OutputChannel,
+  requestedOutputDeviceId: string | null,
+) => isDynamicsAvailableForChannel(channel, requestedOutputDeviceId);
 
 const applyDynamicsWetDry = (
   runtime: AudioDspRuntime,
@@ -3543,6 +3548,88 @@ const getOutputDeviceLabel = (deviceId: string | null) => {
   );
 };
 
+const getOutputDeviceById = (deviceId: string | null) => {
+  if (!deviceId || deviceId === DEFAULT_OUTPUT_ID) {
+    return null;
+  }
+  return audioOutputs.find((output) => output.deviceId === deviceId) ?? null;
+};
+
+const getOutputChannelStorageSnapshot = (channel: OutputChannel) => ({
+  selectedOutputDeviceId:
+    channel === "main"
+      ? mainOutputSelect?.value ?? null
+      : headphoneOutputSelect?.value ?? null,
+  storedOutputDeviceId:
+    channel === "main"
+      ? localStorage.getItem("tanda-main-output")
+      : localStorage.getItem("tanda-headphone-output"),
+  storedOutputDeviceLabel:
+    channel === "main"
+      ? localStorage.getItem("tanda-main-output-label")
+      : localStorage.getItem("tanda-headphone-output-label"),
+  storedOutputDeviceGroup:
+    channel === "main"
+      ? localStorage.getItem("tanda-main-output-group")
+      : localStorage.getItem("tanda-headphone-output-group"),
+});
+
+const buildOutputDiagnostics = (
+  channel: OutputChannel,
+  requestedDeviceId: string | null,
+  appliedDeviceId: string | null,
+) => {
+  const snapshot = getOutputChannelStorageSnapshot(channel);
+  const selectedDevice = getOutputDeviceById(snapshot.selectedOutputDeviceId);
+  const requestedDevice = getOutputDeviceById(requestedDeviceId);
+  const appliedDevice = getOutputDeviceById(appliedDeviceId);
+  return {
+    selectedOutputDeviceId: snapshot.selectedOutputDeviceId,
+    selectedOutputDeviceLabel:
+      snapshot.selectedOutputDeviceId === DEFAULT_OUTPUT_ID
+        ? t("outputDefault")
+        : selectedDevice?.label ?? null,
+    selectedOutputDeviceGroup: selectedDevice?.groupId ?? null,
+    storedOutputDeviceId: snapshot.storedOutputDeviceId,
+    storedOutputDeviceLabel: snapshot.storedOutputDeviceLabel,
+    storedOutputDeviceGroup: snapshot.storedOutputDeviceGroup,
+    requestedOutputDeviceId: requestedDeviceId,
+    requestedOutputDeviceLabel:
+      requestedDeviceId === DEFAULT_OUTPUT_ID
+        ? t("outputDefault")
+        : requestedDevice?.label ?? null,
+    requestedOutputDeviceGroup: requestedDevice?.groupId ?? null,
+    appliedOutputDeviceId: appliedDeviceId,
+    appliedOutputDeviceLabel:
+      appliedDeviceId === DEFAULT_OUTPUT_ID
+        ? t("outputDefault")
+        : appliedDevice?.label ?? null,
+    appliedOutputDeviceGroup: appliedDevice?.groupId ?? null,
+    availableOutputDevices: audioOutputs.map((device) => ({
+      deviceId: device.deviceId,
+      label: device.label,
+      groupId: device.groupId,
+    })),
+  };
+};
+
+const logPlaybackDiagnostic = (
+  payload: Parameters<
+    NonNullable<typeof window.tanda>["logPlaybackDiagnostic"]
+  >[0],
+) => {
+  const pending = window.tanda?.logPlaybackDiagnostic?.(payload);
+  if (!pending) {
+    return;
+  }
+  void pending.finally(() => {
+    if (!diagnosticsPlaybackLogResult) {
+      return;
+    }
+    void renderPlaybackDiagnosticsLog();
+  });
+};
+
 const formatOutputRoutingFailure = (
   channel: OutputChannel,
   requestedDeviceId: string | null,
@@ -3777,17 +3864,18 @@ const playbackCompressionController = createPlaybackCompressionController({
   applyDynamicLevelToMain: () => applyDynamicLevelToChannel("main"),
   updateNowPlayingDisplay,
   resolveOutputDeviceIdForMain: () => resolveOutputDeviceIdForChannel("main"),
+  shouldUseAudioDspForMainOutput: (deviceId) =>
+    shouldUseAudioDspForOutput("main", deviceId),
   appMode: () => appMode,
   playlistState: () => ({
     status: playlistPlayback.status,
     index: playlistPlayback.currentIndex,
     trackIndex: playlistPlayback.currentTrackIndex,
   }),
-  logPlaybackDiagnostic: (payload) => {
-    void window.tanda?.logPlaybackDiagnostic?.(payload as Parameters<
-      NonNullable<typeof window.tanda>["logPlaybackDiagnostic"]
-    >[0]);
-  },
+  logPlaybackDiagnostic: (payload) =>
+    logPlaybackDiagnostic(
+      payload as Parameters<NonNullable<typeof window.tanda>["logPlaybackDiagnostic"]>[0],
+    ),
 });
 
 const resolvePlaybackSource = async (
@@ -3906,9 +3994,10 @@ const playOnChannel = async (
   if (isStaleRequest()) {
     return false;
   }
+  const requestedOutputDeviceId = resolveOutputDeviceIdForChannel(channel);
   const next = new Audio();
   next.loop = false;
-  if (channel === "main") {
+  if (shouldUseAudioDspForOutput(channel, requestedOutputDeviceId)) {
     ensureAudioDspRuntime(next);
   }
   const normalization = resolvePlaybackNormalization(gainDb, track?.loudness_db);
@@ -3933,7 +4022,6 @@ const playOnChannel = async (
         ? "loudness_db"
         : "none";
   setAudioLevel(next, targetVolume);
-  const requestedOutputDeviceId = resolveOutputDeviceIdForChannel(channel);
   targetVolume = applyAudioDynamicsToGain(targetVolume);
   if (options?.isCortinaPlayback && channel === "main") {
     targetVolume *= getCortinaLevelPercent() / 100;
@@ -3956,7 +4044,7 @@ const playOnChannel = async (
   if (requestedOutputDeviceId && !outputRouting.appliedDeviceId) {
     await discardAudio(next);
     await stopCompressedCompanion(state);
-    void window.tanda?.logPlaybackDiagnostic?.({
+    logPlaybackDiagnostic({
       channel,
       mode: appMode,
       trackId,
@@ -3976,8 +4064,11 @@ const playOnChannel = async (
         normalization.loudnessDb !== null && appliedGainDb !== null
           ? normalization.loudnessDb + appliedGainDb
           : null,
-      requestedOutputDeviceId,
-      appliedOutputDeviceId: outputRouting.appliedDeviceId,
+        ...buildOutputDiagnostics(
+          channel,
+          requestedOutputDeviceId,
+          outputRouting.appliedDeviceId,
+        ),
       outputRouteMethod: outputRouting.method,
       outputRouteError: outputRouting.error,
       attemptedOutputDeviceIds: [
@@ -3994,7 +4085,7 @@ const playOnChannel = async (
     );
     return false;
   }
-  void window.tanda?.logPlaybackDiagnostic?.({
+  logPlaybackDiagnostic({
     channel,
     mode: appMode,
     trackId,
@@ -4014,8 +4105,11 @@ const playOnChannel = async (
       normalization.loudnessDb !== null && appliedGainDb !== null
         ? normalization.loudnessDb + appliedGainDb
         : null,
-    requestedOutputDeviceId,
-    appliedOutputDeviceId: outputRouting.appliedDeviceId,
+    ...buildOutputDiagnostics(
+      channel,
+      requestedOutputDeviceId,
+      outputRouting.appliedDeviceId,
+    ),
     outputRouteMethod: outputRouting.method,
     outputRouteError: outputRouting.error,
     attemptedOutputDeviceIds: [

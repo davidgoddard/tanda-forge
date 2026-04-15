@@ -5,6 +5,51 @@ Code diffs are omitted; only intent and outcomes are captured.
 
 ## Timeline Highlights
 
+- User: Reported a flaky failing Playwright workflow around the performance-stop
+  live-playback scenario and asked to fix the test.
+  Assistant: Stabilized the test by waiting for the playlist to enter the
+  playing state and for start/stop controls to update before asserting on the
+  now-playing track label.
+
+- User: Reported that the standalone test app routes correctly to USB devices,
+  implying the bug is in the main app rather than Electron.
+  Assistant: Identified that the main app always attached main playback to a
+  shared WebAudio destination and fixed non-default outputs to bypass that DSP
+  path so `setSinkId()` remains the actual output route.
+
+- User: Reported that the standalone repro app appeared dead and produced no
+  event logging when clicking controls.
+  Assistant: Found a renderer script path mismatch in the standalone HTML and
+  corrected it so the compiled module actually loads.
+
+- User: Reported that the standalone audio-route repro app showed an empty
+  output dropdown after trying to refresh labels.
+  Assistant: Updated the repro app to show an explicit “no outputs detected”
+  placeholder and log the full raw device list returned by `enumerateDevices()`.
+
+- User: Asked for a very simple standalone Electron test app that just selects
+  the DragonFly and plays a track, without risking the main app.
+  Assistant: Added an isolated manual audio-route test app plus an npm script to
+  build and launch it, along with a small helper test and README usage note.
+
+- User: Reported that after clearing diagnostic logs and playing tracks, no new
+  playback diagnostics appeared.
+  Assistant: Identified that the Diagnostics panel was not live-refreshing after
+  playback log writes and updated the renderer to refresh the playback log view
+  after each diagnostic write.
+
+- User: Noted that selected outputs worked in early versions and asked to
+  increase diagnostics for the current USB DAC routing issue.
+  Assistant: Expanded playback diagnostic log entries to include the selected
+  output, stored preference, requested/applied label+group, and the full output
+  snapshot seen by Electron at playback time.
+
+- User: Reported that selecting a USB DragonFly DAC still left playback coming
+  from the built-in speakers.
+  Assistant: Traced the output-selection path and fixed the settings controller
+  to refresh enumerated outputs after successful device verification so the UI
+  and runtime stay aligned with the verified device id.
+
 - User: Reported feedback that display-board captions in Icelandic and German
   were missing native letters and looked awkward to dancers, then asked to fix it.
   Assistant: Updated the display-board translation strings to use proper German

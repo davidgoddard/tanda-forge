@@ -470,10 +470,25 @@ export type AppApi = {
     targetLoudnessDb?: number;
     expectedOutputLoudnessDb?: number | null;
     requestedOutputDeviceId?: string | null;
+    requestedOutputDeviceLabel?: string | null;
+    requestedOutputDeviceGroup?: string | null;
     appliedOutputDeviceId?: string | null;
+    appliedOutputDeviceLabel?: string | null;
+    appliedOutputDeviceGroup?: string | null;
+    selectedOutputDeviceId?: string | null;
+    selectedOutputDeviceLabel?: string | null;
+    selectedOutputDeviceGroup?: string | null;
+    storedOutputDeviceId?: string | null;
+    storedOutputDeviceLabel?: string | null;
+    storedOutputDeviceGroup?: string | null;
     outputRouteMethod?: string;
     outputRouteError?: string | null;
     attemptedOutputDeviceIds?: string[];
+    availableOutputDevices?: Array<{
+      deviceId: string;
+      label: string;
+      groupId: string;
+    }>;
   }) => Promise<void>;
   listStyles: () => Promise<string[]>;
   listStyleDefinitions: () => Promise<Array<{ name: string; aliases: string[] }>>;

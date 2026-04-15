@@ -43,6 +43,18 @@ Available for all major platforms:
 
 See [User Guide](docs/user-guide.md)
 
+## Developer Utilities
+
+For isolated macOS/Electron output-routing investigation, run:
+
+```bash
+npm run manual:audio-route-test
+```
+
+This launches a minimal standalone Electron window that enumerates output
+devices, can quick-select `DragonFly`, lets you choose a local audio file, and
+plays it through a single `HTMLAudioElement` using `setSinkId()`.
+
 ---
 
 ## Built for Tango DJing

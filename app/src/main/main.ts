@@ -2302,10 +2302,25 @@ const registerIpc = () => {
         targetLoudnessDb?: number;
         expectedOutputLoudnessDb?: number | null;
         requestedOutputDeviceId?: string | null;
+        requestedOutputDeviceLabel?: string | null;
+        requestedOutputDeviceGroup?: string | null;
         appliedOutputDeviceId?: string | null;
+        appliedOutputDeviceLabel?: string | null;
+        appliedOutputDeviceGroup?: string | null;
+        selectedOutputDeviceId?: string | null;
+        selectedOutputDeviceLabel?: string | null;
+        selectedOutputDeviceGroup?: string | null;
+        storedOutputDeviceId?: string | null;
+        storedOutputDeviceLabel?: string | null;
+        storedOutputDeviceGroup?: string | null;
         outputRouteMethod?: string;
         outputRouteError?: string | null;
         attemptedOutputDeviceIds?: string[];
+        availableOutputDevices?: Array<{
+          deviceId: string;
+          label: string;
+          groupId: string;
+        }>;
       },
     ) => {
       const payload = {
@@ -2327,10 +2342,21 @@ const registerIpc = () => {
         targetLoudnessDb: params.targetLoudnessDb ?? null,
         expectedOutputLoudnessDb: params.expectedOutputLoudnessDb ?? null,
         requestedOutputDeviceId: params.requestedOutputDeviceId ?? null,
+        requestedOutputDeviceLabel: params.requestedOutputDeviceLabel ?? null,
+        requestedOutputDeviceGroup: params.requestedOutputDeviceGroup ?? null,
         appliedOutputDeviceId: params.appliedOutputDeviceId ?? null,
+        appliedOutputDeviceLabel: params.appliedOutputDeviceLabel ?? null,
+        appliedOutputDeviceGroup: params.appliedOutputDeviceGroup ?? null,
+        selectedOutputDeviceId: params.selectedOutputDeviceId ?? null,
+        selectedOutputDeviceLabel: params.selectedOutputDeviceLabel ?? null,
+        selectedOutputDeviceGroup: params.selectedOutputDeviceGroup ?? null,
+        storedOutputDeviceId: params.storedOutputDeviceId ?? null,
+        storedOutputDeviceLabel: params.storedOutputDeviceLabel ?? null,
+        storedOutputDeviceGroup: params.storedOutputDeviceGroup ?? null,
         outputRouteMethod: params.outputRouteMethod ?? "none",
         outputRouteError: params.outputRouteError ?? null,
         attemptedOutputDeviceIds: params.attemptedOutputDeviceIds ?? [],
+        availableOutputDevices: params.availableOutputDevices ?? [],
       };
       appendLogEntry(getDataPaths, PLAYBACK_DIAGNOSTIC_LOG, [JSON.stringify(payload)]);
     },

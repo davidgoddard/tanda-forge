@@ -5,6 +5,120 @@
 - Version: `0.1.1` (from `package.json`)
 
 ### What I was doing last
+- Stabilized the performance-stop E2E start assertion:
+  - test `43 - performance stop pauses after tanda, blanks display text, and
+    resumes via the same cortina` now waits for playlist playback to enter the
+    playing state and for the start/stop controls to reflect that state before
+    asserting on the now-playing track label
+  - this reduces a race where the test could read `idle` before the playback UI
+    had fully transitioned
+- Updated files:
+  - `tests/e2e/workflows.e2e.ts`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g "43 - performance stop pauses after tanda, blanks display text, and resumes via the same cortina"`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - result: pending rerun in this session
+- Fixed main-output routing for non-default devices:
+  - main playback and compressed-companion playback now bypass the shared
+    WebAudio/DSP runtime when targeting a non-default output device, so the
+    media element sink remains authoritative for routing
+  - this aligns the main app with the standalone repro path that successfully
+    routes to USB/virtual outputs via `setSinkId()`
+- Updated files:
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/controllers/playback-compression-controller.ts`
+  - `tests/playback-compression-controller.test.ts`
+  - `design/10-audio-pipeline.md`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/playback-compression-controller.test.ts`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - result: pending full rerun in this session
+- Fixed the standalone audio-route repro window script path:
+  - `manual-audio-route-test.html` now loads the compiled renderer module from
+    `renderer/manual-audio-route-test.js`, matching the actual TS build output
+  - this fixes the previously dead repro window where clicks produced no events
+- Updated files:
+  - `app/src/renderer/manual-audio-route-test.html`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - result: pending full rerun in this session
+- Hardened the standalone audio-route repro UI:
+  - when Electron exposes no `audiooutput` devices, the repro app now shows an
+    explicit placeholder instead of an empty select
+  - the event log now records the raw `enumerateDevices()` list before filtering
+    so we can distinguish “no outputs exposed” from “outputs exposed but routing
+    broken”
+- Updated files:
+  - `app/src/shared/manual-audio-route-test.ts`
+  - `app/src/renderer/manual-audio-route-test.ts`
+  - `tests/manual-audio-route-test.test.ts`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/manual-audio-route-test.test.ts`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - result: pending full rerun in this session
+- Added a minimal standalone Electron audio-route repro app:
+  - new `npm run manual:audio-route-test` builds and launches an isolated
+    one-window app that enumerates audio outputs, can quick-select `DragonFly`,
+    lets the user choose a local track, applies `setSinkId()` on a single audio
+    element, and logs the resulting sink/playback events
+  - this is intentionally separate from the main Tanda Forge runtime to help
+    distinguish app-level routing bugs from Electron/macOS runtime behavior
+- Updated files:
+  - `app/src/main/manual-audio-route-test.ts`
+  - `app/src/preload/manual-audio-route-test-preload.ts`
+  - `app/src/renderer/manual-audio-route-test.html`
+  - `app/src/renderer/manual-audio-route-test.css`
+  - `app/src/renderer/manual-audio-route-test.ts`
+  - `app/src/shared/manual-audio-route-test.ts`
+  - `tests/manual-audio-route-test.test.ts`
+  - `scripts/copy-renderer-assets.js`
+  - `package.json`
+  - `README.md`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/manual-audio-route-test.test.ts`
+  - `source ~/.nvm/nvm.sh && npm test`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - result: pending full rerun in this session
+- Made playback diagnostics auto-refresh in the Diagnostics panel:
+  - renderer-side playback logging now refreshes the visible playback log after
+    each successful diagnostic write, so clearing the log and then playing a
+    track should repopulate the panel without requiring a manual refresh click
+- Updated files:
+  - `app/src/renderer/renderer.ts`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - result: pending full rerun in this session
+- Expanded playback output diagnostics:
+  - each playback diagnostic log entry now includes the selected output id,
+    stored output preference, requested/applied device label+group, and the full
+    enumerated output-device snapshot visible to Electron at the moment of
+    playback
+  - this should make it easier to compare “what the UI showed” against “what
+    Chromium actually routed”
+- Updated files:
+  - `app/src/shared/types.ts`
+  - `app/src/main/main.ts`
+  - `app/src/renderer/renderer.ts`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test`
+  - `source ~/.nvm/nvm.sh && npm run build`
+  - result: pending full rerun in this session
+- Fixed output-selection state sync after successful verification:
+  - after a main/headphone output is successfully verified, the settings
+    controller now refreshes the enumerated outputs and rerenders the UI so the
+    visible select stays aligned with the persisted verified device id
+  - this is intended to prevent playback from using a stale pre-verification
+    device id when macOS/Electron canonicalizes the selected output
+- Updated files:
+  - `app/src/renderer/controllers/settings-general-controller.ts`
+  - `tests/settings-general-controller.test.ts`
+- Verification re-run after this change:
+  - `source ~/.nvm/nvm.sh && npm test -- tests/settings-general-controller.test.ts`
+  - result: targeted tests pending full rerun in this session
 - Restored native German and Icelandic characters in display-board captions:
   - fixed German display strings to use `Nächstes` and `Sänger`
   - fixed Icelandic display strings to use `Nú`, `Næst`, and `Söngvari`

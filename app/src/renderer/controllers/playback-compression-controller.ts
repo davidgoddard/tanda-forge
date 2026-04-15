@@ -54,6 +54,7 @@ export type PlaybackCompressionDeps<
   applyDynamicLevelToMain: () => void;
   updateNowPlayingDisplay: () => void;
   resolveOutputDeviceIdForMain: () => string | null;
+  shouldUseAudioDspForMainOutput: (deviceId: string | null) => boolean;
   appMode: () => "prep" | "live" | "edit";
   playlistState: () => { status: string; index: number; trackIndex: number };
   logPlaybackDiagnostic?: (payload: unknown) => void;
@@ -116,8 +117,10 @@ export const createPlaybackCompressionController = <
     await deps.stopCompressedCompanion(state);
     const wet = new Audio();
     wet.loop = false;
-    deps.ensureAudioDspRuntime(wet);
     const requestedOutputDeviceId = deps.resolveOutputDeviceIdForMain();
+    if (deps.shouldUseAudioDspForMainOutput(requestedOutputDeviceId)) {
+      deps.ensureAudioDspRuntime(wet);
+    }
     const preAttachRouting = await deps.applyOutputDevice(wet, requestedOutputDeviceId);
     wet.src = compressedPath;
     const postAttachRouting = await deps.applyOutputDevice(wet, requestedOutputDeviceId);

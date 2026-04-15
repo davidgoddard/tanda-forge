@@ -105,4 +105,47 @@ describe("settings general controller", () => {
     expect(ensureAudioOutputs).toHaveBeenCalled();
     expect(renderAllLists).toHaveBeenCalled();
   });
+
+  it("refreshes outputs after a successful main output verification", async () => {
+    const mainOutputSelect = new FakeInput() as unknown as HTMLSelectElement;
+    mainOutputSelect.value = "dragonfly-pending";
+    const ensureAudioOutputs = vi.fn(async () => {});
+    const renderAllLists = vi.fn();
+
+    const controller = createSettingsGeneralController({
+      storage: {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+      },
+      elements: {
+        mainOutputSelect,
+      },
+      keys: {
+        language: "lang",
+        mode: "mode",
+        headphoneOutput: "hp",
+        headphoneOutputLabel: "hp-label",
+        headphoneOutputGroup: "hp-group",
+      },
+      readers: {
+        getLanguage: () => "en",
+        getAppMode: () => "prep",
+        getMainOutputValue: () => mainOutputSelect.value,
+      },
+      actions: {
+        applyLanguageChange: () => {},
+        applyModeChange: () => {},
+        verifyOutputSelection: async () => true,
+        ensureAudioOutputs,
+        renderAllLists,
+      },
+    });
+
+    controller.initialize();
+    mainOutputSelect.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(ensureAudioOutputs).toHaveBeenCalled());
+
+    expect(renderAllLists).toHaveBeenCalled();
+  });
 });

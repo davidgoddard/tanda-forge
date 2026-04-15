@@ -95,6 +95,9 @@ and stores both the measured loudness and gain offset.
 - AUD-006.R5: If explicit sink routing fails for either main or headphone channel,
   playback must fail fast for that channel (with user-visible diagnostics) rather
   than silently playing on the OS default output.
+- AUD-006.R6: When main playback targets a non-default output device, the app
+  must not route that playback through a shared WebAudio destination whose output
+  remains tied to the OS default device.
 
 ## AUD-007 — Failure Modes
 

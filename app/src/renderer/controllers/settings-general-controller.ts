@@ -72,9 +72,9 @@ export const createSettingsGeneralController = (deps: SettingsGeneralControllerD
             deps.storage.removeItem(deps.keys.headphoneOutput);
             deps.storage.removeItem(deps.keys.headphoneOutputLabel);
             deps.storage.removeItem(deps.keys.headphoneOutputGroup);
-            await deps.actions.ensureAudioOutputs();
-            deps.actions.renderAllLists();
           }
+          await deps.actions.ensureAudioOutputs();
+          deps.actions.renderAllLists();
         });
       });
     }
@@ -90,10 +90,8 @@ export const createSettingsGeneralController = (deps: SettingsGeneralControllerD
               "headphone",
               headphoneOutputSelect.value,
             );
-            if (!verified) {
-              await deps.actions.ensureAudioOutputs();
-              deps.actions.renderAllLists();
-            }
+            await deps.actions.ensureAudioOutputs();
+            deps.actions.renderAllLists();
             return;
           }
           deps.storage.removeItem(deps.keys.headphoneOutput);

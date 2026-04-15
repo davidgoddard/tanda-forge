@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; media-src 'self' file: data: blob:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audio Route Test</title>
+    <link rel="stylesheet" href="./manual-audio-route-test.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <h1>Audio Route Test</h1>
+        <p class="lede">
+          Minimal Electron repro: one audio element, one selected output device,
+          one chosen local file.
+        </p>
+
+        <div class="controls">
+          <button id="request-access" type="button">Unlock device labels</button>
+          <button id="refresh-outputs" type="button">Refresh outputs</button>
+          <button id="select-dragonfly" type="button">Select DragonFly</button>
+        </div>
+
+        <label class="field">
+          <span>Output device</span>
+          <select id="output-select"></select>
+        </label>
+
+        <label class="field">
+          <span>Audio file</span>
+          <div class="file-row">
+            <input id="file-path" type="text" placeholder="Choose a local audio file" />
+            <button id="browse-file" type="button">Browse</button>
+          </div>
+        </label>
+
+        <div class="controls">
+          <button id="apply-output" type="button">Apply output</button>
+          <button id="play-file" type="button">Play</button>
+          <button id="stop-file" type="button">Stop</button>
+        </div>
+
+        <div class="status-grid">
+          <div>
+            <strong>Selected sink</strong>
+            <div id="selected-sink">-</div>
+          </div>
+          <div>
+            <strong>Current file</strong>
+            <div id="current-file">-</div>
+          </div>
+          <div>
+            <strong>Status</strong>
+            <div id="status-text">Idle</div>
+          </div>
+          <div>
+            <strong>Playback time</strong>
+            <div id="time-text">0.0s</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Device Snapshot</h2>
+        <pre id="device-snapshot"></pre>
+      </section>
+
+      <section class="panel">
+        <h2>Event Log</h2>
+        <pre id="event-log"></pre>
+      </section>
+    </main>
+
+    <script type="module" src="renderer/manual-audio-route-test.js"></script>
+  </body>
+</html>

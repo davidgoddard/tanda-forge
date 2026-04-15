@@ -946,6 +946,35 @@ const expectNowPlayingContainsSoon = async (
     .toContain(expectedToken.toLowerCase());
 };
 
+const startPlaylistAndExpectTrackSoon = async (
+  page: Page,
+  expectedToken: string,
+  timeout = 15_000,
+) => {
+  await page.locator("#playlist-start").click({ force: true });
+  await expect(page.locator("#playlist-stop")).toBeEnabled({ timeout: 5_000 });
+  await expect(page.locator("#playlist-start")).toBeDisabled({ timeout: 5_000 });
+  await expect
+    .poll(
+      async () =>
+        await page.evaluate(() => {
+          return (
+            (window as Window & {
+              __e2eRuntimeSnapshot?: {
+                playlistStatus?: "idle" | "paused" | "playing";
+                nowPlayingTrack?: string;
+              };
+            }).__e2eRuntimeSnapshot ?? null
+          );
+        }),
+      { timeout },
+    )
+    .toMatchObject({
+      playlistStatus: "playing",
+    });
+  await expectNowPlayingContainsSoon(page, expectedToken, timeout);
+};
+
 const dispatchExactClick = async (target: Locator) => {
   await target.evaluate((element) => {
     const node = element as HTMLElement;
@@ -2812,7 +2841,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await ensurePlaylistTab(page);
       await page.locator("#playlist-performance-stop").check();
       await page.locator("#open-display").click();
-      await page.locator("#playlist-start").click();
+      await startPlaylistAndExpectTrackSoon(page, "tango uno");
 
       await expect
         .poll(
@@ -2828,8 +2857,6 @@ test.describe("Electron app end-to-end workflows", () => {
           { timeout: 5_000 },
         )
         .toBe("");
-
-      await expectNowPlayingContainsSoon(page, "tango uno", 8_000);
 
       let finalCortinaLabel = "";
       await expect
