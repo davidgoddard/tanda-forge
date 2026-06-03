@@ -3,7 +3,7 @@ import { buildTandaSearchWhere } from "../app/src/main/library/tandas";
 
 describe("tanda search helpers", () => {
   it("returns empty where when no filters", () => {
-    const result = buildTandaSearchWhere({ query: "", styles: [] });
+    const result = buildTandaSearchWhere({ query: "", styles: [], size: null });
     expect(result.whereSql).toBe("");
     expect(result.values).toEqual([]);
   });
@@ -12,6 +12,7 @@ describe("tanda search helpers", () => {
     const result = buildTandaSearchWhere({
       query: "troilo 1937 64",
       styles: ["Tango", "Vals"],
+      size: null,
     });
     expect(result.whereSql).toContain("lower(coalesce(tandas.name, '')) like ?");
     expect(result.whereSql).toContain("exists (");
@@ -38,6 +39,7 @@ describe("tanda search helpers", () => {
     const result = buildTandaSearchWhere({
       query: "Tango Trio",
       styles: [],
+      size: null,
     });
     expect(result.whereSql).toContain("lower(coalesce(tandas.name, '')) like ?");
     expect(result.values).toContain("%tango%");
@@ -48,11 +50,22 @@ describe("tanda search helpers", () => {
     const result = buildTandaSearchWhere({
       query: "artist: Juan Maglio",
       styles: [],
+      size: null,
     });
     expect(result.whereSql).toContain("join tracks t on t.id = tt.track_id");
     expect(result.whereSql).toContain("t.artist_summary");
     expect(result.whereSql).toContain("t.artist");
     expect(result.whereSql).not.toContain("t.title like");
     expect(result.values.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("adds slot-count filtering when a tanda size is requested", () => {
+    const result = buildTandaSearchWhere({
+      query: "",
+      styles: [],
+      size: 4,
+    });
+    expect(result.whereSql).toContain("coalesce(tandas.slot_count, 0) = ?");
+    expect(result.values).toEqual([4]);
   });
 });

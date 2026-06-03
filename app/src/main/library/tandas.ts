@@ -11,6 +11,7 @@ import { parseScopedSearchQuery } from "./fuzzy-search";
 type TandaSearchParams = {
   query: string;
   styles: string[];
+  size: number | null;
 };
 
 const ORCHESTRA_REGISTRY = convertSeedToRegistry(ORCHESTRA_SEED_DATA);
@@ -87,6 +88,7 @@ export type TandaSearchRow = {
   rating: number;
   instrumental: boolean;
   total_duration_ms: number;
+  slot_count: number;
   track_count: number;
 };
 
@@ -159,6 +161,11 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
     values.push(...params.styles);
   }
 
+  if (params.size && Number.isFinite(params.size) && params.size >= 1) {
+    where.push("coalesce(tandas.slot_count, 0) = ?");
+    values.push(params.size);
+  }
+
   return {
     whereSql: where.length ? `where ${where.join(" and ")}` : "",
     values,
@@ -222,7 +229,7 @@ export const searchTandas = (
   const { whereSql, values } = buildTandaSearchWhere(params);
   const rows = db
     .prepare(
-      `select tandas.id, tandas.name, tandas.rating, tandas.instrumental, tandas.total_duration_ms
+      `select tandas.id, tandas.name, tandas.rating, tandas.instrumental, tandas.total_duration_ms, tandas.slot_count
        from tandas
        ${whereSql}
        order by tandas.updated_at desc`,
@@ -233,6 +240,7 @@ export const searchTandas = (
     rating: number | null;
     instrumental: number | null;
     total_duration_ms: number | null;
+    slot_count: number | null;
   }[];
   return rows.map((row) => {
     const styles = db
@@ -251,6 +259,7 @@ export const searchTandas = (
       rating: row.rating ?? 0,
       instrumental: Boolean(row.instrumental),
       total_duration_ms: row.total_duration_ms ?? 0,
+      slot_count: row.slot_count ?? trackCount.count,
       track_count: trackCount.count,
     };
   });

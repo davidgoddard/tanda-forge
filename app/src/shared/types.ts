@@ -72,6 +72,7 @@ export type TandaSearchRow = {
   rating: number;
   instrumental: boolean;
   total_duration_ms: number;
+  slot_count: number;
   track_count: number;
 };
 
@@ -513,6 +514,7 @@ export type AppApi = {
   searchTandas: (params: {
     query: string;
     styles: string[];
+    size?: number | null;
   }) => Promise<TandaSearchRow[]>;
   listCortinaSets: () => Promise<string[]>;
   listCortinas: (setName: string) => Promise<CortinaTrackRow[]>;
