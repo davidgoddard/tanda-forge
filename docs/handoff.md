@@ -740,6 +740,20 @@
 - Run: `npm start`
 - Optional ffmpeg fetch: `scripts/fetch-ffmpeg.sh [macos|windows|linux|all]`
 
+- Fixed normal library rescans overwriting stored track metadata:
+  - `app/src/main/library/scan.ts` now treats stored editable metadata on
+    existing tracks as authoritative during normal rescans, while still
+    importing tags for brand-new files and removing files that disappeared
+  - this prevents `Scan Music` from reapplying file tag genres/titles over
+    previously curated values such as style selections
+  - explicit migration overrides still win, and explicit metadata refresh still
+    belongs to the separate `Re-parse Stored Metadata` action
+- Updated files:
+  - `app/src/main/library/scan.ts`
+  - `tests/scan-metadata-precedence.test.ts`
+  - `design/02-functional-requirements.md`
+  - `docs/user-guide.md`
+
 ### Known failing tests
 - None.
 
