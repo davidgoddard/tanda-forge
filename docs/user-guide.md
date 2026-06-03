@@ -426,6 +426,7 @@ What **System Export** includes:
 - compressed cache
 - logs
 - persisted application settings
+- only Tanda Forge-managed data files; Electron runtime cache folders such as `DawnCache` are excluded and recreated automatically
 
 What it does **not** include:
 

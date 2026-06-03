@@ -242,6 +242,19 @@
 - Verification re-run after this change:
   - `source ~/.nvm/nvm.sh && npm run build`
   - `source ~/.nvm/nvm.sh && npm test`
+- Fixed system backup import/export to avoid Electron runtime cache collisions:
+  - `app/src/main/system-transfer.ts` now transfers only app-managed root
+    entries (`tanda-player.db*`, `waveforms`, `compressed-audio-cache`, and
+    app log files) instead of deleting/copying the entire `userData` root
+  - this avoids restore failures such as Windows `EPERM` when live Chromium
+    cache directories like `DawnCache` are present and locked
+  - export backups are now leaner and restore no longer touches unrelated
+    runtime cache folders
+- Updated files:
+  - `app/src/main/system-transfer.ts`
+  - `tests/system-transfer.test.ts`
+  - `design/02-functional-requirements.md`
+  - `docs/user-guide.md`
 - Added portable tanda and playlist transfer features:
   - Library settings now include `Export Tandas`, which writes saved tandas to
     portable JSON with track path references

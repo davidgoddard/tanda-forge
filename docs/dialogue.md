@@ -5689,3 +5689,9 @@ Search only works properly when I enter one word as a search string. Even with o
 - Assistant: Agreed with the product logic and distinguished user-authored notes from weaker imported metadata such as album/album artist. Recommended promoting notes to the same lookup-search importance class as title/singer/artist while keeping album and album-artist lower as supporting tie-break/searchable metadata.
 - User prompt: "please do that"
 - Assistant: Updated PR #9 so DJ notes are first-class lookup text while album, album-artist, and genre are lower-weight supporting metadata. Included `album_artist` in fetched search rows, added a regression proving notes outrank album metadata for the same query words, updated the search design/user/handoff docs, and verified with `source ~/.nvm/nvm.sh && npm run build` plus `source ~/.nvm/nvm.sh && npm test` (`88` files, `442` tests).
+- User prompt: "Make that a New branch please
+
+Another user issue also related to export/import:
+
+System export seems to work, at least it creates a file, but importing that file fails: \"Error invoking remote method 'app:importSystemData': Error: EPERM: operation not permitted, unlink '......\\AppData\\Roaming\\tanda-forge\\DawnCache\\data_0'\""
+- Assistant: Created branch `fix/system-import-dawncache` and fixed the system backup restore path in `app/src/main/system-transfer.ts` so export/import now transfers only app-managed data entries instead of deleting and copying the entire active `userData` root. This avoids Windows `EPERM` failures on live Chromium cache folders such as `DawnCache` while keeping database, caches, logs, and persisted app state in the backup. Added regressions in `tests/system-transfer.test.ts`, updated `design/02-functional-requirements.md`, `docs/user-guide.md`, and `docs/handoff.md`, and verified with focused system-transfer tests plus full `source ~/.nvm/nvm.sh && npm run build` and `source ~/.nvm/nvm.sh && npm test`.
