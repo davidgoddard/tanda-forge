@@ -77,6 +77,7 @@ What JSON still depends on:
 
 - the destination laptop having access to the same music files
 - those files being matchable by full path or, preferably, by relative path inside the configured music roots
+- if the root layout changed, import also tries a unique relative-path suffix match and then a unique artist-plus-title match before giving up
 
 If a track cannot be matched locally during import, that item is skipped and the import result reports warnings.
 
