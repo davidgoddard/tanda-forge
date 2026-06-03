@@ -378,7 +378,7 @@ const loadTandaDetail = (
   const trackRows = db
     .prepare(
       `select tt.track_id, tt.position, t.title, t.artist, t.artist_summary, t.album,
-              t.genre, t.year, t.bpm, t.notes, t.full_path, t.singer, t.instrumental, t.duration_ms, t.start_offset_ms,
+              t.genre, t.year, t.bpm, t.notes, t.full_path, t.relative_path, t.singer, t.instrumental, t.duration_ms, t.start_offset_ms,
               t.end_trim_ms, t.loudness_db, t.gain_db
        from tanda_tracks tt
        join tracks t on t.id = tt.track_id
@@ -398,6 +398,7 @@ const loadTandaDetail = (
     bpm: number | null;
     notes: string;
     full_path: string;
+    relative_path: string;
     instrumental: number | null;
     duration_ms: number;
     start_offset_ms: number;
@@ -429,6 +430,7 @@ const loadTandaDetail = (
     bpm: track.bpm,
     notes: track.notes,
     full_path: track.full_path,
+    relative_path: track.relative_path,
     instrumental: track.instrumental === null ? null : Boolean(track.instrumental),
     duration_ms: track.duration_ms,
     start_offset_ms: track.start_offset_ms,

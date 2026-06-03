@@ -8598,3 +8598,8 @@
   - Added a regression in `tests/library-search.test.ts` proving a notes match outranks the same words in album/album-artist metadata.
   - Updated `design/06-search-and-similarity.md`, `design/tracking-and-feature-matrix.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
   - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`88` files, `442` tests).
+- Fixed playlist re-import failures caused by tanda-loaded tracks losing `relative_path` before export.
+  - In `app/src/main/library/tandas.ts`, `loadTandaDetail(...)` now selects `t.relative_path` and carries it through in returned track rows.
+  - This ensures renderer-cached tracks loaded from tanda detail can export portable playlist refs with a real `relativePath`, allowing later playlist re-import to match locally.
+  - Added regression coverage in `tests/tanda-detail-relative-path.test.ts`.
+  - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`91` files, `454` tests).
