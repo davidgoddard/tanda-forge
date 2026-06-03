@@ -100,9 +100,9 @@ export const translations = {
     confirmCloseWhilePlaying:
       "Music is still playing. Close the app and stop playback?",
     confirmCloseWhileBackupRunning:
-      "A system backup is still running. Closing the app now will stop it. Close the app?",
+      "Aun se esta ejecutando una copia de seguridad del sistema. Si cierra la aplicacion ahora se detendra. ¿Cerrar la aplicacion?",
     confirmCloseWhilePlayingAndBackupRunning:
-      "Music is still playing and a system backup is still running. Closing the app now will stop both. Close the app?",
+      "La musica sigue sonando y aun se esta ejecutando una copia de seguridad del sistema. Si cierra la aplicacion ahora se detendran ambas. ¿Cerrar la aplicacion?",
     confirmDataLocationChange:
       "Change data location to {path}? This starts a fresh database.",
     confirmLegacyImport:
@@ -114,11 +114,11 @@ export const translations = {
     actionRemovePlaylist: "Remove from playlist",
     actionRemovePlaylistShort: "R",
     actionAddPlaylist: "Add to playlist",
-    actionAddPlaylistShort: "P",
+    actionAddPlaylistShort: "L",
     actionMoveCollection: "Move to collection",
     actionMoveCollectionShort: "M",
     actionMarkPlaylist: "Mark playlist target",
-    actionMarkPlaylistShort: "M",
+    actionMarkPlaylistShort: "L",
     actionMarkPlaylistTrack: "Mark track target",
     actionMarkPlaylistTrackShort: "M",
     actionSwapPlaylist: "Cross swap with marked",
@@ -292,8 +292,10 @@ export const translations = {
     systemExport: "Export System",
     systemImport: "Import System",
     systemExportRunning: "Exporting system data...",
-    systemExportRunningBackground: "System backup is still running in the background: {path}",
-    systemExportStartedBackground: "System backup started in the background: {path}",
+    systemExportRunningBackground:
+      "La copia de seguridad del sistema sigue ejecutandose en segundo plano: {path}",
+    systemExportStartedBackground:
+      "La copia de seguridad del sistema se inicio en segundo plano: {path}",
     systemExportDone: "System export created at {path}",
     systemExportFailed: "System export failed: {message}",
     systemImportRunning: "Importing system data...",
@@ -685,10 +687,11 @@ export const translations = {
     rootMusic: "Music",
     rootCortina: "Cortina",
     rootBackground: "Background",
-    removeRootButton: "Remove",
+    removeRootButton: "Quitar",
     confirmRemoveRoot:
-      "Remove this {kind} folder from the library?\n\nPath: {path}\nTracks removed: {tracks}\nTandas invalidated: {tandas}\nPlaylists marked invalid: {playlists}\n\nThis removes all tracks from that folder from the library database and invalidates dependent tandas.",
-    statusRootRemoved: "Removed library folder {path}. Tracks removed: {tracks}. Tandas invalidated: {tandas}.",
+      "¿Quitar esta carpeta de {kind} de la biblioteca?\n\nRuta: {path}\nTemas eliminados: {tracks}\nTandas invalidadas: {tandas}\nPlaylists marcadas como invalidas: {playlists}\n\nEsto elimina de la base de datos todos los temas de esa carpeta e invalida las tandas dependientes.",
+    statusRootRemoved:
+      "Carpeta de biblioteca quitada {path}. Temas eliminados: {tracks}. Tandas invalidadas: {tandas}.",
     displayPlayingTrack: "Playing {index}/{count}",
     displayNowTanda: "Now: {style}\n{artist}",
     displayNextTanda: "Next: {style}\n{artist}",
@@ -809,9 +812,9 @@ export const translations = {
     confirmCloseWhilePlaying:
       "La musica sigue sonando. Cerrar la app y detener la reproduccion?",
     confirmCloseWhileBackupRunning:
-      "A system backup is still running. Closing the app now will stop it. Close the app?",
+      "Une sauvegarde systeme est toujours en cours. Si vous fermez l'application maintenant, elle sera arretee. Fermer l'application ?",
     confirmCloseWhilePlayingAndBackupRunning:
-      "Music is still playing and a system backup is still running. Closing the app now will stop both. Close the app?",
+      "La musique joue encore et une sauvegarde systeme est toujours en cours. Si vous fermez l'application maintenant, les deux s'arreteront. Fermer l'application ?",
     confirmDataLocationChange:
       "Cambiar ubicacion de datos a {path}? Esto inicia una base nueva.",
     confirmLegacyImport:
@@ -821,7 +824,7 @@ export const translations = {
     actionRemoveClipboard: "Quitar del portapapeles",
     actionRemoveClipboardShort: "R",
     actionRemovePlaylist: "Quitar de la lista",
-    actionRemovePlaylistShort: "R",
+    actionRemovePlaylistShort: "L",
     actionAddPlaylist: "Agregar a la lista",
     actionAddPlaylistShort: "P",
     actionMoveCollection: "Mover a coleccion",
@@ -1004,8 +1007,10 @@ export const translations = {
     systemExport: "Exportar sistema",
     systemImport: "Importar sistema",
     systemExportRunning: "Exportando datos del sistema...",
-    systemExportRunningBackground: "System backup is still running in the background: {path}",
-    systemExportStartedBackground: "System backup started in the background: {path}",
+    systemExportRunningBackground:
+      "La sauvegarde systeme est toujours en cours en arriere-plan : {path}",
+    systemExportStartedBackground:
+      "La sauvegarde systeme a demarre en arriere-plan : {path}",
     systemExportDone: "Exportacion creada en {path}",
     systemExportFailed: "La exportacion fallo: {message}",
     systemImportRunning: "Importando datos del sistema...",
@@ -1333,10 +1338,11 @@ export const translations = {
     rootMusic: "Musica",
     rootCortina: "Cortina",
     rootBackground: "Fondo",
-    removeRootButton: "Remove",
+    removeRootButton: "Retirer",
     confirmRemoveRoot:
-      "Remove this {kind} folder from the library?\n\nPath: {path}\nTracks removed: {tracks}\nTandas invalidated: {tandas}\nPlaylists marked invalid: {playlists}\n\nThis removes all tracks from that folder from the library database and invalidates dependent tandas.",
-    statusRootRemoved: "Removed library folder {path}. Tracks removed: {tracks}. Tandas invalidated: {tandas}.",
+      "Retirer ce dossier {kind} de la bibliotheque ?\n\nChemin : {path}\nPistes supprimees : {tracks}\nTandas invalidees : {tandas}\nPlaylists marquees invalides : {playlists}\n\nCela supprime de la base de donnees tous les titres de ce dossier et invalide les tandas dependantes.",
+    statusRootRemoved:
+      "Dossier de bibliotheque retire {path}. Pistes supprimees : {tracks}. Tandas invalidees : {tandas}.",
     displayPlayingTrack: "Reproduciendo {index}/{count}",
     displayNowTanda: "Ahora: {style}\n{artist}",
     displayNextTanda: "Sigue: {style}\n{artist}",
@@ -1540,9 +1546,9 @@ export const translations = {
     confirmCloseWhilePlaying:
       "La musique joue encore. Fermer l'application et arreter la lecture ?",
     confirmCloseWhileBackupRunning:
-      "A system backup is still running. Closing the app now will stop it. Close the app?",
+      "Eine Systemsicherung laeuft noch. Wenn die App jetzt geschlossen wird, wird sie gestoppt. App schliessen?",
     confirmCloseWhilePlayingAndBackupRunning:
-      "Music is still playing and a system backup is still running. Closing the app now will stop both. Close the app?",
+      "Die Musik spielt noch und eine Systemsicherung laeuft noch. Wenn die App jetzt geschlossen wird, werden beide gestoppt. App schliessen?",
     confirmDataLocationChange:
       "Changer l'emplacement des donnees vers {path} ? Cela cree une nouvelle base.",
     confirmLegacyImport:
@@ -1736,8 +1742,10 @@ export const translations = {
     systemExport: "Exporter le systeme",
     systemImport: "Importer le systeme",
     systemExportRunning: "Export du systeme...",
-    systemExportRunningBackground: "System backup is still running in the background: {path}",
-    systemExportStartedBackground: "System backup started in the background: {path}",
+    systemExportRunningBackground:
+      "Die Systemsicherung laeuft noch im Hintergrund: {path}",
+    systemExportStartedBackground:
+      "Die Systemsicherung wurde im Hintergrund gestartet: {path}",
     systemExportDone: "Export cree dans {path}",
     systemExportFailed: "Echec de l'export: {message}",
     systemImportRunning: "Import du systeme...",
@@ -2065,10 +2073,11 @@ export const translations = {
     rootMusic: "Musique",
     rootCortina: "Cortina",
     rootBackground: "Fond",
-    removeRootButton: "Remove",
+    removeRootButton: "Entfernen",
     confirmRemoveRoot:
-      "Remove this {kind} folder from the library?\n\nPath: {path}\nTracks removed: {tracks}\nTandas invalidated: {tandas}\nPlaylists marked invalid: {playlists}\n\nThis removes all tracks from that folder from the library database and invalidates dependent tandas.",
-    statusRootRemoved: "Removed library folder {path}. Tracks removed: {tracks}. Tandas invalidated: {tandas}.",
+      "Diesen {kind}-Ordner aus der Bibliothek entfernen?\n\nPfad: {path}\nEntfernte Titel: {tracks}\nUngueltig gemachte Tandas: {tandas}\nAls ungueltig markierte Playlists: {playlists}\n\nDadurch werden alle Titel aus diesem Ordner aus der Bibliotheksdatenbank entfernt und abhaengige Tandas ungueltig gemacht.",
+    statusRootRemoved:
+      "Bibliotheksordner entfernt {path}. Entfernte Titel: {tracks}. Ungueltig gemachte Tandas: {tandas}.",
     displayPlayingTrack: "Lecture {index}/{count}",
     displayNowTanda: "Maintenant: {style}\n{artist}",
     displayNextTanda: "Ensuite: {style}\n{artist}",
@@ -2280,9 +2289,9 @@ export const translations = {
     confirmCloseWhilePlaying:
       "Die Musik spielt noch. App schliessen und Wiedergabe stoppen?",
     confirmCloseWhileBackupRunning:
-      "A system backup is still running. Closing the app now will stop it. Close the app?",
+      "Uma copia de seguranca do sistema ainda esta em execucao. Se fechar a aplicacao agora, ela sera interrompida. Fechar a aplicacao?",
     confirmCloseWhilePlayingAndBackupRunning:
-      "Music is still playing and a system backup is still running. Closing the app now will stop both. Close the app?",
+      "A musica ainda esta a tocar e uma copia de seguranca do sistema ainda esta em execucao. Se fechar a aplicacao agora, ambas serao interrompidas. Fechar a aplicacao?",
     confirmDataLocationChange:
       "Datenspeicherort auf {path} andern? Dadurch wird eine neue Datenbank erstellt.",
     confirmLegacyImport:
@@ -2476,8 +2485,10 @@ export const translations = {
     systemExport: "System exportieren",
     systemImport: "System importieren",
     systemExportRunning: "Systemdaten werden exportiert...",
-    systemExportRunningBackground: "System backup is still running in the background: {path}",
-    systemExportStartedBackground: "System backup started in the background: {path}",
+    systemExportRunningBackground:
+      "A copia de seguranca do sistema ainda esta em execucao em segundo plano: {path}",
+    systemExportStartedBackground:
+      "A copia de seguranca do sistema foi iniciada em segundo plano: {path}",
     systemExportDone: "Systemexport erstellt unter {path}",
     systemExportFailed: "Systemexport fehlgeschlagen: {message}",
     systemImportRunning: "Systemdaten werden importiert...",
@@ -2806,10 +2817,11 @@ export const translations = {
     rootMusic: "Musik",
     rootCortina: "Cortina",
     rootBackground: "Hintergrund",
-    removeRootButton: "Remove",
+    removeRootButton: "Remover",
     confirmRemoveRoot:
-      "Remove this {kind} folder from the library?\n\nPath: {path}\nTracks removed: {tracks}\nTandas invalidated: {tandas}\nPlaylists marked invalid: {playlists}\n\nThis removes all tracks from that folder from the library database and invalidates dependent tandas.",
-    statusRootRemoved: "Removed library folder {path}. Tracks removed: {tracks}. Tandas invalidated: {tandas}.",
+      "Remover esta pasta de {kind} da biblioteca?\n\nCaminho: {path}\nFaixas removidas: {tracks}\nTandas invalidadas: {tandas}\nPlaylists marcadas como invalidas: {playlists}\n\nIsto remove da base de dados todas as faixas dessa pasta e invalida as tandas dependentes.",
+    statusRootRemoved:
+      "Pasta da biblioteca removida {path}. Faixas removidas: {tracks}. Tandas invalidadas: {tandas}.",
     displayPlayingTrack: "Spiele {index}/{count}",
     displayNowTanda: "Jetzt: {style}\n{artist}",
     displayNextTanda: "Als Nächstes: {style}\n{artist}",
@@ -3022,9 +3034,9 @@ export const translations = {
     confirmCloseWhilePlaying:
       "A musica ainda esta tocando. Fechar o app e parar a reproducao?",
     confirmCloseWhileBackupRunning:
-      "A system backup is still running. Closing the app now will stop it. Close the app?",
+      "E ancora in corso un backup di sistema. Se chiudi l'app ora verra interrotto. Chiudere l'app?",
     confirmCloseWhilePlayingAndBackupRunning:
-      "Music is still playing and a system backup is still running. Closing the app now will stop both. Close the app?",
+      "La musica sta ancora suonando ed e ancora in corso un backup di sistema. Se chiudi l'app ora verranno interrotti entrambi. Chiudere l'app?",
     confirmDataLocationChange:
       "Mudar local dos dados para {path}? Isso inicia um banco novo.",
     confirmLegacyImport:
@@ -3218,8 +3230,10 @@ export const translations = {
     systemExport: "Exportar sistema",
     systemImport: "Importar sistema",
     systemExportRunning: "A exportar dados do sistema...",
-    systemExportRunningBackground: "System backup is still running in the background: {path}",
-    systemExportStartedBackground: "System backup started in the background: {path}",
+    systemExportRunningBackground:
+      "Il backup di sistema e ancora in esecuzione in background: {path}",
+    systemExportStartedBackground:
+      "Il backup di sistema e stato avviato in background: {path}",
     systemExportDone: "Exportacao criada em {path}",
     systemExportFailed: "A exportacao falhou: {message}",
     systemImportRunning: "A importar dados do sistema...",
@@ -3548,10 +3562,11 @@ export const translations = {
     rootMusic: "Musica",
     rootCortina: "Cortina",
     rootBackground: "Fundo",
-    removeRootButton: "Remove",
+    removeRootButton: "Rimuovi",
     confirmRemoveRoot:
-      "Remove this {kind} folder from the library?\n\nPath: {path}\nTracks removed: {tracks}\nTandas invalidated: {tandas}\nPlaylists marked invalid: {playlists}\n\nThis removes all tracks from that folder from the library database and invalidates dependent tandas.",
-    statusRootRemoved: "Removed library folder {path}. Tracks removed: {tracks}. Tandas invalidated: {tandas}.",
+      "Rimuovere questa cartella {kind} dalla libreria?\n\nPercorso: {path}\nBrani rimossi: {tracks}\nTandas invalidate: {tandas}\nPlaylist segnate come non valide: {playlists}\n\nQuesto rimuove dal database della libreria tutti i brani di quella cartella e invalida le tandas dipendenti.",
+    statusRootRemoved:
+      "Cartella di libreria rimossa {path}. Brani rimossi: {tracks}. Tandas invalidate: {tandas}.",
     displayPlayingTrack: "Tocando {index}/{count}",
     displayNowTanda: "Agora: {style}\n{artist}",
     displayNextTanda: "Depois: {style}\n{artist}",
@@ -4477,9 +4492,9 @@ translations.is = {
   confirmCloseWhilePlaying:
     "Tónlist er enn í spilun. Loka forritinu og stöðva spilun?",
   confirmCloseWhileBackupRunning:
-    "A system backup is still running. Closing the app now will stop it. Close the app?",
+    "Kerfisafrit er enn i gangi. Ef forritinu er lokað núna stöðvast það. Loka forritinu?",
   confirmCloseWhilePlayingAndBackupRunning:
-    "Music is still playing and a system backup is still running. Closing the app now will stop both. Close the app?",
+    "Tónlist er enn í spilun og kerfisafrit er enn i gangi. Ef forritinu er lokað núna stöðvast hvort tveggja. Loka forritinu?",
   cancel: "Hætta við",
   playNow: "Spila núna",
   confirmLivePerformanceTrackPlay:
@@ -4487,7 +4502,7 @@ translations.is = {
   actionAddClipboard: "Bæta á klemmuspjald",
   actionAddClipboardShort: "K",
   actionAddTandaShort: "T",
-  actionAddPlaylistShort: "P",
+  actionAddPlaylistShort: "S",
   actionAddPlaylist: "Bæta við spilunarlista",
   actionSearch: "Leita að svipuðu",
   actionSearchShort: "L",
@@ -4497,7 +4512,7 @@ translations.is = {
   actionRemoveClipboard: "Fjarlægja af klemmuspjaldi",
   actionRemoveClipboardShort: "F",
   actionRemovePlaylist: "Fjarlægja af spilunarlista",
-  actionRemovePlaylistShort: "F",
+  actionRemovePlaylistShort: "S",
   actionMoveCollection: "Færa í safn",
   actionMoveCollectionShort: "H",
   actionMarkPlaylist: "Merkja sæti í spilunarlista",
@@ -4642,8 +4657,10 @@ translations.is = {
   systemExport: "Flytja út kerfi",
   systemImport: "Flytja inn kerfi",
   systemExportRunning: "Flyt út kerfisgögn...",
-  systemExportRunningBackground: "System backup is still running in the background: {path}",
-  systemExportStartedBackground: "System backup started in the background: {path}",
+  systemExportRunningBackground:
+    "Kerfisafrit er enn i gangi i bakgrunni: {path}",
+  systemExportStartedBackground:
+    "Kerfisafrit var ræst i bakgrunni: {path}",
   systemExportDone: "Kerfisútflutningur vistaður í {path}",
   systemExportFailed: "Kerfisútflutningur mistókst: {message}",
   systemImportRunning: "Flyt inn kerfisgögn...",

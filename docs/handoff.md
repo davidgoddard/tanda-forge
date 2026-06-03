@@ -8646,3 +8646,14 @@
 - Confirmed removal deletes that root's scanned tracks from the library database.
 - Tandas and playlists that depended on those tracks are marked invalid rather than silently rewritten.
 - Added unit coverage for preview counting and invalidation behavior.
+## 2026-06-03 — i18n fallback sweep
+
+- Ran a targeted scan of `app/src/renderer/i18n.ts` for obvious English fallbacks in non-English locales.
+- Filled straightforward translations for backup-close warnings, background backup status, and root-removal confirmation/status strings in Spanish, French, German, Portuguese, Italian, and Icelandic.
+- Left placeholders, command names such as `ffmpeg`, and proper nouns such as `Cortina` unchanged where translation would not add value or would change user-facing technical meaning.
+## 2026-06-03 — Localised single-letter playlist shortcuts
+
+- Adjusted playlist-related one-letter action badges to follow the local playlist word where it differs from English.
+- Spanish now uses `L` for playlist-target actions (`lista`).
+- Icelandic now uses `S` for add/remove playlist actions (`spilunarlisti`), while `mark playlist` remains `M` to keep popup shortcuts unambiguous.
+- Locales that already use the borrowed word `playlist` keep `P`.
