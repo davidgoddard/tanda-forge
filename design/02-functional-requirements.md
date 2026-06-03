@@ -58,6 +58,7 @@ Analysis:
   user can rebuild a complete working library without manual step ordering.
 - FR-001.4.R5: Combined scan/precompute failures must be surfaced to the user
   without aborting unrelated successful work.
+- FR-001.4.R6: Normal library rescans must import newly discovered files, remove missing files, and preserve stored editable metadata for already known tracks unless an explicit migration override applies.
 
 ### FR-001.5 System Backup and Restore
 - FR-001.5.R1: The system must export the full application data root as a

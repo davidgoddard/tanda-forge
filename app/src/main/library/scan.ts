@@ -155,6 +155,104 @@ const hashFile = async (filePath: string) => {
   });
 };
 
+const chooseStoredOrImportedValue = (
+  existingValue: string | null | undefined,
+  importedValue: string | null | undefined,
+) => {
+  const stored = existingValue?.trim() ?? "";
+  if (stored) {
+    return stored;
+  }
+  return importedValue?.trim() ?? "";
+};
+
+export const resolveScannedTrackMetadata = (params: {
+  filePath: string;
+  existing?: {
+    title?: string;
+    artist?: string;
+    album?: string;
+    year?: string;
+    genre?: string;
+    singer?: string;
+    notes?: string;
+    instrumental?: number | null;
+    bpm?: number | null;
+  };
+  tags: Record<string, string>;
+  legacy: LegacyTrackOverride | null;
+  styleMap: Map<string, string>;
+}) => {
+  const { filePath, existing, tags, legacy, styleMap } = params;
+  const importedTitle =
+    tags.title || path.basename(filePath, path.extname(filePath));
+  const importedArtist = tags.artist || "";
+  const importedAlbum = tags.album || "";
+  const importedYear =
+    tags.year ||
+    (tags.date ? new Date(tags.date).getFullYear().toString() : "") ||
+    "";
+  const importedRawGenre = tags.genre || "";
+  const importedGenreNormalized = normalizeStyleName(importedRawGenre);
+  const importedGenre = importedGenreNormalized
+    ? styleMap.get(importedGenreNormalized.toLowerCase()) ?? ""
+    : "";
+  const singerFromTags =
+    tags.singer ||
+    tags.performer ||
+    tags.vocalist ||
+    tags["lead_performer"] ||
+    tags["lead performer"] ||
+    tags.soloist ||
+    "";
+
+  const title =
+    legacy?.title?.trim() ||
+    chooseStoredOrImportedValue(existing?.title, importedTitle) ||
+    path.basename(filePath, path.extname(filePath));
+  const artist =
+    legacy?.artist?.trim() ||
+    chooseStoredOrImportedValue(existing?.artist, importedArtist);
+  const album =
+    legacy?.album?.trim() ||
+    chooseStoredOrImportedValue(existing?.album, importedAlbum);
+  const year =
+    legacy?.year?.trim() ||
+    chooseStoredOrImportedValue(existing?.year, importedYear);
+  const genre =
+    legacy?.genre?.trim() ||
+    chooseStoredOrImportedValue(existing?.genre, importedGenre);
+  const bpm =
+    typeof legacy?.bpm === "number"
+      ? legacy.bpm
+      : existing?.bpm ?? null;
+  const notes = legacy?.notes?.trim() || existing?.notes || "";
+  const instrumental =
+    typeof legacy?.instrumental === "boolean"
+      ? legacy.instrumental
+      : existing?.instrumental === null || existing?.instrumental === undefined
+        ? null
+        : Boolean(existing.instrumental);
+  const artistSummary = summarizeArtistName(artist);
+  const singer =
+    existing?.singer ||
+    singerFromTags ||
+    extractSingerName(artist, title);
+
+  return {
+    title,
+    artist,
+    album,
+    year,
+    genre,
+    bpm,
+    notes,
+    instrumental,
+    artistSummary,
+    singer,
+  };
+};
+
 export const scanLibraryRoots = async (
   roots: LibraryRoot[],
   onProgress?: (progress: ScanProgress) => void,
@@ -389,47 +487,24 @@ export const scanLibraryRoots = async (
 
         const legacy =
           options?.getLegacyMetadata?.(root, relativePath) ?? null;
-        const title =
-          legacy?.title?.trim() ||
-          tags.title ||
-          existing?.title ||
-          path.basename(filePath, path.extname(filePath));
-        const artist = legacy?.artist?.trim() || tags.artist || existing?.artist || "";
-        const album = legacy?.album?.trim() || tags.album || existing?.album || "";
-        const year =
-          legacy?.year?.trim() ||
-          tags.year ||
-          (tags.date ? new Date(tags.date).getFullYear().toString() : "") ||
-          existing?.year ||
-          "";
-        const rawGenre =
-          legacy?.genre?.trim() || tags.genre || existing?.genre || "";
-        const genreNormalized = normalizeStyleName(rawGenre);
-        const genre = genreNormalized
-          ? styleMap.get(genreNormalized.toLowerCase()) ?? ""
-          : "";
-        const bpm =
-          typeof legacy?.bpm === "number"
-            ? legacy.bpm
-            : existing?.bpm ?? null;
-        const notes = legacy?.notes?.trim() || existing?.notes || "";
-        const instrumental =
-          typeof legacy?.instrumental === "boolean"
-            ? legacy.instrumental
-            : existing?.instrumental === null || existing?.instrumental === undefined
-              ? null
-              : Boolean(existing.instrumental);
-        const artistSummary = summarizeArtistName(artist);
-        const singerFromTags =
-          tags.singer ||
-          tags.performer ||
-          tags.vocalist ||
-          tags["lead_performer"] ||
-          tags["lead performer"] ||
-          tags.soloist ||
-          "";
-        const singer =
-          existing?.singer || singerFromTags || extractSingerName(artist, title);
+        const {
+          title,
+          artist,
+          album,
+          year,
+          genre,
+          bpm,
+          notes,
+          instrumental,
+          artistSummary,
+          singer,
+        } = resolveScannedTrackMetadata({
+          filePath,
+          existing,
+          tags,
+          legacy,
+          styleMap,
+        });
 
         const needsMetadataUpdate =
           !existing ||
