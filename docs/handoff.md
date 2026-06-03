@@ -749,6 +749,16 @@
 - Build: `npm run build`
 - Run: `npm start`
 - Optional ffmpeg fetch: `scripts/fetch-ffmpeg.sh [macos|windows|linux|all]`
+- Fixed startup failure caused by stale renderer build artifacts surviving branch changes.
+  - Added `scripts/clean-renderer-dist.js` and updated `package.json` so `npm run build`
+    removes `dist/renderer` before recompiling renderer/shared browser modules.
+  - This prevents deleted renderer/shared files from remaining in release output
+    and breaking the app later with browser-side imports such as `import path from "path"`.
+  - Confirmed the previously stale `dist/renderer/shared/audio-playback-source.js`
+    no longer exists after a clean rebuild on `main`.
+- Updated files:
+  - `scripts/clean-renderer-dist.js`
+  - `package.json`
 
 - Fixed normal library rescans overwriting stored track metadata:
   - `app/src/main/library/scan.ts` now treats stored editable metadata on

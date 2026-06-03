@@ -9,7 +9,7 @@
   },
   "main": "dist/main/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.renderer.json && node scripts/copy-renderer-assets.js",
+    "build": "tsc -p tsconfig.main.json && node scripts/clean-renderer-dist.js && tsc -p tsconfig.renderer.json && node scripts/copy-renderer-assets.js",
     "manual:audio-route-test": "npm run build && env -u ELECTRON_RUN_AS_NODE electron dist/main/manual-audio-route-test.js",
     "package": "npm run build && electron-builder",
     "start": "env -u ELECTRON_RUN_AS_NODE electron .",
