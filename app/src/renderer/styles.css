@@ -2211,6 +2211,7 @@ body.theme-dark-green .settings-panel {
 #track-editor .modal-card {
   border: 2px solid rgba(248, 248, 252, 0.9);
   border-radius: 20px;
+  overflow: hidden;
   box-shadow:
     0 0 0 1px rgba(20, 24, 34, 0.7),
     0 28px 56px rgba(10, 10, 14, 0.45);

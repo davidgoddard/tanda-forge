@@ -740,6 +740,41 @@
 - Run: `npm start`
 - Optional ffmpeg fetch: `scripts/fetch-ffmpeg.sh [macos|windows|linux|all]`
 
+- Fixed normal library rescans overwriting stored track metadata:
+  - `app/src/main/library/scan.ts` now treats stored editable metadata on
+    existing tracks as authoritative during normal rescans, while still
+    importing tags for brand-new files and removing files that disappeared
+  - this prevents `Scan Music` from reapplying file tag genres/titles over
+    previously curated values such as style selections
+  - explicit migration overrides still win, and explicit metadata refresh still
+    belongs to the separate `Re-parse Stored Metadata` action
+- Updated files:
+  - `app/src/main/library/scan.ts`
+  - `tests/scan-metadata-precedence.test.ts`
+  - `design/02-functional-requirements.md`
+  - `docs/user-guide.md`
+- Fixed visible square corners on the track editor popup:
+  - `app/src/renderer/styles.css` now clips `#track-editor .modal-card`
+    contents to the dialog border radius
+  - this removes the light-mode corner artifacts where inner content/background
+    showed through beyond the rounded card edge
+- Updated files:
+  - `app/src/renderer/styles.css`
+- Tightened tanda-size search filtering:
+  - tanda search now sends the selected size to the backend and filters on
+    `tandas.slot_count`, instead of relying only on renderer-side filtering of
+    returned rows
+  - renderer-side fallback filtering now also uses `slot_count`, which matches
+    the intended tanda size rather than only counting populated tracks
+  - this closes a state/consistency gap where tanda-size changes could appear
+    to have no effect in some result states
+- Updated files:
+  - `app/src/main/library/tandas.ts`
+  - `app/src/main/main.ts`
+  - `app/src/shared/types.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/tanda-search.test.ts`
+
 ### Known failing tests
 - None.
 

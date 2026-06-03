@@ -2159,12 +2159,16 @@ const registerIpc = () => {
     "tandas:search",
     async (
       _event,
-      params: { query: string; styles: string[] },
+      params: { query: string; styles: string[]; size?: number | null },
     ) => {
       const db = getDb();
       return searchTandas(db, {
         query: params.query ?? "",
         styles: params.styles ?? [],
+        size:
+          typeof params.size === "number" && Number.isFinite(params.size) && params.size >= 1
+            ? Math.min(10, Math.floor(params.size))
+            : null,
       });
     },
   );
