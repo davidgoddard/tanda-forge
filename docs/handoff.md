@@ -8603,3 +8603,7 @@
   - This ensures renderer-cached tracks loaded from tanda detail can export portable playlist refs with a real `relativePath`, allowing later playlist re-import to match locally.
   - Added regression coverage in `tests/tanda-detail-relative-path.test.ts`.
   - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`91` files, `454` tests).
+- Tightened the track editor modal corner fix so Electron actually clips the card at the compositor layer.
+  - In `app/src/renderer/styles.css`, `#track-editor .modal-card` now uses `background-clip: padding-box`, `clip-path: inset(0 round 20px)`, and `isolation: isolate` in addition to `overflow: hidden`.
+  - This prevents the dark square corner artifacts still visible in lighter themes around the rounded edit-track popup.
+  - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test`.
