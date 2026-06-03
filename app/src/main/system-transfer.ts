@@ -14,6 +14,19 @@ export type SystemBackupManifest = {
 const sanitizePathSegment = (value: string) =>
   value.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
 
+const MANAGED_ROOT_ENTRIES = new Set([
+  "tanda-player.db",
+  "tanda-player.db-shm",
+  "tanda-player.db-wal",
+  "waveforms",
+  "compressed-audio-cache",
+  "renderer-errors.log",
+  "playback-diagnostics.log",
+]);
+
+const shouldTransferManagedEntry = (entryName: string) =>
+  MANAGED_ROOT_ENTRIES.has(entryName);
+
 export const buildSystemBackupFolderName = (createdAt: string) => {
   const safe = sanitizePathSegment(createdAt.replace(/[:.]/g, "-").toLowerCase());
   return `tanda-forge-backup-${safe || "export"}`;
@@ -51,6 +64,9 @@ export const writeSystemBackup = (
   fs.mkdirSync(exportRoot, { recursive: true });
   const entries = fs.readdirSync(sourceRoot, { withFileTypes: true });
   for (const entry of entries) {
+    if (!shouldTransferManagedEntry(entry.name)) {
+      continue;
+    }
     const sourcePath = path.join(sourceRoot, entry.name);
     const targetPath = path.join(exportRoot, entry.name);
     fs.cpSync(sourcePath, targetPath, { recursive: true, force: true });
@@ -80,11 +96,17 @@ export const restoreSystemBackup = (backupRoot: string, targetRoot: string) => {
     ? fs.readdirSync(targetRoot, { withFileTypes: true })
     : [];
   for (const entry of entries) {
+    if (!shouldTransferManagedEntry(entry.name)) {
+      continue;
+    }
     fs.rmSync(path.join(targetRoot, entry.name), { recursive: true, force: true });
   }
   fs.mkdirSync(targetRoot, { recursive: true });
   const backupEntries = fs.readdirSync(backupRoot, { withFileTypes: true });
   for (const entry of backupEntries) {
+    if (!shouldTransferManagedEntry(entry.name)) {
+      continue;
+    }
     const sourcePath = path.join(backupRoot, entry.name);
     const targetPath = path.join(targetRoot, entry.name);
     fs.cpSync(sourcePath, targetPath, { recursive: true, force: true });

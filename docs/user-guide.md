@@ -187,6 +187,8 @@ main style name as valid for a playlist position marked with the single letter s
 
 The style names are shown as search filter buttons and all matching tracks and tandas are then shown in the search results and the clipboard.
 
+Text search is token-aware: all meaningful words you type contribute to the relevance score across title, artist, singer, DJ notes, album, style/genre, year, and BPM. DJ notes are treated as important search text because they are intentionally written for recall; imported album and album-artist metadata are searchable but rank lower. Short tokens are matched conservatively, so a search such as `Caro` targets an actual `Caro` token rather than flooding results with loosely similar words such as `Carlos`; both `de caro` and `decaro` can match `De Caro`.
+
 The **Tanda size** control in the Search column affects tanda results only. It
 lets the DJ limit the tanda search to tandas of a specific size such as `3` or
 `4`. Setting it to **Any** removes that size filter, so tandas of all lengths
@@ -424,6 +426,7 @@ What **System Export** includes:
 - compressed cache
 - logs
 - persisted application settings
+- only Tanda Forge-managed data files; Electron runtime cache folders such as `DawnCache` are excluded and recreated automatically
 
 What it does **not** include:
 
