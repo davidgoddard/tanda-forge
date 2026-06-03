@@ -58,6 +58,7 @@ Analysis:
   user can rebuild a complete working library without manual step ordering.
 - FR-001.4.R5: Combined scan/precompute failures must be surfaced to the user
   without aborting unrelated successful work.
+- FR-001.4.R6: Normal library rescans must import newly discovered files, remove missing files, and preserve stored editable metadata for already known tracks unless an explicit migration override applies.
 
 ### FR-001.5 System Backup and Restore
 - FR-001.5.R1: The system must export the full application data root as a
@@ -162,6 +163,7 @@ Behavior:
 - FR-021.R11: Grouped `m3u` / `m3u8` import may treat contiguous `group-title` or `EXTGRP` sections as tandas.
 - FR-021.R12: Standard playlist import/export may discard full tanda metadata, playlist rules, and explicit cortina planning when those concepts are not represented by the source format.
 - FR-021.R13: Tanda Forge JSON playlist import must attempt local track resolution in this order: exact absolute path, exact relative path, unique relative-path suffix, then unique artist-plus-title metadata.
+- FR-021.R14: System backup export/import must transfer only app-managed data entries and must not overwrite Electron runtime cache directories under the active data root.
 
 ---
 

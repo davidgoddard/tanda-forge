@@ -427,6 +427,7 @@ What **System Export** includes:
 - compressed cache
 - logs
 - persisted application settings
+- only Tanda Forge-managed data files; Electron runtime cache folders such as `DawnCache` are excluded and recreated automatically
 
 What it does **not** include:
 
@@ -654,7 +655,8 @@ In **Settings -> Library**, the buttons are grouped by purpose:
   - Use it only if you are bringing tandas and metadata across from the old system.
   - It is separate from **Startup Flow** because it replaces existing tanda data rather than behaving like a resumable rebuild step.
 - **Library Scan** refreshes the database, analysis, and waveform PNG cache from the music and cortina folders.
-- Re-running **Scan Music** or **Scan Cortinas** skips unchanged files, so adding new songs normally just means copying them into an existing root and scanning that root again.
+- Re-running **Scan Music** or **Scan Cortinas** imports newly discovered files, removes tracks whose files have disappeared, and skips overwriting stored editable metadata for already known tracks.
+- If you intentionally want to rebuild track text fields from stored tags after parser changes, use **Re-parse Stored Metadata** instead of a normal scan.
 - **Re-parse Stored Metadata** rebuilds title, artist, artist summary, and singer from already stored tag data.
   - Use this after parser changes or metadata cleanup when you want to refresh credits without rerunning ffmpeg analysis, waveform PNG generation, or compressed-cache work.
 - **Derived Caches** manages the expensive on-disk cache files.
