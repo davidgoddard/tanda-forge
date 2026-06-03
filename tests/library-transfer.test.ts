@@ -138,12 +138,18 @@ describe("playlist file import", () => {
     fs.mkdirSync(path.join(libraryRoot, "Tango"), { recursive: true });
     const absoluteTrack = path.join(libraryRoot, "Tango", "song-a.mp3");
     const rows = [
-      { id: "track-a", full_path: absoluteTrack, relative_path: "Tango/song-a.mp3" },
+      {
+        id: "track-a",
+        full_path: absoluteTrack,
+        relative_path: "Tango/song-a.mp3",
+        title: "Song A",
+        artist: "Artist A",
+      },
     ];
     const db = {
       prepare: (sql: string) => ({
         all: () => {
-          expect(sql).toContain("select id, full_path, relative_path from tracks");
+          expect(sql).toContain("select id, full_path, relative_path, title, artist from tracks");
           return rows;
         },
       }),
@@ -210,11 +216,19 @@ describe("playlist file import", () => {
   it("imports grouped m3u entries as tanda snapshots", () => {
     const { tempDir, absoluteTrack } = createFixture();
     const rows = [
-      { id: "track-a", full_path: absoluteTrack, relative_path: "Tango/song-a.mp3" },
+      {
+        id: "track-a",
+        full_path: absoluteTrack,
+        relative_path: "Tango/song-a.mp3",
+        title: "Song A",
+        artist: "Artist A",
+      },
       {
         id: "track-b",
         full_path: path.join(tempDir, "library", "Tango", "song-b.mp3"),
         relative_path: "Tango/song-b.mp3",
+        title: "Song B",
+        artist: "Artist B",
       },
     ];
     const db = {
@@ -246,6 +260,100 @@ describe("playlist file import", () => {
             },
           },
         ],
+        cortinaAssignments: [],
+      },
+      warnings: [],
+    });
+  });
+
+  it("imports tanda forge playlist json by matching a unique relative-path suffix", () => {
+    const { tempDir } = createFixture();
+    const rows = [
+      {
+        id: "track-a",
+        full_path: path.join(tempDir, "library", "2026", "Tango", "song-a.mp3"),
+        relative_path: "2026/Tango/song-a.mp3",
+        title: "Song A",
+        artist: "Artist A",
+      },
+    ];
+    const db = {
+      prepare: () => ({
+        all: () => rows,
+      }),
+    };
+    const manifest: PlaylistExportManifest = {
+      format: "tanda-forge-playlist",
+      version: PLAYLIST_EXPORT_VERSION,
+      createdAt: "2026-03-23T10:11:12.345Z",
+      appVersion: "0.1.1",
+      items: [
+        {
+          kind: "track",
+          track: {
+            fullPath: "G:\\music\\Tango\\song-a.mp3",
+            relativePath: "Tango/song-a.mp3",
+            title: "Song A",
+            artist: "Artist A",
+          },
+        },
+      ],
+    };
+    const jsonPath = path.join(tempDir, "playlist-suffix.json");
+    fs.writeFileSync(jsonPath, JSON.stringify(manifest, null, 2), "utf-8");
+
+    expect(importPlaylistFile(db as never, jsonPath)).toEqual({
+      format: "tanda-forge-playlist",
+      state: {
+        version: 2,
+        items: [{ kind: "track", id: "track-a" }],
+        cortinaAssignments: [],
+      },
+      warnings: [],
+    });
+  });
+
+  it("imports tanda forge playlist json by matching unique artist and title metadata", () => {
+    const { tempDir } = createFixture();
+    const rows = [
+      {
+        id: "track-a",
+        full_path: path.join(tempDir, "library", "Elsewhere", "renamed-song-a.mp3"),
+        relative_path: "Elsewhere/renamed-song-a.mp3",
+        title: "Song A",
+        artist: "Artist A",
+      },
+    ];
+    const db = {
+      prepare: () => ({
+        all: () => rows,
+      }),
+    };
+    const manifest: PlaylistExportManifest = {
+      format: "tanda-forge-playlist",
+      version: PLAYLIST_EXPORT_VERSION,
+      createdAt: "2026-03-23T10:11:12.345Z",
+      appVersion: "0.1.1",
+      items: [
+        {
+          kind: "track",
+          track: {
+            fullPath: "G:\\music\\Tango\\song-a.mp3",
+            relativePath: "Tango/song-a.mp3",
+            title: "Song A",
+            artist: "Artist A",
+          },
+        },
+      ],
+    };
+    const jsonPath = path.join(tempDir, "playlist-metadata.json");
+    fs.writeFileSync(jsonPath, JSON.stringify(manifest, null, 2), "utf-8");
+
+    expect(importPlaylistFile(db as never, jsonPath)).toEqual({
+      format: "tanda-forge-playlist",
+      state: {
+        version: 2,
+        items: [{ kind: "track", id: "track-a" }],
         cortinaAssignments: [],
       },
       warnings: [],

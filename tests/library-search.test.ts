@@ -382,6 +382,137 @@ describe("fuzzy search helpers", () => {
     expect(result[1].score).toBeLessThan(0.1);
   });
 
+  it("keeps one-word artist searches precise enough to exclude broad n-gram partials", () => {
+    const deCaro = buildTrack({
+      id: "de-caro",
+      title: "Boedo",
+      artist: "Julio De Caro",
+      artist_summary: "Julio De Caro",
+    });
+    const carlos = buildTrack({
+      id: "carlos",
+      title: "Bahia Blanca",
+      artist: "Carlos Di Sarli",
+      artist_summary: "Carlos Di Sarli",
+    });
+    const corazon = buildTrack({
+      id: "corazon",
+      title: "Todo Corazon",
+      artist: "Random Artist",
+    });
+    const result = filterAndScoreTracks([carlos, corazon, deCaro], {
+      query: "Caro",
+      minScore: 0.25,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+
+    expect(result.map((entry) => entry.track.id)).toEqual(["de-caro"]);
+  });
+
+  it("matches separated and collapsed De Caro queries against artist tokens", () => {
+    const deCaro = buildTrack({
+      id: "de-caro",
+      title: "Boedo",
+      artist: "Julio De Caro",
+      artist_summary: "Julio De Caro",
+    });
+    const carlos = buildTrack({
+      id: "carlos",
+      title: "Bahia Blanca",
+      artist: "Carlos Di Sarli",
+      artist_summary: "Carlos Di Sarli",
+    });
+
+    const separated = filterAndScoreTracks([carlos, deCaro], {
+      query: "de caro",
+      minScore: 0.25,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    const collapsed = filterAndScoreTracks([carlos, deCaro], {
+      query: "decaro",
+      minScore: 0.25,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+
+    expect(separated.map((entry) => entry.track.id)).toEqual(["de-caro"]);
+    expect(collapsed.map((entry) => entry.track.id)).toEqual(["de-caro"]);
+  });
+
+  it("keeps cross-field title and singer terms above the default threshold", () => {
+    const parsedSinger = buildTrack({
+      id: "parsed-singer",
+      title: "Tormenta",
+      artist: "Carlos Di Sarli",
+      artist_summary: "Carlos Di Sarli",
+      singer: "Mario Pomar",
+    });
+    const artistCreditSinger = buildTrack({
+      id: "artist-credit-singer",
+      title: "Tormenta",
+      artist: "Carlos Di Sarli canta Mario Pomar",
+      artist_summary: "Carlos Di Sarli",
+      singer: null,
+    });
+    const unrelated = buildTrack({
+      id: "unrelated",
+      title: "Mario",
+      artist: "Random Artist",
+      artist_summary: "Random Artist",
+    });
+
+    const result = filterAndScoreTracks(
+      [unrelated, artistCreditSinger, parsedSinger],
+      {
+        query: "mario tormenta",
+        minScore: 0.25,
+        bpmRange: 5,
+        sortBy: "score",
+        sortDir: "desc",
+      },
+    );
+
+    expect(result.map((entry) => entry.track.id)).toEqual([
+      "parsed-singer",
+      "artist-credit-singer",
+    ]);
+  });
+
+  it("treats DJ notes as first-class lookup text above album metadata", () => {
+    const notesMatch = buildTrack({
+      id: "notes-match",
+      title: "Track A",
+      artist: "Orchestra A",
+      notes: "Floor clearer",
+    });
+    const albumMatch = buildTrack({
+      id: "album-match",
+      title: "Track B",
+      artist: "Orchestra B",
+      album: "Floor Clearer Collection",
+      album_artist: "Various Artists",
+    });
+
+    const result = filterAndScoreTracks([albumMatch, notesMatch], {
+      query: "floor clearer",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+
+    expect(result.map((entry) => entry.track.id)).toEqual([
+      "notes-match",
+      "album-match",
+    ]);
+    expect(result[0].score).toBeGreaterThan(result[1].score);
+  });
+
   it("uses similarity mode when numeric tokens are present and favors close year/tempo", () => {
     const close = buildTrack({
       id: "close",

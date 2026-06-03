@@ -242,6 +242,29 @@
 - Verification re-run after this change:
   - `source ~/.nvm/nvm.sh && npm run build`
   - `source ~/.nvm/nvm.sh && npm test`
+- Fixed playlist JSON re-import portability:
+  - import now resolves tracks by exact absolute path, exact relative path,
+    unique relative-path suffix, and finally unique artist+title metadata
+  - this addresses exported playlists that are re-imported after a library root
+    moved or gained an extra prefix folder
+  - matching remains defensive: ambiguous suffix or metadata matches still warn
+    and skip rather than guessing
+- Updated files:
+  - `app/src/main/library-transfer.ts`
+  - `tests/library-transfer.test.ts`
+- Fixed system backup import/export to avoid Electron runtime cache collisions:
+  - `app/src/main/system-transfer.ts` now transfers only app-managed root
+    entries (`tanda-player.db*`, `waveforms`, `compressed-audio-cache`, and
+    app log files) instead of deleting/copying the entire `userData` root
+  - this avoids restore failures such as Windows `EPERM` when live Chromium
+    cache directories like `DawnCache` are present and locked
+  - export backups are now leaner and restore no longer touches unrelated
+    runtime cache folders
+- Updated files:
+  - `app/src/main/system-transfer.ts`
+  - `tests/system-transfer.test.ts`
+  - `design/02-functional-requirements.md`
+  - `docs/user-guide.md`
 - Added portable tanda and playlist transfer features:
   - Library settings now include `Export Tandas`, which writes saved tandas to
     portable JSON with track path references
@@ -726,6 +749,41 @@
 - Build: `npm run build`
 - Run: `npm start`
 - Optional ffmpeg fetch: `scripts/fetch-ffmpeg.sh [macos|windows|linux|all]`
+
+- Fixed normal library rescans overwriting stored track metadata:
+  - `app/src/main/library/scan.ts` now treats stored editable metadata on
+    existing tracks as authoritative during normal rescans, while still
+    importing tags for brand-new files and removing files that disappeared
+  - this prevents `Scan Music` from reapplying file tag genres/titles over
+    previously curated values such as style selections
+  - explicit migration overrides still win, and explicit metadata refresh still
+    belongs to the separate `Re-parse Stored Metadata` action
+- Updated files:
+  - `app/src/main/library/scan.ts`
+  - `tests/scan-metadata-precedence.test.ts`
+  - `design/02-functional-requirements.md`
+  - `docs/user-guide.md`
+- Fixed visible square corners on the track editor popup:
+  - `app/src/renderer/styles.css` now clips `#track-editor .modal-card`
+    contents to the dialog border radius
+  - this removes the light-mode corner artifacts where inner content/background
+    showed through beyond the rounded card edge
+- Updated files:
+  - `app/src/renderer/styles.css`
+- Tightened tanda-size search filtering:
+  - tanda search now sends the selected size to the backend and filters on
+    `tandas.slot_count`, instead of relying only on renderer-side filtering of
+    returned rows
+  - renderer-side fallback filtering now also uses `slot_count`, which matches
+    the intended tanda size rather than only counting populated tracks
+  - this closes a state/consistency gap where tanda-size changes could appear
+    to have no effect in some result states
+- Updated files:
+  - `app/src/main/library/tandas.ts`
+  - `app/src/main/main.ts`
+  - `app/src/shared/types.ts`
+  - `app/src/renderer/renderer.ts`
+  - `tests/tanda-search.test.ts`
 
 ### Known failing tests
 - None.
@@ -8493,3 +8551,30 @@
   - Updated `design/03-audio-playback-and-timing-model.md`, `design/10-audio-pipeline.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
   - Focused verification passed: `source ~/.nvm/nvm.sh && npm test -- tests/audio-playback-source.test.ts tests/audio-compression-cache.test.ts tests/playback-compression-controller.test.ts tests/data-location.test.ts`.
   - Full verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`89` files, `442` tests).
+- AIFF playback PR branch was prepared.
+  - Committed the completed AIFF/AIF playback fix on `fix/aiff-playback-support` as `9a14746`.
+  - Pushed the branch to `origin` and created PR #8: `https://github.com/davidgoddard/tanda-forge/pull/8`.
+- Tightened lookup search token scoring for the reported `Caro` / `de caro` issue.
+  - In `app/src/main/library/fuzzy-search.ts`, lookup-profile final scores are now scaled by combined text-token coverage, preventing one matched word or loose field n-gram from passing the default threshold as if the full query matched.
+  - Short token-pair matching now requires exact/contained token evidence instead of loose edit distance, so `Caro` no longer matches `Carlos` while `de caro` and `decaro` still match `Julio De Caro`.
+  - Field-token metrics now de-duplicate repeated field tokens, avoiding score dilution when `artist_summary` and `artist` contain the same words.
+  - Added regressions in `tests/library-search.test.ts` for precise `Caro`, separated `de caro`, and collapsed `decaro` behavior.
+  - Updated `design/06-search-and-similarity.md`, `design/tracking-and-feature-matrix.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
+  - Focused verification passed: `source ~/.nvm/nvm.sh && npm test -- tests/library-search.test.ts`.
+  - Full verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`88` files, `440` tests).
+- Follow-up search scoring correction for cross-field refinement queries.
+  - The first token-coverage change still let queries such as `mario tormenta` fall below the default threshold when one term matched singer/artist-credit text and the other matched the title.
+  - Added a modest combined-field coverage floor in `app/src/main/library/fuzzy-search.ts` so full cross-field token matches survive the threshold without flattening exact-ranking differences.
+  - Added a regression in `tests/library-search.test.ts` covering both parsed singer metadata (`singer = Mario Pomar`) and unparsed artist-credit metadata (`artist = Carlos Di Sarli canta Mario Pomar`) for `mario tormenta`.
+  - Updated `design/06-search-and-similarity.md` and `docs/dialogue.md`.
+  - Focused verification passed: `source ~/.nvm/nvm.sh && npm test -- tests/library-search.test.ts`.
+  - Full verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`88` files, `441` tests).
+- Discussed search field weighting follow-up.
+  - User raised that DJ-authored notes should probably rank closer to title/artist/singer because notes are intentionally added for later retrieval.
+  - Recommendation: treat notes as first-class lookup text while keeping album/album-artist lower because imported album metadata is often generic (`Various`) and less useful for precise DJ recall.
+- Promoted DJ notes in lookup search.
+  - In `app/src/main/library/fuzzy-search.ts`, split notes from album/genre supporting metadata. Notes now carry first-class lookup weight near title, while album, album-artist, and genre remain lower-weight supporting text.
+  - In `app/src/main/library/search.ts`, included `album_artist` in the fetched search row so album-artist can participate in the lower-weight supporting bucket.
+  - Added a regression in `tests/library-search.test.ts` proving a notes match outranks the same words in album/album-artist metadata.
+  - Updated `design/06-search-and-similarity.md`, `design/tracking-and-feature-matrix.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
+  - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`88` files, `442` tests).

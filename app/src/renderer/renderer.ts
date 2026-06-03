@@ -703,6 +703,7 @@ type TandaSearchRow = {
   rating: number;
   instrumental: boolean;
   total_duration_ms: number;
+  slot_count: number;
   track_count: number;
 };
 
@@ -7801,7 +7802,7 @@ const renderTandaSearchResults = () => {
   const duplicateIndex = buildPlaylistDuplicateIndexFromState();
   const sizeFilter = getTandaSearchSizeFilter();
   const filtered = sizeFilter
-    ? tandaSearchResults.filter((row) => row.track_count === sizeFilter)
+    ? tandaSearchResults.filter((row) => row.slot_count === sizeFilter)
     : tandaSearchResults;
   searchTandasEl.innerHTML = "";
   if (filtered.length === 0) {
@@ -7817,7 +7818,7 @@ const renderTandaSearchResults = () => {
         name: tanda.name,
         styles: tanda.styles,
         rating: tanda.rating,
-        trackSlots: Array.from({ length: tanda.track_count }, () => null),
+        trackSlots: Array.from({ length: tanda.slot_count }, () => null),
       } as TandaDraft);
     searchTandasEl.appendChild(
       renderTandaRow(draft, "search", tanda.name, { duplicateIndex }),
@@ -7834,7 +7835,11 @@ const loadTandaSearchResults = async () => {
   if (!window.tanda) {
     return;
   }
-  const rows = await window.tanda.searchTandas(getSearchParams());
+  const rows = await window.tanda.searchTandas({
+    query: searchInput?.value?.trim() ?? "",
+    styles: getExpandedStyleFilter(),
+    size: getTandaSearchSizeFilter(),
+  });
   tandaSearchResults = rows;
   const ids = rows.map((row) => row.id);
   if (ids.length > 0 && window.tanda.getTandasByIds) {

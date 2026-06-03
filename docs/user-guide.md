@@ -77,6 +77,7 @@ What JSON still depends on:
 
 - the destination laptop having access to the same music files
 - those files being matchable by full path or, preferably, by relative path inside the configured music roots
+- if the root layout changed, import also tries a unique relative-path suffix match and then a unique artist-plus-title match before giving up
 
 If a track cannot be matched locally during import, that item is skipped and the import result reports warnings.
 
@@ -186,6 +187,8 @@ main style name as valid for a playlist position marked with the single letter s
 <img src="../images/user-guide/06-styles.png" width="100%">
 
 The style names are shown as search filter buttons and all matching tracks and tandas are then shown in the search results and the clipboard.
+
+Text search is token-aware: all meaningful words you type contribute to the relevance score across title, artist, singer, DJ notes, album, style/genre, year, and BPM. DJ notes are treated as important search text because they are intentionally written for recall; imported album and album-artist metadata are searchable but rank lower. Short tokens are matched conservatively, so a search such as `Caro` targets an actual `Caro` token rather than flooding results with loosely similar words such as `Carlos`; both `de caro` and `decaro` can match `De Caro`.
 
 The **Tanda size** control in the Search column affects tanda results only. It
 lets the DJ limit the tanda search to tandas of a specific size such as `3` or
@@ -424,6 +427,7 @@ What **System Export** includes:
 - compressed cache
 - logs
 - persisted application settings
+- only Tanda Forge-managed data files; Electron runtime cache folders such as `DawnCache` are excluded and recreated automatically
 
 What it does **not** include:
 
@@ -651,7 +655,8 @@ In **Settings -> Library**, the buttons are grouped by purpose:
   - Use it only if you are bringing tandas and metadata across from the old system.
   - It is separate from **Startup Flow** because it replaces existing tanda data rather than behaving like a resumable rebuild step.
 - **Library Scan** refreshes the database, analysis, and waveform PNG cache from the music and cortina folders.
-- Re-running **Scan Music** or **Scan Cortinas** skips unchanged files, so adding new songs normally just means copying them into an existing root and scanning that root again.
+- Re-running **Scan Music** or **Scan Cortinas** imports newly discovered files, removes tracks whose files have disappeared, and skips overwriting stored editable metadata for already known tracks.
+- If you intentionally want to rebuild track text fields from stored tags after parser changes, use **Re-parse Stored Metadata** instead of a normal scan.
 - **Re-parse Stored Metadata** rebuilds title, artist, artist summary, and singer from already stored tag data.
   - Use this after parser changes or metadata cleanup when you want to refresh credits without rerunning ffmpeg analysis, waveform PNG generation, or compressed-cache work.
 - **Derived Caches** manages the expensive on-disk cache files.
