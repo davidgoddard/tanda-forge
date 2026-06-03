@@ -109,6 +109,13 @@ not swamp ranking for unrelated titles.
 FR-091.1.R11: For non-empty text queries sorted by relevance, ordering must first
 prefer results that match more of the query terms, then prefer stronger weighted
 field relevance, and only then prefer candidates with fewer unmatched field tokens.
+FR-091.1.R12: Short query tokens must not use loose edit-distance matches against
+longer unrelated tokens. They may match exact tokens, contained tokens, or
+collapsed-token forms such as `decaro` against `De Caro`, but `caro` must not
+match `Carlos` merely because the edit distance is small.
+FR-091.1.R13: Lookup-profile final relevance must be scaled by whole-query token
+coverage across all searchable text fields, so one matched word in a multi-word
+query cannot pass the default threshold as if the full query matched.
 
 ### FR-091.4 Implicit Query Parsing and Profiles
 
@@ -144,6 +151,18 @@ field relevance, and only then prefer candidates with fewer unmatched field toke
 - FR-091.4.R15: A small whole-field fuzzy backstop may assist single-token typo
   recovery, but it must not dominate multi-token ranking over the normalized
   per-token field score.
+- FR-091.4.R16: Lookup queries use the combined artist/title/singer/album/genre/year/notes
+  token corpus as a final coverage gate after field weighting. Similarity
+  queries with numeric intent still use weighted partial signals for related-track
+  discovery.
+- FR-091.4.R17: When all lookup query tokens are found across different fields
+  such as singer plus title, the combined-token match may provide a modest
+  relevance floor so the result survives the default threshold without flattening
+  stronger exact field rankings.
+- FR-091.4.R18: User-authored notes are first-class lookup text and should rank
+  near title/artist/singer matches. Imported album and album-artist metadata are
+  searchable but lower-weight supporting metadata because they are often generic
+  or less intentional.
 
 ## FR-092 — Similarity Search Shortcuts
 
