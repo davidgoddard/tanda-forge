@@ -74,6 +74,10 @@ and stores both the measured loudness and gain offset.
   transparently to WAV in a separate playable-audio cache before runtime
   playback. This compatibility render must not apply compression or loudness
   processing.
+- AUD-003.R8.a: The playable-audio cache may be warmed in the background after
+  startup and after library maintenance or restore operations, while on-demand
+  rendering remains the fallback source of truth if no playable cache file
+  exists yet.
 
 ## AUD-004 — Output Routing
 

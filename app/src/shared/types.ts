@@ -9,6 +9,16 @@ export type LibraryRoot = {
   available: boolean;
 };
 
+export type RootRemovalPreview = {
+  rootId: string;
+  kind: "music" | "cortina" | "background";
+  path: string;
+  label: string;
+  trackCount: number;
+  tandaCount: number;
+  playlistCount: number;
+};
+
 export type DisplayUpdatePayload = {
   title?: string;
   artist?: string;
@@ -111,6 +121,14 @@ export type CompressionReadinessIssue = {
 
 export type StartupFlowPhase = "music" | "cortina" | "compression" | "complete" | "failed";
 
+export type SystemBackupStatus = {
+  state: "idle" | "running" | "succeeded" | "failed";
+  path: string;
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+};
+
 export type CompressedTrackLookupParams = {
   trackId: string;
   filePath: string;
@@ -201,6 +219,8 @@ export type AppApi = {
   setDataLocation: (path: string | null) => Promise<{ path: string }>;
   addRoot: (kind: "music" | "cortina" | "background", path: string) => Promise<LibraryRoot>;
   listRoots: () => Promise<LibraryRoot[]>;
+  getRootRemovalPreview: (rootId: string) => Promise<RootRemovalPreview | null>;
+  removeRoot: (rootId: string) => Promise<(RootRemovalPreview & { removed: boolean }) | null>;
   detectLegacy: (
     path?: string | null,
   ) => Promise<{ available: boolean; rootPath: string }>;
@@ -273,7 +293,10 @@ export type AppApi = {
     cancelled?: boolean;
     path: string;
     error?: string;
+    started?: boolean;
   }>;
+  getSystemBackupStatus: () => Promise<SystemBackupStatus>;
+  onSystemBackupStatus: (handler: (status: SystemBackupStatus) => void) => () => void;
   importSystemData: () => Promise<{
     ok: boolean;
     cancelled?: boolean;
@@ -545,6 +568,10 @@ export type AppApi = {
   logClientError: (params: { message: string; stack?: string }) => Promise<void>;
   toggleFullscreen: () => Promise<{ fullscreen: boolean }>;
   seedE2eData: (payload: E2ESeedPayload) => Promise<{ ok: boolean }>;
+  setE2eDialogResponses: (payload: {
+    saveFilePaths?: string[];
+    openFilePaths?: string[];
+  }) => Promise<{ ok: boolean }>;
 };
 
 declare global {

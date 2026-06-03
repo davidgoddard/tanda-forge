@@ -425,6 +425,7 @@ What **System Export** includes:
 - playlist persistence state
 - waveform cache
 - compressed cache
+- playable AIFF/AIF compatibility cache
 - logs
 - persisted application settings
 - only Tanda Forge-managed data files; Electron runtime cache folders such as `DawnCache` are excluded and recreated automatically
@@ -440,6 +441,11 @@ This is the right option when:
 - you are backing up the working state of the application
 - you are moving to another laptop and want the same database and caches
 - you want the easiest restore path after corruption or accidental reset
+
+System Export now runs in the background after you choose the destination
+folder. You can keep using the app while the backup is written. If you try to
+close the app before it finishes, Tanda Forge warns that the backup is still
+running.
 
 #### Practical Recommendation
 
@@ -534,6 +540,10 @@ You need at least one music folder, and optionally a cortina folder.
 3. (Optional) Click **Add Cortina Folder** and choose a folder.
 4. If migrating from an older Tanda Player system, use **Legacy Import** first.
 5. Then run **Startup Flow** to scan music/cortinas and build waveform and compressed caches.
+6. If you later want to unload a configured folder, use **Remove** beside that root in **Settings -> Library**.
+   - Tanda Forge shows a confirmation with the affected track, tanda, and playlist counts first.
+   - Confirming removal deletes that root's scanned tracks from the library database.
+   - Any dependent tanda or playlist is marked invalid so the consequences remain visible and deliberate.
 
 ### 2) Importing Legacy Data
 
@@ -656,6 +666,7 @@ In **Settings -> Library**, the buttons are grouped by purpose:
   - It is separate from **Startup Flow** because it replaces existing tanda data rather than behaving like a resumable rebuild step.
 - **Library Scan** refreshes the database, analysis, and waveform PNG cache from the music and cortina folders.
 - Re-running **Scan Music** or **Scan Cortinas** imports newly discovered files, removes tracks whose files have disappeared, and skips overwriting stored editable metadata for already known tracks.
+- **Remove** beside a configured root unloads that folder from the library after an explicit warning about the tracks removed and dependent tandas/playlists invalidated.
 - If you intentionally want to rebuild track text fields from stored tags after parser changes, use **Re-parse Stored Metadata** instead of a normal scan.
 - **Re-parse Stored Metadata** rebuilds title, artist, artist summary, and singer from already stored tag data.
   - Use this after parser changes or metadata cleanup when you want to refresh credits without rerunning ffmpeg analysis, waveform PNG generation, or compressed-cache work.
@@ -666,6 +677,11 @@ In **Settings -> Library**, the buttons are grouped by purpose:
 The legacy migration card is shown separately from the resumable startup flow, and the remaining scan/cache/maintenance/backup tools sit inside one shared manual-tools area so their optional/manual role is clear.
 
 AIFF/AIF files are supported, but Electron/Chromium cannot always play those source files directly. When one is played, Tanda Forge uses FFmpeg to create a transparent WAV copy in the playable-audio cache and plays that cached copy. The original file is not modified.
+
+After startup and after library scans or restores, Tanda Forge also warms that
+playable cache in the background for known AIFF/AIF tracks that do not already
+have a cached WAV. This reduces first-play delays over time, while the existing
+on-demand conversion path remains available as a fallback.
 
 If **compression** (dynamic range reduction) is enabled, the system can generate compressed files on demand when a track starts, but this may cause a short delay or CPU spike. Clicking **Precompute compressed cache** renders those compressed companions in advance. This takes a long time, but it is optional and only needed if compression will be used.
 

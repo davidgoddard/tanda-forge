@@ -3,6 +3,7 @@ import type {
   ScanProgress,
   ScanSummary,
   StartupFlowPhase,
+  SystemBackupStatus,
 } from "../../shared/types.js";
 
 type ScanIssue = { filePath: string; message: string };
@@ -822,17 +823,43 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
         resultEl.textContent = deps.translate("systemExportFailed", {
           message: result.error ?? deps.translate("statusUnknownError"),
         });
+        setSystemTransferButtonsDisabled(false);
         return;
       }
-      resultEl.textContent = deps.translate("systemExportDone", {
+      resultEl.textContent = deps.translate("systemExportStartedBackground", {
         path: result.path,
       });
     } catch (error) {
       resultEl.textContent = deps.translate("systemExportFailed", {
         message: error instanceof Error ? error.message : deps.translate("statusUnknownError"),
       });
-    } finally {
       setSystemTransferButtonsDisabled(false);
+    }
+  };
+
+  const handleSystemBackupStatus = (status: SystemBackupStatus) => {
+    const resultEl = deps.elements.systemTransferResult;
+    if (!resultEl) {
+      return;
+    }
+    if (status.state === "running") {
+      resultEl.textContent = deps.translate("systemExportRunningBackground", {
+        path: status.path || "",
+      });
+      setSystemTransferButtonsDisabled(true);
+      return;
+    }
+    setSystemTransferButtonsDisabled(false);
+    if (status.state === "succeeded" && status.path) {
+      resultEl.textContent = deps.translate("systemExportDone", {
+        path: status.path,
+      });
+      return;
+    }
+    if (status.state === "failed") {
+      resultEl.textContent = deps.translate("systemExportFailed", {
+        message: status.error ?? deps.translate("statusUnknownError"),
+      });
     }
   };
 
@@ -884,5 +911,6 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     runClearCachedFiles,
     runExportSystemData,
     runImportSystemData,
+    handleSystemBackupStatus,
   };
 };

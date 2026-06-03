@@ -63,7 +63,7 @@ import {
   getDefaultStylesForRule,
 } from "../shared/playlist-defaults.js";
 import { shouldAutoCenterPlaylist } from "../shared/playlist-autocenter.js";
-import type { DisplayUpdatePayload } from "../shared/types.js";
+import type { DisplayUpdatePayload, SystemBackupStatus } from "../shared/types.js";
 import {
   computeCortinaStartOffsetMs,
   computeElapsedMsForEntry,
@@ -163,6 +163,7 @@ import {
   type StoredPlaylistItem,
   type StoredPlaylistState,
 } from "../shared/playlist-storage.js";
+import { resolveSearchResultTanda } from "../shared/tanda-search-resolution.js";
 import {
   PLAYLIST_EXPORT_VERSION,
   type PlaylistExportManifest,
@@ -1121,6 +1122,7 @@ let openRowMenuId: string | null = null;
 let playlistOpenTandaIndex: number | null = null;
 let tandaEditorHostTab: RightPanelTab = "tanda-designer-tab";
 let searchDiversityRenderInFlight = false;
+let systemBackupStatus: SystemBackupStatus = { state: "idle", path: "" };
 
 type TrackEditorState = {
   track: TrackRow | null;
@@ -4055,10 +4057,7 @@ const playOnChannel = async (
   ) {
     void requestCompressedSource(track, getAudioDynamicsConfig());
   }
-  const source =
-    channel === "main"
-      ? { filePath, compressed: false }
-      : await resolvePlaybackSource(channel, track, filePath, options);
+  const source = await resolvePlaybackSource(channel, track, filePath, options);
   if (isStaleRequest()) {
     return false;
   }
@@ -7437,10 +7436,11 @@ const runSearchForTanda = (tanda: TandaDraft, preferredStyles?: string[]) => {
 };
 
 const resolveTandaForSearch = (tandaId: string) =>
-  resolveTandaDraft(tandaId) ??
-  clipboardTandas.find((item) => item.id === tandaId) ??
-  tandaCache.get(tandaId) ??
-  null;
+  resolveSearchResultTanda({
+    cached: tandaCache.get(tandaId) ?? null,
+    clipboard: clipboardTandas.find((item) => item.id === tandaId) ?? null,
+    draft: tandaDrafts.find((item) => item.id === tandaId) ?? null,
+  });
 
 const renderTandaRow = (
   tanda: TandaDraft,
@@ -7802,7 +7802,7 @@ const renderTandaSearchResults = () => {
   const duplicateIndex = buildPlaylistDuplicateIndexFromState();
   const sizeFilter = getTandaSearchSizeFilter();
   const filtered = sizeFilter
-    ? tandaSearchResults.filter((row) => row.slot_count === sizeFilter)
+    ? tandaSearchResults.filter((row) => row.track_count === sizeFilter)
     : tandaSearchResults;
   searchTandasEl.innerHTML = "";
   if (filtered.length === 0) {
@@ -7812,13 +7812,17 @@ const renderTandaSearchResults = () => {
   }
   filtered.forEach((tanda) => {
     const draft =
-      resolveTandaDraft(tanda.id) ??
+      resolveSearchResultTanda({
+        cached: tandaCache.get(tanda.id) ?? null,
+        clipboard: clipboardTandas.find((item) => item.id === tanda.id) ?? null,
+        draft: tandaDrafts.find((item) => item.id === tanda.id) ?? null,
+      }) ??
       ({
         id: tanda.id,
         name: tanda.name,
         styles: tanda.styles,
         rating: tanda.rating,
-        trackSlots: Array.from({ length: tanda.slot_count }, () => null),
+        trackSlots: Array.from({ length: tanda.track_count }, () => null),
       } as TandaDraft);
     searchTandasEl.appendChild(
       renderTandaRow(draft, "search", tanda.name, { duplicateIndex }),
@@ -8353,7 +8357,6 @@ const applyStoredPlaylistState = async (storedState: StoredPlaylistState) => {
         origin: "playlist",
       };
       ensureTandaDraft(hydrated, "playlist");
-      tandaCache.set(hydrated.id, cloneTanda(hydrated));
       return { kind: "tanda", tandaId: hydrated.id, mismatch: item.mismatch };
     }
     const tanda = tandaMap.get(item.id);
@@ -13902,7 +13905,56 @@ const renderRoots = async () => {
     path.className = "path";
     path.textContent = root.path;
     path.title = root.path;
-    row.append(label, kind, status, path);
+    const removeBtn = document.createElement("button");
+    removeBtn.textContent = t("removeRootButton");
+    removeBtn.addEventListener("click", async () => {
+      const preview = await window.tanda?.getRootRemovalPreview(root.id);
+      if (!preview) {
+        return;
+      }
+      const confirmed = await showConfirmModal(
+        t("confirmRemoveRoot", {
+          kind:
+            preview.kind === "music"
+              ? t("rootMusic")
+              : preview.kind === "cortina"
+                ? t("rootCortina")
+                : t("rootBackground"),
+          path: preview.path,
+          tracks: preview.trackCount,
+          tandas: preview.tandaCount,
+          playlists: preview.playlistCount,
+        }),
+        t("removeRootButton"),
+      );
+      if (!confirmed) {
+        return;
+      }
+      const result = await window.tanda?.removeRoot(root.id);
+      if (!result?.removed) {
+        return;
+      }
+      trackCache.clear();
+      tandaCache.clear();
+      await renderRoots();
+      await loadStyles();
+      await loadTandaDrafts();
+      await loadCortinaSets();
+      await refreshNewCollectionTracks();
+      await refreshSearch();
+      await renderDiagnosticsDataReadiness();
+      renderClipboard();
+      renderPlaylist();
+      renderAllLists();
+      setStatus(
+        t("statusRootRemoved", {
+          path: result.path,
+          tracks: result.trackCount,
+          tandas: result.tandaCount,
+        }),
+      );
+    });
+    row.append(label, kind, status, path, removeBtn);
     rootList.appendChild(row);
   });
 };
@@ -14071,6 +14123,12 @@ const init = async () => {
       renderAllLists();
       updateNowPlayingDisplay();
     },
+  });
+  systemBackupStatus = await window.tanda.getSystemBackupStatus();
+  settingsLibraryController.handleSystemBackupStatus(systemBackupStatus);
+  window.tanda.onSystemBackupStatus((status) => {
+    systemBackupStatus = status;
+    settingsLibraryController.handleSystemBackupStatus(status);
   });
   const settingsPlaylistController = createSettingsPlaylistController({
     storage: localStorage,
@@ -14635,7 +14693,11 @@ const init = async () => {
         const isHeadphonePlaying =
           playback.headphone.active && !playback.headphone.active.paused;
         const isMainPlaying = playback.main.active && !playback.main.active.paused;
-        return !!isHeadphonePlaying || !!isMainPlaying;
+        return (
+          !!isHeadphonePlaying ||
+          !!isMainPlaying ||
+          systemBackupStatus.state === "running"
+        );
       },
     },
     actions: {
@@ -14903,9 +14965,16 @@ const init = async () => {
     const isHeadphonePlaying =
       playback.headphone.active && !playback.headphone.active.paused;
     const isMainPlaying = playback.main.active && !playback.main.active.paused;
-    if (isHeadphonePlaying || isMainPlaying) {
+    const backupRunning = systemBackupStatus.state === "running";
+    if (isHeadphonePlaying || isMainPlaying || backupRunning) {
+      const message =
+        isHeadphonePlaying || isMainPlaying
+          ? backupRunning
+            ? t("confirmCloseWhilePlayingAndBackupRunning")
+            : t("confirmCloseWhilePlaying")
+          : t("confirmCloseWhileBackupRunning");
       void showConfirmModal(
-        t("confirmCloseWhilePlaying"),
+        message,
         t("closeApp"),
       ).then((confirmClose) => {
         if (!confirmClose) {
@@ -15531,6 +15600,8 @@ const init = async () => {
     }
     resetPlaylistRuntimeStateForImport();
     const applied = await applyStoredPlaylistState(result.state);
+    playlistSaveSnapshot = "";
+    savePlaylistToStorage();
     renderPlaylist();
     renderAllLists();
     updateNowPlayingDisplay();

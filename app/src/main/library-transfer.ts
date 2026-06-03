@@ -283,7 +283,7 @@ const buildStoredStateFromPlaylistManifest = (
   maps: TrackLookupMaps,
 ) => {
   const warnings: string[] = [];
-  const items: StoredPlaylistItem[] = manifest.items.map((item) => {
+  const items: StoredPlaylistItem[] = manifest.items.map((item, index) => {
     if (!item) {
       return null;
     }
@@ -311,12 +311,13 @@ const buildStoredStateFromPlaylistManifest = (
       warnings.push(`Skipped tanda with no matching tracks: ${item.name}`);
       return null;
     }
+    const snapshotId = `imported-${index + 1}-${sanitizePathSegment(item.name) || "tanda"}`;
     return {
       kind: "tanda",
-      id: `imported-${item.name}`,
+      id: snapshotId,
       mismatch: item.mismatch,
       snapshot: {
-        id: `imported-${item.name}`,
+        id: snapshotId,
         name: item.name,
         styles: [...item.styles],
         rating: item.rating,

@@ -8,6 +8,7 @@ import {
   isValidSystemBackupManifest,
   restoreSystemBackup,
   writeSystemBackup,
+  writeSystemBackupAsync,
 } from "../app/src/main/system-transfer";
 
 describe("system transfer helpers", () => {
@@ -59,6 +60,12 @@ describe("system transfer helpers", () => {
     fs.writeFileSync(path.join(sourceRoot, "tanda-player.db"), "db", "utf-8");
     fs.mkdirSync(path.join(sourceRoot, "waveforms"), { recursive: true });
     fs.writeFileSync(path.join(sourceRoot, "waveforms", "track-a.png"), "png", "utf-8");
+    fs.mkdirSync(path.join(sourceRoot, "playable-audio-cache"), { recursive: true });
+    fs.writeFileSync(
+      path.join(sourceRoot, "playable-audio-cache", "track-a.wav"),
+      "wav",
+      "utf-8",
+    );
     fs.mkdirSync(path.join(sourceRoot, "DawnCache"), { recursive: true });
     fs.writeFileSync(path.join(sourceRoot, "DawnCache", "data_0"), "cache", "utf-8");
 
@@ -71,7 +78,41 @@ describe("system transfer helpers", () => {
 
     expect(fs.existsSync(path.join(exportRoot, "tanda-player.db"))).toBe(true);
     expect(fs.existsSync(path.join(exportRoot, "waveforms", "track-a.png"))).toBe(true);
+    expect(fs.existsSync(path.join(exportRoot, "playable-audio-cache", "track-a.wav"))).toBe(true);
     expect(fs.existsSync(path.join(exportRoot, "DawnCache"))).toBe(false);
+  });
+
+  it("exports managed app data asynchronously with progress updates", async () => {
+    const sourceRoot = createTempDir("tanda-system-source-async");
+    const exportRoot = path.join(createTempDir("tanda-system-export-parent-async"), "backup");
+    fs.writeFileSync(path.join(sourceRoot, "tanda-player.db"), "db", "utf-8");
+    fs.mkdirSync(path.join(sourceRoot, "playable-audio-cache"), { recursive: true });
+    fs.writeFileSync(
+      path.join(sourceRoot, "playable-audio-cache", "track-a.wav"),
+      "wav",
+      "utf-8",
+    );
+    const progress: string[] = [];
+
+    await writeSystemBackupAsync(
+      sourceRoot,
+      exportRoot,
+      {
+        format: "tanda-forge-system-backup",
+        version: 1,
+        createdAt: "2026-03-23T10:11:12.345Z",
+        appVersion: "0.3.0",
+      },
+      ({ completed, total, entryName }) => {
+        progress.push(`${completed}/${total}:${entryName}`);
+      },
+    );
+
+    expect(fs.existsSync(path.join(exportRoot, "tanda-player.db"))).toBe(true);
+    expect(fs.existsSync(path.join(exportRoot, "playable-audio-cache", "track-a.wav"))).toBe(true);
+    expect(progress.length).toBe(2);
+    expect(progress.some((entry) => entry.endsWith(":tanda-player.db"))).toBe(true);
+    expect(progress.some((entry) => entry.endsWith(":playable-audio-cache"))).toBe(true);
   });
 
   it("restores only managed app data and leaves runtime cache directories untouched", () => {

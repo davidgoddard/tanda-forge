@@ -161,8 +161,14 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
     values.push(...params.styles);
   }
 
+  where.push("coalesce(tandas.invalid, 0) = 0");
+
   if (params.size && Number.isFinite(params.size) && params.size >= 1) {
-    where.push("coalesce(tandas.slot_count, 0) = ?");
+    where.push(`(
+      select count(*) from tanda_tracks tt
+      join tracks t on t.id = tt.track_id
+      where tt.tanda_id = tandas.id
+    ) = ?`);
     values.push(params.size);
   }
 
@@ -250,7 +256,7 @@ export const searchTandas = (
       .all(row.id)
       .map((style) => (style as { style_name: string }).style_name);
     const trackCount = db
-      .prepare("select count(*) as count from tanda_tracks where tanda_id = ?")
+      .prepare("select count(*) as count from tanda_tracks tt join tracks t on t.id = tt.track_id where tt.tanda_id = ?")
       .get(row.id) as { count: number };
     return {
       id: row.id,

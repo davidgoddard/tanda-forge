@@ -20,6 +20,7 @@ const MANAGED_ROOT_ENTRIES = new Set([
   "tanda-player.db-wal",
   "waveforms",
   "compressed-audio-cache",
+  "playable-audio-cache",
   "renderer-errors.log",
   "playback-diagnostics.log",
 ]);
@@ -72,6 +73,34 @@ export const writeSystemBackup = (
     fs.cpSync(sourcePath, targetPath, { recursive: true, force: true });
   }
   fs.writeFileSync(
+    path.join(exportRoot, SYSTEM_BACKUP_MANIFEST),
+    JSON.stringify(manifest, null, 2),
+    "utf-8",
+  );
+};
+
+export const writeSystemBackupAsync = async (
+  sourceRoot: string,
+  exportRoot: string,
+  manifest: SystemBackupManifest,
+  onProgress?: (progress: { completed: number; total: number; entryName: string }) => void,
+) => {
+  await fs.promises.mkdir(exportRoot, { recursive: true });
+  const entries = await fs.promises.readdir(sourceRoot, { withFileTypes: true });
+  const managedEntries = entries.filter((entry) => shouldTransferManagedEntry(entry.name));
+  let completed = 0;
+  for (const entry of managedEntries) {
+    const sourcePath = path.join(sourceRoot, entry.name);
+    const targetPath = path.join(exportRoot, entry.name);
+    await fs.promises.cp(sourcePath, targetPath, { recursive: true, force: true });
+    completed += 1;
+    onProgress?.({
+      completed,
+      total: managedEntries.length,
+      entryName: entry.name,
+    });
+  }
+  await fs.promises.writeFile(
     path.join(exportRoot, SYSTEM_BACKUP_MANIFEST),
     JSON.stringify(manifest, null, 2),
     "utf-8",

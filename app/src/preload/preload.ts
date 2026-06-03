@@ -10,6 +10,9 @@ const api: AppApi = {
   addRoot: async (kind, rootPath) =>
     ipcRenderer.invoke("library:addRoot", kind, rootPath),
   listRoots: async () => ipcRenderer.invoke("library:listRoots"),
+  getRootRemovalPreview: async (rootId) =>
+    ipcRenderer.invoke("library:getRootRemovalPreview", rootId),
+  removeRoot: async (rootId) => ipcRenderer.invoke("library:removeRoot", rootId),
   detectLegacy: async (path) => ipcRenderer.invoke("legacy:detect", path),
   importLegacy: async (rootPath) => ipcRenderer.invoke("legacy:import", rootPath),
   listLegacyStyles: async (rootPath) =>
@@ -40,6 +43,16 @@ const api: AppApi = {
   resetDatabase: async () => ipcRenderer.invoke("app:resetDatabase"),
   clearCachedFiles: async () => ipcRenderer.invoke("app:clearCachedFiles"),
   exportSystemData: async () => ipcRenderer.invoke("app:exportSystemData"),
+  getSystemBackupStatus: async () => ipcRenderer.invoke("app:getSystemBackupStatus"),
+  onSystemBackupStatus: (handler) => {
+    const listener = (_event: Electron.IpcRendererEvent, status: unknown) => {
+      handler(status as never);
+    };
+    ipcRenderer.on("app:systemBackupStatus", listener);
+    return () => {
+      ipcRenderer.removeListener("app:systemBackupStatus", listener);
+    };
+  },
   importSystemData: async () => ipcRenderer.invoke("app:importSystemData"),
   exportTandasData: async () => ipcRenderer.invoke("app:exportTandasData"),
   exportPlaylistData: async (manifest) => ipcRenderer.invoke("app:exportPlaylistData", manifest),
@@ -148,6 +161,8 @@ const api: AppApi = {
     ipcRenderer.invoke("app:logClientError", params),
   toggleFullscreen: async () => ipcRenderer.invoke("app:toggleFullscreen"),
   seedE2eData: async (payload) => ipcRenderer.invoke("e2e:seedData", payload),
+  setE2eDialogResponses: async (payload) =>
+    ipcRenderer.invoke("e2e:setDialogResponses", payload),
 };
 
 contextBridge.exposeInMainWorld("tanda", api);

@@ -8607,3 +8607,42 @@
   - In `app/src/renderer/styles.css`, `#track-editor .modal-card` now uses `background-clip: padding-box`, `clip-path: inset(0 round 20px)`, and `isolation: isolate` in addition to `overflow: hidden`.
   - This prevents the dark square corner artifacts still visible in lighter themes around the rounded edit-track popup.
   - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test`.
+- Fixed AIFF playback on the main output path.
+  - In `app/src/renderer/renderer.ts`, normal main-channel playback no longer bypasses `resolvePlaybackSource(...)`; it now uses the same compatible-source resolution path as other output routes.
+  - This was the real reason AIFF/AIF tracks still did nothing when clicked: the render-to-WAV compatibility path existed, but main playback skipped it and tried to play the original AIFF directly.
+  - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`91` files, `454` tests).
+- Fixed the real non-modal track editor corner artifact.
+  - In `app/src/renderer/styles.css`, `#track-editor.non-modal` and `#track-editor.non-modal.open` now explicitly keep a transparent background and disable the backdrop filter.
+  - The visible square corners were coming from the non-modal editor container inheriting the generic `#track-editor.open` dark rectangular backdrop, not from the rounded modal card itself.
+  - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`91` files, `454` tests).
+- Fixed playlist-import tanda identity collisions and tightened tanda-size search semantics.
+  - In `app/src/main/library-transfer.ts`, imported playlist tanda snapshots now get unique IDs per item (`imported-<index>-<slug>`) instead of reusing `imported-<name>`, which could cause distinct imported tandas with the same name to overwrite each other in the renderer cache and then appear as duplicates.
+  - In `app/src/main/library/tandas.ts`, tanda search now excludes `invalid` tandas and applies the size filter to the count of currently resolvable track rows (`tanda_tracks` joined to `tracks`), rather than raw slot count.
+  - In `app/src/renderer/renderer.ts`, tanda search fallback filtering now uses `track_count`, and placeholder drafts use `track_count` for slot length.
+  - Added regressions in `tests/library-transfer.test.ts` and `tests/tanda-search.test.ts`.
+  - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`91` files, `455` tests).
+- Added end-to-end playlist round-trip coverage for a 4-hour tanda playlist.
+  - Added a Playwright Electron workflow in `tests/e2e/workflows.e2e.ts` that builds a playlist exceeding four hours from seeded tandas, exports it to JSON, clears the playlist, re-imports the file, and verifies the normalized imported playlist content matches the pre-export content.
+  - Added a test-only dialog override hook via `e2e:setDialogResponses` in `app/src/main/main.ts`, `app/src/preload/preload.ts`, and `app/src/shared/types.ts` so Playwright can drive native import/export flows without manual file pickers.
+  - Fixed playlist import persistence in `app/src/renderer/renderer.ts` by forcing a storage write after `applyStoredPlaylistState(...)` during import; previously the imported playlist could exist only in memory because `playlistSaveSnapshot` suppressed the subsequent write.
+  - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test`; `source ~/.nvm/nvm.sh && npx playwright test tests/e2e/workflows.e2e.ts -g "playlist export/import round-trip preserves a 4-hour tanda playlist"`.
+- Removed the generic dark editor backdrop from `#track-editor.open`.
+  - In `app/src/renderer/styles.css`, `#track-editor.open` now uses `background: transparent`.
+  - This removes the dark rectangular overlay that was still visible as square corners around the rounded edit-track popup in light themes.
+- Isolated playlist snapshots from tanda search rendering.
+  - In `app/src/renderer/renderer.ts`, stored playlist snapshots no longer overwrite `tandaCache` during playlist hydration.
+  - Search tanda resolution now prefers canonical cached library tandas over clipboard/draft snapshots with the same id, so a real 3-track tanda no longer expands as `Empty slot` because of a stale playlist snapshot.
+  - Added `app/src/shared/tanda-search-resolution.ts` and `tests/tanda-search-resolution.test.ts`.
+- Added background system-backup export and AIFF playable-cache warming.
+  - `app/src/main/system-transfer.ts` now includes `playable-audio-cache` in managed backup entries and exposes async backup writing via `writeSystemBackupAsync(...)`.
+  - `app/src/main/main.ts` now starts system export as a background job, publishes `app:systemBackupStatus`, blocks system import while backup export is running, and warns before app close if a backup is still running.
+  - `app/src/main/main.ts` also schedules best-effort background warming of AIFF/AIF playable WAV renders after startup, scans, startup flow completion, legacy import, and system restore, while keeping the existing on-demand render path as fallback.
+  - `app/src/renderer/controllers/settings-library-controller.ts` now renders background backup status in Settings, and `app/src/renderer/renderer.ts` now subscribes to backup status and includes backup-running in close/unload guards.
+  - Added coverage in `tests/system-transfer.test.ts`.
+## 2026-06-03 — Explicit library-root removal
+
+- Added a `Remove` action beside configured roots in **Settings -> Library**.
+- Removal now shows a confirmation dialog with affected track, tanda, and playlist counts.
+- Confirmed removal deletes that root's scanned tracks from the library database.
+- Tandas and playlists that depended on those tracks are marked invalid rather than silently rewritten.
+- Added unit coverage for preview counting and invalidation behavior.

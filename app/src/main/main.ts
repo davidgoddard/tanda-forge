@@ -79,6 +79,7 @@ import {
   saveTanda,
   searchTandas,
 } from "./library/tandas";
+import { getRootRemovalPreview, removeLibraryRoot } from "./library/root-removal";
 import {
   detectLegacyFromRoots,
   detectLegacyRoot,
@@ -97,9 +98,10 @@ import {
   readSystemBackupManifest,
   restoreSystemBackup,
   SYSTEM_BACKUP_VERSION,
-  writeSystemBackup,
+  writeSystemBackupAsync,
 } from "./system-transfer";
-import type { StartupFlowPhase } from "../shared/types";
+import type { StartupFlowPhase, SystemBackupStatus } from "../shared/types";
+import { requiresPlaybackTranscode } from "../shared/audio-playback-source";
 import {
   buildPlaylistExportFileName,
   buildTandasExportFileName,
@@ -145,6 +147,34 @@ const playableRenderInFlight = new Map<string, Promise<string>>();
 const MAX_CONCURRENT_COMPRESSED_RENDERS = 1;
 let activeCompressedRenderCount = 0;
 const compressedRenderWaiters: Array<() => void> = [];
+let e2eDialogSaveFilePaths: string[] = [];
+let e2eDialogOpenFilePaths: string[] = [];
+let systemBackupStatus: SystemBackupStatus = { state: "idle", path: "" };
+let systemBackupPromise: Promise<void> | null = null;
+let playableWarmupTimer: NodeJS.Timeout | null = null;
+let playableWarmupInFlight = false;
+
+const consumeE2ESaveDialogResult = () => {
+  if (process.env.NODE_ENV !== "test") {
+    return null;
+  }
+  const filePath = e2eDialogSaveFilePaths.shift();
+  if (!filePath) {
+    return null;
+  }
+  return { canceled: false, filePath };
+};
+
+const consumeE2EOpenDialogResult = () => {
+  if (process.env.NODE_ENV !== "test") {
+    return null;
+  }
+  const filePath = e2eDialogOpenFilePaths.shift();
+  if (!filePath) {
+    return null;
+  }
+  return { canceled: false, filePaths: [filePath] };
+};
 
 const acquireCompressedRenderSlot = async () => {
   if (activeCompressedRenderCount < MAX_CONCURRENT_COMPRESSED_RENDERS) {
@@ -236,6 +266,137 @@ const getCompressedCacheOutputPath = (
 
 const getPlayableCacheOutputPath = (filePath: string, stat: fs.Stats) =>
   buildPlayableCachePath(getPlayableCacheDir(), filePath, stat);
+
+const broadcastSystemBackupStatus = () => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    if (!window.isDestroyed()) {
+      window.webContents.send("app:systemBackupStatus", systemBackupStatus);
+    }
+  });
+};
+
+const setSystemBackupStatus = (next: SystemBackupStatus) => {
+  systemBackupStatus = next;
+  broadcastSystemBackupStatus();
+};
+
+const hasRunningSystemBackup = () => systemBackupStatus.state === "running";
+
+const ensurePlayableTrackRendered = async (filePath: string) => {
+  const stat = fs.statSync(filePath);
+  const cacheKey = buildPlayableCacheKey(filePath, stat);
+  const cacheDir = getPlayableCacheDir();
+  const outputPath = getPlayableCacheOutputPath(filePath, stat);
+  fs.mkdirSync(cacheDir, { recursive: true });
+  if (hasUsableCompressedRender(outputPath)) {
+    return outputPath;
+  }
+  fs.rmSync(outputPath, { force: true });
+  const existing = playableRenderInFlight.get(cacheKey);
+  if (existing) {
+    return await existing;
+  }
+  const renderPromise = (async () => {
+    await runWithCompressedRenderSlot(async () => {
+      await renderPlayableAudio(filePath, outputPath);
+    });
+    return outputPath;
+  })();
+  playableRenderInFlight.set(cacheKey, renderPromise);
+  try {
+    return await renderPromise;
+  } finally {
+    playableRenderInFlight.delete(cacheKey);
+  }
+};
+
+const getPlayableWarmupCandidates = () => {
+  const db = getDb();
+  const rows = db
+    .prepare("select full_path from tracks")
+    .all() as Array<{ full_path: string }>;
+  return rows
+    .map((row) => row.full_path)
+    .filter((filePath) => {
+      if (!filePath || !requiresPlaybackTranscode(filePath) || !fs.existsSync(filePath)) {
+        return false;
+      }
+      try {
+        const stat = fs.statSync(filePath);
+        return !hasUsableCompressedRender(getPlayableCacheOutputPath(filePath, stat));
+      } catch {
+        return false;
+      }
+    });
+};
+
+const runPlayableWarmupPass = async () => {
+  if (playableWarmupInFlight) {
+    return;
+  }
+  playableWarmupInFlight = true;
+  try {
+    const candidates = getPlayableWarmupCandidates();
+    for (const filePath of candidates) {
+      try {
+        await ensurePlayableTrackRendered(filePath);
+      } catch {
+        // Keep warmup best-effort; on-demand playback remains the fallback.
+      }
+    }
+  } finally {
+    playableWarmupInFlight = false;
+  }
+};
+
+const schedulePlayableWarmup = (delayMs = 15000) => {
+  if (playableWarmupTimer) {
+    clearTimeout(playableWarmupTimer);
+  }
+  playableWarmupTimer = setTimeout(() => {
+    playableWarmupTimer = null;
+    void runPlayableWarmupPass();
+  }, delayMs);
+};
+
+const startSystemBackupExport = async (exportRoot: string) => {
+  if (hasRunningSystemBackup()) {
+    return { ok: false as const, error: "System backup already running" };
+  }
+  const createdAt = new Date().toISOString();
+  setSystemBackupStatus({
+    state: "running",
+    path: exportRoot,
+    startedAt: createdAt,
+  });
+  systemBackupPromise = (async () => {
+    try {
+      await writeSystemBackupAsync(getDataRoot(), exportRoot, {
+        format: "tanda-forge-system-backup",
+        version: SYSTEM_BACKUP_VERSION,
+        createdAt,
+        appVersion: app.getVersion(),
+      });
+      setSystemBackupStatus({
+        state: "succeeded",
+        path: exportRoot,
+        startedAt: createdAt,
+        completedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      setSystemBackupStatus({
+        state: "failed",
+        path: exportRoot,
+        startedAt: createdAt,
+        completedAt: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "System backup failed",
+      });
+    } finally {
+      systemBackupPromise = null;
+    }
+  })();
+  return { ok: true as const };
+};
 
 const detectCortinaSetsFromRoot = (rootPath: string) => {
   const sets = new Set<string>();
@@ -727,16 +888,24 @@ const registerIpc = () => {
       result.filePaths[0],
       buildSystemBackupFolderName(createdAt),
     );
-    writeSystemBackup(getDataRoot(), exportRoot, {
-      format: "tanda-forge-system-backup",
-      version: SYSTEM_BACKUP_VERSION,
-      createdAt,
-      appVersion: app.getVersion(),
-    });
-    return { ok: true, cancelled: false, path: exportRoot };
+    const started = await startSystemBackupExport(exportRoot);
+    if (!started.ok) {
+      return { ok: false, cancelled: false, path: exportRoot, error: started.error };
+    }
+    return { ok: true, cancelled: false, path: exportRoot, started: true };
   });
 
+  ipcMain.handle("app:getSystemBackupStatus", async () => systemBackupStatus);
+
   ipcMain.handle("app:importSystemData", async () => {
+    if (hasRunningSystemBackup()) {
+      return {
+        ok: false,
+        cancelled: false,
+        path: systemBackupStatus.path,
+        error: "System backup is still running",
+      };
+    }
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory"],
       title: "Choose System Backup Folder",
@@ -768,12 +937,13 @@ const registerIpc = () => {
     reopenDb();
     loadLegacyOverrides();
     loadFfmpegToolsDir();
+    schedulePlayableWarmup(5000);
     return { ok: true, cancelled: false, path: backupRoot };
   });
 
   ipcMain.handle("app:exportTandasData", async () => {
     const createdAt = new Date().toISOString();
-    const result = await dialog.showSaveDialog({
+    const result = consumeE2ESaveDialogResult() ?? await dialog.showSaveDialog({
       title: "Export Tandas",
       defaultPath: buildTandasExportFileName(createdAt),
       filters: [{ name: "JSON", extensions: ["json"] }],
@@ -789,7 +959,7 @@ const registerIpc = () => {
 
   ipcMain.handle("app:exportPlaylistData", async (_event, manifest: PlaylistExportManifest) => {
     const createdAt = new Date().toISOString();
-    const result = await dialog.showSaveDialog({
+    const result = consumeE2ESaveDialogResult() ?? await dialog.showSaveDialog({
       title: "Save Playlist",
       defaultPath: buildPlaylistExportFileName(createdAt),
       filters: [
@@ -814,7 +984,7 @@ const registerIpc = () => {
   });
 
   ipcMain.handle("app:importPlaylistData", async () => {
-    const result = await dialog.showOpenDialog({
+    const result = consumeE2EOpenDialogResult() ?? await dialog.showOpenDialog({
       title: "Import Playlist",
       properties: ["openFile"],
       filters: [
@@ -873,6 +1043,20 @@ const registerIpc = () => {
     }));
   });
 
+  ipcMain.handle("library:getRootRemovalPreview", async (_event, rootId: string) => {
+    const db = getDb();
+    return getRootRemovalPreview(db, rootId);
+  });
+
+  ipcMain.handle("library:removeRoot", async (_event, rootId: string) => {
+    const db = getDb();
+    const result = removeLibraryRoot(db, rootId);
+    if (result?.kind === "music" || result?.kind === "cortina") {
+      schedulePlayableWarmup(5000);
+    }
+    return result;
+  });
+
   ipcMain.handle("legacy:detect", async (_event, candidatePath?: string | null) => {
     if (candidatePath) {
       const detected = detectLegacyRoot(candidatePath);
@@ -899,6 +1083,7 @@ const registerIpc = () => {
     const result = await importLegacyData(rootPath, roots, { waveformsDir });
     legacyOverridesByRootId = result.overridesByRootId;
     saveLegacyOverrides();
+    schedulePlayableWarmup(5000);
     return {
       tandasImported: result.tandasImported,
       tracksUpdated: result.tracksUpdated,
@@ -983,6 +1168,7 @@ const registerIpc = () => {
 
     try {
       const summary = await runScan(scanRoots);
+      schedulePlayableWarmup(5000);
       const completedAt = new Date().toISOString();
       db.prepare(
         "update library_roots set last_scan_completed_at = ? where kind in ('music','cortina')",
@@ -1019,6 +1205,7 @@ const registerIpc = () => {
     ).run(startedAt, kind);
     try {
       const summary = await runScan(roots);
+      schedulePlayableWarmup(5000);
       const completedAt = new Date().toISOString();
       db.prepare(
         "update library_roots set last_scan_completed_at = ? where kind = ?",
@@ -1125,6 +1312,7 @@ const registerIpc = () => {
             : { scanned: 0, added: 0, updated: 0, removed: 0, errors: [] };
         pushStartupFlowPhase("compression");
         const precompute = await precomputeCompressedTracksWithProgress(_event.sender, params);
+        schedulePlayableWarmup(5000);
         pushStartupFlowPhase("complete");
         return {
           ok: true,
@@ -1968,43 +2156,15 @@ const registerIpc = () => {
           return { ok: false, error: "Track file not found" };
         }
         const stat = fs.statSync(params.filePath);
-        const cacheKey = buildPlayableCacheKey(params.filePath, stat);
-        const cacheDir = getPlayableCacheDir();
         const outputPath = getPlayableCacheOutputPath(params.filePath, stat);
-        fs.mkdirSync(cacheDir, { recursive: true });
-        if (hasUsableCompressedRender(outputPath)) {
-          return { ok: true, filePath: outputPath, cached: true };
-        }
-        fs.rmSync(outputPath, { force: true });
-        const existing = playableRenderInFlight.get(cacheKey);
-        if (existing) {
-          const filePath = await existing;
-          return { ok: true, filePath, cached: true };
-        }
-        const renderPromise = (async () => {
-          await runWithCompressedRenderSlot(async () => {
-            await renderPlayableAudio(params.filePath, outputPath);
-          });
-          return outputPath;
-        })();
-        playableRenderInFlight.set(cacheKey, renderPromise);
-        const filePath = await renderPromise;
-        return { ok: true, filePath, cached: false };
+        const cached = hasUsableCompressedRender(outputPath);
+        const filePath = await ensurePlayableTrackRendered(params.filePath);
+        return { ok: true, filePath, cached };
       } catch (error) {
         return {
           ok: false,
           error: error instanceof Error ? error.message : "Playable render failed",
         };
-      } finally {
-        if (params?.filePath && fs.existsSync(params.filePath)) {
-          try {
-            const stat = fs.statSync(params.filePath);
-            const cacheKey = buildPlayableCacheKey(params.filePath, stat);
-            playableRenderInFlight.delete(cacheKey);
-          } catch {
-            // Ignore cleanup errors.
-          }
-        }
       }
     },
   );
@@ -2260,6 +2420,22 @@ const registerIpc = () => {
     return { ok: true };
   });
 
+  ipcMain.handle("e2e:setDialogResponses", async (_event, payload: {
+    saveFilePaths?: string[];
+    openFilePaths?: string[];
+  }) => {
+    if (process.env.NODE_ENV !== "test") {
+      throw new Error("e2e dialog overrides are only available in test mode");
+    }
+    e2eDialogSaveFilePaths = Array.isArray(payload?.saveFilePaths)
+      ? payload.saveFilePaths.filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+    e2eDialogOpenFilePaths = Array.isArray(payload?.openFilePaths)
+      ? payload.openFilePaths.filter((value): value is string => typeof value === "string" && value.length > 0)
+      : [];
+    return { ok: true };
+  });
+
   ipcMain.handle("e2e:seedData", async (_event, payload: E2ESeedPayload) => {
     if (process.env.NODE_ENV !== "test") {
       throw new Error("e2e seeding is only available in test mode");
@@ -2479,6 +2655,7 @@ app.whenReady().then(() => {
   configureSessionPermissions();
   registerIpc();
   createWindow();
+  schedulePlayableWarmup();
 });
 
 app.on("activate", () => {

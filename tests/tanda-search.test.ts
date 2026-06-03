@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { buildTandaSearchWhere } from "../app/src/main/library/tandas";
 
 describe("tanda search helpers", () => {
-  it("returns empty where when no filters", () => {
+  it("returns the baseline valid-tanda filter when no filters", () => {
     const result = buildTandaSearchWhere({ query: "", styles: [], size: null });
-    expect(result.whereSql).toBe("");
+    expect(result.whereSql).toBe("where coalesce(tandas.invalid, 0) = 0");
     expect(result.values).toEqual([]);
   });
 
@@ -59,13 +59,15 @@ describe("tanda search helpers", () => {
     expect(result.values.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("adds slot-count filtering when a tanda size is requested", () => {
+  it("filters out invalid tandas and matches requested actual track count", () => {
     const result = buildTandaSearchWhere({
       query: "",
       styles: [],
       size: 4,
     });
-    expect(result.whereSql).toContain("coalesce(tandas.slot_count, 0) = ?");
+    expect(result.whereSql).toContain("coalesce(tandas.invalid, 0) = 0");
+    expect(result.whereSql).toContain("select count(*) from tanda_tracks tt");
+    expect(result.whereSql).toContain("join tracks t on t.id = tt.track_id");
     expect(result.values).toEqual([4]);
   });
 });

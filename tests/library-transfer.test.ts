@@ -183,6 +183,7 @@ describe("playlist file import", () => {
       format: "tanda-forge-playlist",
       state: {
         version: 2,
+        cortinaSet: undefined,
         items: [{ kind: "track", id: "track-a" }],
         cortinaAssignments: [],
       },
@@ -213,6 +214,87 @@ describe("playlist file import", () => {
     });
   });
 
+
+  it("assigns unique imported snapshot ids for tandas with the same name", () => {
+    const { db, tempDir, absoluteTrack } = createFixture();
+    const manifest: PlaylistExportManifest = {
+      format: "tanda-forge-playlist",
+      version: PLAYLIST_EXPORT_VERSION,
+      createdAt: "2026-03-23T10:11:12.345Z",
+      appVersion: "0.1.1",
+      items: [
+        {
+          kind: "tanda",
+          name: "Same Name",
+          styles: ["Tango"],
+          rating: 0,
+          instrumental: false,
+          trackRefs: [
+            {
+              fullPath: absoluteTrack,
+              relativePath: "Tango/song-a.mp3",
+              title: "Song A",
+              artist: "Artist A",
+            },
+          ],
+        },
+        {
+          kind: "tanda",
+          name: "Same Name",
+          styles: ["Tango"],
+          rating: 0,
+          instrumental: false,
+          trackRefs: [
+            {
+              fullPath: absoluteTrack,
+              relativePath: "Tango/song-a.mp3",
+              title: "Song A",
+              artist: "Artist A",
+            },
+          ],
+        },
+      ],
+    };
+    const jsonPath = path.join(tempDir, "playlist-same-name.json");
+    fs.writeFileSync(jsonPath, JSON.stringify(manifest, null, 2), "utf-8");
+
+    expect(importPlaylistFile(db as never, jsonPath)).toEqual({
+      format: "tanda-forge-playlist",
+      state: {
+        version: 2,
+        items: [
+          {
+            kind: "tanda",
+            id: "imported-1-Same-Name",
+            mismatch: undefined,
+            snapshot: {
+              id: "imported-1-Same-Name",
+              name: "Same Name",
+              styles: ["Tango"],
+              rating: 0,
+              trackSlots: ["track-a"],
+              totalDurationMs: 0,
+            },
+          },
+          {
+            kind: "tanda",
+            id: "imported-2-Same-Name",
+            mismatch: undefined,
+            snapshot: {
+              id: "imported-2-Same-Name",
+              name: "Same Name",
+              styles: ["Tango"],
+              rating: 0,
+              trackSlots: ["track-a"],
+              totalDurationMs: 0,
+            },
+          },
+        ],
+        cortinaAssignments: [],
+      },
+      warnings: [],
+    });
+  });
   it("imports grouped m3u entries as tanda snapshots", () => {
     const { tempDir, absoluteTrack } = createFixture();
     const rows = [

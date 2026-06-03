@@ -14,6 +14,7 @@ identified as `FR-<section>.R<n>` in order under each section. Sub-bullets use
 - FR-001.1.R3: The system flags missing or unavailable roots on startup and during use.
 - FR-001.1.R4: Added, removed, and changed files are detected incrementally where possible.
 - FR-001.1.R5: File identity must be stable across rescans (e.g. path + content hash).
+- FR-001.1.R6: Configured library roots may be removed explicitly by the user, but removal must require confirmation and must delete that root's tracks from the library database while marking dependent tandas and playlists invalid.
 
 ### FR-001.2 Background Analysis (Per Track)
 During discovery or re-analysis, the system performs background tasks:
@@ -69,6 +70,8 @@ Analysis:
   active data root.
 - FR-001.5.R4: Importing a system backup must require explicit confirmation
   because it replaces current application data.
+- FR-001.5.R5: System backup export must be allowed to run in the background,
+  and the app must warn before closing while that export is still running.
 
 ---
 

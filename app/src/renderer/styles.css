@@ -2179,6 +2179,8 @@ body.theme-dark-green .settings-panel {
 #track-editor.non-modal {
   top: clamp(72px, 10vh, 120px);
   max-height: calc(100vh - clamp(72px, 10vh, 120px) - 16px);
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .modal.non-modal.open {
@@ -2205,7 +2207,12 @@ body.theme-dark-green .settings-panel {
 }
 
 #track-editor.open {
-  background: rgba(8, 10, 14, 0.62);
+  background: transparent;
+}
+
+#track-editor.non-modal.open {
+  background: transparent;
+  backdrop-filter: none;
 }
 
 #track-editor .modal-card {
@@ -3303,7 +3310,7 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
 
 .root-row {
   display: grid;
-  grid-template-columns: 1fr 0.8fr 0.8fr 2fr;
+  grid-template-columns: 1fr 0.8fr 0.8fr 2fr auto;
   gap: 0.6rem;
   padding: 0.6rem 0.8rem;
   background: var(--accent-soft);

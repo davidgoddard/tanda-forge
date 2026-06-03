@@ -194,6 +194,74 @@ const ensurePlaylistTab = async (page: Page) => {
   await expect(page.locator('button[data-tab="playlist-tab"]')).toHaveClass(/active/);
 };
 
+const getNormalizedStoredPlaylistState = async (page: Page) => {
+  return await page.evaluate(() => {
+    const raw = localStorage.getItem("tanda-playlist-items");
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as {
+      items?: Array<
+        | { kind: "track"; id: string }
+        | {
+            kind: "tanda";
+            mismatch?: "style" | "count";
+            snapshot?: {
+              name: string;
+              styles: string[];
+              rating: number;
+              trackSlots: (string | null)[];
+              totalDurationMs?: number;
+            };
+          }
+        | null
+      >;
+      cortinaSet?: string;
+      cortinaAssignments?: Array<{ index: number; trackId: string }>;
+    };
+    return {
+      cortinaSet: parsed.cortinaSet ?? null,
+      cortinaAssignments: Array.isArray(parsed.cortinaAssignments)
+        ? parsed.cortinaAssignments.map((entry) => ({ index: entry.index, trackId: entry.trackId }))
+        : [],
+      items: Array.isArray(parsed.items)
+        ? parsed.items
+            .filter((item) => item !== null)
+            .map((item) => {
+              if (!item) {
+                return null;
+              }
+              if (item.kind === "track") {
+                return { kind: "track", id: item.id };
+              }
+              return {
+                kind: "tanda",
+                mismatch: item.mismatch ?? null,
+                snapshot: item.snapshot
+                  ? {
+                      name: item.snapshot.name,
+                      styles: [...item.snapshot.styles],
+                      rating: item.snapshot.rating,
+                      trackSlots: [...item.snapshot.trackSlots],
+                      totalDurationMs: item.snapshot.totalDurationMs ?? 0,
+                    }
+                  : null,
+              };
+            })
+        : [],
+    };
+  });
+};
+
+const configureE2eDialogResponses = async (
+  page: Page,
+  payload: { saveFilePaths?: string[]; openFilePaths?: string[] },
+) => {
+  await page.evaluate(async (dialogPayload) => {
+    await window.tanda?.setE2eDialogResponses(dialogPayload);
+  }, payload);
+};
+
 const clearPlaylistViaUi = async (page: Page) => {
   await ensurePlaylistTab(page);
   const clearButton = page.locator("#playlist-clear");
@@ -1220,7 +1288,7 @@ test.describe("Electron app end-to-end workflows", () => {
   });
 
   test("02 - shows seeded library roots in settings", async () => {
-    const launched = await launchSeededApp("full");
+    const launched = await launchSeededApp("empty");
     const { page } = launched;
     try {
       await openSettings(page);
@@ -1630,6 +1698,148 @@ test.describe("Electron app end-to-end workflows", () => {
       } else {
         await launched.close();
       }
+    }
+  });
+
+  test("24 - playlist export/import round-trip preserves a 4-hour tanda playlist", async () => {
+    const launched = await launchSeededApp("full");
+    const { page, tempRoot } = launched;
+    try {
+      const customSeed = (() => {
+        const dataRoot = path.join(tempRoot, "data");
+        const musicRoot = path.join(dataRoot, "music");
+        const cortinaRoot = path.join(dataRoot, "cortinas");
+        const backgroundRoot = path.join(dataRoot, "backgrounds");
+        fs.mkdirSync(musicRoot, { recursive: true });
+        fs.mkdirSync(cortinaRoot, { recursive: true });
+        fs.mkdirSync(backgroundRoot, { recursive: true });
+        const tracks = Array.from({ length: 50 }, (_, index) => {
+          const trackId = `rt-${index + 1}`;
+          const relativePath = `roundtrip/set-${String(index + 1).padStart(2, "0")}.mp3`;
+          const fullPath = path.join(musicRoot, relativePath);
+          fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+          fs.writeFileSync(fullPath, "");
+          const stat = fs.statSync(fullPath);
+          return {
+            id: trackId,
+            root_id: "root-music",
+            relative_path: relativePath,
+            full_path: fullPath,
+            file_hash: `hash-${trackId}`,
+            file_size: stat.size,
+            file_mtime_ms: stat.mtimeMs,
+            title: `Roundtrip Track ${index + 1}`,
+            artist: `Artist ${index + 1}`,
+            artist_summary: `Artist ${index + 1}`,
+            album: `Album ${Math.floor(index / 5) + 1}`,
+            album_artist: `Artist ${index + 1}`,
+            singer: "",
+            year: `${1940 + (index % 10)}`,
+            genre: index % 2 === 0 ? "Tango" : "Milonga",
+            bpm: 60 + (index % 20),
+            notes: `note ${index + 1}`,
+            instrumental: index % 3 === 0 ? 1 : 0,
+            duration_ms: 5 * 60 * 1000,
+          } as const;
+        });
+        const tandas = tracks.map((track, index) => ({
+          id: `td-rt-${index + 1}`,
+          name: `Roundtrip Tanda ${String(index + 1).padStart(3, "0")}`,
+          rating: (index % 5) + 1,
+          instrumental: track.instrumental,
+          tracks: [track.id],
+          style: track.genre,
+        }));
+        return {
+          roots: { musicRoot, cortinaRoot, backgroundRoot },
+          styles: ["Tango", "Milonga"],
+          tracks,
+          tandas,
+        };
+      })();
+      await page.evaluate(async (payload) => {
+        await window.tanda?.seedE2eData(payload);
+      }, customSeed);
+      await page.reload();
+      await page.waitForSelector("#search-input");
+      const seededPlaylistState = {
+        version: 2,
+        items: customSeed.tandas.map((tanda) => ({
+          kind: "tanda" as const,
+          id: tanda.id,
+          mismatch: "count",
+          snapshot: {
+            id: tanda.id,
+            name: tanda.name,
+            styles: [tanda.style],
+            rating: tanda.rating,
+            trackSlots: [...tanda.tracks],
+            totalDurationMs: 5 * 60 * 1000,
+          },
+        })),
+        cortinaAssignments: [],
+      };
+      await page.evaluate((state) => {
+        localStorage.setItem("tanda-playlist-items", JSON.stringify(state));
+      }, seededPlaylistState);
+      await page.reload();
+      await page.waitForSelector("#search-input");
+      await ensurePlaylistTab(page);
+
+      const beforeState = await getNormalizedStoredPlaylistState(page);
+      expect(beforeState).not.toBeNull();
+      const populatedItemCount = beforeState?.items.filter((item) => item !== null).length ?? 0;
+      expect(populatedItemCount).toBe(50);
+      const totalDurationMs =
+        beforeState?.items.reduce((sum, item) => {
+          if (!item || item.kind !== "tanda" || !item.snapshot) {
+            return sum;
+          }
+          return sum + (item.snapshot.totalDurationMs ?? 0);
+        }, 0) ?? 0;
+      expect(totalDurationMs).toBeGreaterThanOrEqual(4 * 60 * 60 * 1000);
+
+      const exportPath = path.join(tempRoot, "playlist-roundtrip.json");
+      await configureE2eDialogResponses(page, { saveFilePaths: [exportPath] });
+      await openSettings(page);
+      await page.locator('button[data-tab="playlist"]').click();
+      await page.locator("#playlist-save-button").click();
+      await expect(page.locator("#playlist-transfer-result")).toContainText("playlist-roundtrip.json");
+      await closeSettings(page);
+      expect(fs.existsSync(exportPath)).toBe(true);
+      const exported = JSON.parse(fs.readFileSync(exportPath, "utf-8")) as {
+        items?: Array<
+          | { kind: "track"; track?: { fullPath?: string; relativePath?: string } }
+          | { kind: "tanda"; trackRefs?: Array<{ fullPath?: string; relativePath?: string } | null> }
+          | null
+        >;
+      };
+      expect(Array.isArray(exported.items)).toBe(true);
+      expect(exported.items?.filter((item) => item !== null).length ?? 0).toBe(50);
+      exported.items?.forEach((item) => {
+        if (!item || item.kind !== "tanda") {
+          return;
+        }
+        expect(item.trackRefs?.every((trackRef) => trackRef === null || (Boolean(trackRef.fullPath) && Boolean(trackRef.relativePath)))).toBe(true);
+      });
+
+      await clearPlaylistViaUi(page);
+      await expect(page.locator("#playlist-list .tanda-row")).toHaveCount(0);
+
+      await configureE2eDialogResponses(page, { openFilePaths: [exportPath] });
+      await openSettings(page);
+      await page.locator('button[data-tab="playlist"]').click();
+      await page.locator("#playlist-import-button").click();
+      const importResult = page.locator("#playlist-transfer-result");
+      await expect(importResult).toContainText("Imported");
+      await expect(importResult).not.toContainText("Imported 0 items");
+      await closeSettings(page);
+
+      await expect
+        .poll(async () => await getNormalizedStoredPlaylistState(page))
+        .toEqual(beforeState);
+    } finally {
+      await launched.close();
     }
   });
 
