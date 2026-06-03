@@ -18,11 +18,34 @@ import { parseStoredPlaylistState } from "../shared/playlist-storage";
 const sanitizePathSegment = (value: string) =>
   value.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
 
-const normalizePathForMatch = (value: string) =>
-  path.resolve(value).replace(/\\/g, "/").toLowerCase();
+const normalizeSlashes = (value: string) => value.replace(/\\/g, "/");
+
+const isWindowsAbsolutePath = (value: string) => /^[a-z]:[\\/]/i.test(value);
+
+const isUncPath = (value: string) => /^\\\\|^\/\//.test(value);
+
+const normalizePathForMatch = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (isWindowsAbsolutePath(trimmed) || isUncPath(trimmed)) {
+    return normalizeSlashes(trimmed).toLowerCase();
+  }
+  return normalizeSlashes(path.resolve(trimmed)).toLowerCase();
+};
 
 const normalizeRelativeForMatch = (value: string) =>
   value.replace(/\\/g, "/").replace(/^\/+/, "").toLowerCase();
+
+const normalizeTextForMatch = (value: string | null | undefined) =>
+  (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+
+const buildTrackMetadataKey = (artist: string | null | undefined, title: string | null | undefined) => {
+  const normalizedArtist = normalizeTextForMatch(artist);
+  const normalizedTitle = normalizeTextForMatch(title);
+  return normalizedArtist && normalizedTitle ? `${normalizedArtist}|||${normalizedTitle}` : "";
+};
 
 const buildTimestampSlug = (createdAt: string) =>
   sanitizePathSegment(createdAt.replace(/[:.]/g, "-").toLowerCase()) || "export";
@@ -128,22 +151,65 @@ export const buildTandasExportManifest = (
 type TrackLookupMaps = {
   fullPathToId: Map<string, string>;
   relativePathToIds: Map<string, string[]>;
+  trackRows: Array<{
+    id: string;
+    relativePath: string;
+    metadataKey: string;
+  }>;
+  metadataKeyToIds: Map<string, string[]>;
 };
 
 const buildTrackLookupMaps = (db: Database.Database): TrackLookupMaps => {
   const rows = db
-    .prepare("select id, full_path, relative_path from tracks")
-    .all() as Array<{ id: string; full_path: string; relative_path: string }>;
+    .prepare("select id, full_path, relative_path, title, artist from tracks")
+    .all() as Array<{
+      id: string;
+      full_path: string;
+      relative_path: string;
+      title?: string | null;
+      artist?: string | null;
+    }>;
   const fullPathToId = new Map<string, string>();
   const relativePathToIds = new Map<string, string[]>();
+  const metadataKeyToIds = new Map<string, string[]>();
+  const trackRows: TrackLookupMaps["trackRows"] = [];
   rows.forEach((row) => {
     fullPathToId.set(normalizePathForMatch(row.full_path), row.id);
     const relativeKey = normalizeRelativeForMatch(row.relative_path);
     const existing = relativePathToIds.get(relativeKey) ?? [];
     existing.push(row.id);
     relativePathToIds.set(relativeKey, existing);
+    const metadataKey = buildTrackMetadataKey(row.artist, row.title);
+    if (metadataKey) {
+      const metadataMatches = metadataKeyToIds.get(metadataKey) ?? [];
+      metadataMatches.push(row.id);
+      metadataKeyToIds.set(metadataKey, metadataMatches);
+    }
+    trackRows.push({
+      id: row.id,
+      relativePath: relativeKey,
+      metadataKey,
+    });
   });
-  return { fullPathToId, relativePathToIds };
+  return { fullPathToId, relativePathToIds, trackRows, metadataKeyToIds };
+};
+
+const resolveUniqueSuffixMatch = (
+  targetRelativePath: string,
+  maps: TrackLookupMaps,
+): string | null => {
+  const normalizedTarget = normalizeRelativeForMatch(targetRelativePath);
+  if (!normalizedTarget) {
+    return null;
+  }
+  const matches = maps.trackRows
+    .filter(
+      (row) =>
+        row.relativePath === normalizedTarget ||
+        row.relativePath.endsWith(`/${normalizedTarget}`),
+    )
+    .map((row) => row.id);
+  return matches.length === 1 ? matches[0] : null;
 };
 
 const resolvePortableTrackRef = (
@@ -157,19 +223,34 @@ const resolvePortableTrackRef = (
   const relativeMatches = maps.relativePathToIds.get(
     normalizeRelativeForMatch(ref.relativePath),
   );
-  if (!relativeMatches || relativeMatches.length === 0) {
-    return {
-      id: null,
-      warning: `Missing track: ${ref.artist} - ${ref.title} (${ref.relativePath || ref.fullPath})`,
-    };
+  if (relativeMatches && relativeMatches.length === 1) {
+    return { id: relativeMatches[0] };
   }
-  if (relativeMatches.length > 1) {
+  if (relativeMatches && relativeMatches.length > 1) {
     return {
       id: null,
       warning: `Ambiguous track: ${ref.artist} - ${ref.title} (${ref.relativePath})`,
     };
   }
-  return { id: relativeMatches[0] };
+  const suffixMatch = resolveUniqueSuffixMatch(ref.relativePath, maps);
+  if (suffixMatch) {
+    return { id: suffixMatch };
+  }
+  const metadataKey = buildTrackMetadataKey(ref.artist, ref.title);
+  const metadataMatches = metadataKey ? maps.metadataKeyToIds.get(metadataKey) ?? [] : [];
+  if (metadataMatches.length === 1) {
+    return { id: metadataMatches[0] };
+  }
+  if (metadataMatches.length > 1) {
+    return {
+      id: null,
+      warning: `Ambiguous track: ${ref.artist} - ${ref.title} (${ref.relativePath || ref.fullPath})`,
+    };
+  }
+  return {
+    id: null,
+    warning: `Missing track: ${ref.artist} - ${ref.title} (${ref.relativePath || ref.fullPath})`,
+  };
 };
 
 const resolveM3uEntry = (

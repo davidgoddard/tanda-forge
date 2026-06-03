@@ -242,6 +242,16 @@
 - Verification re-run after this change:
   - `source ~/.nvm/nvm.sh && npm run build`
   - `source ~/.nvm/nvm.sh && npm test`
+- Fixed playlist JSON re-import portability:
+  - import now resolves tracks by exact absolute path, exact relative path,
+    unique relative-path suffix, and finally unique artist+title metadata
+  - this addresses exported playlists that are re-imported after a library root
+    moved or gained an extra prefix folder
+  - matching remains defensive: ambiguous suffix or metadata matches still warn
+    and skip rather than guessing
+- Updated files:
+  - `app/src/main/library-transfer.ts`
+  - `tests/library-transfer.test.ts`
 - Fixed system backup import/export to avoid Electron runtime cache collisions:
   - `app/src/main/system-transfer.ts` now transfers only app-managed root
     entries (`tanda-player.db*`, `waveforms`, `compressed-audio-cache`, and

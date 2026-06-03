@@ -162,6 +162,7 @@ Behavior:
 - FR-021.R10: Standard playlist files such as `m3u`/`m3u8` may be imported as track-only sources into the current playlist.
 - FR-021.R11: Grouped `m3u` / `m3u8` import may treat contiguous `group-title` or `EXTGRP` sections as tandas.
 - FR-021.R12: Standard playlist import/export may discard full tanda metadata, playlist rules, and explicit cortina planning when those concepts are not represented by the source format.
+- FR-021.R13: Tanda Forge JSON playlist import must attempt local track resolution in this order: exact absolute path, exact relative path, unique relative-path suffix, then unique artist-plus-title metadata.
 - FR-021.R14: System backup export/import must transfer only app-managed data entries and must not overwrite Electron runtime cache directories under the active data root.
 
 ---
