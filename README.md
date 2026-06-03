@@ -6,6 +6,14 @@ Tanda Forge is a purpose-built DJ tool for Argentine Tango—designed around tan
 
 Fast when you need it. Safe when it matters. Flexible when the floor changes.
 
+Available for all major platforms:
+
+* **macOS**
+* **Windows**
+* **Linux**
+
+👉 [Pre-built binaries for Tanda Forge on GitHub](https://github.com/davidgoddard/tanda-forge/releases/)
+
 ## Background
 
 Tanda Forge is a desktop app for Argentine Tango DJs who want a fast, safe, and flexible tanda preparation and live playback app.
