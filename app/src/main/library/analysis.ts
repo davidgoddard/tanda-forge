@@ -586,6 +586,9 @@ const buildCompressionFilter = (request: OfflineCompressionRequest) => {
 export const buildCompressedRenderTempPath = (outputPath: string) =>
   `${outputPath}.${process.pid}.tmp.wav`;
 
+export const buildPlayableRenderTempPath = (outputPath: string) =>
+  `${outputPath}.${process.pid}.tmp.wav`;
+
 export const hasUsableCompressedRender = (outputPath: string) => {
   try {
     const stat = fs.statSync(outputPath);
@@ -668,6 +671,72 @@ export const renderCompressedAudio = async (
   if (typeof tempOutputPath !== "string") {
     throw new Error("Compressed render output path missing");
   }
+  try {
+    fs.rmSync(tempOutputPath, { force: true });
+  } catch {
+    // Ignore stale temp cleanup failures before render.
+  }
+  try {
+    await runCommand(binary, renderArgs);
+    fs.renameSync(tempOutputPath, outputPath);
+    return;
+  } catch (primaryError) {
+    try {
+      await runCommand(fallback, renderArgs);
+      fs.renameSync(tempOutputPath, outputPath);
+    } catch (fallbackError) {
+      const primaryMessage =
+        primaryError instanceof Error ? primaryError.message.trim() : "Primary render failed";
+      const fallbackMessage =
+        fallbackError instanceof Error ? fallbackError.message.trim() : "Fallback render failed";
+      throw new Error(
+        [
+          fallbackMessage,
+          `Primary command: ${primaryCommandLine}`,
+          `Fallback command: ${fallbackCommandLine}`,
+          primaryMessage && primaryMessage !== fallbackMessage
+            ? `Primary error: ${primaryMessage}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      );
+    } finally {
+      try {
+        fs.rmSync(tempOutputPath, { force: true });
+      } catch {
+        // Ignore best-effort temp cleanup failures.
+      }
+    }
+  }
+};
+
+export const renderPlayableAudio = async (filePath: string, outputPath: string) => {
+  const { binary, fallback } = resolveFfmpeg();
+  const tempOutputPath = buildPlayableRenderTempPath(outputPath);
+  const renderArgs = [
+    "-v",
+    "error",
+    "-y",
+    "-i",
+    filePath,
+    "-map",
+    "0:a:0",
+    "-vn",
+    "-sn",
+    "-dn",
+    "-ar",
+    "48000",
+    "-ac",
+    "2",
+    "-c:a",
+    "pcm_s16le",
+    "-f",
+    "wav",
+    tempOutputPath,
+  ];
+  const primaryCommandLine = buildCommandLine(binary, renderArgs);
+  const fallbackCommandLine = buildCommandLine(fallback, renderArgs);
   try {
     fs.rmSync(tempOutputPath, { force: true });
   } catch {

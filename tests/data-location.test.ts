@@ -47,7 +47,7 @@ describe("resolveLegacyDataRoot", () => {
     expect(resolveLegacyDataRoot(tmp)).toBe(legacyUserData);
   });
 
-  it("includes compressed cache under the active data root", () => {
+  it("includes render caches under the active data root", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tanda-lite-"));
     process.env.TANDA_DATA_ROOT = tmp;
     try {
@@ -56,6 +56,7 @@ describe("resolveLegacyDataRoot", () => {
         dbPath: path.join(tmp, "tanda-player.db"),
         waveformsDir: path.join(tmp, "waveforms"),
         compressedCacheDir: path.join(tmp, "compressed-audio-cache"),
+        playableCacheDir: path.join(tmp, "playable-audio-cache"),
         logDir: tmp,
       });
     } finally {

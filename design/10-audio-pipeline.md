@@ -69,6 +69,11 @@ and stores both the measured loudness and gain offset.
 - AUD-003.R7.a: Bulk precompute writes companion files atomically and only treats
   completed renders as reusable cache entries, so interrupted runs can be safely
   resumed by running the same action again.
+- AUD-003.R8: Source formats that are supported by FFmpeg but not reliably
+  decoded by Chromium media elements, including AIFF/AIF, are transcoded
+  transparently to WAV in a separate playable-audio cache before runtime
+  playback. This compatibility render must not apply compression or loudness
+  processing.
 
 ## AUD-004 — Output Routing
 
@@ -107,3 +112,6 @@ and stores both the measured loudness and gain offset.
   loudness, and correction) for diagnostics and tuning.
 - AUD-007.R4: Companion-render failures fall back to original playback and
   expose failure details in diagnostics/status.
+- AUD-007.R5: Playable-render failures for compatibility formats must surface a
+  user-visible status message and diagnostic entry instead of silently doing
+  nothing.

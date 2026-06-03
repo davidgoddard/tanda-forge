@@ -592,6 +592,10 @@ export const translations = {
       "{channel} could not be routed to {device}: {message}",
     statusDspBypassedOutput:
       "Dynamics DSP is bypassed for non-default output devices. Use Default Output to hear compression.",
+    statusDspBypassedCompatibleSource:
+      "Dynamics DSP was bypassed; using a compatible WAV conversion for this file.",
+    statusPlayableTranscodeFailed:
+      "This audio format needs conversion before playback, but conversion failed.",
     playbackFailed: "Playback failed.",
     playbackFailedDetail: "Playback failed: {message}",
     outputDefault: "Default Output",
@@ -1242,6 +1246,10 @@ export const translations = {
       "No se pudo dirigir {channel} a {device}: {message}",
     statusDspBypassedOutput:
       "El DSP de dinamica se omite para salidas no predeterminadas. Use Salida predeterminada para oir compresion.",
+    statusDspBypassedCompatibleSource:
+      "El DSP de dinamica se omitio; se usa una conversion WAV compatible para este archivo.",
+    statusPlayableTranscodeFailed:
+      "Este formato de audio necesita conversion antes de reproducirse, pero la conversion fallo.",
     playbackFailed: "Fallo de reproduccion.",
     playbackFailedDetail: "Fallo de reproduccion: {message}",
     outputDefault: "Salida predeterminada",
@@ -1960,6 +1968,10 @@ export const translations = {
       "Impossible d'acheminer {channel} vers {device}: {message}",
     statusDspBypassedOutput:
       "Le DSP dynamique est ignore pour les sorties non par defaut. Utilisez la sortie par defaut pour entendre la compression.",
+    statusDspBypassedCompatibleSource:
+      "Le DSP dynamique est ignore; une conversion WAV compatible est utilisee pour ce fichier.",
+    statusPlayableTranscodeFailed:
+      "Ce format audio doit etre converti avant lecture, mais la conversion a echoue.",
     playbackFailed: "Lecture impossible.",
     playbackFailedDetail: "Lecture impossible: {message}",
     outputDefault: "Sortie par defaut",
@@ -2687,6 +2699,10 @@ export const translations = {
       "{channel} konnte nicht an {device} geleitet werden: {message}",
     statusDspBypassedOutput:
       "Dynamik-DSP wird bei nicht standardmaessigen Ausgaengen umgangen. Fuer Kompression Standardausgabe verwenden.",
+    statusDspBypassedCompatibleSource:
+      "Dynamik-DSP wurde umgangen; fuer diese Datei wird eine kompatible WAV-Konvertierung verwendet.",
+    statusPlayableTranscodeFailed:
+      "Dieses Audioformat muss vor der Wiedergabe konvertiert werden, aber die Konvertierung ist fehlgeschlagen.",
     playbackFailed: "Wiedergabe fehlgeschlagen.",
     playbackFailedDetail: "Wiedergabe fehlgeschlagen: {message}",
     outputDefault: "Standardausgang",
@@ -3415,6 +3431,10 @@ export const translations = {
       "Nao foi possivel direcionar {channel} para {device}: {message}",
     statusDspBypassedOutput:
       "O DSP de dinamica e ignorado para saidas nao padrao. Use Saida padrao para ouvir compressao.",
+    statusDspBypassedCompatibleSource:
+      "O DSP de dinamica foi ignorado; usando uma conversao WAV compativel para este arquivo.",
+    statusPlayableTranscodeFailed:
+      "Este formato de audio precisa de conversao antes da reproducao, mas a conversao falhou.",
     playbackFailed: "Falha na reproducao.",
     playbackFailedDetail: "Falha na reproducao: {message}",
     outputDefault: "Saida padrao",
@@ -4147,6 +4167,10 @@ export const translations = {
       "Impossibile instradare {channel} verso {device}: {message}",
     statusDspBypassedOutput:
       "Il DSP dinamico viene ignorato per uscite non predefinite. Usa l'uscita predefinita per sentire la compressione.",
+    statusDspBypassedCompatibleSource:
+      "Il DSP dinamico e stato ignorato; viene usata una conversione WAV compatibile per questo file.",
+    statusPlayableTranscodeFailed:
+      "Questo formato audio richiede conversione prima della riproduzione, ma la conversione e fallita.",
     playbackFailed: "Riproduzione fallita.",
     playbackFailedDetail: "Riproduzione fallita: {message}",
     outputDefault: "Uscita predefinita",

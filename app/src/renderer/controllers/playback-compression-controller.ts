@@ -44,8 +44,13 @@ export type PlaybackCompressionDeps<
 > = {
   getAudioDynamicsConfig: () => TConfig;
   requestCompressedSource: (track: TTrack, config: TConfig) => Promise<string | null>;
+  requestPlayableSource: (
+    track: TTrack | null,
+    originalPath: string,
+  ) => Promise<string | null>;
   setStatus: (message: string) => void;
   translate: (key: string) => string;
+  requiresPlaybackTranscode: (filePath: string) => boolean;
   isCompressionRequestedForChannel: (channel: OutputChannel, options?: { isCortinaPlayback?: boolean }) => boolean;
   stopCompressedCompanion: (state: PlaybackState<TTrack>) => Promise<void>;
   ensureAudioDspRuntime: (audio: HTMLAudioElement) => void;
@@ -72,13 +77,31 @@ export const createPlaybackCompressionController = <
     originalPath: string,
     options?: { isCortinaPlayback?: boolean },
   ) => {
-    if (!track || !deps.isCompressionRequestedForChannel(channel, options)) {
+    const resolvePlayableSource = async () => {
+      if (!deps.requiresPlaybackTranscode(originalPath)) {
+        return { filePath: originalPath, compressed: false };
+      }
+      const playable = await deps.requestPlayableSource(track, originalPath);
+      if (playable) {
+        return { filePath: playable, compressed: false };
+      }
+      deps.setStatus(deps.translate("statusPlayableTranscodeFailed"));
       return { filePath: originalPath, compressed: false };
+    };
+    if (!track || !deps.isCompressionRequestedForChannel(channel, options)) {
+      return resolvePlayableSource();
     }
     const config = deps.getAudioDynamicsConfig();
     const compressed = await deps.requestCompressedSource(track, config);
     if (compressed) {
       return { filePath: compressed, compressed: true };
+    }
+    if (deps.requiresPlaybackTranscode(originalPath)) {
+      const playable = await deps.requestPlayableSource(track, originalPath);
+      if (playable) {
+        deps.setStatus(deps.translate("statusDspBypassedCompatibleSource"));
+        return { filePath: playable, compressed: false };
+      }
     }
     deps.setStatus(deps.translate("statusDspBypassedOutput"));
     return { filePath: originalPath, compressed: false };

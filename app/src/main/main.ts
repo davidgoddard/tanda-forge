@@ -30,10 +30,12 @@ import {
   getResolvedFfprobeInfo,
   getResolvedFfprobePath,
   renderCompressedAudio,
+  renderPlayableAudio,
   renderWaveformPng,
   setCustomFfmpegToolsDir,
 } from "./library/analysis";
 import { buildCompressedCacheKey, buildCompressedCachePath } from "./library/compression-cache";
+import { buildPlayableCacheKey, buildPlayableCachePath } from "./library/playable-cache";
 import {
   auditCompressionReadiness,
   listCompressionEligibleTracks,
@@ -135,9 +137,11 @@ const audioExtensions = new Set([
   ".wav",
   ".aac",
   ".ogg",
+  ".aif",
   ".aiff",
 ]);
 const compressedRenderInFlight = new Map<string, Promise<string>>();
+const playableRenderInFlight = new Map<string, Promise<string>>();
 const MAX_CONCURRENT_COMPRESSED_RENDERS = 1;
 let activeCompressedRenderCount = 0;
 const compressedRenderWaiters: Array<() => void> = [];
@@ -210,6 +214,7 @@ const walkImageFiles = async (rootPath: string): Promise<string[]> => {
 };
 
 const getCompressedCacheDir = () => path.join(getDataRoot(), "compressed-audio-cache");
+const getPlayableCacheDir = () => path.join(getDataRoot(), "playable-audio-cache");
 
 const getCompressedCacheOutputPath = (
   filePath: string,
@@ -228,6 +233,9 @@ const getCompressedCacheOutputPath = (
     limiterReleaseMs: number;
   },
 ) => buildCompressedCachePath(getCompressedCacheDir(), filePath, stat, params);
+
+const getPlayableCacheOutputPath = (filePath: string, stat: fs.Stats) =>
+  buildPlayableCachePath(getPlayableCacheDir(), filePath, stat);
 
 const detectCortinaSetsFromRoot = (rootPath: string) => {
   const sets = new Set<string>();
@@ -280,7 +288,7 @@ const detectCortinaSetsFromRoot = (rootPath: string) => {
 };
 
 const clearCachedArtifacts = () => {
-  const { waveformsDir, compressedCacheDir } = getDataPaths();
+  const { waveformsDir, compressedCacheDir, playableCacheDir } = getDataPaths();
   try {
     if (fs.existsSync(waveformsDir)) {
       fs.rmSync(waveformsDir, { recursive: true, force: true });
@@ -294,6 +302,13 @@ const clearCachedArtifacts = () => {
     }
   } catch {
     // Best-effort cleanup; cache clear should not fail if compressed cache deletion fails.
+  }
+  try {
+    if (fs.existsSync(playableCacheDir)) {
+      fs.rmSync(playableCacheDir, { recursive: true, force: true });
+    }
+  } catch {
+    // Best-effort cleanup; cache clear should not fail if playable cache deletion fails.
   }
 };
 
@@ -1931,6 +1946,61 @@ const registerIpc = () => {
             const stat = fs.statSync(params.filePath);
             const cacheKey = buildCompressedCacheKey(params.filePath, stat, params);
             compressedRenderInFlight.delete(cacheKey);
+          } catch {
+            // Ignore cleanup errors.
+          }
+        }
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "audio:renderPlayableTrack",
+    async (
+      _event,
+      params: {
+        trackId?: string;
+        filePath: string;
+      },
+    ) => {
+      try {
+        if (!params?.filePath || !fs.existsSync(params.filePath)) {
+          return { ok: false, error: "Track file not found" };
+        }
+        const stat = fs.statSync(params.filePath);
+        const cacheKey = buildPlayableCacheKey(params.filePath, stat);
+        const cacheDir = getPlayableCacheDir();
+        const outputPath = getPlayableCacheOutputPath(params.filePath, stat);
+        fs.mkdirSync(cacheDir, { recursive: true });
+        if (hasUsableCompressedRender(outputPath)) {
+          return { ok: true, filePath: outputPath, cached: true };
+        }
+        fs.rmSync(outputPath, { force: true });
+        const existing = playableRenderInFlight.get(cacheKey);
+        if (existing) {
+          const filePath = await existing;
+          return { ok: true, filePath, cached: true };
+        }
+        const renderPromise = (async () => {
+          await runWithCompressedRenderSlot(async () => {
+            await renderPlayableAudio(params.filePath, outputPath);
+          });
+          return outputPath;
+        })();
+        playableRenderInFlight.set(cacheKey, renderPromise);
+        const filePath = await renderPromise;
+        return { ok: true, filePath, cached: false };
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : "Playable render failed",
+        };
+      } finally {
+        if (params?.filePath && fs.existsSync(params.filePath)) {
+          try {
+            const stat = fs.statSync(params.filePath);
+            const cacheKey = buildPlayableCacheKey(params.filePath, stat);
+            playableRenderInFlight.delete(cacheKey);
           } catch {
             // Ignore cleanup errors.
           }

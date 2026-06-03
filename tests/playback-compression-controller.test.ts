@@ -6,8 +6,10 @@ describe("playback compression controller", () => {
     const controller = createPlaybackCompressionController({
       getAudioDynamicsConfig: () => ({ enabled: true, depth: 50 }),
       requestCompressedSource: async () => "/tmp/compressed.wav",
+      requestPlayableSource: async () => "/tmp/playable.wav",
       setStatus: () => {},
       translate: (key) => key,
+      requiresPlaybackTranscode: () => false,
       isCompressionRequestedForChannel: () => false,
       stopCompressedCompanion: async () => {},
       ensureAudioDspRuntime: () => {},
@@ -36,6 +38,82 @@ describe("playback compression controller", () => {
     expect(result.compressed).toBe(false);
   });
 
+  it("uses a compatible rendered source when AIFF playback does not request compression", async () => {
+    const controller = createPlaybackCompressionController({
+      getAudioDynamicsConfig: () => ({ enabled: false, depth: 0 }),
+      requestCompressedSource: async () => {
+        throw new Error("compression should not be requested");
+      },
+      requestPlayableSource: async () => "/tmp/playable.wav",
+      setStatus: () => {},
+      translate: (key) => key,
+      requiresPlaybackTranscode: (filePath) => filePath.endsWith(".aiff"),
+      isCompressionRequestedForChannel: () => false,
+      stopCompressedCompanion: async () => {},
+      ensureAudioDspRuntime: () => {},
+      releaseAudioDspRuntime: async () => {},
+      applyOutputDevice: async () => ({
+        requestedDeviceId: null,
+        appliedDeviceId: null,
+        method: "default",
+        error: null,
+        attemptedDeviceIds: [],
+      }),
+      applyDynamicLevelToMain: () => {},
+      updateNowPlayingDisplay: () => {},
+      resolveOutputDeviceIdForMain: () => null,
+      shouldUseAudioDspForMainOutput: () => true,
+      appMode: () => "prep",
+      playlistState: () => ({ status: "idle", index: 0, trackIndex: 0 }),
+    });
+
+    const result = await controller.resolvePlaybackSource(
+      "main",
+      { id: "t1", full_path: "/a.aiff" },
+      "/a.aiff",
+    );
+
+    expect(result).toEqual({ filePath: "/tmp/playable.wav", compressed: false });
+  });
+
+  it("falls back to compatible rendered source when compression fails for AIFF", async () => {
+    const statusMessages: string[] = [];
+    const controller = createPlaybackCompressionController({
+      getAudioDynamicsConfig: () => ({ enabled: true, depth: 50 }),
+      requestCompressedSource: async () => null,
+      requestPlayableSource: async () => "/tmp/playable.wav",
+      setStatus: (message) => statusMessages.push(message),
+      translate: (key) => key,
+      requiresPlaybackTranscode: (filePath) => filePath.endsWith(".aiff"),
+      isCompressionRequestedForChannel: () => true,
+      stopCompressedCompanion: async () => {},
+      ensureAudioDspRuntime: () => {},
+      releaseAudioDspRuntime: async () => {},
+      applyOutputDevice: async () => ({
+        requestedDeviceId: null,
+        appliedDeviceId: null,
+        method: "default",
+        error: null,
+        attemptedDeviceIds: [],
+      }),
+      applyDynamicLevelToMain: () => {},
+      updateNowPlayingDisplay: () => {},
+      resolveOutputDeviceIdForMain: () => null,
+      shouldUseAudioDspForMainOutput: () => true,
+      appMode: () => "prep",
+      playlistState: () => ({ status: "idle", index: 0, trackIndex: 0 }),
+    });
+
+    const result = await controller.resolvePlaybackSource(
+      "main",
+      { id: "t1", full_path: "/a.aiff" },
+      "/a.aiff",
+    );
+
+    expect(result).toEqual({ filePath: "/tmp/playable.wav", compressed: false });
+    expect(statusMessages).toEqual(["statusDspBypassedCompatibleSource"]);
+  });
+
   it("does not attach dsp runtime for compressed companion on non-default outputs", async () => {
     const ensureAudioDspRuntime = vi.fn();
     const originalAudio = globalThis.Audio;
@@ -57,8 +135,10 @@ describe("playback compression controller", () => {
     const controller = createPlaybackCompressionController({
       getAudioDynamicsConfig: () => ({ enabled: true, depth: 50 }),
       requestCompressedSource: async () => "/tmp/compressed.wav",
+      requestPlayableSource: async () => "/tmp/playable.wav",
       setStatus: () => {},
       translate: (key) => key,
+      requiresPlaybackTranscode: () => false,
       isCompressionRequestedForChannel: () => true,
       stopCompressedCompanion: async () => {},
       ensureAudioDspRuntime,

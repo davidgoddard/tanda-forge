@@ -122,6 +122,7 @@ import {
   linearToDb,
   smoothToward,
 } from "../shared/audio-dynamics.js";
+import { requiresPlaybackTranscode } from "../shared/audio-playback-source.js";
 import {
   dedupeAudioOutputs,
   getOutputCandidateIds,
@@ -1105,6 +1106,8 @@ const lastAppliedGainDbByChannel: Record<OutputChannel, number | null> = {
 const compressedSourceCache = new Map<string, string>();
 const compressedSourceRequests = new Map<string, Promise<string | null>>();
 const compressedSourceErrorByTrackId = new Map<string, string>();
+const playableSourceCache = new Map<string, string>();
+const playableSourceRequests = new Map<string, Promise<string | null>>();
 const trackedCompressedCompanions = new Set<HTMLAudioElement>();
 let compressionPrefetchTimer: number | null = null;
 let compressionPrefetchInFlight = false;
@@ -1551,6 +1554,68 @@ const requestCompressedSource = async (
     return await request;
   } finally {
     compressedSourceRequests.delete(requestKey);
+  }
+};
+
+const buildPlayableSourceRequestKey = (
+  track: TrackRow | null,
+  originalPath: string,
+) => `${track?.id ?? "path"}:${originalPath}`;
+
+const requestPlayableSource = async (
+  track: TrackRow | null,
+  originalPath: string,
+) => {
+  if (!window.tanda) {
+    return null;
+  }
+  const requestKey = buildPlayableSourceRequestKey(track, originalPath);
+  const cached = playableSourceCache.get(requestKey);
+  if (cached) {
+    return cached;
+  }
+  const pending = playableSourceRequests.get(requestKey);
+  if (pending) {
+    return pending;
+  }
+  const request = (async () => {
+    const result = await window.tanda!.renderPlayableTrack({
+      trackId: track?.id,
+      filePath: originalPath,
+    });
+    if (!result?.ok || !result.filePath) {
+      const reason = result?.error?.trim() || "unknown playable render error";
+      logPlaybackDiagnostic({
+        channel: "main",
+        mode: appMode,
+        trackId: track?.id ?? "",
+        title: track?.title ?? "",
+        artist: track?.artist ?? "",
+        playlistStatus: playlistPlayback.status,
+        playlistIndex: playlistPlayback.currentIndex,
+        trackIndex: playlistPlayback.currentTrackIndex,
+        gainSource: "none",
+        gainDb: track?.gain_db ?? null,
+        loudnessDb: track?.loudness_db ?? null,
+        linearGain: 1,
+        correctionDb: 0,
+        driftDb: 0,
+        targetLoudnessDb: -16,
+        expectedOutputLoudnessDb: null,
+        outputRouteMethod: "playable-render",
+        outputRouteError: reason,
+        attemptedOutputDeviceIds: [],
+      });
+      return null;
+    }
+    playableSourceCache.set(requestKey, result.filePath);
+    return result.filePath;
+  })();
+  playableSourceRequests.set(requestKey, request);
+  try {
+    return await request;
+  } finally {
+    playableSourceRequests.delete(requestKey);
   }
 };
 
@@ -3849,12 +3914,14 @@ const scheduleCompressionPrefetch = () => {
 const playbackCompressionController = createPlaybackCompressionController({
   getAudioDynamicsConfig,
   requestCompressedSource,
+  requestPlayableSource,
   setStatus: (message) => {
     if (statusEl) {
       statusEl.textContent = message;
     }
   },
   translate: t,
+  requiresPlaybackTranscode,
   isCompressionRequestedForChannel: (channel, options) =>
     isCompressionRequestedForChannel(channel, options as PlayOptions | undefined),
   stopCompressedCompanion,

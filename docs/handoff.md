@@ -8485,3 +8485,11 @@
 - Hardened the release workflow against transient Electron download failures during install.
   - In `.github/workflows/release.yml`, changed the `Install Dependencies` step from a single `npm ci` to a 3-attempt retry loop with npm fetch retry env settings.
   - This specifically targets transient network/DNS failures while Electron downloads its binary during `npm ci` on GitHub Actions.
+- Fixed AIFF/AIF playback by adding transparent compatibility rendering.
+  - Added `.aif` to the scanned audio extensions alongside `.aiff`.
+  - Added `app/src/shared/audio-playback-source.ts` and `app/src/main/library/playable-cache.ts` so AIFF/AIF files are detected and cached separately from compressed companion audio.
+  - Added `renderPlayableAudio(...)` in `app/src/main/library/analysis.ts`, plus `audio:renderPlayableTrack` IPC in `app/src/main/main.ts`, `app/src/preload/preload.ts`, and `app/src/shared/types.ts`.
+  - Updated `app/src/renderer/controllers/playback-compression-controller.ts` and `app/src/renderer/renderer.ts` so playback uses a transparent WAV compatibility render before assigning `Audio.src`, and falls back with localized status/diagnostics if rendering fails.
+  - Updated `design/03-audio-playback-and-timing-model.md`, `design/10-audio-pipeline.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
+  - Focused verification passed: `source ~/.nvm/nvm.sh && npm test -- tests/audio-playback-source.test.ts tests/audio-compression-cache.test.ts tests/playback-compression-controller.test.ts tests/data-location.test.ts`.
+  - Full verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`89` files, `442` tests).

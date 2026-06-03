@@ -356,6 +356,15 @@ export type AppApi = {
     cached?: boolean;
     error?: string;
   }>;
+  renderPlayableTrack: (params: {
+    trackId?: string;
+    filePath: string;
+  }) => Promise<{
+    ok: boolean;
+    filePath?: string;
+    cached?: boolean;
+    error?: string;
+  }>;
   precomputeCompressedTracks: (params: {
     mode: "upward" | "track-leveler";
     liftThresholdDb: number;

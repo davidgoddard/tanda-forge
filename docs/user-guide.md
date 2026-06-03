@@ -660,6 +660,8 @@ In **Settings -> Library**, the buttons are grouped by purpose:
 
 The legacy migration card is shown separately from the resumable startup flow, and the remaining scan/cache/maintenance/backup tools sit inside one shared manual-tools area so their optional/manual role is clear.
 
+AIFF/AIF files are supported, but Electron/Chromium cannot always play those source files directly. When one is played, Tanda Forge uses FFmpeg to create a transparent WAV copy in the playable-audio cache and plays that cached copy. The original file is not modified.
+
 If **compression** (dynamic range reduction) is enabled, the system can generate compressed files on demand when a track starts, but this may cause a short delay or CPU spike. Clicking **Precompute compressed cache** renders those compressed companions in advance. This takes a long time, but it is optional and only needed if compression will be used.
 
 If you want to keep the cache files on disk but do not fully trust them, use **Verify cached files**. This checks waveform PNGs and compressed cache files, removes broken or incomplete entries, and leaves valid cached files in place. Use **Erase Cached Files** only if you want to remove those derived files entirely and force them to be rebuilt later.
