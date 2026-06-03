@@ -5,6 +5,8 @@ describe("audio playback source helpers", () => {
   it("requires transparent playback transcode for AIFF variants", () => {
     expect(requiresPlaybackTranscode("/music/track.aiff")).toBe(true);
     expect(requiresPlaybackTranscode("/music/track.AIF")).toBe(true);
+    expect(requiresPlaybackTranscode("C:\\music\\track.aif")).toBe(true);
+    expect(requiresPlaybackTranscode("C:\\music\\track.AIFF")).toBe(true);
     expect(requiresPlaybackTranscode("/music/track.wav")).toBe(false);
     expect(requiresPlaybackTranscode("/music/track.mp3")).toBe(false);
   });

@@ -759,6 +759,16 @@
 - Updated files:
   - `scripts/clean-renderer-dist.js`
   - `package.json`
+- Fixed a real renderer/shared browser import of Node's `path`.
+  - `app/src/shared/audio-playback-source.ts` is used by the renderer and was
+    importing Node's `path` only to detect `.aif` / `.aiff` extensions.
+  - Replaced that usage with browser-safe string-based extension parsing, so
+    the generated `dist/renderer/shared/audio-playback-source.js` no longer
+    imports `path`.
+  - Added focused regression coverage in `tests/audio-playback-source.test.ts`.
+- Updated files:
+  - `app/src/shared/audio-playback-source.ts`
+  - `tests/audio-playback-source.test.ts`
 
 - Fixed normal library rescans overwriting stored track metadata:
   - `app/src/main/library/scan.ts` now treats stored editable metadata on
