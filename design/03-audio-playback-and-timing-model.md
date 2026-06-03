@@ -53,6 +53,9 @@ first track of a tanda.
 FR-052.R6.b: Switching between Preparation and Live modes during active
 playlist playback must not interrupt runtime progression; when the current
 track ends, playlist playback continues to the next track/tanda as normal.
+FR-052.R7: Source formats that Chromium cannot play directly, including AIFF
+and AIF, must be converted on demand to a renderer-compatible WAV cache before
+playback while preserving the original source file unchanged.
 
 ---
 
@@ -151,3 +154,9 @@ unaltered.
 Played tandas are locked and muted in Live mode while playback state is active.
 Track start offsets and end trims are applied to playback and reflected in
 display durations and waveform seeking.
+
+AIFF/AIF source files are scanned as normal library tracks. At playback time the
+renderer asks the main process for a transparent WAV compatibility render from
+the original file, caches it under the active data root, and then plays that WAV
+through the same output-routing, gain, trim, and display pipeline as other
+tracks.

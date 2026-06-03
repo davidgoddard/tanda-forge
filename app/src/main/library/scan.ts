@@ -120,6 +120,7 @@ const audioExtensions = new Set([
   ".wav",
   ".aac",
   ".ogg",
+  ".aif",
   ".aiff",
 ]);
 

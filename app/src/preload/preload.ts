@@ -70,6 +70,8 @@ const api: AppApi = {
     ipcRenderer.invoke("audio:getCompressedTrackPath", params),
   renderCompressedTrack: async (params) =>
     ipcRenderer.invoke("audio:renderCompressedTrack", params),
+  renderPlayableTrack: async (params) =>
+    ipcRenderer.invoke("audio:renderPlayableTrack", params),
   precomputeCompressedTracks: async (params) =>
     ipcRenderer.invoke("audio:precomputeCompressedTracks", params),
   onPrecomputeCompressedProgress: (handler) => {
