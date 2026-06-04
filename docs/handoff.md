@@ -8683,3 +8683,9 @@
   - rescan without file changes: `scanned=10, added=0, updated=0`
   - rescan after adding one new file: `scanned=11, added=1, updated=0`
 - Added a controller unit test in `tests/settings-library-controller.test.ts` covering the all-reused summary case.
+## 2026-06-04 — Rescan E2E now covers legacy-imported and app-created tandas
+
+- Extended the rescan preservation Playwright workflow in `tests/e2e/workflows.e2e.ts` to include both legacy-imported tandas and tandas created through the app from the initially scanned tracks.
+- The workflow now writes legacy `config.js`, `library.dat`, and `tandas.dat` files into the music root, imports those tandas through the real Settings -> Legacy Import path, creates additional tandas through the real tanda-designer UI, and then proves both sets survive later rescans.
+- The test also documents the intended one-time post-legacy settling scan: after legacy import, a full scan still updates those tracks once because legacy import writes placeholder analysis metadata that must be replaced by a real scan.
+- After that settling scan and after manual track edits, the workflow proves later rescans return `updated=0` for unchanged files and that neither the legacy-imported tandas nor the app-created tandas are lost when rescanning or when adding one new file.

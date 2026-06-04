@@ -208,32 +208,40 @@ export const resolveScannedTrackMetadata = (params: {
     "";
 
   const title =
-    legacy?.title?.trim() ||
-    chooseStoredOrImportedValue(existing?.title, importedTitle) ||
+    chooseStoredOrImportedValue(
+      existing?.title,
+      legacy?.title?.trim() || importedTitle,
+    ) ||
     path.basename(filePath, path.extname(filePath));
   const artist =
-    legacy?.artist?.trim() ||
-    chooseStoredOrImportedValue(existing?.artist, importedArtist);
+    chooseStoredOrImportedValue(
+      existing?.artist,
+      legacy?.artist?.trim() || importedArtist,
+    );
   const album =
-    legacy?.album?.trim() ||
-    chooseStoredOrImportedValue(existing?.album, importedAlbum);
+    chooseStoredOrImportedValue(
+      existing?.album,
+      legacy?.album?.trim() || importedAlbum,
+    );
   const year =
-    legacy?.year?.trim() ||
-    chooseStoredOrImportedValue(existing?.year, importedYear);
+    chooseStoredOrImportedValue(
+      existing?.year,
+      legacy?.year?.trim() || importedYear,
+    );
   const genre =
-    legacy?.genre?.trim() ||
-    chooseStoredOrImportedValue(existing?.genre, importedGenre);
+    chooseStoredOrImportedValue(
+      existing?.genre,
+      legacy?.genre?.trim() || importedGenre,
+    );
   const bpm =
-    typeof legacy?.bpm === "number"
-      ? legacy.bpm
-      : existing?.bpm ?? null;
-  const notes = legacy?.notes?.trim() || existing?.notes || "";
+    existing?.bpm ?? (typeof legacy?.bpm === "number" ? legacy.bpm : null);
+  const notes = chooseStoredOrImportedValue(existing?.notes, legacy?.notes?.trim());
   const instrumental =
-    typeof legacy?.instrumental === "boolean"
-      ? legacy.instrumental
-      : existing?.instrumental === null || existing?.instrumental === undefined
-        ? null
-        : Boolean(existing.instrumental);
+    existing?.instrumental === null || existing?.instrumental === undefined
+      ? typeof legacy?.instrumental === "boolean"
+        ? legacy.instrumental
+        : null
+      : Boolean(existing.instrumental);
   const artistSummary = summarizeArtistName(artist);
   const singer =
     existing?.singer ||

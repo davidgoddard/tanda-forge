@@ -27,6 +27,10 @@ const addTrackToTandaDesigner = async (page: Page, trackText: string) => {
       if (!hasEditorTracks) {
         await page.locator("#add-tanda").click();
       }
+      await page.locator('button[data-tab="search-tracks"]').click();
+      const allStylesButton = page.locator("#style-options button").first();
+      await expect(allStylesButton).toBeVisible();
+      await allStylesButton.click();
       await runSearch(page, trackText);
       const row = searchTrackRow(page, trackText);
       await expect(row).toBeVisible();
@@ -370,6 +374,9 @@ const openTrackEditorFromRow = async (page: Page, row: Locator) => {
 
 const openSettings = async (page: Page) => {
   const panel = page.locator("#settings-panel");
+  if ((await panel.getAttribute("aria-hidden")) === "false") {
+    return;
+  }
   for (let attempt = 0; attempt < 4; attempt += 1) {
     await page.locator("#open-settings").click();
     try {
@@ -508,9 +515,66 @@ const createRescanFixtureTracks = (): RescanFixtureTrack[] =>
     };
   });
 
+const writeLegacyRescanFixture = (
+  musicRoot: string,
+  tracks: RescanFixtureTrack[],
+  tandaGroups: Array<{ name: string; style: string; tracks: string[] }>,
+) => {
+  fs.writeFileSync(path.join(musicRoot, "config.js"), "module.exports = {};\n", "utf-8");
+  const libraryEntries = Object.fromEntries(
+    tracks.map((track, index) => [
+      `music/${track.fileName}`,
+      {
+        track: {
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          date: `${track.year}-01-01`,
+        },
+        analysis: {
+          duration: 0.65 + index * 0.01,
+          start: 0,
+          silence: 0.64 + index * 0.01,
+          meanGain: -18 - index * 0.1,
+        },
+        classifiers: {
+          style: track.genre,
+          notes: `legacy ${track.fileName}`,
+          bpm: 60 + index,
+          instrumental: index % 2 === 0,
+        },
+      },
+    ]),
+  );
+  fs.writeFileSync(
+    path.join(musicRoot, "library.dat"),
+    JSON.stringify(libraryEntries, null, 2),
+    "utf-8",
+  );
+  fs.writeFileSync(
+    path.join(musicRoot, "tandas.dat"),
+    JSON.stringify(
+      tandaGroups.map((group) => ({
+        label: group.name,
+        style: group.style,
+        instrumental: false,
+        tracks: group.tracks.map((fileName) => `music/${fileName}`),
+      })),
+      null,
+      2,
+    ),
+    "utf-8",
+  );
+};
+
 const getTracksViaApi = async (page: Page) =>
   await page.evaluate(async () => {
     return (await window.tanda?.listTracks()) ?? [];
+  });
+
+const getTandasViaApi = async (page: Page) =>
+  await page.evaluate(async () => {
+    return (await window.tanda?.listTandas()) ?? [];
   });
 
 const getRootsViaApi = async (page: Page) =>
@@ -549,6 +613,14 @@ const addMusicRootViaSettings = async (page: Page, musicRoot: string) => {
       return roots.some((root) => root.kind === "music" && root.path === musicRoot);
     })
     .toBe(true);
+};
+
+const importLegacyTandasViaSettings = async (page: Page) => {
+  await openSettings(page);
+  await page.locator('button[data-tab="library"]').click();
+  await expect(page.locator("#legacy-import")).toBeVisible();
+  await page.locator("#legacy-import-button").click();
+  await confirmIfPrompted(page);
 };
 
 const runMusicScan = async (page: Page) => {
@@ -639,6 +711,91 @@ const expectEditedTracksPersisted = async (
     expect(row?.notes).toBe(track.notesEdited);
     expect(Math.round(Number(row?.bpm ?? 0))).toBe(track.bpmEdited);
     expect(Boolean(row?.instrumental)).toBe(track.editedVocal === "instrumental");
+  }
+};
+
+const createSavedTandaFromTracks = async (
+  page: Page,
+  params: { name: string; style?: string; trackTexts: string[] },
+) => {
+  await page.locator('button[data-tab="tanda-designer-tab"]').click();
+  if ((await page.locator("#tanda-list .tanda-card").count()) === 0) {
+    await page.locator("#add-tanda").click();
+  }
+  for (const trackText of params.trackTexts) {
+    await addTrackToTandaDesigner(page, trackText);
+  }
+  const selectedCard = page.locator("#tanda-list .tanda-card.selected").first();
+  await expect(selectedCard).toBeVisible();
+  await selectedCard.locator("input.tanda-name").fill(params.name);
+  if (params.style) {
+    await selectedCard
+      .locator(".tanda-style-options button", { hasText: params.style })
+      .first()
+      .click();
+  }
+  await selectedCard.locator('button[data-action="tanda-save"]').click();
+  await expect
+    .poll(async () => {
+      const tandas = await getTandasViaApi(page);
+      return tandas.some((tanda) => tanda.name === params.name);
+    })
+    .toBe(true);
+};
+
+const snapshotTandasByName = async (page: Page, names: string[]) => {
+  const tandas = await getTandasViaApi(page);
+  return Object.fromEntries(
+    names.map((name) => {
+      const tanda = tandas.find((candidate) => candidate.name === name);
+      expect(tanda, name).toBeTruthy();
+      return [
+        name,
+        {
+          id: tanda!.id,
+          name: tanda!.name,
+          styles: [...tanda!.styles],
+          rating: tanda!.rating,
+          instrumental: tanda!.instrumental,
+          total_duration_ms: tanda!.total_duration_ms,
+          slot_count: tanda!.slot_count,
+          track_slots: [...tanda!.track_slots],
+          tracks: tanda!.tracks.map((track) => ({
+            id: track.id,
+            relative_path: track.relative_path,
+            title: track.title,
+            artist: track.artist,
+          })),
+        },
+      ];
+    }),
+  );
+};
+
+const expectTandaSnapshotsMatch = async (
+  page: Page,
+  expectedSnapshots: Record<string, Record<string, unknown>>,
+) => {
+  const tandas = await getTandasViaApi(page);
+  for (const [name, expectedSnapshot] of Object.entries(expectedSnapshots)) {
+    const tanda = tandas.find((candidate) => candidate.name === name);
+    expect(tanda, name).toBeTruthy();
+    expect({
+      id: tanda!.id,
+      name: tanda!.name,
+      styles: [...tanda!.styles],
+      rating: tanda!.rating,
+      instrumental: tanda!.instrumental,
+      total_duration_ms: tanda!.total_duration_ms,
+      slot_count: tanda!.slot_count,
+      track_slots: [...tanda!.track_slots],
+      tracks: tanda!.tracks.map((track) => ({
+        id: track.id,
+        relative_path: track.relative_path,
+        title: track.title,
+        artist: track.artist,
+      })),
+    }).toEqual(expectedSnapshot);
   }
 };
 
@@ -3847,8 +4004,10 @@ test.describe("Electron app end-to-end workflows", () => {
   test("39 - rescanning preserves edited metadata and only imports newly added files", async () => {
     const launched = await launchSeededApp("empty");
     const { page, tempRoot } = launched;
-    const musicRoot = path.join(tempRoot, "rescan-music");
+    const musicRoot = path.join(tempRoot, "music");
     const initialTracks = createRescanFixtureTracks();
+    const legacyTandaNames = ["Legacy Rescan Pair A", "Legacy Rescan Trio B"];
+    const appTandaNames = ["App Rescan Trio A", "App Rescan Trio B"];
     try {
       initialTracks.forEach((track, index) => {
         writeTaggedMp3(path.join(musicRoot, track.fileName), {
@@ -3862,6 +4021,18 @@ test.describe("Electron app end-to-end workflows", () => {
           frequency: 330 + index * 17,
         });
       });
+      writeLegacyRescanFixture(musicRoot, initialTracks, [
+        {
+          name: legacyTandaNames[0],
+          style: "Tango",
+          tracks: initialTracks.slice(0, 2).map((track) => track.fileName),
+        },
+        {
+          name: legacyTandaNames[1],
+          style: "Waltz",
+          tracks: initialTracks.slice(2, 5).map((track) => track.fileName),
+        },
+      ]);
 
       await addMusicRootViaSettings(page, musicRoot);
       const firstSummary = await runMusicScan(page);
@@ -3872,6 +4043,33 @@ test.describe("Electron app end-to-end workflows", () => {
         removed: 0,
       });
       await waitForTrackCount(page, 10);
+      await importLegacyTandasViaSettings(page);
+      await expect
+        .poll(async () => {
+          const tandas = await getTandasViaApi(page);
+          return legacyTandaNames.every((name) => tandas.some((tanda) => tanda.name === name));
+        })
+        .toBe(true);
+      await closeSettings(page);
+      await createSavedTandaFromTracks(page, {
+        name: appTandaNames[0],
+        style: "Tango",
+        trackTexts: initialTracks.slice(5, 8).map((track) => track.title),
+      });
+      await createSavedTandaFromTracks(page, {
+        name: appTandaNames[1],
+        style: "Waltz",
+        trackTexts: initialTracks.slice(7, 10).map((track) => track.title),
+      });
+      await openSettings(page);
+      await page.locator('button[data-tab="library"]').click();
+      const legacySettlingSummary = await runMusicScan(page);
+      expect(legacySettlingSummary).toMatchObject({
+        scanned: 10,
+        added: 0,
+        updated: 10,
+        removed: 0,
+      });
       await closeSettings(page);
 
       for (const track of initialTracks) {
@@ -3879,6 +4077,10 @@ test.describe("Electron app end-to-end workflows", () => {
       }
       await expectEditedTracksPersisted(page, initialTracks, { expectedTotal: 10 });
       const editedSnapshots = await snapshotTracksByFileName(page, initialTracks);
+      const tandaSnapshots = await snapshotTandasByName(page, [
+        ...legacyTandaNames,
+        ...appTandaNames,
+      ]);
 
       await openSettings(page);
       await page.locator('button[data-tab="library"]').click();
@@ -3892,6 +4094,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await closeSettings(page);
       await expectEditedTracksPersisted(page, initialTracks, { expectedTotal: 10 });
       await expectTrackSnapshotsMatch(page, editedSnapshots);
+      await expectTandaSnapshotsMatch(page, tandaSnapshots);
 
       const newTrack = {
         fileName: "rescan-track-11.mp3",
@@ -3926,6 +4129,7 @@ test.describe("Electron app end-to-end workflows", () => {
 
       await expectEditedTracksPersisted(page, initialTracks, { expectedTotal: 11 });
       await expectTrackSnapshotsMatch(page, editedSnapshots);
+      await expectTandaSnapshotsMatch(page, tandaSnapshots);
       const tracksAfterNewImport = await getTracksViaApi(page);
       const importedRow = tracksAfterNewImport.find((track) =>
         track.relative_path?.endsWith(newTrack.fileName),
