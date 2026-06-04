@@ -1,4 +1,5 @@
 import fs from "fs";
+import { execFileSync } from "child_process";
 import path from "path";
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { launchSeededApp, relaunchSeededApp } from "./support/electron-app";
@@ -404,6 +405,311 @@ const closeTrackEditorIfOpen = async (page: Page) => {
 
 const ensureDir = (dirPath: string) => {
   fs.mkdirSync(dirPath, { recursive: true });
+};
+
+const resolveBundledFfmpegPath = () => {
+  const platformDir =
+    process.platform === "darwin"
+      ? "darwin"
+      : process.platform === "win32"
+        ? "win32"
+        : "linux";
+  const binaryName = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+  return path.join(process.cwd(), "app", "resources", "ffmpeg", platformDir, binaryName);
+};
+
+const writeTaggedMp3 = (
+  filePath: string,
+  metadata: {
+    title: string;
+    artist: string;
+    album: string;
+    year: string;
+    genre: string;
+    singer?: string;
+    notes?: string;
+    seconds?: number;
+    frequency?: number;
+  },
+) => {
+  ensureDir(path.dirname(filePath));
+  const ffmpegPath = resolveBundledFfmpegPath();
+  execFileSync(
+    ffmpegPath,
+    [
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      `sine=frequency=${Math.max(120, metadata.frequency ?? 440)}:duration=${Math.max(0.4, metadata.seconds ?? 0.8)}`,
+      "-c:a",
+      "libmp3lame",
+      "-q:a",
+      "4",
+      "-id3v2_version",
+      "3",
+      "-metadata",
+      `title=${metadata.title}`,
+      "-metadata",
+      `artist=${metadata.artist}`,
+      "-metadata",
+      `album=${metadata.album}`,
+      "-metadata",
+      `date=${metadata.year}`,
+      "-metadata",
+      `genre=${metadata.genre}`,
+      "-metadata",
+      `comment=${metadata.notes ?? ""}`,
+      "-metadata",
+      `composer=${metadata.singer ?? ""}`,
+      filePath,
+    ],
+    { stdio: "ignore" },
+  );
+};
+
+type RescanFixtureTrack = {
+  fileName: string;
+  title: string;
+  artist: string;
+  album: string;
+  year: string;
+  genre: string;
+  bpmEdited: number;
+  singerEdited: string;
+  notesEdited: string;
+  editedTitle: string;
+  editedArtist: string;
+  editedAlbum: string;
+  editedYear: string;
+  editedGenre: string;
+  editedVocal: "sung" | "instrumental";
+};
+
+const createRescanFixtureTracks = (): RescanFixtureTrack[] =>
+  Array.from({ length: 10 }, (_value, index) => {
+    const number = index + 1;
+    return {
+      fileName: `rescan-track-${String(number).padStart(2, "0")}.mp3`,
+      title: `Imported Title ${number}`,
+      artist: `Imported Artist ${number}`,
+      album: `Imported Album ${number}`,
+      year: String(1930 + number),
+      genre: number % 2 === 0 ? "Tango" : "Milonga",
+      bpmEdited: 80 + number,
+      singerEdited: `Edited Singer ${number}`,
+      notesEdited: `Edited notes ${number}`,
+      editedTitle: `Edited Title ${number}`,
+      editedArtist: `Edited Artist ${number}`,
+      editedAlbum: `Edited Album ${number}`,
+      editedYear: String(1950 + number),
+      editedGenre: number % 2 === 0 ? "Waltz" : "Other",
+      editedVocal: number % 2 === 0 ? "instrumental" : "sung",
+    };
+  });
+
+const getTracksViaApi = async (page: Page) =>
+  await page.evaluate(async () => {
+    return (await window.tanda?.listTracks()) ?? [];
+  });
+
+const getRootsViaApi = async (page: Page) =>
+  await page.evaluate(async () => {
+    return (await window.tanda?.listRoots()) ?? [];
+  });
+
+const getCapturedScanSummaries = async (page: Page) =>
+  await page.evaluate(() => {
+    return window.tanda?.getE2eScanSummaries() ?? [];
+  });
+
+const waitForTrackCount = async (page: Page, expected: number) => {
+  await expect
+    .poll(async () => {
+      const tracks = await getTracksViaApi(page);
+      return tracks.length;
+    })
+    .toBe(expected);
+};
+
+const setOpenDialogResponses = async (page: Page, paths: string[]) => {
+  await page.evaluate(async (openFilePaths) => {
+    await window.tanda?.setE2eDialogResponses({ openFilePaths });
+  }, paths);
+};
+
+const addMusicRootViaSettings = async (page: Page, musicRoot: string) => {
+  await openSettings(page);
+  await page.locator('button[data-tab="library"]').click();
+  await setOpenDialogResponses(page, [musicRoot]);
+  await page.locator("#add-music").click();
+  await expect
+    .poll(async () => {
+      const roots = await getRootsViaApi(page);
+      return roots.some((root) => root.kind === "music" && root.path === musicRoot);
+    })
+    .toBe(true);
+};
+
+const runMusicScan = async (page: Page) => {
+  const before = await getCapturedScanSummaries(page);
+  const scanButton = page.locator("#scan-music");
+  await scanButton.click();
+  await expect(scanButton).toBeDisabled();
+  await expect(scanButton).toBeEnabled();
+  await expect
+    .poll(async () => {
+      const summaries = await getCapturedScanSummaries(page);
+      return summaries.length;
+    })
+    .toBe(before.length + 1);
+  const after = await getCapturedScanSummaries(page);
+  const entry = after.at(-1);
+  expect(entry?.kind).toBe("music");
+  return entry?.summary ?? null;
+};
+
+const applyEditedTrackValues = async (page: Page, track: RescanFixtureTrack) => {
+  await runSearch(page, track.title);
+  const row = searchTrackRow(page, track.title);
+  await expect(row).toBeVisible();
+  await openTrackEditorFromRow(page, row);
+  await page.locator("#track-editor-title").fill(track.editedTitle);
+  await page.locator("#track-editor-artist").fill(track.editedArtist);
+  await page.locator("#track-editor-singer").fill(track.singerEdited);
+  await page.locator("#track-editor-vocal").selectOption(track.editedVocal);
+  await page.locator("#track-editor-album").fill(track.editedAlbum);
+  await page.locator("#track-editor-year").fill(track.editedYear);
+  await page.locator("#track-editor-genre").selectOption({ label: track.editedGenre });
+  await page.locator("#track-editor-notes").fill(track.notesEdited);
+  await page.locator("#track-editor-bpm").fill(String(track.bpmEdited));
+  await page.locator("#track-editor-save").click();
+  await expect
+    .poll(async () => {
+      const rows = await getTracksViaApi(page);
+      const row = rows.find((candidate) => candidate.relative_path?.endsWith(track.fileName));
+      return row
+        ? {
+            title: row.title,
+            artist: row.artist,
+            singer: row.singer,
+            album: row.album,
+            year: row.year,
+            genre: row.genre,
+            notes: row.notes,
+            bpm: Math.round(Number(row.bpm ?? 0)),
+            instrumental: Boolean(row.instrumental),
+          }
+        : null;
+    })
+    .toEqual({
+      title: track.editedTitle,
+      artist: track.editedArtist,
+      singer: track.singerEdited,
+      album: track.editedAlbum,
+      year: track.editedYear,
+      genre: track.editedGenre,
+      notes: track.notesEdited,
+      bpm: track.bpmEdited,
+      instrumental: track.editedVocal === "instrumental",
+    });
+  await closeTrackEditorIfOpen(page);
+};
+
+const expectEditedTracksPersisted = async (
+  page: Page,
+  tracks: RescanFixtureTrack[],
+  options?: { expectedTotal?: number },
+) => {
+  const rows = await getTracksViaApi(page);
+  if (options?.expectedTotal !== undefined) {
+    expect(rows).toHaveLength(options.expectedTotal);
+  } else {
+    expect(rows.length).toBeGreaterThanOrEqual(tracks.length);
+  }
+  for (const track of tracks) {
+    const row = rows.find((candidate) => candidate.relative_path?.endsWith(track.fileName));
+    expect(row, track.fileName).toBeTruthy();
+    expect(row?.title).toBe(track.editedTitle);
+    expect(row?.artist).toBe(track.editedArtist);
+    expect(row?.singer).toBe(track.singerEdited);
+    expect(row?.album).toBe(track.editedAlbum);
+    expect(row?.year).toBe(track.editedYear);
+    expect(row?.genre).toBe(track.editedGenre);
+    expect(row?.notes).toBe(track.notesEdited);
+    expect(Math.round(Number(row?.bpm ?? 0))).toBe(track.bpmEdited);
+    expect(Boolean(row?.instrumental)).toBe(track.editedVocal === "instrumental");
+  }
+};
+
+const snapshotTracksByFileName = async (page: Page, tracks: RescanFixtureTrack[]) => {
+  const rows = await getTracksViaApi(page);
+  return Object.fromEntries(
+    tracks.map((track) => {
+      const row = rows.find((candidate) => candidate.relative_path?.endsWith(track.fileName));
+      expect(row, track.fileName).toBeTruthy();
+      return [
+        track.fileName,
+        {
+          id: row!.id,
+          full_path: row!.full_path,
+          relative_path: row!.relative_path,
+          title: row!.title,
+          artist: row!.artist,
+          artist_summary: row!.artist_summary,
+          singer: row!.singer,
+          album: row!.album,
+          year: row!.year,
+          genre: row!.genre,
+          bpm: row!.bpm,
+          notes: row!.notes,
+          instrumental: row!.instrumental,
+          duration_ms: row!.duration_ms,
+          start_offset_ms: row!.start_offset_ms,
+          end_trim_ms: row!.end_trim_ms,
+          analysis_json: row!.analysis_json,
+          loudness_db: row!.loudness_db,
+          gain_db: row!.gain_db,
+          tag_error: row!.tag_error,
+          analysis_error: row!.analysis_error,
+        },
+      ];
+    }),
+  );
+};
+
+const expectTrackSnapshotsMatch = async (
+  page: Page,
+  expectedSnapshots: Record<string, Record<string, unknown>>,
+) => {
+  const rows = await getTracksViaApi(page);
+  for (const [fileName, expectedSnapshot] of Object.entries(expectedSnapshots)) {
+    const row = rows.find((candidate) => candidate.relative_path?.endsWith(fileName));
+    expect(row, fileName).toBeTruthy();
+    expect({
+      id: row!.id,
+      full_path: row!.full_path,
+      relative_path: row!.relative_path,
+      title: row!.title,
+      artist: row!.artist,
+      artist_summary: row!.artist_summary,
+      singer: row!.singer,
+      album: row!.album,
+      year: row!.year,
+      genre: row!.genre,
+      bpm: row!.bpm,
+      notes: row!.notes,
+      instrumental: row!.instrumental,
+      duration_ms: row!.duration_ms,
+      start_offset_ms: row!.start_offset_ms,
+      end_trim_ms: row!.end_trim_ms,
+      analysis_json: row!.analysis_json,
+      loudness_db: row!.loudness_db,
+      gain_db: row!.gain_db,
+      tag_error: row!.tag_error,
+      analysis_error: row!.analysis_error,
+    }).toEqual(expectedSnapshot);
+  }
 };
 
 const writeTestWav = (filePath: string, options?: { seconds?: number; frequency?: number }) => {
@@ -3533,6 +3839,103 @@ test.describe("Electron app end-to-end workflows", () => {
             : 0,
         )
         .toBeGreaterThan(0);
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("39 - rescanning preserves edited metadata and only imports newly added files", async () => {
+    const launched = await launchSeededApp("empty");
+    const { page, tempRoot } = launched;
+    const musicRoot = path.join(tempRoot, "rescan-music");
+    const initialTracks = createRescanFixtureTracks();
+    try {
+      initialTracks.forEach((track, index) => {
+        writeTaggedMp3(path.join(musicRoot, track.fileName), {
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          year: track.year,
+          genre: track.genre,
+          notes: `Imported notes ${index + 1}`,
+          seconds: 0.65 + index * 0.01,
+          frequency: 330 + index * 17,
+        });
+      });
+
+      await addMusicRootViaSettings(page, musicRoot);
+      const firstSummary = await runMusicScan(page);
+      expect(firstSummary).toMatchObject({
+        scanned: 10,
+        added: 10,
+        updated: 0,
+        removed: 0,
+      });
+      await waitForTrackCount(page, 10);
+      await closeSettings(page);
+
+      for (const track of initialTracks) {
+        await applyEditedTrackValues(page, track);
+      }
+      await expectEditedTracksPersisted(page, initialTracks, { expectedTotal: 10 });
+      const editedSnapshots = await snapshotTracksByFileName(page, initialTracks);
+
+      await openSettings(page);
+      await page.locator('button[data-tab="library"]').click();
+      const secondSummary = await runMusicScan(page);
+      expect(secondSummary).toMatchObject({
+        scanned: 10,
+        added: 0,
+        updated: 0,
+        removed: 0,
+      });
+      await closeSettings(page);
+      await expectEditedTracksPersisted(page, initialTracks, { expectedTotal: 10 });
+      await expectTrackSnapshotsMatch(page, editedSnapshots);
+
+      const newTrack = {
+        fileName: "rescan-track-11.mp3",
+        title: "Imported Title 11",
+        artist: "Imported Artist 11",
+        album: "Imported Album 11",
+        year: "1947",
+        genre: "Tango",
+      };
+      writeTaggedMp3(path.join(musicRoot, newTrack.fileName), {
+        title: newTrack.title,
+        artist: newTrack.artist,
+        album: newTrack.album,
+        year: newTrack.year,
+        genre: newTrack.genre,
+        notes: "Imported notes 11",
+        seconds: 0.92,
+        frequency: 612,
+      });
+
+      await openSettings(page);
+      await page.locator('button[data-tab="library"]').click();
+      const thirdSummary = await runMusicScan(page);
+      expect(thirdSummary).toMatchObject({
+        scanned: 11,
+        added: 1,
+        updated: 0,
+        removed: 0,
+      });
+      await waitForTrackCount(page, 11);
+      await closeSettings(page);
+
+      await expectEditedTracksPersisted(page, initialTracks, { expectedTotal: 11 });
+      await expectTrackSnapshotsMatch(page, editedSnapshots);
+      const tracksAfterNewImport = await getTracksViaApi(page);
+      const importedRow = tracksAfterNewImport.find((track) =>
+        track.relative_path?.endsWith(newTrack.fileName),
+      );
+      expect(importedRow).toBeTruthy();
+      expect(importedRow?.title).toBe(newTrack.title);
+      expect(importedRow?.artist).toBe(newTrack.artist);
+      expect(importedRow?.album).toBe(newTrack.album);
+      expect(importedRow?.year).toBe(newTrack.year);
+      expect(importedRow?.genre).toBe(newTrack.genre);
     } finally {
       await launched.close();
     }

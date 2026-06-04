@@ -8667,3 +8667,19 @@
 - The guard now runs both in the export IPC handler and inside the backup helper itself.
 - This prevents recursive self-copy during export, which can otherwise grow until `ENOSPC` even when the target volume still has plenty of free space.
 - Added regression coverage for nested export targets in `tests/system-transfer.test.ts`.
+## 2026-06-04 — E2E rescan metadata-preservation workflow
+
+- Added a Playwright Electron workflow in `tests/e2e/workflows.e2e.ts` covering rescan safety for edited library tracks.
+- The test now writes 10 tagged MP3 fixtures on disk, imports them through the real Library Settings flow, edits every user-editable field through the track editor UI, rescans, and verifies the edited metadata remains unchanged.
+- The same workflow then writes an 11th tagged MP3 into the same root, rescans again, verifies the original 10 edited tracks remain untouched, and verifies the new track imports with its on-disk tag values.
+- Hardened the E2E harness so `library:pickRoot` consumes the existing test dialog override path, which allows directory-picker automation under Playwright without changing production behavior.
+## 2026-06-04 — Stronger proof for rescan preservation and reuse
+
+- Corrected library scan summary accounting in `app/src/main/library/scan.ts` so unchanged files touched only via `last_scanned_at` are no longer counted as `updated`.
+- Added a test-only E2E scan-summary hook through `app/src/main/main.ts`, `app/src/preload/preload.ts`, and `app/src/shared/types.ts` so Playwright can assert the real summary returned by the button-triggered scan.
+- Strengthened `tests/e2e/workflows.e2e.ts` so the rescan workflow now captures full persisted snapshots for the original 10 edited tracks and proves they remain byte-for-byte identical across both rescans on all fields exposed by `listTracks()`.
+- The same workflow now also asserts backend scan counts for the real button-triggered scans:
+  - initial import scan: `scanned=10, added=10, updated=0`
+  - rescan without file changes: `scanned=10, added=0, updated=0`
+  - rescan after adding one new file: `scanned=11, added=1, updated=0`
+- Added a controller unit test in `tests/settings-library-controller.test.ts` covering the all-reused summary case.

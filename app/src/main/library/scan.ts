@@ -524,7 +524,6 @@ export const scanLibraryRoots = async (
 
         if (unchanged && !needsMetadataUpdate) {
           touchStmt.run(now, root.id, relativePath);
-          updated += 1;
         } else {
           const fileHash = unchanged
             ? existing?.file_hash ?? (await hashFile(filePath))

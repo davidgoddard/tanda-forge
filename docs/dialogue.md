@@ -5758,3 +5758,22 @@ Make it transparent - seems to fix it"
 
   In version 0.3.7, system export progress is shown, but after exporting 12,6GB (13500 files), it stops on one of the waveform files, with "no space on device", although there is still 85GB free on the target device, and the waveform files are only 1-11 kB each.
 - Assistant: Investigated the system export path and found the most likely cause was recursive self-copy when the chosen export location sits inside the active data directory. Added a guard that rejects export roots equal to or nested under the live data root both in the export IPC entry point and in the backup helper itself, updated the user guide and handoff notes, and added regression tests for nested export targets. Verification to follow with full build and test run.
+- User prompt: "I need an end to end test for the following scenario:
+
+- generate 10 tracks on disk in a test folder.  Give them typical id3 tags for artist and title and year etc.
+- import 10 songs.
+- within the app, for each song, manually change the style, title, artist, bpm and all other editable fields so a different value to that imported.
+- click to scan the library
+- verify that no new files added and that it skips the previous 10
+- verify that no data for the previous 10 songs has been touched and that they are all as edited within the app.
+- write one more new track to the same folder with identifiable information as before.
+- click to scan the library
+- verify that it skips the previous 10
+- verify it only processes the one new file
+- verify that no data for the previous 10 songs has been touched and that they are all as edited within the app.
+- verify the new song has imported correctly."
+- Assistant: Added a Playwright Electron workflow in `tests/e2e/workflows.e2e.ts` that creates 10 tagged MP3 fixtures on disk, imports them through the real settings/library flow, edits every user-editable field through the track editor UI, rescans, and verifies the edited metadata is preserved. The workflow then adds an 11th tagged MP3 to the same folder, rescans again, verifies the original 10 edited tracks are still unchanged, and verifies the new track imports with its file-tag values. Also fixed the test harness so the main-process `library:pickRoot` handler consumes the existing E2E dialog override, which allows the directory picker to be automated during Playwright runs without altering production behavior.
+- User prompt: "And this verifies that not one field of any prior loaded track gets modified in a new library scan?  And this verifies that in the second scan it skips over those files immediately"
+- Assistant: Tightened the proof. Corrected scan-summary accounting so unchanged files are not counted as `updated`, added a test-only E2E hook to capture the actual summary returned by the real `Scan Music` button path, and strengthened the Playwright workflow so it snapshots the full persisted `listTracks()` row for each of the original 10 edited tracks and verifies those snapshots are unchanged after both rescans. The workflow now also asserts the real scan counts for the button-triggered scans: first scan `10 scanned / 10 added / 0 updated`, second scan `10 scanned / 0 added / 0 updated`, third scan after adding one file `11 scanned / 1 added / 0 updated`.
+- User prompt: "I have a user raised issue that their manually entered data was erased and that the scan re-parsed resetting every track and took hours even though there was only a couple of new tracks.  So yes - I need to be able to prove that this does not happen"
+- Assistant: Strengthened the rescan coverage accordingly. The app now reports unchanged files correctly in scan summaries, the E2E captures the actual scan result returned by the real button-driven flow, and the test proves that the original edited tracks are not rewritten on subsequent rescans while a newly added file is imported alone.

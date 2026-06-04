@@ -572,6 +572,12 @@ export type AppApi = {
     saveFilePaths?: string[];
     openFilePaths?: string[];
   }) => Promise<{ ok: boolean }>;
+  getE2eScanSummaries: () => Promise<
+    Array<{
+      kind: "music" | "cortina" | "all";
+      summary: ScanSummary;
+    }>
+  >;
 };
 
 declare global {

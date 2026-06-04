@@ -150,6 +150,10 @@ let activeCompressedRenderCount = 0;
 const compressedRenderWaiters: Array<() => void> = [];
 let e2eDialogSaveFilePaths: string[] = [];
 let e2eDialogOpenFilePaths: string[] = [];
+let e2eScanSummaries: Array<{
+  kind: "music" | "cortina" | "all";
+  summary: Awaited<ReturnType<typeof scanLibraryRoots>>;
+}> = [];
 let systemBackupStatus: SystemBackupStatus = { state: "idle", path: "" };
 let systemBackupPromise: Promise<void> | null = null;
 let playableWarmupTimer: NodeJS.Timeout | null = null;
@@ -816,7 +820,7 @@ const registerIpc = () => {
   ipcMain.handle(
     "library:pickRoot",
     async (_event, kind: "music" | "cortina" | "background") => {
-    const result = await dialog.showOpenDialog({
+    const result = consumeE2EOpenDialogResult() ?? await dialog.showOpenDialog({
       properties: ["openDirectory"],
       title:
         kind === "music"
@@ -1178,6 +1182,9 @@ const registerIpc = () => {
 
     try {
       const summary = await runScan(scanRoots);
+      if (process.env.NODE_ENV === "test") {
+        e2eScanSummaries.push({ kind: "all", summary });
+      }
       schedulePlayableWarmup(5000);
       const completedAt = new Date().toISOString();
       db.prepare(
@@ -1215,6 +1222,9 @@ const registerIpc = () => {
     ).run(startedAt, kind);
     try {
       const summary = await runScan(roots);
+      if (process.env.NODE_ENV === "test") {
+        e2eScanSummaries.push({ kind, summary });
+      }
       schedulePlayableWarmup(5000);
       const completedAt = new Date().toISOString();
       db.prepare(
@@ -2443,7 +2453,15 @@ const registerIpc = () => {
     e2eDialogOpenFilePaths = Array.isArray(payload?.openFilePaths)
       ? payload.openFilePaths.filter((value): value is string => typeof value === "string" && value.length > 0)
       : [];
+    e2eScanSummaries = [];
     return { ok: true };
+  });
+
+  ipcMain.handle("e2e:getScanSummaries", async () => {
+    if (process.env.NODE_ENV !== "test") {
+      throw new Error("e2e scan summaries are only available in test mode");
+    }
+    return e2eScanSummaries;
   });
 
   ipcMain.handle("e2e:seedData", async (_event, payload: E2ESeedPayload) => {

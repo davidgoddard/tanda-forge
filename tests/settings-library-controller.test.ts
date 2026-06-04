@@ -317,6 +317,71 @@ describe("settings library controller", () => {
     expect(onScanCompleted).toHaveBeenCalled();
   });
 
+  it("reports every unchanged file as reused when scan returns no additions or updates", async () => {
+    (globalThis as { document?: { createElement: () => FakeElement } }).document = {
+      createElement: () => new FakeElement(),
+    };
+    const elements = createElements();
+    const setStatus = vi.fn();
+    const controller = createSettingsLibraryController({
+      translate: (key, params) => `${key}:${params ? JSON.stringify(params) : ""}`,
+      basenameForDisplay: (filePath) => filePath ?? "",
+      api: {
+        scanKind: vi.fn(async () => ({
+          scanned: 10,
+          added: 0,
+          updated: 0,
+          removed: 0,
+          errors: [],
+        })),
+        runStartupFlow: vi.fn(),
+        precomputeCompressedTracks: vi.fn(async () => ({
+          ok: true,
+          rendered: 0,
+          cached: 0,
+          failed: 0,
+          eligible: 0,
+          ready: 0,
+          missing: 0,
+          invalidSource: 0,
+          missingTracks: [],
+          errors: [],
+        })),
+        refreshStoredMetadata: vi.fn(),
+        verifyCachedFiles: vi.fn(),
+        clearCachedFiles: vi.fn(),
+        exportSystemData: vi.fn(),
+        importSystemData: vi.fn(),
+      },
+      elements,
+      setStatus,
+      clearAlert: vi.fn(),
+      getCompressionConfig: () => ({
+        mode: "upward",
+        liftThresholdDb: -24,
+        maxLiftDb: 8,
+        ratio: 4,
+        attackMs: 5,
+        releaseMs: 250,
+        gateThresholdDb: -50,
+        limiterCeilingDb: -1,
+        limiterReleaseMs: 150,
+      }),
+      scheduleCompressionPrefetch: vi.fn(),
+      onScanCompleted: vi.fn(async () => {}),
+      onStoredMetadataRefreshed: vi.fn(async () => {}),
+      onCachedFilesCleared: vi.fn(async () => {}),
+      onStartupFlowCompleted: vi.fn(async () => {}),
+      onSystemImported: vi.fn(async () => {}),
+    });
+
+    await controller.runScan("music");
+
+    expect(setStatus).toHaveBeenCalledWith(
+      'statusScanComplete:{"checked":10,"reused":10,"added":0,"updated":0,"removed":0}',
+    );
+  });
+
   it("runs the guided startup flow and reports the combined result", async () => {
     (globalThis as { document?: { createElement: () => FakeElement } }).document = {
       createElement: () => new FakeElement(),

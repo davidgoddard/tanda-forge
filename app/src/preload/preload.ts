@@ -163,6 +163,7 @@ const api: AppApi = {
   seedE2eData: async (payload) => ipcRenderer.invoke("e2e:seedData", payload),
   setE2eDialogResponses: async (payload) =>
     ipcRenderer.invoke("e2e:setDialogResponses", payload),
+  getE2eScanSummaries: async () => ipcRenderer.invoke("e2e:getScanSummaries"),
 };
 
 contextBridge.exposeInMainWorld("tanda", api);
