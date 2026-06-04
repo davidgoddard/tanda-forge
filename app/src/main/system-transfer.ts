@@ -40,6 +40,15 @@ export const isPathWithin = (parentPath: string, childPath: string) => {
   return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
 };
 
+export const validateSystemBackupExportRoot = (sourceRoot: string, exportRoot: string) => {
+  const source = path.resolve(sourceRoot);
+  const target = path.resolve(exportRoot);
+  if (target === source || isPathWithin(source, target)) {
+    return "Backup folder must be outside the active data directory";
+  }
+  return null;
+};
+
 export const isValidSystemBackupManifest = (
   value: unknown,
 ): value is SystemBackupManifest => {
@@ -62,6 +71,10 @@ export const writeSystemBackup = (
   exportRoot: string,
   manifest: SystemBackupManifest,
 ) => {
+  const validationError = validateSystemBackupExportRoot(sourceRoot, exportRoot);
+  if (validationError) {
+    throw new Error(validationError);
+  }
   fs.mkdirSync(exportRoot, { recursive: true });
   const entries = fs.readdirSync(sourceRoot, { withFileTypes: true });
   for (const entry of entries) {
@@ -85,6 +98,10 @@ export const writeSystemBackupAsync = async (
   manifest: SystemBackupManifest,
   onProgress?: (progress: { completed: number; total: number; entryName: string }) => void,
 ) => {
+  const validationError = validateSystemBackupExportRoot(sourceRoot, exportRoot);
+  if (validationError) {
+    throw new Error(validationError);
+  }
   await fs.promises.mkdir(exportRoot, { recursive: true });
   const entries = await fs.promises.readdir(sourceRoot, { withFileTypes: true });
   const managedEntries = entries.filter((entry) => shouldTransferManagedEntry(entry.name));

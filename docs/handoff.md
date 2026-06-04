@@ -8657,3 +8657,13 @@
 - Spanish now uses `L` for playlist-target actions (`lista`).
 - Icelandic now uses `S` for add/remove playlist actions (`spilunarlisti`), while `mark playlist` remains `M` to keep popup shortcuts unambiguous.
 - Locales that already use the borrowed word `playlist` keep `P`.
+## 2026-06-03 — i18n locale block correction
+
+- Corrected a bad follow-up patch that had written some Spanish/French/German/Portuguese/Italian strings into the wrong locale blocks in `app/src/renderer/i18n.ts`.
+- Restored English backup/root-removal text and corrected the affected locale-specific backup/root-removal strings in their own blocks.
+## 2026-06-04 — System export recursion guard
+
+- Added an explicit guard against exporting a system backup into the live Tanda Forge data directory or any of its subfolders.
+- The guard now runs both in the export IPC handler and inside the backup helper itself.
+- This prevents recursive self-copy during export, which can otherwise grow until `ENOSPC` even when the target volume still has plenty of free space.
+- Added regression coverage for nested export targets in `tests/system-transfer.test.ts`.

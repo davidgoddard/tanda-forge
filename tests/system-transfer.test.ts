@@ -7,6 +7,7 @@ import {
   isPathWithin,
   isValidSystemBackupManifest,
   restoreSystemBackup,
+  validateSystemBackupExportRoot,
   writeSystemBackup,
   writeSystemBackupAsync,
 } from "../app/src/main/system-transfer";
@@ -33,6 +34,16 @@ describe("system transfer helpers", () => {
   it("detects nested paths correctly", () => {
     expect(isPathWithin("/tmp/data", "/tmp/data/backups/export")).toBe(true);
     expect(isPathWithin("/tmp/data", "/tmp/other/export")).toBe(false);
+  });
+
+  it("rejects backup export roots inside the active data directory", () => {
+    expect(
+      validateSystemBackupExportRoot("/tmp/data", "/tmp/data/backups/export"),
+    ).toBe("Backup folder must be outside the active data directory");
+    expect(validateSystemBackupExportRoot("/tmp/data", "/tmp/data")).toBe(
+      "Backup folder must be outside the active data directory",
+    );
+    expect(validateSystemBackupExportRoot("/tmp/data", "/tmp/other/export")).toBeNull();
   });
 
   it("validates backup manifests", () => {
@@ -113,6 +124,25 @@ describe("system transfer helpers", () => {
     expect(progress.length).toBe(2);
     expect(progress.some((entry) => entry.endsWith(":tanda-player.db"))).toBe(true);
     expect(progress.some((entry) => entry.endsWith(":playable-audio-cache"))).toBe(true);
+  });
+
+  it("rejects synchronous and async export targets nested inside the source root", async () => {
+    const sourceRoot = createTempDir("tanda-system-source-guard");
+    const exportRoot = path.join(sourceRoot, "backups", "backup");
+    fs.writeFileSync(path.join(sourceRoot, "tanda-player.db"), "db", "utf-8");
+    const manifest = {
+      format: "tanda-forge-system-backup" as const,
+      version: 1,
+      createdAt: "2026-03-23T10:11:12.345Z",
+      appVersion: "0.3.0",
+    };
+
+    expect(() => writeSystemBackup(sourceRoot, exportRoot, manifest)).toThrow(
+      "Backup folder must be outside the active data directory",
+    );
+    await expect(writeSystemBackupAsync(sourceRoot, exportRoot, manifest)).rejects.toThrow(
+      "Backup folder must be outside the active data directory",
+    );
   });
 
   it("restores only managed app data and leaves runtime cache directories untouched", () => {

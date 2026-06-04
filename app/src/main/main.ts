@@ -97,6 +97,7 @@ import {
   isPathWithin,
   readSystemBackupManifest,
   restoreSystemBackup,
+  validateSystemBackupExportRoot,
   SYSTEM_BACKUP_VERSION,
   writeSystemBackupAsync,
 } from "./system-transfer";
@@ -888,6 +889,15 @@ const registerIpc = () => {
       result.filePaths[0],
       buildSystemBackupFolderName(createdAt),
     );
+    const exportValidationError = validateSystemBackupExportRoot(getDataRoot(), exportRoot);
+    if (exportValidationError) {
+      return {
+        ok: false,
+        cancelled: false,
+        path: exportRoot,
+        error: exportValidationError,
+      };
+    }
     const started = await startSystemBackupExport(exportRoot);
     if (!started.ok) {
       return { ok: false, cancelled: false, path: exportRoot, error: started.error };

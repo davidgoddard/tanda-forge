@@ -673,6 +673,7 @@ In **Settings -> Library**, the buttons are grouped by purpose:
 - **Derived Caches** manages the expensive on-disk cache files.
 - **Library Maintenance** contains database-only cleanup.
 - **System Export / Import** backs up or restores the complete application data folder (database, caches, logs, and persisted settings).
+- **System Export** must be written outside the active Tanda Forge data folder. Exporting into a subfolder of the live data directory is blocked to prevent recursive self-copy and runaway disk usage.
 
 The legacy migration card is shown separately from the resumable startup flow, and the remaining scan/cache/maintenance/backup tools sit inside one shared manual-tools area so their optional/manual role is clear.
 
