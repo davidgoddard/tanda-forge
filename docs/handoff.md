@@ -2,7 +2,33 @@
 
 ### Current branch / version
 - Branch: `main`
-- Version: `0.1.1` (from `package.json`)
+- Version: `0.3.8` (from `package.json`)
+
+### Latest change
+- Header subtitle now shows the live packaged app version.
+  - Added `app:getVersion` IPC in `app/src/main/main.ts`, exposed it in
+    `app/src/preload/preload.ts`, and typed it in `app/src/shared/types.ts`.
+  - Updated the renderer header subtitle in `app/src/renderer/renderer.ts`,
+    `app/src/renderer/index.html`, and `app/src/renderer/i18n.ts` to render
+    `Version: {version} © David Goddard 2026` using the actual app version.
+  - Added a translation regression in `tests/i18n.test.ts`.
+  - Updated `design/05-ui-principles-and-components.md` with `UI-014.R27`.
+  - Verification for this change:
+    - `source ~/.nvm/nvm.sh && npm run build`
+    - `source ~/.nvm/nvm.sh && npm test`
+
+### Current support note
+- Reviewed the current codepaths for system export and post-legacy scanning in
+  response to user questions.
+  - System export currently guards only against exporting into a folder inside
+    the active data root, because that used to recurse and end in `ENOSPC`
+    despite free disk space.
+  - The "one-time post-legacy settling scan" is not automatic during
+    `Legacy Import`; it is the first subsequent real scan (`Scan Music` or the
+    music phase of `Startup Flow`), and it intentionally refreshes tracks whose
+    imported analysis is marked `source: "legacy-import"`.
+  - A fresh legacy import is not required just to reach steady-state coherence,
+    and it would replace current tanda data again.
 
 ### What I was doing last
 - Stabilized the performance-stop E2E start assertion:

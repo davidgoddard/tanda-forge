@@ -213,6 +213,7 @@ export type E2ESeedPayload = {
 
 export type AppApi = {
   ping: () => Promise<string>;
+  getAppVersion: () => Promise<string>;
   pickRoot: (kind: "music" | "cortina" | "background") => Promise<string | null>;
   pickDataLocation: () => Promise<string | null>;
   getDataLocation: () => Promise<{ path: string; defaultPath: string }>;

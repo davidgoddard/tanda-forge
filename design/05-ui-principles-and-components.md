@@ -325,6 +325,9 @@ Interactions:
   while preserving playlist configuration; it is disabled in Live mode.
 - UI-014.R26: Playlist auto-fill uses sequence/style rules and stops when projected
   timeline reaches the configured expected end time.
+- UI-014.R27: The centered app-title block includes a subtitle showing the live
+  application version from the packaged app metadata in the form
+  `Version: {version} © David Goddard 2026`.
 
 ## UI-015 — Now Playing Strip
 

@@ -80,6 +80,14 @@ describe("renderer i18n", () => {
     expect(value).toContain("/tmp/example.wav");
   });
 
+  it("interpolates the app subtitle with the live version string", () => {
+    expect(
+      translate("en", "appSubtitle", {
+        version: "0.3.8",
+      }),
+    ).toBe("Version: 0.3.8 © David Goddard 2026");
+  });
+
   it("interpolates output routing failure details", () => {
     const value = translate("en", "outputRoutingFailedDetail", {
       channel: "Main output",

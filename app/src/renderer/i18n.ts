@@ -3,7 +3,7 @@ export type LanguageKey = "en" | "es" | "fr" | "de" | "pt" | "it" | "is";
 export const translations = {
   en: {
     appTitle: "Tanda Forge",
-    appSubtitle: "From David Goddard ©2026",
+    appSubtitle: "Version: {version} © David Goddard 2026",
     closeApp: "Close app",
     playlistStart: "Start",
     playlistResume: "Resume",
@@ -714,7 +714,7 @@ export const translations = {
   },
   es: {
     appTitle: "Tanda Forge",
-    appSubtitle: "From David Goddard ©2026",
+    appSubtitle: "Version: {version} © David Goddard 2026",
     closeApp: "Cerrar app",
     playlistStart: "Iniciar",
     playlistResume: "Reanudar",
@@ -1447,7 +1447,7 @@ export const translations = {
   },
   fr: {
     appTitle: "Tanda Forge",
-    appSubtitle: "From David Goddard ©2026",
+    appSubtitle: "Version: {version} © David Goddard 2026",
     closeApp: "Fermer l'application",
     playlistStart: "Demarrer",
     playlistResume: "Reprendre",
@@ -2190,7 +2190,7 @@ export const translations = {
   },
   de: {
     appTitle: "Tanda Forge",
-    appSubtitle: "From David Goddard ©2026",
+    appSubtitle: "Version: {version} © David Goddard 2026",
     closeApp: "App schliessen",
     playlistStart: "Start",
     playlistResume: "Fortsetzen",
@@ -2935,7 +2935,7 @@ export const translations = {
   },
   pt: {
     appTitle: "Tanda Forge",
-    appSubtitle: "From David Goddard ©2026",
+    appSubtitle: "Version: {version} © David Goddard 2026",
     closeApp: "Fechar app",
     playlistStart: "Iniciar",
     playlistResume: "Retomar",
@@ -3680,7 +3680,7 @@ export const translations = {
   },
   it: {
     appTitle: "Tanda Forge",
-    appSubtitle: "From David Goddard ©2026",
+    appSubtitle: "Version: {version} © David Goddard 2026",
     closeApp: "Chiudi app",
     playlistStart: "Avvia",
     playlistResume: "Riprendi",
@@ -4431,7 +4431,7 @@ export const translations = {
 
 translations.is = {
   ...translations.en,
-  appSubtitle: "Frá David Goddard ©2026",
+  appSubtitle: "Version: {version} © David Goddard 2026",
   closeApp: "Loka forriti",
   playlistStart: "Byrja",
   playlistResume: "Halda áfram",

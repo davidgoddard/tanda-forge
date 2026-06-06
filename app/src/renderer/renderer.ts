@@ -1188,6 +1188,7 @@ const DEFAULT_STYLE_FAMILIES =
 const DEFAULT_PLAYLIST_START_TIME = "20:00";
 const getLanguage = () =>
   (localStorage.getItem("tanda-language") as LanguageKey) || "en";
+let appVersion = "—";
 
 const t = (key: string, params?: Record<string, string | number>) => {
   return translate(getLanguage(), key, params);
@@ -1225,7 +1226,8 @@ const applyTranslations = () => {
         });
       return;
     }
-    element.textContent = t(key);
+    element.textContent =
+      key === "appSubtitle" ? t(key, { version: appVersion }) : t(key);
   });
   document
     .querySelectorAll<HTMLButtonElement>(".track-editor-search-field")
@@ -14007,6 +14009,15 @@ const init = async () => {
   if (!window.tanda) {
     setStatus(t("statusNoApi"));
     return;
+  }
+
+  try {
+    const version = await window.tanda.getAppVersion();
+    if (version.trim()) {
+      appVersion = version.trim();
+    }
+  } catch {
+    appVersion = "—";
   }
 
   const settingsLibraryController = createSettingsLibraryController({

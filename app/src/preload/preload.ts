@@ -3,6 +3,7 @@ import type { AppApi } from "../shared/types";
 
 const api: AppApi = {
   ping: async () => "pong",
+  getAppVersion: async () => ipcRenderer.invoke("app:getVersion"),
   pickRoot: async (kind) => ipcRenderer.invoke("library:pickRoot", kind),
   pickDataLocation: async () => ipcRenderer.invoke("data:pickLocation"),
   getDataLocation: async () => ipcRenderer.invoke("data:getLocation"),

@@ -799,6 +799,8 @@ const registerIpc = () => {
     }
   });
 
+  ipcMain.handle("app:getVersion", async () => app.getVersion());
+
   ipcMain.handle("app:toggleFullscreen", async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow();
     if (!window || window.isDestroyed()) {
