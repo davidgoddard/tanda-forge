@@ -883,7 +883,7 @@ const registerIpc = () => {
   );
 
   ipcMain.handle("app:exportSystemData", async () => {
-    const result = await dialog.showOpenDialog({
+    const result = consumeE2EOpenDialogResult() ?? await dialog.showOpenDialog({
       properties: ["openDirectory", "createDirectory"],
       title: "Choose Export Location",
     });
@@ -922,7 +922,7 @@ const registerIpc = () => {
         error: "System backup is still running",
       };
     }
-    const result = await dialog.showOpenDialog({
+    const result = consumeE2EOpenDialogResult() ?? await dialog.showOpenDialog({
       properties: ["openDirectory"],
       title: "Choose System Backup Folder",
     });

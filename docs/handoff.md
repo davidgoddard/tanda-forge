@@ -8715,3 +8715,8 @@
 - The workflow now writes legacy `config.js`, `library.dat`, and `tandas.dat` files into the music root, imports those tandas through the real Settings -> Legacy Import path, creates additional tandas through the real tanda-designer UI, and then proves both sets survive later rescans.
 - The test also documents the intended one-time post-legacy settling scan: after legacy import, a full scan still updates those tracks once because legacy import writes placeholder analysis metadata that must be replaced by a real scan.
 - After that settling scan and after manual track edits, the workflow proves later rescans return `updated=0` for unchanged files and that neither the legacy-imported tandas nor the app-created tandas are lost when rescanning or when adding one new file.
+## 2026-06-11 — E2E regression for same-drive system export
+
+- Added a Playwright Electron regression in `tests/e2e/workflows.e2e.ts` proving that system export succeeds when the backup target is a different folder on the same filesystem as the music root.
+- The workflow now creates a real scanned music root, then exports the system backup to a sibling folder outside the active data root and verifies the background export completes successfully and writes a valid backup manifest/database/waveform payload.
+- Also hardened the E2E harness in `app/src/main/main.ts` so system export/import directory pickers consume the existing test dialog override, matching the other automated folder-picking flows.

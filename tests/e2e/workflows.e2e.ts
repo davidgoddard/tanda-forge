@@ -4144,4 +4144,64 @@ test.describe("Electron app end-to-end workflows", () => {
       await launched.close();
     }
   });
+
+  test("40 - system export succeeds to a different folder on the same drive", async () => {
+    const launched = await launchSeededApp("empty");
+    const { page, tempRoot } = launched;
+    const musicRoot = path.join(tempRoot, "music-same-drive");
+    const exportParent = path.join(tempRoot, "backup-target");
+    const trackFile = path.join(musicRoot, "same-drive-export.mp3");
+    try {
+      writeTaggedMp3(trackFile, {
+        title: "Same Drive Export",
+        artist: "Export Test",
+        album: "System Export",
+        year: "1941",
+        genre: "Tango",
+        notes: "backup regression",
+        seconds: 0.8,
+        frequency: 440,
+      });
+
+      await addMusicRootViaSettings(page, musicRoot);
+      const scanSummary = await runMusicScan(page);
+      expect(scanSummary).toMatchObject({
+        scanned: 1,
+        added: 1,
+        updated: 0,
+        removed: 0,
+      });
+      await waitForTrackCount(page, 1);
+
+      await fs.promises.mkdir(exportParent, { recursive: true });
+      await configureE2eDialogResponses(page, { openFilePaths: [exportParent] });
+      await openSettings(page);
+      await page.locator('button[data-tab="library"]').click();
+      await page.locator("#export-system-data").click();
+
+      await expect
+        .poll(async () => {
+          return await page.evaluate(async () => {
+            return (await window.tanda?.getSystemBackupStatus())?.state ?? "idle";
+          });
+        })
+        .toBe("succeeded");
+
+      const exportStatus = await page.evaluate(async () => {
+        return await window.tanda?.getSystemBackupStatus();
+      });
+      expect(exportStatus?.state).toBe("succeeded");
+      expect(exportStatus?.path).toContain(path.join(tempRoot, "backup-target"));
+
+      await expect(page.locator("#system-transfer-result")).toContainText("System export created");
+
+      const backupRoot = exportStatus?.path ?? "";
+      expect(backupRoot).toBeTruthy();
+      expect(fs.existsSync(path.join(backupRoot, "tanda-forge-system-backup.json"))).toBe(true);
+      expect(fs.existsSync(path.join(backupRoot, "tanda-player.db"))).toBe(true);
+      expect(fs.existsSync(path.join(backupRoot, "waveforms"))).toBe(true);
+    } finally {
+      await launched.close();
+    }
+  });
 });
