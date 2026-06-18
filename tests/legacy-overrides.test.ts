@@ -17,6 +17,7 @@ describe("legacy override persistence", () => {
             {
               title: "Track",
               artist: "Artist",
+              singer: "Singer",
               bpm: 62,
               instrumental: false,
               loudnessDb: -19.5,
@@ -31,6 +32,7 @@ describe("legacy override persistence", () => {
     const decoded = deserializeLegacyOverrides(encoded);
     expect(decoded.get("root-1")?.get("Artist/Track.mp3")?.title).toBe("Track");
     expect(decoded.get("root-1")?.get("Artist/Track.mp3")?.instrumental).toBe(false);
+    expect(decoded.get("root-1")?.get("Artist/Track.mp3")?.singer).toBe("Singer");
     expect(decoded.get("root-1")?.get("Artist/Track.mp3")?.gainDb).toBeCloseTo(3.5);
   });
 

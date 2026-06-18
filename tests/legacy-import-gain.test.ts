@@ -95,6 +95,74 @@ describe("loadLegacyLibrary gain parsing", () => {
     });
   });
 
+  it("derives year from a trailing title year, including before a trailing bracket suffix, and splits semicolon artist credits into artist plus singer", () => {
+    const legacyPath = writeLegacyFile({
+      "/music/sung.mp3": {
+        track: {
+          title: "El Flete 1942",
+          artist: "Carlos Di Sarli; Alberto Podesta",
+        },
+        classifiers: {
+          instrumental: true,
+          bpm: 64,
+        },
+      },
+      "/music/plain.mp3": {
+        track: {
+          title: "A Media Luz",
+          artist: "Edgardo Donato",
+        },
+        classifiers: {
+          instrumental: true,
+        },
+      },
+      "/music/bracketed.mp3": {
+        track: {
+          title: "Dulce Perdon (Vals) 1935 (Reliquias-flac)",
+          artist: "Carlos Di Sarli",
+        },
+        classifiers: {
+          instrumental: true,
+        },
+      },
+      "/music/punctuated.mp3": {
+        track: {
+          title: "Didi 1937. (Reliquias-flac)",
+          artist: "Roberto Firpo",
+        },
+        classifiers: {
+          instrumental: true,
+        },
+      },
+    });
+
+    const entries = loadLegacyLibrary(legacyPath);
+    expect(entries.get("music/sung.mp3")).toMatchObject({
+      title: "El Flete 1942",
+      artist: "Carlos Di Sarli",
+      singer: "Alberto Podesta",
+      year: "1942",
+      bpm: 64,
+      instrumental: false,
+    });
+    expect(entries.get("music/plain.mp3")).toMatchObject({
+      artist: "Edgardo Donato",
+      instrumental: true,
+    });
+    expect(entries.get("music/bracketed.mp3")).toMatchObject({
+      title: "Dulce Perdon (Vals) 1935 (Reliquias-flac)",
+      artist: "Carlos Di Sarli",
+      year: "1935",
+      instrumental: true,
+    });
+    expect(entries.get("music/punctuated.mp3")).toMatchObject({
+      title: "Didi 1937. (Reliquias-flac)",
+      artist: "Roberto Firpo",
+      year: "1937",
+      instrumental: true,
+    });
+  });
+
   it("lists distinct legacy styles with counts", () => {
     const legacyPath = writeLegacyFile({
       "/music/a.mp3": {

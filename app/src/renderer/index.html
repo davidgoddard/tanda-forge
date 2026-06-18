@@ -187,8 +187,8 @@
       <section class="banner" id="root-banner">
         <div class="banner-text" id="root-banner-text"></div>
         <div class="banner-actions">
-          <button id="open-diagnostics-main" data-i18n="viewScanIssues">
-            View scan issues
+          <button id="open-library-setup-main" data-i18n="openLibrarySetup">
+            Open setup
           </button>
         </div>
       </section>
@@ -708,7 +708,7 @@
         </nav>
         <div class="settings-content">
           <div class="settings-tab active" data-tab="library">
-            <div class="settings-section">
+            <div id="library-roots-section" class="settings-section">
               <h3 data-i18n="libraryRoots">Library Roots</h3>
               <p data-i18n="libraryRootsHelp">
                 Configure music and cortina folders used for scanning.
@@ -725,8 +725,205 @@
                 </button>
               </div>
               <div id="root-list" class="root-list"></div>
+              <div class="settings-actions">
+                <button id="library-roots-done" data-i18n="libraryWorkflowRootsDone">
+                  Done configuring roots
+                </button>
+              </div>
             </div>
-            <div class="settings-section">
+            <div class="settings-section setup-card setup-card-primary">
+              <div class="settings-eyebrow" data-i18n="libraryWorkflowBadge">Recommended path</div>
+              <h3 data-i18n="libraryWorkflowTitle">Library setup flow</h3>
+              <p class="settings-note" data-i18n="libraryWorkflowHelp">
+                Follow this sequence once per library. Legacy migration is optional and rejoins the normal setup flow at analysis.
+              </p>
+              <div class="library-workflow-shell">
+                <div id="library-workflow" class="library-workflow" aria-hidden="true">
+                  <div class="library-workflow-step" data-step="roots">
+                    <button
+                      type="button"
+                      class="library-workflow-step-marker"
+                      data-step-expand="roots"
+                      data-i18n-attr="aria-label,title"
+                      data-i18n="libraryWorkflowExpandStep"
+                      aria-label="Expand step"
+                      title="Expand step"
+                    ></button>
+                    <div class="library-workflow-step-copy">
+                      <div class="library-workflow-step-row">
+                        <span data-i18n="libraryWorkflowStepRoots">Configure roots</span>
+                        <span class="library-workflow-step-badge" data-i18n="libraryWorkflowRequired">Required</span>
+                      </div>
+                      <div class="library-workflow-step-note" data-i18n="libraryWorkflowStepRootsHelp">
+                        Add the live music and cortina folders.
+                      </div>
+                      <button
+                        type="button"
+                        class="library-workflow-step-toggle"
+                        data-step-toggle="roots"
+                        data-i18n-attr="aria-label,title"
+                        data-i18n="libraryWorkflowExpandStep"
+                        aria-expanded="false"
+                        aria-label="Expand step"
+                        title="Expand step"
+                      >
+                        <span class="library-workflow-step-toggle-icon" aria-hidden="true">▸</span>
+                        <span class="library-workflow-step-toggle-label sr-only" data-i18n="libraryWorkflowExpandStep">Expand step</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="library-workflow-step" data-step="legacy-styles">
+                    <button
+                      type="button"
+                      class="library-workflow-step-marker"
+                      data-step-expand="legacy-styles"
+                      data-i18n-attr="aria-label,title"
+                      data-i18n="libraryWorkflowExpandStep"
+                      aria-label="Expand step"
+                      title="Expand step"
+                    ></button>
+                    <div class="library-workflow-step-copy">
+                      <div class="library-workflow-step-row">
+                        <span data-i18n="libraryWorkflowStepLegacyStyles">Review legacy styles</span>
+                        <span class="library-workflow-step-badge optional" data-i18n="libraryWorkflowOptional">Optional</span>
+                      </div>
+                      <div class="library-workflow-step-note" data-i18n="libraryWorkflowStepLegacyStylesHelp">
+                        Map old style names onto current families before import.
+                      </div>
+                      <button
+                        type="button"
+                        class="library-workflow-step-toggle"
+                        data-step-toggle="legacy-styles"
+                        data-i18n-attr="aria-label,title"
+                        data-i18n="libraryWorkflowExpandStep"
+                        aria-expanded="false"
+                        aria-label="Expand step"
+                        title="Expand step"
+                      >
+                        <span class="library-workflow-step-toggle-icon" aria-hidden="true">▸</span>
+                        <span class="library-workflow-step-toggle-label sr-only" data-i18n="libraryWorkflowExpandStep">Expand step</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="library-workflow-step" data-step="legacy-import">
+                    <button
+                      type="button"
+                      class="library-workflow-step-marker"
+                      data-step-expand="legacy-import"
+                      data-i18n-attr="aria-label,title"
+                      data-i18n="libraryWorkflowExpandStep"
+                      aria-label="Expand step"
+                      title="Expand step"
+                    ></button>
+                    <div class="library-workflow-step-copy">
+                      <div class="library-workflow-step-row">
+                        <span data-i18n="libraryWorkflowStepLegacyImport">Import legacy metadata and tandas</span>
+                        <span class="library-workflow-step-badge optional" data-i18n="libraryWorkflowOptional">Optional</span>
+                      </div>
+                      <div class="library-workflow-step-note" data-i18n="libraryWorkflowStepLegacyImportHelp">
+                        Reuse titles, artists, years, BPM, trims, loudness, and tandas from `library.dat` and `tandas.dat`.
+                      </div>
+                      <button
+                        type="button"
+                        class="library-workflow-step-toggle"
+                        data-step-toggle="legacy-import"
+                        data-i18n-attr="aria-label,title"
+                        data-i18n="libraryWorkflowExpandStep"
+                        aria-expanded="false"
+                        aria-label="Expand step"
+                        title="Expand step"
+                      >
+                        <span class="library-workflow-step-toggle-icon" aria-hidden="true">▸</span>
+                        <span class="library-workflow-step-toggle-label sr-only" data-i18n="libraryWorkflowExpandStep">Expand step</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="library-workflow-step" data-step="analysis">
+                    <button
+                      type="button"
+                      class="library-workflow-step-marker"
+                      data-step-expand="analysis"
+                      data-i18n-attr="aria-label,title"
+                      data-i18n="libraryWorkflowExpandStep"
+                      aria-label="Expand step"
+                      title="Expand step"
+                    ></button>
+                    <div class="library-workflow-step-copy">
+                      <div class="library-workflow-step-row">
+                        <span data-i18n="libraryWorkflowStepAnalysis">Run analysis setup</span>
+                        <span class="library-workflow-step-badge" data-i18n="libraryWorkflowRequired">Required</span>
+                      </div>
+                      <div class="library-workflow-step-note" data-i18n="libraryWorkflowStepAnalysisHelp">
+                        This is where the legacy branch rejoins the normal path.
+                      </div>
+                      <button
+                        type="button"
+                        class="library-workflow-step-toggle"
+                        data-step-toggle="analysis"
+                        data-i18n-attr="aria-label,title"
+                        data-i18n="libraryWorkflowExpandStep"
+                        aria-expanded="false"
+                        aria-label="Expand step"
+                        title="Expand step"
+                      >
+                        <span class="library-workflow-step-toggle-icon" aria-hidden="true">▸</span>
+                        <span class="library-workflow-step-toggle-label sr-only" data-i18n="libraryWorkflowExpandStep">Expand step</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="library-workflow-step" data-step="verify">
+                    <button
+                      type="button"
+                      class="library-workflow-step-marker"
+                      data-step-expand="verify"
+                      data-i18n-attr="aria-label,title"
+                      data-i18n="libraryWorkflowExpandStep"
+                      aria-label="Expand step"
+                      title="Expand step"
+                    ></button>
+                    <div class="library-workflow-step-copy">
+                      <div class="library-workflow-step-row">
+                        <span data-i18n="libraryWorkflowStepVerify">Verify readiness</span>
+                        <span class="library-workflow-step-badge" data-i18n="libraryWorkflowRequired">Required</span>
+                      </div>
+                      <div class="library-workflow-step-note" data-i18n="libraryWorkflowStepVerifyHelp">
+                        Confirm that metadata, analysis, and caches are ready for playback.
+                      </div>
+                      <button
+                        type="button"
+                        class="library-workflow-step-toggle"
+                        data-step-toggle="verify"
+                        data-i18n-attr="aria-label,title"
+                        data-i18n="libraryWorkflowExpandStep"
+                        aria-expanded="false"
+                        aria-label="Expand step"
+                        title="Expand step"
+                      >
+                        <span class="library-workflow-step-toggle-icon" aria-hidden="true">▸</span>
+                        <span class="library-workflow-step-toggle-label sr-only" data-i18n="libraryWorkflowExpandStep">Expand step</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="library-workflow-guidance">
+                  <div class="settings-eyebrow" data-i18n="libraryWorkflowStatusLabel">Current guidance</div>
+                  <div id="library-workflow-guidance" class="library-workflow-guidance-text" data-i18n="libraryWorkflowGuidanceRoots">
+                    Add both roots first. If you are migrating from Tanda Player, keep the legacy files beside those folders so the import step can detect them.
+                  </div>
+                  <div id="library-workflow-detail" class="library-workflow-detail">
+                    <div class="library-workflow-detail-empty" data-i18n="libraryWorkflowDetailPrompt">
+                      Expand a step on the left to focus its related controls here.
+                    </div>
+                    <div id="library-workflow-panel-roots" class="library-workflow-panel hidden"></div>
+                    <div id="library-workflow-panel-legacy-styles" class="library-workflow-panel hidden"></div>
+                    <div id="library-workflow-panel-legacy-import" class="library-workflow-panel hidden"></div>
+                    <div id="library-workflow-panel-analysis" class="library-workflow-panel hidden"></div>
+                    <div id="library-workflow-panel-verify" class="library-workflow-panel hidden"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="style-families-section" class="settings-section">
               <h3 data-i18n="styleFamiliesTitle">Style Families</h3>
               <p data-i18n="styleFamiliesHelp">
                 Define playlist style letters and optional sub-styles before importing legacy data.
@@ -759,6 +956,13 @@
                 </div>
                 <div id="style-family-list" class="style-family-list"></div>
               </div>
+            </div>
+            <div id="legacy-style-review-section" class="settings-section setup-card setup-card-warn hidden">
+              <div class="settings-eyebrow" data-i18n="legacyImportBadge">One-time migration</div>
+              <h3 data-i18n="libraryWorkflowStepLegacyStyles">Review legacy styles</h3>
+              <p class="settings-note" data-i18n="libraryWorkflowStepLegacyStylesHelp">
+                Map old style names onto current families before import.
+              </p>
               <div id="legacy-style-tools" class="settings-field wide hidden">
                 <button id="legacy-styles-button" data-i18n="legacyStylesButton">
                   Show legacy styles
@@ -778,28 +982,29 @@
                   </table>
                 </div>
               </div>
-            </div>
-            <div class="settings-section setup-card setup-card-warn">
-              <div id="legacy-import" class="hidden">
-              <div class="settings-eyebrow" data-i18n="legacyImportBadge">One-time migration</div>
-              <h3 data-i18n="legacyImportTitle">Legacy Import</h3>
-              <p class="settings-note" data-i18n="legacyImportHelp">
-                Import legacy tandas and metadata only if you are migrating from the old system. This is separate from Startup Flow because it replaces existing tanda data.
-              </p>
-              <p id="legacy-import-description"></p>
-              <button id="legacy-import-button" data-i18n="legacyImportButton">
-                Import legacy tandas
-              </button>
-              <button
-                id="legacy-readiness-button"
-                data-i18n="legacyReadinessButton"
-              >
-                Verify library readiness
-              </button>
-              <div id="legacy-readiness-result" class="diagnostics-result"></div>
+              <div class="settings-actions">
+                <button id="legacy-style-review-done" data-i18n="legacyStyleReviewDone">
+                  Done reviewing styles
+                </button>
               </div>
             </div>
-            <div class="settings-section setup-card setup-card-primary">
+            <div id="library-legacy-import-section" class="settings-section setup-card setup-card-warn">
+              <div id="legacy-import" class="hidden">
+                <div class="settings-eyebrow" data-i18n="legacyImportBadge">One-time migration</div>
+                <h3 data-i18n="legacyImportTitle">Legacy Import</h3>
+                <p class="settings-note" data-i18n="legacyImportHelp">
+                  Import legacy tandas and metadata only if you are migrating from the old system. This populates a usable database immediately, then the normal analysis setup finishes the migration.
+                </p>
+                <p id="legacy-import-description"></p>
+                <div class="settings-actions">
+                  <button id="legacy-import-button" data-i18n="legacyImportButton">
+                    Import legacy tandas
+                  </button>
+                </div>
+                <div id="legacy-import-result" class="diagnostics-result"></div>
+              </div>
+            </div>
+            <div id="library-startup-flow-section" class="settings-section setup-card setup-card-primary">
               <div class="settings-eyebrow" data-i18n="startupFlowBadge">Recommended</div>
               <h3 data-i18n="startupFlowTitle">Startup Flow</h3>
               <p class="settings-note" data-i18n="startupFlowHelp">
@@ -857,6 +1062,22 @@
               </div>
               <div id="startup-flow-result" class="diagnostics-result"></div>
             </div>
+            <div id="library-verify-section" class="settings-section setup-card">
+              <div class="settings-eyebrow" data-i18n="libraryVerifyBadge">Final check</div>
+              <h3 data-i18n="libraryVerifyTitle">Verify playback readiness</h3>
+              <p class="settings-note" data-i18n="libraryVerifyHelp">
+                Run this after import and scan/setup. It checks the current database and reports what is still missing for playback readiness.
+              </p>
+              <div class="settings-actions">
+                <button
+                  id="legacy-readiness-button"
+                  data-i18n="legacyReadinessButton"
+                >
+                  Verify library readiness
+                </button>
+              </div>
+              <div id="legacy-readiness-result" class="diagnostics-result"></div>
+            </div>
             <div class="manual-setup-shell">
             <div class="settings-section setup-card setup-card-muted">
               <div class="settings-eyebrow" data-i18n="manualLibraryToolsBadge">Only if needed</div>
@@ -865,7 +1086,7 @@
                 The controls below are only needed for manual setup, targeted reruns, or maintenance after the complete setup flow.
               </p>
             </div>
-            <div class="settings-section setup-card">
+            <div id="library-scan-section" class="settings-section setup-card">
               <h3 data-i18n="libraryScanTitle">Library Scan</h3>
               <p class="settings-note settings-note-compact" data-i18n="libraryScanSummary">
                 Use this when you only want to refresh music or cortinas after adding files.

@@ -1,6 +1,7 @@
 export type LegacyOverride = {
   title?: string;
   artist?: string;
+  singer?: string;
   album?: string;
   year?: string;
   genre?: string;
@@ -33,6 +34,7 @@ const sanitizeOverride = (value: unknown): LegacyOverride | null => {
   };
   copyString("title");
   copyString("artist");
+  copyString("singer");
   copyString("album");
   copyString("year");
   copyString("genre");

@@ -2,18 +2,84 @@
 
 ### Current branch / version
 - Branch: `main`
-- Version: `0.3.8` (from `package.json`)
+- Version: `0.3.10` (from `package.json`)
 
 ### Latest change
-- Header subtitle now shows the live packaged app version.
-  - Added `app:getVersion` IPC in `app/src/main/main.ts`, exposed it in
-    `app/src/preload/preload.ts`, and typed it in `app/src/shared/types.ts`.
-  - Updated the renderer header subtitle in `app/src/renderer/renderer.ts`,
-    `app/src/renderer/index.html`, and `app/src/renderer/i18n.ts` to render
-    `Version: {version} © David Goddard 2026` using the actual app version.
-  - Added a translation regression in `tests/i18n.test.ts`.
-  - Updated `design/05-ui-principles-and-components.md` with `UI-014.R27`.
+- Centered the completed-step tick inside the workflow marker circle.
+  - In `app/src/renderer/styles.css`, the marker now uses relative positioning and the completed-state checkmark uses explicit `left`/`top` placement instead of margin offsets, which lifts it out of the bottom edge and centers it visually.
+- Restored the workflow marker buttons to true circular controls.
+  - In `app/src/renderer/styles.css`, the marker buttons now explicitly override the global button sizing with fixed width/height and matching min-size/flex sizing, so they render as circles again.
+- The workflow step markers on the left now act as expand controls.
+  - In `app/src/renderer/index.html`, the circular workflow markers are now real buttons with per-step `data-step-expand` bindings instead of passive spans.
+  - In `app/src/renderer/renderer.ts`, marker clicks now expand the corresponding step directly without the toggle/collapse behavior used by the chevron buttons.
+  - In `app/src/renderer/styles.css`, the marker circles now expose hover/focus states so they read as interactive controls.
+  - Updated the workflow interaction note in `design/05-ui-principles-and-components.md`.
+- The main empty-library banner now opens Library setup instead of Diagnostics.
+  - In `app/src/renderer/index.html` and `app/src/renderer/i18n.ts`, the banner action label is now a localized `Open setup`.
+  - In `app/src/renderer/renderer.ts`, that main-page action now opens Settings on the Library tab, scrolls to the roots section, and pulses it for visibility.
+  - In `tests/settings-shell-controller.test.ts`, the diagnostics-shortcut coverage now asserts the dedicated settings diagnostics shortcut instead of the repurposed main banner button.
+  - Updated the main-banner behavior note in `design/05-ui-principles-and-components.md`.
+- The roots step now stays open while folders are being added and includes an explicit `Done configuring roots` action.
+  - In `app/src/renderer/modules/library-workflow.ts`, initial workflow expansion is now resolved once per Settings entry instead of being recomputed after each root change.
+  - In `app/src/renderer/renderer.ts`, opening Settings resets that initial-expansion state, the roots panel now stays open after the first folder is added, and `#library-roots-done` collapses the step on demand.
+  - In `app/src/renderer/index.html` and `app/src/renderer/i18n.ts`, the roots panel now exposes the new localized done button.
+  - Added helper coverage in `tests/library-workflow.test.ts`.
+  - Updated the workflow behavior notes in `design/05-ui-principles-and-components.md`.
+- Extended legacy year extraction to tolerate punctuation after the year before a trailing suffix.
+  - In `app/src/main/legacy-import.ts`, title-year detection now strips trailing punctuation such as `.` after removing a final parenthetical suffix, so titles like `Didi 1937. (Reliquias-flac)` now populate `year = 1937`.
+  - Added a regression in `tests/legacy-import-gain.test.ts`.
+  - Updated the legacy-import requirement note in `design/14-settings-and-configuration.md`.
+- The `Done reviewing styles` action now scrolls back to the top of the Library workflow.
+  - In `app/src/renderer/renderer.ts`, the legacy-style review completion handler now triggers a post-render scroll to `.library-workflow-shell`, so the updated step list and next actions come back into view after long style tables.
+  - Updated the workflow behavior note in `design/05-ui-principles-and-components.md`.
+- Tightened the `Show legacy styles` control so it no longer stretches full width across the workflow panel.
+  - In `app/src/renderer/styles.css`, `#legacy-styles-button` now sizes to content, aligns to the start of the panel, and keeps a modest minimum width so it still reads clearly as a primary action.
+  - Updated the Library workflow UI note in `design/05-ui-principles-and-components.md`.
+- Extended legacy year extraction so titles like `Dulce Perdon (Vals) 1935 (Reliquias-flac)` now populate `year = 1935`.
+  - In `app/src/main/legacy-import.ts`, trailing year detection now allows a final parenthetical suffix after the year instead of requiring the year to be the absolute last token in the title.
+  - Added a regression in `tests/legacy-import-gain.test.ts`.
+  - Updated the legacy-import requirement note in `design/14-settings-and-configuration.md`.
+- Fixed singer parsing so generic trailing `con canto` credits no longer invent a singer named `Canto`.
+  - In `app/src/shared/tanda-utils.ts`, singer inference now treats `con` followed only by a generic vocal descriptor such as `canto`, `coro`, or `vocales` as non-singer metadata and leaves `singer` blank.
+  - Added a regression in `tests/tanda-utils.test.ts`.
+  - Updated the legacy-import/settings requirement note in `design/14-settings-and-configuration.md`.
+- Fixed a false unsaved-changes prompt when switching tracks in Edit mode.
+  - In `app/src/renderer/modules/track-editor-view.ts`, added shared BPM display/compare helpers so the editor uses one normalization rule for both rendering and dirty checks.
+  - In `app/src/renderer/renderer.ts`, the track-editor dirty check now compares BPM against the displayed editor value rather than the raw stored float, which stops untouched tracks from appearing dirty just because BPM is rendered as a rounded integer.
+  - Added regressions in `tests/track-editor-view.test.ts`.
+- Reworked the Library workflow so the right pane now hosts the actual sections.
+  - In `app/src/renderer/index.html`, the roots, style families, legacy-style review, legacy import, startup flow, verify, and scan sections now have stable ids so the renderer can place them into workflow-owned panels.
+  - In `app/src/renderer/renderer.ts`, the workflow now mounts and toggles the real sections instead of rendering proxy cards, auto-loads legacy styles when the review step opens, and tracks a new `libraryWorkflowLegacyStylesReviewed` state.
+  - In `app/src/renderer/modules/library-workflow.ts`, workflow status now advances from legacy-style review to legacy import using the explicit review-done state.
+  - In `app/src/renderer/styles.css`, the left workflow rail is narrower and the right pane is widened for the full embedded sections.
+  - In `app/src/renderer/i18n.ts`, added the localized `Done reviewing styles` action.
+  - Added workflow regressions in `tests/library-workflow.test.ts`.
+- Refined the Library setup flow into an accordion with step-linked detail cards.
+  - In `app/src/renderer/index.html` and `app/src/renderer/styles.css`, each workflow step now has an expand/collapse control and the guidance column now supports step-specific detail cards.
+  - In `app/src/renderer/modules/library-workflow.ts`, added helper logic for focused guidance keys and the requested default-open behavior (`roots` only when no music root exists; otherwise all collapsed).
+  - In `app/src/renderer/renderer.ts`, expanding a step now drives the right-hand panel to show the relevant controls/results for roots, legacy styles, legacy import, analysis, or readiness verification.
+  - In `app/src/renderer/i18n.ts`, added localized labels for expand/collapse and the empty detail prompt.
+  - Added helper regressions in `tests/library-workflow.test.ts`.
+- Fixed the remaining legacy-import mismatch that could still make imported tracks look scanned-from-tags instead of imported-from-legacy.
+  - In `app/src/shared/legacy-path.ts`, added normalized legacy path matching that tolerates slash, case, Unicode-composition, and unique-suffix differences.
+  - In `app/src/main/legacy-import.ts`, legacy track import, override building, and tanda track resolution now all bind through the actual filesystem relative path rather than exact-string `existsSync(...)` checks against the legacy JSON path.
+  - In `app/src/shared/legacy-overrides.ts`, persisted legacy overrides now keep `singer` as well, so singer/vocal state survives restart the same way title/year/BPM/instrumental already do.
+  - Added regressions in `tests/legacy-path.test.ts`, `tests/legacy-overrides.test.ts`, and `tests/scan-metadata-precedence.test.ts`.
+  - Updated `design/08-storage-and-data-model.md`, `design/14-settings-and-configuration.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
+- Clarified and hardened the legacy-import + library-setup flow.
+  - In `app/src/main/legacy-import.ts`, legacy import now:
+    - preserves legacy metadata fields as before,
+    - derives `year` from a trailing 4-digit title suffix when no other year is available,
+    - splits semicolon-delimited legacy artist credits into orchestra + singer,
+    - forces semicolon-delimited credits to import as sung tracks,
+    - and returns both `tracksAdded` and `tracksUpdated` so fresh imports no longer look like no-ops.
+  - In `app/src/renderer/index.html`, `app/src/renderer/styles.css`, `app/src/renderer/renderer.ts`, and `app/src/renderer/modules/library-workflow.ts`, the Library tab now shows a guided setup flow with an explicit optional legacy branch, keeps legacy style mapping/import grouped together, and moves readiness verification into its own final-check card.
+  - In `app/src/renderer/controllers/settings-diagnostics-controller.ts`, empty-library readiness checks now report an explicit actionable message instead of the misleading `Tracks 0` fail summary.
+  - In `app/src/renderer/i18n.ts`, updated Library-tab copy across locales for the new workflow, clearer legacy-import expectations, and the added/updated import summary.
+  - Added regressions in `tests/legacy-import-gain.test.ts`, `tests/library-workflow.test.ts`, and `tests/i18n.test.ts`.
+  - Updated `design/05-ui-principles-and-components.md`, `design/14-settings-and-configuration.md`, `design/tracking-and-feature-matrix.md`, `docs/user-guide.md`, and `docs/dialogue.md`.
   - Verification for this change:
+    - `source ~/.nvm/nvm.sh && npm test -- tests/legacy-import-gain.test.ts tests/library-workflow.test.ts tests/i18n.test.ts tests/settings-library-controller.test.ts`
     - `source ~/.nvm/nvm.sh && npm run build`
     - `source ~/.nvm/nvm.sh && npm test`
 

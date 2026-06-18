@@ -153,6 +153,7 @@ Fields:
 
 - DATA-008.R1: The app must support importing legacy Tanda Player USB data files.
 - DATA-008.R2: Import reconstructs tandas and playlists and reuses any compatible track data.
-- DATA-008.R3: File references are matched against the new library roots by relative path
-  and content hash where available.
+- DATA-008.R3: File references are matched against the new library roots by
+  normalized relative path, with tolerant handling for slash/case/Unicode
+  differences and unique suffix matches when needed.
 - DATA-008.R4: Unmatched items are surfaced as missing and can be resolved by the user.

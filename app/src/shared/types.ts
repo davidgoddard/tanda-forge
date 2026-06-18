@@ -227,6 +227,7 @@ export type AppApi = {
   ) => Promise<{ available: boolean; rootPath: string }>;
   importLegacy: (rootPath: string) => Promise<{
     tandasImported: number;
+    tracksAdded: number;
     tracksUpdated: number;
     missingTracks: number;
     missingFiles: { filePath: string; message: string }[];

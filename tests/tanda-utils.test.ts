@@ -124,6 +124,7 @@ describe("tanda utils", () => {
       extractSingerName("Orquesta Misteriosa", "Tango Featuring Ricardo 'Ricardito' Reveira"),
     ).toBe("Ricardo 'Ricardito' Reveira");
     expect(extractSingerName("Di Sarli with his orchestra")).toBe("");
+    expect(extractSingerName("Francisco Canaro con canto")).toBe("");
   });
 
   it("normalizes style names", () => {

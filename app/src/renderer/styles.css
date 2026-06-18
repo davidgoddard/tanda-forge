@@ -2802,6 +2802,272 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
 }
 
+.library-workflow-shell {
+  display: grid;
+  grid-template-columns: minmax(250px, 340px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.library-workflow {
+  position: relative;
+  display: grid;
+  gap: 0.85rem;
+  padding-left: 0.2rem;
+}
+
+.library-workflow::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: color-mix(in srgb, var(--border) 82%, transparent);
+}
+
+.library-workflow-step {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: start;
+  color: var(--muted);
+}
+
+.library-workflow-step-marker {
+  display: block;
+  position: relative;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  flex: 0 0 24px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--border) 84%, transparent);
+  background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--panel-solid) 88%, transparent);
+  cursor: pointer;
+}
+
+.library-workflow-step-marker:hover {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border) 52%);
+  background: color-mix(in srgb, var(--accent-soft) 24%, var(--panel-solid) 76%);
+}
+
+.library-workflow-step-marker:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 72%, #ffffff 28%);
+  outline-offset: 2px;
+}
+
+.library-workflow-step-copy {
+  display: grid;
+  gap: 0.25rem;
+  padding-top: 0.1rem;
+}
+
+.library-workflow-step-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.library-workflow-step-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.45rem;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft) 82%, transparent);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.library-workflow-step-badge.optional {
+  background: color-mix(in srgb, var(--warning-bg) 74%, transparent);
+}
+
+.library-workflow-step-note {
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.library-workflow-step-toggle {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin-top: 0.15rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  background: color-mix(in srgb, var(--panel-solid) 88%, transparent);
+  color: var(--text);
+}
+
+.library-workflow-step-toggle:hover {
+  background: color-mix(in srgb, var(--accent-soft) 28%, var(--panel-solid) 72%);
+}
+
+.library-workflow-step-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 72%, #ffffff 28%);
+  outline-offset: 2px;
+}
+
+.library-workflow-step-toggle-icon {
+  display: inline-block;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+
+.library-workflow-step.expanded .library-workflow-step-toggle {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border) 52%);
+  background: color-mix(in srgb, var(--accent-soft) 36%, var(--panel-solid) 64%);
+}
+
+.library-workflow-step.expanded .library-workflow-step-toggle-icon {
+  transform: rotate(90deg);
+}
+
+.library-workflow-step.completed {
+  color: var(--text);
+}
+
+.library-workflow-step.completed .library-workflow-step-marker {
+  border-color: color-mix(in srgb, #57bf84 78%, #ffffff 22%);
+  background: color-mix(in srgb, #57bf84 78%, #ffffff 22%);
+}
+
+.library-workflow-step.completed .library-workflow-step-marker::after {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 11px;
+  left: 7px;
+  top: 4px;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  transform: rotate(45deg);
+}
+
+.library-workflow-step.current .library-workflow-step-marker {
+  border-color: color-mix(in srgb, var(--accent) 74%, #ffffff 26%);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent-soft) 42%, transparent),
+    0 0 0 10px color-mix(in srgb, var(--accent-soft) 12%, transparent);
+}
+
+.library-workflow-step.attention .library-workflow-step-marker {
+  border-color: color-mix(in srgb, #c25d37 76%, #ffffff 24%);
+  background: color-mix(in srgb, #c25d37 22%, transparent);
+}
+
+.library-workflow-step.optional {
+  opacity: 0.82;
+}
+
+.library-workflow-guidance {
+  min-height: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background: color-mix(in srgb, var(--panel-solid) 90%, transparent);
+}
+
+.library-workflow-guidance-text {
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.library-workflow-detail {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 0.85rem;
+}
+
+.library-workflow-panel {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.library-workflow-panel.hidden {
+  display: none;
+}
+
+.library-workflow-panel .settings-section {
+  margin-bottom: 0;
+}
+
+.library-workflow-panel .settings-section:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.library-workflow-detail-empty {
+  padding: 0.8rem 0.9rem;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--border) 82%, transparent);
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.library-workflow-detail-card {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background: color-mix(in srgb, var(--panel) 86%, var(--panel-solid) 14%);
+}
+
+.library-workflow-detail-card h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.93rem;
+}
+
+.library-workflow-detail-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.library-workflow-detail-status,
+.library-workflow-detail-result {
+  white-space: pre-wrap;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.library-workflow-detail-status {
+  color: var(--muted);
+}
+
+.library-workflow-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.library-workflow-detail-actions button {
+  min-height: 2rem;
+}
+
 .setup-card {
   padding: 1rem 1.05rem 1.05rem;
   border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
@@ -3260,6 +3526,12 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   width: 100%;
 }
 
+#legacy-styles-button {
+  justify-self: start;
+  width: auto;
+  min-width: 12rem;
+}
+
 .settings-field label {
   font-size: 0.85rem;
   text-transform: uppercase;
@@ -3461,6 +3733,10 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   .startup-flow-phases {
     grid-template-columns: 1fr;
     gap: 0.55rem;
+  }
+
+  .library-workflow-shell {
+    grid-template-columns: 1fr;
   }
 
   .startup-flow-phases::before {

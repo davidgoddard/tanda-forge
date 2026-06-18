@@ -70,4 +70,31 @@ describe("resolveScannedTrackMetadata", () => {
       singer: "Tag Singer",
     });
   });
+
+  it("prefers legacy metadata for new tracks when available", () => {
+    const result = resolveScannedTrackMetadata({
+      filePath: "/music/Tango/song-c.flac",
+      tags: {
+        title: "Tag Title",
+        artist: "Tag Artist",
+      },
+      legacy: {
+        title: "Fuegos Artificiales 1938 (Reliquias-flac)",
+        artist: "Roberto Firpo",
+        year: "1938",
+        bpm: 65,
+        instrumental: true,
+      },
+      styleMap,
+    });
+
+    expect(result).toMatchObject({
+      title: "Fuegos Artificiales 1938 (Reliquias-flac)",
+      artist: "Roberto Firpo",
+      year: "1938",
+      bpm: 65,
+      instrumental: true,
+      singer: "",
+    });
+  });
 });

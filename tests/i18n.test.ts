@@ -144,6 +144,8 @@ describe("renderer i18n", () => {
     expect(translations.de.legacyImportButton).toBe("Legacy-Bibliothek importieren");
     expect(translations.de.legacyReadinessButton).toBe("Bibliotheksbereitschaft pruefen");
     expect(translations.de.legacyImportDetected).toContain("library.dat und cortinas.dat importieren");
+    expect(translations.de.libraryWorkflowTitle).toBe("Bibliotheks-Einrichtungsablauf");
+    expect(translations.de.libraryVerifyTitle).toBe("Wiedergabebereitschaft pruefen");
     expect(translations.de.diagnosticsReadinessTotalTracks).toBe("Titel");
     expect(translations.de.diagnosticsReadinessMissingDuration).toBe("Dauer fehlt");
     expect(translations.de.diagnosticsReadinessMissingLoudness).toBe("Lautheit/Gain fehlt");

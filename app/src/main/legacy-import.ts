@@ -6,7 +6,10 @@ import {
   normalizeStyleName,
   summarizeArtistName,
 } from "../shared/tanda-utils";
-import { mapLegacyPathToRelative, normalizeLegacyPath } from "../shared/legacy-path";
+import {
+  normalizeLegacyPath,
+  resolveLegacyPathMatch,
+} from "../shared/legacy-path";
 import type { LibraryRoot } from "./library/scan";
 import type { TandaSavePayload } from "./library/tandas";
 import { saveTanda } from "./library/tandas";
@@ -23,6 +26,7 @@ export type LegacyDetection = {
 export type LegacyTrackOverride = {
   title?: string;
   artist?: string;
+  singer?: string;
   album?: string;
   year?: string;
   genre?: string;
@@ -38,6 +42,7 @@ export type LegacyTrackOverride = {
 
 export type LegacyImportResult = {
   tandasImported: number;
+  tracksAdded: number;
   tracksUpdated: number;
   missingTracks: number;
   missingFiles: { filePath: string; message: string }[];
@@ -88,6 +93,17 @@ const LEGACY_AUTO_GENERATED_TANDA_NAMES = new Set([
 ]);
 
 const LEGACY_FILES = ["config.js", "tandas.dat", "library.dat"];
+
+const AUDIO_EXTENSIONS = new Set([
+  ".mp3",
+  ".m4a",
+  ".flac",
+  ".wav",
+  ".aac",
+  ".ogg",
+  ".aif",
+  ".aiff",
+]);
 
 const hasLegacyFiles = (rootPath: string) =>
   LEGACY_FILES.every((file) => fs.existsSync(path.join(rootPath, file)));
@@ -202,6 +218,38 @@ const parseYearFromNotes = (notes: string) => {
   return "";
 };
 
+const parseYearFromTitleSuffix = (title: string) => {
+  const trimmed = title.trim();
+  const normalizedTail = trimmed
+    .replace(/\s*\([^()]*\)\s*$/g, "")
+    .replace(/[.?!,:;)\]]+\s*$/g, "")
+    .trim();
+  const match = normalizedTail.match(/\b(19\d{2}|20\d{2})\s*$/);
+  if (!match) {
+    return "";
+  }
+  const year = Number.parseInt(match[1], 10);
+  const currentYear = new Date().getFullYear();
+  if (!Number.isFinite(year) || year < 1900 || year > currentYear) {
+    return "";
+  }
+  return year.toString();
+};
+
+const splitLegacyArtistAndSinger = (rawArtist: string) => {
+  const trimmed = rawArtist.trim();
+  if (!trimmed.includes(";")) {
+    return { artist: trimmed, singer: "" };
+  }
+  const [artistPart, ...singerParts] = trimmed.split(";");
+  const artist = artistPart.trim();
+  const singer = singerParts.join(";").trim();
+  if (!artist || !singer) {
+    return { artist: trimmed, singer: "" };
+  }
+  return { artist, singer };
+};
+
 export const loadLegacyLibrary = (libraryPath: string) => {
   const raw = readLegacyJson<Record<string, LegacyLibraryEntry>>(libraryPath, {});
   const entries = new Map<string, LegacyTrackOverride>();
@@ -210,19 +258,27 @@ export const loadLegacyLibrary = (libraryPath: string) => {
     const analysis = entry.analysis ?? {};
     const classifiers = entry.classifiers ?? {};
     const title = track.title?.trim() ?? "";
-    const artist = track.artist?.trim() ?? "";
+    const artistParts = splitLegacyArtistAndSinger(track.artist?.trim() ?? "");
+    const artist = artistParts.artist;
+    const singer = artistParts.singer;
     const album = track.album?.trim() ?? "";
     const genre = buildLegacyClassifierStyle(classifiers) || "?";
     const bpm = typeof classifiers.bpm === "number" ? classifiers.bpm : null;
     const notes = (classifiers.notes ?? "").toString().trim();
-    const instrumental =
-      typeof classifiers.instrumental === "boolean" ? classifiers.instrumental : null;
+    const instrumental = singer
+      ? false
+      : typeof classifiers.instrumental === "boolean"
+        ? classifiers.instrumental
+        : null;
     let year =
       track.date && !Number.isNaN(Date.parse(track.date))
         ? new Date(track.date).getFullYear().toString()
         : "";
     if (!year && notes) {
       year = parseYearFromNotes(notes);
+    }
+    if (!year && title) {
+      year = parseYearFromTitleSuffix(title);
     }
     const durationSec =
       typeof analysis.duration === "number"
@@ -254,6 +310,7 @@ export const loadLegacyLibrary = (libraryPath: string) => {
     entries.set(normalizeLegacyPath(rawPath), {
       title: title || undefined,
       artist: artist || undefined,
+      singer: singer || undefined,
       album: album || undefined,
       genre: genre || undefined,
       year: year || undefined,
@@ -268,6 +325,76 @@ export const loadLegacyLibrary = (libraryPath: string) => {
     });
   });
   return entries;
+};
+
+type RootAudioIndex = {
+  relativePaths: string[];
+  fullPathByRelativePath: Map<string, string>;
+};
+
+const walkAudioFiles = async (rootPath: string): Promise<string[]> => {
+  const entries = await fs.promises.readdir(rootPath, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    if (entry.name.startsWith(".") || entry.name.startsWith("._")) {
+      continue;
+    }
+    const fullPath = path.join(rootPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await walkAudioFiles(fullPath)));
+      continue;
+    }
+    if (!entry.isFile()) {
+      continue;
+    }
+    if (AUDIO_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+};
+
+const buildRootAudioIndexes = async (roots: LibraryRoot[]) => {
+  const indexes = new Map<string, RootAudioIndex>();
+  for (const root of roots) {
+    if (!fs.existsSync(root.path)) {
+      indexes.set(root.id, {
+        relativePaths: [],
+        fullPathByRelativePath: new Map(),
+      });
+      continue;
+    }
+    const files = await walkAudioFiles(root.path);
+    const relativePaths = files.map((filePath) => path.relative(root.path, filePath));
+    indexes.set(root.id, {
+      relativePaths,
+      fullPathByRelativePath: new Map(
+        relativePaths.map((relativePath, index) => [relativePath, files[index]]),
+      ),
+    });
+  }
+  return indexes;
+};
+
+const resolveLegacyTrackForRoot = (
+  legacyPath: string,
+  root: LibraryRoot,
+  rootAudioIndex: RootAudioIndex | undefined,
+) => {
+  const relativePath = resolveLegacyPathMatch(
+    legacyPath,
+    root.path,
+    rootAudioIndex?.relativePaths ?? [],
+  );
+  if (!relativePath) {
+    return null;
+  }
+  return {
+    relativePath,
+    fullPath:
+      rootAudioIndex?.fullPathByRelativePath.get(relativePath) ??
+      path.join(root.path, relativePath),
+  };
 };
 
 const buildLegacyFileHash = (stat: fs.Stats) => {
@@ -338,6 +465,7 @@ const importLegacyTracks = async (
   const db = getDb();
   const now = new Date().toISOString();
   const rootsByKind = roots.filter((root) => root.kind === kind);
+  const rootAudioIndexes = await buildRootAudioIndexes(rootsByKind);
   if (rootsByKind.length === 0 || entries.size === 0) {
     return { added: 0, updated: 0, missingFiles: [] as { filePath: string; message: string }[] };
   }
@@ -413,11 +541,15 @@ const importLegacyTracks = async (
   for (const [legacyPath, override] of entries.entries()) {
     let handled = false;
     for (const root of rootsByKind) {
-      const relativePath = mapLegacyPathToRelative(legacyPath, root.path);
-      const fullPath = path.join(root.path, relativePath);
-      if (!fs.existsSync(fullPath)) {
+      const matched = resolveLegacyTrackForRoot(
+        legacyPath,
+        root,
+        rootAudioIndexes.get(root.id),
+      );
+      if (!matched) {
         continue;
       }
+      const { relativePath, fullPath } = matched;
       handled = true;
       const stat = fs.statSync(fullPath);
       const existing = selectStmt.get(root.id, relativePath) as
@@ -454,7 +586,8 @@ const importLegacyTracks = async (
       const bpm =
         typeof override.bpm === "number" ? override.bpm : existing?.bpm ?? null;
       const notes = override.notes?.trim() || existing?.notes || "";
-      const singer = existing?.singer || extractSingerName(artist, title);
+      const singer =
+        override.singer?.trim() || existing?.singer || extractSingerName(artist, title);
       const instrumental =
         typeof override.instrumental === "boolean"
           ? override.instrumental
@@ -557,22 +690,33 @@ const buildOverridesForRoots = (
   libraryEntries: Map<string, LegacyTrackOverride>,
   roots: LibraryRoot[],
 ) => {
+  return buildOverridesForRootsAsync(libraryEntries, roots);
+};
+
+const buildOverridesForRootsAsync = async (
+  libraryEntries: Map<string, LegacyTrackOverride>,
+  roots: LibraryRoot[],
+) => {
   const overridesByRootId = new Map<string, Map<string, LegacyTrackOverride>>();
   const musicRoots = roots.filter((root) => root.kind === "music");
   if (musicRoots.length === 0) {
     return overridesByRootId;
   }
+  const rootAudioIndexes = await buildRootAudioIndexes(musicRoots);
   for (const [legacyPath, override] of libraryEntries.entries()) {
     for (const root of musicRoots) {
-      const relativePath = mapLegacyPathToRelative(legacyPath, root.path);
-      const fullPath = path.join(root.path, relativePath);
-      if (!fs.existsSync(fullPath)) {
+      const matched = resolveLegacyTrackForRoot(
+        legacyPath,
+        root,
+        rootAudioIndexes.get(root.id),
+      );
+      if (!matched) {
         continue;
       }
       if (!overridesByRootId.has(root.id)) {
         overridesByRootId.set(root.id, new Map());
       }
-      overridesByRootId.get(root.id)?.set(relativePath, override);
+      overridesByRootId.get(root.id)?.set(matched.relativePath, override);
     }
   }
   return overridesByRootId;
@@ -636,13 +780,14 @@ const applyLegacyOverrides = (
   return updated;
 };
 
-const importLegacyTandas = (tandasPath: string, roots: LibraryRoot[]) => {
+const importLegacyTandas = async (tandasPath: string, roots: LibraryRoot[]) => {
   const db = getDb();
   const raw = readLegacyJson<LegacyTandaEntry[]>(tandasPath, []);
   const musicRoots = roots.filter((root) => root.kind === "music");
   if (musicRoots.length === 0) {
     return { imported: 0, missingTracks: 0 };
   }
+  const rootAudioIndexes = await buildRootAudioIndexes(musicRoots);
   const trackIdStmt = db.prepare(
     "select id from tracks where root_id = ? and relative_path = ?",
   );
@@ -670,10 +815,14 @@ const importLegacyTandas = (tandasPath: string, roots: LibraryRoot[]) => {
     (entry.tracks ?? []).forEach((legacyTrackPath) => {
       let resolved: string | null = null;
       for (const root of musicRoots) {
-        const relativePath = mapLegacyPathToRelative(
+        const relativePath = resolveLegacyPathMatch(
           legacyTrackPath,
           root.path,
+          rootAudioIndexes.get(root.id)?.relativePaths ?? [],
         );
+        if (!relativePath) {
+          continue;
+        }
         const row = trackIdStmt.get(root.id, relativePath) as
           | { id: string }
           | undefined;
@@ -715,6 +864,7 @@ export const importLegacyData = async (
   if (!detected) {
     return {
       tandasImported: 0,
+      tracksAdded: 0,
       tracksUpdated: 0,
       missingTracks: 0,
       missingFiles: [],
@@ -723,7 +873,7 @@ export const importLegacyData = async (
     };
   }
   const libraryEntries = loadLegacyLibrary(detected.libraryPath);
-  const overridesByRootId = buildOverridesForRoots(libraryEntries, roots);
+  const overridesByRootId = await buildOverridesForRoots(libraryEntries, roots);
   const waveformsDir = options?.waveformsDir;
   const musicImport = await importLegacyTracks(
     libraryEntries,
@@ -741,10 +891,12 @@ export const importLegacyData = async (
     waveformsDir,
   );
   const tracksUpdated = musicImport.updated + cortinaImport.updated;
-  const tandasResult = importLegacyTandas(detected.tandasPath, roots);
+  const tracksAdded = musicImport.added + cortinaImport.added;
+  const tandasResult = await importLegacyTandas(detected.tandasPath, roots);
   const missingFiles = [...musicImport.missingFiles, ...cortinaImport.missingFiles];
   return {
     tandasImported: tandasResult.imported,
+    tracksAdded,
     tracksUpdated,
     missingTracks: tandasResult.missingTracks + missingFiles.length,
     missingFiles,

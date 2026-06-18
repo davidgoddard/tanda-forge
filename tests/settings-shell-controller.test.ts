@@ -66,7 +66,7 @@ describe("settings shell controller", () => {
   });
 
   it("opens diagnostics from shortcuts and activates the diagnostics tab", async () => {
-    const openDiagnosticsMain = new FakeButton() as unknown as HTMLElement;
+    const openDiagnosticsSettings = new FakeButton() as unknown as HTMLElement;
     const setSettingsOpen = vi.fn(async () => {});
     const activateSettingsTab = vi.fn();
 
@@ -77,7 +77,7 @@ describe("settings shell controller", () => {
       },
       body: new FakeBody() as unknown as HTMLElement,
       elements: {
-        openDiagnosticsMain,
+        openDiagnosticsSettings,
         tabButtons: [],
         tabPanels: [],
       },
@@ -98,7 +98,7 @@ describe("settings shell controller", () => {
     });
 
     controller.initialize();
-    openDiagnosticsMain.dispatchEvent(new Event("click"));
+    openDiagnosticsSettings.dispatchEvent(new Event("click"));
     await Promise.resolve();
 
     expect(setSettingsOpen).toHaveBeenCalledWith(true);

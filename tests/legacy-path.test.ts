@@ -1,43 +1,42 @@
 import { describe, expect, it } from "vitest";
+
 import {
   mapLegacyPathToRelative,
-  normalizeLegacyPath,
-} from "../app/src/shared/legacy-path.js";
+  normalizeLegacyRelativeForMatch,
+  resolveLegacyPathMatch,
+} from "../app/src/shared/legacy-path";
 
-describe("normalizeLegacyPath", () => {
-  it("normalizes slashes and trims leading separators", () => {
-    expect(normalizeLegacyPath("\\music\\set\\track.m4a")).toBe(
-      "music/set/track.m4a",
-    );
-    expect(normalizeLegacyPath("/music/track.m4a")).toBe("music/track.m4a");
-  });
-});
-
-describe("mapLegacyPathToRelative", () => {
-  it("strips music prefix when root is a music folder", () => {
-    expect(mapLegacyPathToRelative("music/DTOTY/track.m4a", "/Volumes/USB/music")).toBe(
-      "DTOTY/track.m4a",
+describe("legacy path matching", () => {
+  it("normalizes relative paths for matching", () => {
+    expect(
+      normalizeLegacyRelativeForMatch(
+        "/music/Tango 2023/ROBERTO FIRPO/Tangazos de  Antan\u0303o/Track.FLAC",
+      ),
+    ).toBe(
+      "music/tango 2023/roberto firpo/tangazos de  antaño/track.flac",
     );
   });
 
-  it("strips root basename prefix when it matches", () => {
-    expect(mapLegacyPathToRelative("cortinas/Dance/01.m4a", "/Volumes/USB/cortinas")).toBe(
-      "Dance/01.m4a",
-    );
+  it("maps legacy roots to relative paths", () => {
+    expect(
+      mapLegacyPathToRelative(
+        "music/tango 2023/set/song.flac",
+        "/Users/david/Downloads/OneDrive/music",
+      ),
+    ).toBe("tango 2023/set/song.flac");
   });
 
-  it("maps cortina/cortinas singular-plural prefixes for cortina roots", () => {
-    expect(mapLegacyPathToRelative("cortinas/Dance/01.m4a", "/Volumes/USB/cortina")).toBe(
-      "Dance/01.m4a",
+  it("matches legacy entries to actual filesystem relative paths despite case and unicode differences", () => {
+    const match = resolveLegacyPathMatch(
+      "music/tango 2023/CD rip 2024/Roberto Firpo/Tangazos de  Antan\u0303o (Reliquias 541727) FLAC/02 Roberto Firpo - Fuegos Artificiales 1938.flac",
+      "/Users/david/Downloads/OneDrive/music",
+      [
+        "Tango 2023/CD Rip 2024/Roberto Firpo/Tangazos de  Antaño (Reliquias 541727) FLAC/02 Roberto Firpo - Fuegos Artificiales 1938.flac",
+      ],
     );
-    expect(mapLegacyPathToRelative("cortina/Dance/01.m4a", "/Volumes/USB/cortinas")).toBe(
-      "Dance/01.m4a",
-    );
-  });
 
-  it("returns normalized path when no prefix matches", () => {
-    expect(mapLegacyPathToRelative("set/track.m4a", "/Volumes/USB/music")).toBe(
-      "set/track.m4a",
+    expect(match).toBe(
+      "Tango 2023/CD Rip 2024/Roberto Firpo/Tangazos de  Antaño (Reliquias 541727) FLAC/02 Roberto Firpo - Fuegos Artificiales 1938.flac",
     );
   });
 });

@@ -13,3 +13,11 @@ export const computeTapTempoBpm = (taps: number[]) => {
   }
   return Math.round(bpm);
 };
+
+export const formatTrackEditorBpm = (bpm: number | null | undefined) =>
+  bpm !== null && bpm !== undefined ? `${Math.round(bpm)}` : "";
+
+export const trackEditorBpmDiffers = (
+  originalBpm: number | null | undefined,
+  draftBpmText: string | null | undefined,
+) => formatTrackEditorBpm(originalBpm) !== (draftBpmText?.trim() ?? "");

@@ -61,6 +61,7 @@ export const translations = {
     dataLocationHelp: "Data is stored in a _tp_data folder at the selected location.",
     legacyImportTitle: "Legacy Import",
     legacyImportButton: "Import legacy library",
+    legacyStyleReviewDone: "Done reviewing styles",
     legacyReadinessButton: "Verify library readiness",
     legacyStylesButton: "Show legacy styles",
     legacyStylesLoading: "Reading distinct styles from legacy library.dat...",
@@ -80,8 +81,48 @@ export const translations = {
     legacyReadinessPass: "Readiness check passed.",
     legacyReadinessWarn: "Playback-ready with warnings.",
     legacyReadinessFail: "Readiness check failed.",
+    legacyReadinessEmpty:
+      "Library is still empty. Import legacy data or run a scan before verifying readiness.",
     legacyReadinessSummary:
       "{status} Tracks {total}; missing duration {missingDuration}; missing loudness+gain {missingLoudness}; no trim signals {missingTrimSignals}; analysis errors {analysisErrors}; missing waveforms {missingWaveforms}.",
+    libraryWorkflowBadge: "Recommended path",
+    libraryWorkflowTitle: "Library setup flow",
+    libraryWorkflowHelp:
+      "Follow this sequence once per library. Legacy migration is optional and rejoins the normal setup flow at analysis.",
+    libraryWorkflowRequired: "Required",
+    libraryWorkflowOptional: "Optional",
+    libraryWorkflowStatusLabel: "Current guidance",
+    libraryWorkflowExpandStep: "Expand step",
+    libraryWorkflowCollapseStep: "Collapse step",
+    libraryWorkflowDetailPrompt:
+      "Expand a step on the left to focus its related controls here.",
+    libraryWorkflowDetailUnavailableLegacy:
+      "Legacy files have not been detected for the current roots yet.",
+    libraryWorkflowStepRoots: "Configure roots",
+    libraryWorkflowStepRootsHelp: "Add the live music and cortina folders.",
+    libraryWorkflowRootsDone: "Done configuring roots",
+    libraryWorkflowStepLegacyStyles: "Review legacy styles",
+    libraryWorkflowStepLegacyStylesHelp:
+      "Map old style names onto current families before import.",
+    libraryWorkflowStepLegacyImport: "Import legacy metadata and tandas",
+    libraryWorkflowStepLegacyImportHelp:
+      "Reuse titles, artists, years, BPM, trims, loudness, and tandas from library.dat and tandas.dat.",
+    libraryWorkflowStepAnalysis: "Run analysis setup",
+    libraryWorkflowStepAnalysisHelp:
+      "This is where the legacy branch rejoins the normal path.",
+    libraryWorkflowStepVerify: "Verify readiness",
+    libraryWorkflowStepVerifyHelp:
+      "Confirm that metadata, analysis, and caches are ready for playback.",
+    libraryWorkflowGuidanceRoots:
+      "Add both roots first. If you are migrating from Tanda Player, keep the legacy files beside those folders so the import step can detect them.",
+    libraryWorkflowGuidanceLegacy:
+      "Legacy files are available. Review any style mappings you need, then import the legacy metadata and tandas before running setup.",
+    libraryWorkflowGuidanceAnalysis:
+      "Run Complete Setup or Scan Music/Scan Cortinas next so provisional legacy analysis is replaced with fresh scan results and caches.",
+    libraryWorkflowGuidanceVerify:
+      "The library has been scanned. Run Verify library readiness as the final playback check.",
+    libraryWorkflowGuidanceReady:
+      "Readiness has been checked. If warnings remain, use the manual tools below only for targeted repair.",
     close: "Close",
     idle: "Idle",
     starting: "Starting...",
@@ -106,7 +147,7 @@ export const translations = {
     confirmDataLocationChange:
       "Change data location to {path}? This starts a fresh database.",
     confirmLegacyImport:
-      "Import legacy library data from {path}? This replaces existing tandas and uses legacy metadata without a full scan.",
+      "Import legacy library data from {path}? This replaces existing tandas, copies usable legacy metadata now, and still expects a follow-up scan for final analysis.",
     actionAddClipboardShort: "C",
     actionAddTandaShort: "T",
     actionRemoveClipboard: "Remove from clipboard",
@@ -235,10 +276,14 @@ export const translations = {
     startupFlowFailed: "Setup failed: {message}",
     legacyImportBadge: "One-time migration",
     legacyImportHelp:
-      "Import legacy tandas and metadata only if you are migrating from the old system. This is separate from Startup Flow because it replaces existing tanda data.",
+      "Import legacy tandas and metadata only if you are migrating from the old system. This populates a usable database immediately, then the normal analysis setup finishes the migration.",
     startupFlowLegacyImported: "imported",
     startupFlowLegacyDetected: "detected but not imported",
     startupFlowLegacySkipped: "not detected",
+    libraryVerifyBadge: "Final check",
+    libraryVerifyTitle: "Verify playback readiness",
+    libraryVerifyHelp:
+      "Run this after import and scan/setup. It checks the current database and reports what is still missing for playback readiness.",
     manualLibraryToolsTitle: "Manual Setup / Maintenance",
     manualLibraryToolsBadge: "Only if needed",
     manualLibraryToolsHelp:
@@ -429,6 +474,7 @@ export const translations = {
     scanIssuesHelp: "Recent scan problems and files that need attention.",
     scanIssuesMore: "...and {count} more",
     viewScanIssues: "View scan issues",
+    openLibrarySetup: "Open setup",
     diagnosticsPaths: "Paths",
     diagnosticsPathsUserData: "User data",
     diagnosticsPathsWaveforms: "Waveforms",
@@ -546,9 +592,9 @@ export const translations = {
     statusDataLocationChanged: "Data location set to {path}. Database reset.",
     statusDataLocationDuringPlayback: "Stop playback before changing data location.",
     legacyImportDetected:
-      "Legacy files detected at {path}. Import library.dat and cortinas.dat (no full scan)?",
+      "Legacy files detected at {path}. Import library.dat and cortinas.dat, then run analysis setup.",
     statusLegacyImportDone:
-      "Imported {tandas} tandas. Updated {tracks} tracks. Missing {missing} tracks.",
+      "Imported {tandas} tandas. Added {added} tracks, refreshed {updated}, missing {missing}. Run Complete Setup or Scan Music next.",
     statusMissingRoots:
       "Some library folders are unavailable. Connect the drive or update Settings.",
     statusTandaSaved: "Tanda saved.",
@@ -773,6 +819,7 @@ export const translations = {
       "Los datos se guardan en una carpeta _tp_data en la ubicacion seleccionada.",
     legacyImportTitle: "Importacion heredada",
     legacyImportButton: "Importar tandas heredadas",
+    legacyStyleReviewDone: "Revision de estilos terminada",
     legacyReadinessButton: "Verificar estado de biblioteca",
     legacyStylesButton: "Mostrar estilos heredados",
     legacyStylesLoading: "Leyendo estilos distintos desde legacy library.dat...",
@@ -792,8 +839,48 @@ export const translations = {
     legacyReadinessPass: "Verificacion completada correctamente.",
     legacyReadinessWarn: "Lista para reproduccion con avisos.",
     legacyReadinessFail: "La verificacion fallo.",
+    legacyReadinessEmpty:
+      "La biblioteca sigue vacia. Importa datos legacy o ejecuta un escaneo antes de verificar.",
     legacyReadinessSummary:
       "{status} Pistas {total}; duracion faltante {missingDuration}; sonoridad+ganancia faltante {missingLoudness}; sin senales de recorte {missingTrimSignals}; errores de analisis {analysisErrors}; formas de onda faltantes {missingWaveforms}.",
+    libraryWorkflowBadge: "Ruta recomendada",
+    libraryWorkflowTitle: "Flujo de configuracion de biblioteca",
+    libraryWorkflowHelp:
+      "Sigue esta secuencia una vez por biblioteca. La migracion legacy es opcional y se reincorpora al flujo normal en el analisis.",
+    libraryWorkflowRequired: "Obligatorio",
+    libraryWorkflowOptional: "Opcional",
+    libraryWorkflowStatusLabel: "Guia actual",
+    libraryWorkflowExpandStep: "Expandir paso",
+    libraryWorkflowCollapseStep: "Contraer paso",
+    libraryWorkflowDetailPrompt:
+      "Expande un paso a la izquierda para enfocar aqui sus controles relacionados.",
+    libraryWorkflowDetailUnavailableLegacy:
+      "Todavia no se detectaron archivos legacy para las raices actuales.",
+    libraryWorkflowStepRoots: "Configurar raices",
+    libraryWorkflowStepRootsHelp: "Agrega las carpetas activas de musica y cortinas.",
+    libraryWorkflowRootsDone: "Configuracion de carpetas terminada",
+    libraryWorkflowStepLegacyStyles: "Revisar estilos legacy",
+    libraryWorkflowStepLegacyStylesHelp:
+      "Mapea los nombres de estilo antiguos a las familias actuales antes de importar.",
+    libraryWorkflowStepLegacyImport: "Importar metadatos y tandas legacy",
+    libraryWorkflowStepLegacyImportHelp:
+      "Reutiliza titulos, artistas, anos, BPM, trims, loudness y tandas desde library.dat y tandas.dat.",
+    libraryWorkflowStepAnalysis: "Ejecutar configuracion de analisis",
+    libraryWorkflowStepAnalysisHelp:
+      "Aqui es donde la rama legacy vuelve al flujo normal.",
+    libraryWorkflowStepVerify: "Verificar preparacion",
+    libraryWorkflowStepVerifyHelp:
+      "Confirma que metadatos, analisis y caches esten listos para reproducir.",
+    libraryWorkflowGuidanceRoots:
+      "Primero agrega ambas raices. Si migras desde Tanda Player, deja los archivos legacy junto a esas carpetas para que el paso de importacion pueda detectarlos.",
+    libraryWorkflowGuidanceLegacy:
+      "Hay archivos legacy disponibles. Revisa los mapeos de estilo que necesites y luego importa los metadatos y tandas antes de ejecutar la configuracion.",
+    libraryWorkflowGuidanceAnalysis:
+      "Ejecuta Preparacion completa o Escanear musica/Escanear cortinas para sustituir el analisis provisional legacy por resultados y caches nuevos.",
+    libraryWorkflowGuidanceVerify:
+      "La biblioteca ya fue escaneada. Ejecuta Verificar estado de biblioteca como comprobacion final de reproduccion.",
+    libraryWorkflowGuidanceReady:
+      "La preparacion ya fue verificada. Si quedan avisos, usa las herramientas manuales de abajo solo para reparaciones puntuales.",
     close: "Cerrar",
     idle: "Inactivo",
     starting: "Iniciando...",
@@ -818,7 +905,7 @@ export const translations = {
     confirmDataLocationChange:
       "Cambiar ubicacion de datos a {path}? Esto inicia una base nueva.",
     confirmLegacyImport:
-      "Importar tandas desde {path}? Esto reemplaza tandas existentes y aplica metadatos.",
+      "Importar datos legacy de biblioteca desde {path}? Esto reemplaza las tandas existentes, copia ahora los metadatos legacy utiles y aun espera un escaneo posterior para el analisis final.",
     actionAddClipboardShort: "C",
     actionAddTandaShort: "T",
     actionRemoveClipboard: "Quitar del portapapeles",
@@ -949,10 +1036,14 @@ export const translations = {
     startupFlowFailed: "La preparacion fallo: {message}",
     legacyImportBadge: "Migracion unica",
     legacyImportHelp:
-      "Importa tandas y metadatos legacy solo si estas migrando desde el sistema anterior. Esto se mantiene separado del Flujo inicial porque reemplaza los datos de tandas existentes.",
+      "Importa tandas y metadatos legacy solo si estas migrando desde el sistema anterior. Esto llena una base usable de inmediato y despues la configuracion normal de analisis termina la migracion.",
     startupFlowLegacyImported: "importado",
     startupFlowLegacyDetected: "detectado pero no importado",
     startupFlowLegacySkipped: "no detectado",
+    libraryVerifyBadge: "Comprobacion final",
+    libraryVerifyTitle: "Verificar preparacion de reproduccion",
+    libraryVerifyHelp:
+      "Ejecuta esto despues de importar y escanear/configurar. Revisa la base actual e informa que falta para quedar lista para reproducir.",
     manualLibraryToolsTitle: "Configuracion manual / mantenimiento",
     manualLibraryToolsBadge: "Solo si hace falta",
     manualLibraryToolsHelp:
@@ -1135,6 +1226,7 @@ export const translations = {
     scanIssuesHelp: "Problemas recientes y archivos pendientes.",
     scanIssuesMore: "...y {count} mas",
     viewScanIssues: "Ver problemas",
+    openLibrarySetup: "Abrir configuracion",
     diagnosticsPaths: "Rutas",
     diagnosticsPathsUserData: "Datos de usuario",
     diagnosticsPathsWaveforms: "Formas de onda",
@@ -1214,9 +1306,9 @@ export const translations = {
     statusDataLocationDuringPlayback:
       "Deten la reproduccion antes de cambiar la ubicacion de datos.",
     legacyImportDetected:
-      "Archivos heredados detectados en {path}. Importar tandas y metadatos?",
+      "Archivos legacy detectados en {path}. Importa library.dat y cortinas.dat y luego ejecuta la configuracion de analisis.",
     statusLegacyImportDone:
-      "Importadas {tandas} tandas. Actualizadas {tracks} pistas. Faltan {missing} pistas.",
+      "Importadas {tandas} tandas. Anadidas {added} pistas, actualizadas {updated}, faltan {missing}. Ejecuta Preparacion completa o Escanear musica ahora.",
     statusMissingRoots:
       "Algunas carpetas no estan disponibles. Conecta la unidad o actualiza Ajustes.",
     statusTandaSaved: "Tanda guardada.",
@@ -1507,6 +1599,7 @@ export const translations = {
       "Les donnees sont stockees dans un dossier _tp_data a l'emplacement choisi.",
     legacyImportTitle: "Import heritage",
     legacyImportButton: "Importer les tandas heritees",
+    legacyStyleReviewDone: "Revision des styles terminee",
     legacyReadinessButton: "Verifier l'etat de la bibliotheque",
     legacyStylesButton: "Afficher les styles heritage",
     legacyStylesLoading: "Lecture des styles distincts depuis legacy library.dat...",
@@ -1526,8 +1619,48 @@ export const translations = {
     legacyReadinessPass: "Verification terminee avec succes.",
     legacyReadinessWarn: "Pret pour lecture avec avertissements.",
     legacyReadinessFail: "La verification a echoue.",
+    legacyReadinessEmpty:
+      "La bibliotheque est encore vide. Importez les donnees legacy ou lancez un scan avant la verification.",
     legacyReadinessSummary:
       "{status} Pistes {total}; duree manquante {missingDuration}; loudness+gain manquants {missingLoudness}; aucun signal de trim {missingTrimSignals}; erreurs d'analyse {analysisErrors}; formes d'onde manquantes {missingWaveforms}.",
+    libraryWorkflowBadge: "Parcours recommande",
+    libraryWorkflowTitle: "Flux de configuration de la bibliotheque",
+    libraryWorkflowHelp:
+      "Suivez cette sequence une fois par bibliotheque. La migration legacy est optionnelle puis rejoint le flux normal a l'etape d'analyse.",
+    libraryWorkflowRequired: "Obligatoire",
+    libraryWorkflowOptional: "Optionnel",
+    libraryWorkflowStatusLabel: "Guide actuel",
+    libraryWorkflowExpandStep: "Developper l'etape",
+    libraryWorkflowCollapseStep: "Replier l'etape",
+    libraryWorkflowDetailPrompt:
+      "Developpez une etape a gauche pour concentrer ici ses controles associes.",
+    libraryWorkflowDetailUnavailableLegacy:
+      "Aucun fichier legacy n'a encore ete detecte pour les racines actuelles.",
+    libraryWorkflowStepRoots: "Configurer les racines",
+    libraryWorkflowStepRootsHelp: "Ajoutez les dossiers actifs de musique et de cortinas.",
+    libraryWorkflowRootsDone: "Configuration des dossiers terminee",
+    libraryWorkflowStepLegacyStyles: "Verifier les styles legacy",
+    libraryWorkflowStepLegacyStylesHelp:
+      "Mappez les anciens noms de style vers les familles actuelles avant l'import.",
+    libraryWorkflowStepLegacyImport: "Importer metadonnees et tandas legacy",
+    libraryWorkflowStepLegacyImportHelp:
+      "Reutilise titres, artistes, annees, BPM, trims, loudness et tandas depuis library.dat et tandas.dat.",
+    libraryWorkflowStepAnalysis: "Lancer l'analyse complete",
+    libraryWorkflowStepAnalysisHelp:
+      "C'est ici que la branche legacy rejoint le flux normal.",
+    libraryWorkflowStepVerify: "Verifier l'etat",
+    libraryWorkflowStepVerifyHelp:
+      "Confirmez que les metadonnees, l'analyse et les caches sont prets pour la lecture.",
+    libraryWorkflowGuidanceRoots:
+      "Ajoutez d'abord les deux racines. Si vous migrez depuis Tanda Player, laissez les fichiers legacy a cote de ces dossiers pour que l'import puisse les detecter.",
+    libraryWorkflowGuidanceLegacy:
+      "Les fichiers legacy sont disponibles. Verifiez les mappages de style necessaires puis importez les metadonnees et tandas avant la configuration.",
+    libraryWorkflowGuidanceAnalysis:
+      "Lancez Preparation complete ou les scans musique/cortinas pour remplacer l'analyse legacy provisoire par une analyse et des caches frais.",
+    libraryWorkflowGuidanceVerify:
+      "La bibliotheque a ete scannee. Lancez Verifier l'etat de la bibliotheque comme controle final de lecture.",
+    libraryWorkflowGuidanceReady:
+      "La verification est faite. S'il reste des avertissements, utilisez les outils manuels ci-dessous seulement pour une reparation ciblee.",
     close: "Fermer",
     idle: "Inactif",
     starting: "Demarrage...",
@@ -1552,7 +1685,7 @@ export const translations = {
     confirmDataLocationChange:
       "Changer l'emplacement des donnees vers {path} ? Cela cree une nouvelle base.",
     confirmLegacyImport:
-      "Importer des tandas depuis {path} ? Cela remplace les tandas existantes.",
+      "Importer les donnees legacy de la bibliotheque depuis {path} ? Cela remplace les tandas existantes, copie maintenant les metadonnees legacy utiles et attend encore un scan de suivi pour l'analyse finale.",
     actionAddClipboardShort: "C",
     actionAddTandaShort: "T",
     actionRemoveClipboard: "Retirer du presse-papiers",
@@ -1683,10 +1816,14 @@ export const translations = {
     startupFlowFailed: "La preparation a echoue: {message}",
     legacyImportBadge: "Migration unique",
     legacyImportHelp:
-      "Importez les tandas et metadonnees legacy seulement si vous migrez depuis l'ancien systeme. Cette etape est separee du flux de demarrage car elle remplace les donnees de tandas existantes.",
+      "Importez les tandas et metadonnees legacy seulement si vous migrez depuis l'ancien systeme. Cela remplit tout de suite une base exploitable, puis la configuration normale termine l'analyse de migration.",
     startupFlowLegacyImported: "importe",
     startupFlowLegacyDetected: "detecte mais non importe",
     startupFlowLegacySkipped: "non detecte",
+    libraryVerifyBadge: "Controle final",
+    libraryVerifyTitle: "Verifier l'etat de lecture",
+    libraryVerifyHelp:
+      "Lancez ceci apres l'import et le scan/la configuration. Cela controle la base actuelle et signale ce qui manque encore pour une lecture fiable.",
     manualLibraryToolsTitle: "Configuration manuelle / maintenance",
     manualLibraryToolsBadge: "Seulement si necessaire",
     manualLibraryToolsHelp:
@@ -1870,6 +2007,7 @@ export const translations = {
     scanIssuesHelp: "Problemes recents et fichiers a traiter.",
     scanIssuesMore: "...et {count} de plus",
     viewScanIssues: "Voir les problemes",
+    openLibrarySetup: "Ouvrir configuration",
     diagnosticsPaths: "Chemins",
     diagnosticsPathsUserData: "Donnees utilisateur",
     diagnosticsPathsWaveforms: "Formes d'onde",
@@ -1949,9 +2087,9 @@ export const translations = {
     statusDataLocationDuringPlayback:
       "Arretez la lecture avant de changer l'emplacement des donnees.",
     legacyImportDetected:
-      "Fichiers herites detectes a {path}. Importer tandas et metadonnees ?",
+      "Fichiers legacy detectes a {path}. Importez library.dat et cortinas.dat puis lancez la configuration d'analyse.",
     statusLegacyImportDone:
-      "{tandas} tandas importees. {tracks} pistes mises a jour. {missing} manquantes.",
+      "{tandas} tandas importees. {added} pistes ajoutees, {updated} actualisees, {missing} manquantes. Lancez Preparation complete ou Scan musique ensuite.",
     statusMissingRoots:
       "Certains dossiers sont indisponibles. Connectez le disque.",
     statusTandaSaved: "Tanda enregistree.",
@@ -2250,6 +2388,7 @@ export const translations = {
       "Daten werden im Ordner _tp_data am gewahlten Ort gespeichert.",
     legacyImportTitle: "Legacy-Import",
     legacyImportButton: "Legacy-Bibliothek importieren",
+    legacyStyleReviewDone: "Stilpruefung abschliessen",
     legacyReadinessButton: "Bibliotheksbereitschaft pruefen",
     legacyStylesButton: "Legacy-Stile anzeigen",
     legacyStylesLoading: "Unterschiedliche Stile aus legacy library.dat werden gelesen...",
@@ -2269,8 +2408,48 @@ export const translations = {
     legacyReadinessPass: "Pruefung erfolgreich.",
     legacyReadinessWarn: "Fuer Wiedergabe bereit, mit Warnungen.",
     legacyReadinessFail: "Pruefung fehlgeschlagen.",
+    legacyReadinessEmpty:
+      "Die Bibliothek ist noch leer. Importieren Sie Legacy-Daten oder fuehren Sie zuerst einen Scan aus.",
     legacyReadinessSummary:
       "{status} Tracks {total}; fehlende Dauer {missingDuration}; fehlende Lautheit+Gain {missingLoudness}; keine Trim-Signale {missingTrimSignals}; Analysefehler {analysisErrors}; fehlende Wellenformen {missingWaveforms}.",
+    libraryWorkflowBadge: "Empfohlener Ablauf",
+    libraryWorkflowTitle: "Bibliotheks-Einrichtungsablauf",
+    libraryWorkflowHelp:
+      "Folgen Sie dieser Reihenfolge einmal pro Bibliothek. Die Legacy-Migration ist optional und fuehrt beim Analyse-Schritt wieder in den normalen Ablauf zurueck.",
+    libraryWorkflowRequired: "Pflicht",
+    libraryWorkflowOptional: "Optional",
+    libraryWorkflowStatusLabel: "Aktuelle Anleitung",
+    libraryWorkflowExpandStep: "Schritt aufklappen",
+    libraryWorkflowCollapseStep: "Schritt einklappen",
+    libraryWorkflowDetailPrompt:
+      "Klapen Sie links einen Schritt auf, um die zugehoerigen Steuerelemente hier zu fokussieren.",
+    libraryWorkflowDetailUnavailableLegacy:
+      "Fuer die aktuellen Wurzeln wurden noch keine Legacy-Dateien erkannt.",
+    libraryWorkflowStepRoots: "Wurzeln konfigurieren",
+    libraryWorkflowStepRootsHelp: "Aktive Musik- und Cortina-Ordner hinzufugen.",
+    libraryWorkflowRootsDone: "Ordnerkonfiguration abschliessen",
+    libraryWorkflowStepLegacyStyles: "Legacy-Stile pruefen",
+    libraryWorkflowStepLegacyStylesHelp:
+      "Alte Stilnamen vor dem Import auf aktuelle Familien abbilden.",
+    libraryWorkflowStepLegacyImport: "Legacy-Metadaten und Tandas importieren",
+    libraryWorkflowStepLegacyImportHelp:
+      "Titel, Artists, Jahre, BPM, Trims, Lautheit und Tandas aus library.dat und tandas.dat uebernehmen.",
+    libraryWorkflowStepAnalysis: "Analyse-Setup ausfuehren",
+    libraryWorkflowStepAnalysisHelp:
+      "Hier fuehrt der Legacy-Zweig wieder in den normalen Ablauf zurueck.",
+    libraryWorkflowStepVerify: "Bereitschaft pruefen",
+    libraryWorkflowStepVerifyHelp:
+      "Bestaetigt, dass Metadaten, Analyse und Caches fuer die Wiedergabe bereit sind.",
+    libraryWorkflowGuidanceRoots:
+      "Fuegen Sie zuerst beide Wurzeln hinzu. Wenn Sie von Tanda Player migrieren, lassen Sie die Legacy-Dateien neben diesen Ordnern liegen, damit der Import sie erkennen kann.",
+    libraryWorkflowGuidanceLegacy:
+      "Legacy-Dateien sind verfuegbar. Pruefen Sie benoetigte Stilzuordnungen und importieren Sie dann die Legacy-Metadaten und Tandas vor dem Setup.",
+    libraryWorkflowGuidanceAnalysis:
+      "Starten Sie Komplette Einrichtung oder Musik-/Cortina-Scan, damit die vorlaeufige Legacy-Analyse durch frische Scan-Ergebnisse und Caches ersetzt wird.",
+    libraryWorkflowGuidanceVerify:
+      "Die Bibliothek wurde gescannt. Fuehren Sie Bibliotheksbereitschaft pruefen als letzte Wiedergabe-Kontrolle aus.",
+    libraryWorkflowGuidanceReady:
+      "Die Bereitschaft wurde geprueft. Falls Warnungen bleiben, nutzen Sie die manuellen Werkzeuge unten nur fuer gezielte Reparaturen.",
     close: "Schliessen",
     idle: "Leerlauf",
     starting: "Startet...",
@@ -2295,7 +2474,7 @@ export const translations = {
     confirmDataLocationChange:
       "Datenspeicherort auf {path} andern? Dadurch wird eine neue Datenbank erstellt.",
     confirmLegacyImport:
-      "Tandas von {path} importieren? Dies ersetzt vorhandene Tandas und ubernimmt Metadaten.",
+      "Legacy-Bibliotheksdaten von {path} importieren? Das ersetzt vorhandene Tandas, uebernimmt sofort nuetzliche Legacy-Metadaten und erwartet danach weiterhin einen Scan fuer die endgueltige Analyse.",
     actionAddClipboardShort: "Z",
     actionAddTandaShort: "T",
     actionRemoveClipboard: "Aus Zwischenablage entfernen",
@@ -2426,10 +2605,14 @@ export const translations = {
     startupFlowFailed: "Einrichtung fehlgeschlagen: {message}",
     legacyImportBadge: "Einmalige Migration",
     legacyImportHelp:
-      "Importieren Sie Legacy-Tandas und Metadaten nur, wenn Sie vom alten System migrieren. Dieser Schritt ist vom Startablauf getrennt, weil er bestehende Tanda-Daten ersetzt.",
+      "Importieren Sie Legacy-Tandas und Metadaten nur, wenn Sie vom alten System migrieren. Dadurch entsteht sofort eine brauchbare Datenbank, danach schliesst das normale Analyse-Setup die Migration ab.",
     startupFlowLegacyImported: "importiert",
     startupFlowLegacyDetected: "erkannt aber nicht importiert",
     startupFlowLegacySkipped: "nicht erkannt",
+    libraryVerifyBadge: "Abschlusspruefung",
+    libraryVerifyTitle: "Wiedergabebereitschaft pruefen",
+    libraryVerifyHelp:
+      "Nach Import und Scan/Setup ausfuehren. Es prueft die aktuelle Datenbank und meldet, was fuer die Wiedergabe noch fehlt.",
     manualLibraryToolsTitle: "Manuelle Einrichtung / Wartung",
     manualLibraryToolsBadge: "Nur wenn noetig",
     manualLibraryToolsHelp:
@@ -2614,6 +2797,7 @@ export const translations = {
     scanIssuesHelp: "Aktuelle Probleme und Dateien.",
     scanIssuesMore: "...und {count} weitere",
     viewScanIssues: "Probleme anzeigen",
+    openLibrarySetup: "Einrichtung oeffnen",
     diagnosticsPaths: "Pfade",
     diagnosticsPathsUserData: "Benutzerdaten",
     diagnosticsPathsWaveforms: "Wellenformen",
@@ -2693,9 +2877,9 @@ export const translations = {
     statusDataLocationDuringPlayback:
       "Wiedergabe stoppen, bevor der Datenspeicherort geandert wird.",
     legacyImportDetected:
-      "Legacy-Dateien unter {path} erkannt. library.dat und cortinas.dat importieren (ohne Vollscan)?",
+      "Legacy-Dateien unter {path} erkannt. library.dat und cortinas.dat importieren und danach das Analyse-Setup starten.",
     statusLegacyImportDone:
-      "{tandas} Tandas importiert. {tracks} Titel aktualisiert. {missing} fehlen.",
+      "{tandas} Tandas importiert. {added} Titel hinzugefuegt, {updated} aktualisiert, {missing} fehlen. Starten Sie als Naechstes Komplette Einrichtung oder Musikscan.",
     statusMissingRoots:
       "Einige Ordner sind nicht verfugbar. Laufwerk verbinden.",
     statusTandaSaved: "Tanda gespeichert.",
@@ -2995,6 +3179,7 @@ export const translations = {
       "Os dados sao armazenados em uma pasta _tp_data no local selecionado.",
     legacyImportTitle: "Importacao legada",
     legacyImportButton: "Importar tandas legadas",
+    legacyStyleReviewDone: "Concluir revisao de estilos",
     legacyReadinessButton: "Verificar prontidao da biblioteca",
     legacyStylesButton: "Mostrar estilos legados",
     legacyStylesLoading: "A ler estilos distintos de legacy library.dat...",
@@ -3014,8 +3199,48 @@ export const translations = {
     legacyReadinessPass: "Verificacao concluida com sucesso.",
     legacyReadinessWarn: "Pronta para reproducao com avisos.",
     legacyReadinessFail: "A verificacao falhou.",
+    legacyReadinessEmpty:
+      "A biblioteca ainda esta vazia. Importe dados legacy ou execute uma varredura antes da verificacao.",
     legacyReadinessSummary:
       "{status} Faixas {total}; duracao ausente {missingDuration}; loudness+ganho ausentes {missingLoudness}; sem sinais de trim {missingTrimSignals}; erros de analise {analysisErrors}; formas de onda ausentes {missingWaveforms}.",
+    libraryWorkflowBadge: "Caminho recomendado",
+    libraryWorkflowTitle: "Fluxo de configuracao da biblioteca",
+    libraryWorkflowHelp:
+      "Siga esta sequencia uma vez por biblioteca. A migracao legacy e opcional e volta ao fluxo normal na etapa de analise.",
+    libraryWorkflowRequired: "Obrigatorio",
+    libraryWorkflowOptional: "Opcional",
+    libraryWorkflowStatusLabel: "Orientacao atual",
+    libraryWorkflowExpandStep: "Expandir etapa",
+    libraryWorkflowCollapseStep: "Recolher etapa",
+    libraryWorkflowDetailPrompt:
+      "Expanda uma etapa a esquerda para focar aqui os controles relacionados.",
+    libraryWorkflowDetailUnavailableLegacy:
+      "Arquivos legacy ainda nao foram detectados para as raizes atuais.",
+    libraryWorkflowStepRoots: "Configurar raizes",
+    libraryWorkflowStepRootsHelp: "Adicione as pastas ativas de musica e cortinas.",
+    libraryWorkflowRootsDone: "Concluir configuracao de pastas",
+    libraryWorkflowStepLegacyStyles: "Rever estilos legacy",
+    libraryWorkflowStepLegacyStylesHelp:
+      "Mapeie nomes de estilo antigos para as familias atuais antes da importacao.",
+    libraryWorkflowStepLegacyImport: "Importar metadados e tandas legacy",
+    libraryWorkflowStepLegacyImportHelp:
+      "Reutiliza titulos, artistas, anos, BPM, trims, loudness e tandas de library.dat e tandas.dat.",
+    libraryWorkflowStepAnalysis: "Executar configuracao de analise",
+    libraryWorkflowStepAnalysisHelp:
+      "Aqui o ramo legacy volta ao fluxo normal.",
+    libraryWorkflowStepVerify: "Verificar prontidao",
+    libraryWorkflowStepVerifyHelp:
+      "Confirma que metadados, analise e caches estao prontos para reproducao.",
+    libraryWorkflowGuidanceRoots:
+      "Primeiro adicione as duas raizes. Se estiver a migrar do Tanda Player, deixe os ficheiros legacy ao lado dessas pastas para que a importacao os detete.",
+    libraryWorkflowGuidanceLegacy:
+      "Os ficheiros legacy estao disponiveis. Reveja os mapeamentos de estilo necessarios e depois importe os metadados e tandas antes da configuracao.",
+    libraryWorkflowGuidanceAnalysis:
+      "Execute Preparacao completa ou Escanear musica/Escanear cortinas para substituir a analise legacy provisoria por resultados e caches novos.",
+    libraryWorkflowGuidanceVerify:
+      "A biblioteca ja foi analisada. Execute Verificar prontidao da biblioteca como verificacao final de reproducao.",
+    libraryWorkflowGuidanceReady:
+      "A prontidao ja foi verificada. Se restarem avisos, use as ferramentas manuais abaixo apenas para reparacoes dirigidas.",
     close: "Fechar",
     idle: "Inativo",
     starting: "Iniciando...",
@@ -3040,7 +3265,7 @@ export const translations = {
     confirmDataLocationChange:
       "Mudar local dos dados para {path}? Isso inicia um banco novo.",
     confirmLegacyImport:
-      "Importar tandas de {path}? Isso substitui tandas existentes e aplica metadados.",
+      "Importar dados legacy da biblioteca de {path}? Isso substitui as tandas existentes, copia agora os metadados legacy uteis e ainda espera uma varredura posterior para a analise final.",
     actionAddClipboardShort: "C",
     actionAddTandaShort: "T",
     actionRemoveClipboard: "Remover do bloco",
@@ -3171,10 +3396,14 @@ export const translations = {
     startupFlowFailed: "A preparacao falhou: {message}",
     legacyImportBadge: "Migracao unica",
     legacyImportHelp:
-      "Importe tandas e metadados legacy apenas se estiver a migrar do sistema antigo. Isto fica separado do Fluxo inicial porque substitui os dados de tandas existentes.",
+      "Importe tandas e metadados legacy apenas se estiver a migrar do sistema antigo. Isto preenche uma base utilizavel imediatamente e depois a configuracao normal de analise conclui a migracao.",
     startupFlowLegacyImported: "importado",
     startupFlowLegacyDetected: "detetado mas nao importado",
     startupFlowLegacySkipped: "nao detetado",
+    libraryVerifyBadge: "Verificacao final",
+    libraryVerifyTitle: "Verificar prontidao de reproducao",
+    libraryVerifyHelp:
+      "Execute isto depois da importacao e da varredura/configuracao. Verifica a base atual e informa o que ainda falta para a reproducao.",
     manualLibraryToolsTitle: "Configuracao manual / manutencao",
     manualLibraryToolsBadge: "So se necessario",
     manualLibraryToolsHelp:
@@ -3359,6 +3588,7 @@ export const translations = {
     scanIssuesHelp: "Problemas recentes e arquivos pendentes.",
     scanIssuesMore: "...e mais {count}",
     viewScanIssues: "Ver problemas",
+    openLibrarySetup: "Abrir configuracao",
     diagnosticsPaths: "Caminhos",
     diagnosticsPathsUserData: "Dados do usuario",
     diagnosticsPathsWaveforms: "Formas de onda",
@@ -3438,9 +3668,9 @@ export const translations = {
     statusDataLocationDuringPlayback:
       "Pare a reproducao antes de mudar o local dos dados.",
     legacyImportDetected:
-      "Arquivos legados detectados em {path}. Importar tandas e metadados?",
+      "Arquivos legacy detectados em {path}. Importe library.dat e cortinas.dat e depois execute a configuracao de analise.",
     statusLegacyImportDone:
-      "Importadas {tandas} tandas. Atualizadas {tracks} faixas. Faltam {missing} faixas.",
+      "Importadas {tandas} tandas. Adicionadas {added} faixas, atualizadas {updated}, faltam {missing}. Execute Preparacao completa ou Escanear musica agora.",
     statusMissingRoots:
       "Algumas pastas nao estao disponiveis. Conecte a unidade.",
     statusTandaSaved: "Tanda salva.",
@@ -3740,6 +3970,7 @@ export const translations = {
       "I dati sono salvati nella cartella _tp_data nella posizione selezionata.",
     legacyImportTitle: "Import legacy",
     legacyImportButton: "Importa tandas legacy",
+    legacyStyleReviewDone: "Concludi revisione stili",
     legacyReadinessButton: "Verifica stato libreria",
     legacyStylesButton: "Mostra stili legacy",
     legacyStylesLoading: "Lettura degli stili distinti da legacy library.dat...",
@@ -3759,8 +3990,48 @@ export const translations = {
     legacyReadinessPass: "Verifica completata con successo.",
     legacyReadinessWarn: "Pronta alla riproduzione con avvisi.",
     legacyReadinessFail: "Verifica non riuscita.",
+    legacyReadinessEmpty:
+      "La libreria e ancora vuota. Importa dati legacy oppure esegui una scansione prima della verifica.",
     legacyReadinessSummary:
       "{status} Brani {total}; durata mancante {missingDuration}; loudness+gain mancanti {missingLoudness}; nessun segnale di trim {missingTrimSignals}; errori di analisi {analysisErrors}; forme d'onda mancanti {missingWaveforms}.",
+    libraryWorkflowBadge: "Percorso consigliato",
+    libraryWorkflowTitle: "Flusso di configurazione libreria",
+    libraryWorkflowHelp:
+      "Segui questa sequenza una volta per libreria. La migrazione legacy e opzionale e rientra nel flusso normale al passo di analisi.",
+    libraryWorkflowRequired: "Obbligatorio",
+    libraryWorkflowOptional: "Opzionale",
+    libraryWorkflowStatusLabel: "Guida attuale",
+    libraryWorkflowExpandStep: "Espandi fase",
+    libraryWorkflowCollapseStep: "Comprimi fase",
+    libraryWorkflowDetailPrompt:
+      "Espandi una fase a sinistra per mostrare qui i controlli collegati.",
+    libraryWorkflowDetailUnavailableLegacy:
+      "I file legacy non sono ancora stati rilevati per le radici correnti.",
+    libraryWorkflowStepRoots: "Configura radici",
+    libraryWorkflowStepRootsHelp: "Aggiungi le cartelle attive di musica e cortine.",
+    libraryWorkflowRootsDone: "Concludi configurazione cartelle",
+    libraryWorkflowStepLegacyStyles: "Rivedi stili legacy",
+    libraryWorkflowStepLegacyStylesHelp:
+      "Mappa i vecchi nomi di stile sulle famiglie attuali prima dell'importazione.",
+    libraryWorkflowStepLegacyImport: "Importa metadati e tandas legacy",
+    libraryWorkflowStepLegacyImportHelp:
+      "Riutilizza titoli, artisti, anni, BPM, trim, loudness e tandas da library.dat e tandas.dat.",
+    libraryWorkflowStepAnalysis: "Esegui setup analisi",
+    libraryWorkflowStepAnalysisHelp:
+      "Qui il ramo legacy rientra nel flusso normale.",
+    libraryWorkflowStepVerify: "Verifica prontezza",
+    libraryWorkflowStepVerifyHelp:
+      "Conferma che metadati, analisi e cache siano pronti per la riproduzione.",
+    libraryWorkflowGuidanceRoots:
+      "Aggiungi prima entrambe le radici. Se stai migrando da Tanda Player, lascia i file legacy accanto a queste cartelle cosi l'importazione puo rilevarli.",
+    libraryWorkflowGuidanceLegacy:
+      "I file legacy sono disponibili. Rivedi i mapping di stile necessari e poi importa metadati e tandas prima della configurazione.",
+    libraryWorkflowGuidanceAnalysis:
+      "Esegui Preparazione completa oppure Scansiona musica/Scansiona cortine per sostituire l'analisi legacy provvisoria con risultati e cache nuove.",
+    libraryWorkflowGuidanceVerify:
+      "La libreria e stata scansionata. Esegui Verifica stato libreria come controllo finale di riproduzione.",
+    libraryWorkflowGuidanceReady:
+      "La prontezza e stata verificata. Se restano avvisi, usa gli strumenti manuali qui sotto solo per riparazioni mirate.",
     close: "Chiudi",
     idle: "Inattivo",
     starting: "Avvio...",
@@ -3785,7 +4056,7 @@ export const translations = {
     confirmDataLocationChange:
       "Cambiare posizione dati in {path}? Questo crea un nuovo database.",
     confirmLegacyImport:
-      "Importare tandas da {path}? Questo sostituisce le tandas esistenti e applica i metadati.",
+      "Importare dati legacy della libreria da {path}? Questo sostituisce le tandas esistenti, copia subito i metadati legacy utili e richiede comunque una scansione successiva per l'analisi finale.",
     actionAddClipboardShort: "C",
     actionAddTandaShort: "T",
     actionRemoveClipboard: "Rimuovi dagli appunti",
@@ -3916,10 +4187,14 @@ export const translations = {
     startupFlowFailed: "Preparazione non riuscita: {message}",
     legacyImportBadge: "Migrazione una tantum",
     legacyImportHelp:
-      "Importa tandas e metadati legacy solo se stai migrando dal vecchio sistema. Questa fase resta separata dal Flusso iniziale perche sostituisce i dati tanda esistenti.",
+      "Importa tandas e metadati legacy solo se stai migrando dal vecchio sistema. Questo riempie subito un database gia utilizzabile e poi il normale setup di analisi completa la migrazione.",
     startupFlowLegacyImported: "importato",
     startupFlowLegacyDetected: "rilevato ma non importato",
     startupFlowLegacySkipped: "non rilevato",
+    libraryVerifyBadge: "Controllo finale",
+    libraryVerifyTitle: "Verifica prontezza riproduzione",
+    libraryVerifyHelp:
+      "Esegui questa verifica dopo importazione e scansione/setup. Controlla il database attuale e indica cosa manca ancora per la riproduzione.",
     manualLibraryToolsTitle: "Configurazione manuale / manutenzione",
     manualLibraryToolsBadge: "Solo se serve",
     manualLibraryToolsHelp:
@@ -4104,6 +4379,7 @@ export const translations = {
     scanIssuesHelp: "Problemi recenti di scansione e file da controllare.",
     scanIssuesMore: "...e altri {count}",
     viewScanIssues: "Vedi problemi",
+    openLibrarySetup: "Apri configurazione",
     diagnosticsPaths: "Percorsi",
     diagnosticsPathsUserData: "Dati utente",
     diagnosticsPathsWaveforms: "Forme d'onda",
@@ -4185,9 +4461,9 @@ export const translations = {
     statusDataLocationDuringPlayback:
       "Ferma la riproduzione prima di cambiare la posizione dati.",
     legacyImportDetected:
-      "File legacy rilevati in {path}. Importare tandas e metadati?",
+      "File legacy rilevati in {path}. Importa library.dat e cortinas.dat, poi esegui il setup di analisi.",
     statusLegacyImportDone:
-      "Importate {tandas} tandas. Aggiornati {tracks} brani. Mancano {missing} brani.",
+      "Importate {tandas} tandas. Aggiunti {added} brani, aggiornati {updated}, mancanti {missing}. Esegui ora Preparazione completa o Scansiona musica.",
     statusMissingRoots:
       "Alcune cartelle non disponibili. Collega il disco o aggiorna Impostazioni.",
     statusTandaSaved: "Tanda salvata.",
@@ -4602,10 +4878,14 @@ translations.is = {
   startupFlowFailed: "Uppsetning mistókst: {message}",
   legacyImportBadge: "Einskipt flutningur",
   legacyImportHelp:
-    "Flyttu inn legacy-tandas og lysigogn aðeins ef þú ert að flytja fra eldra kerfinu. Þetta er adskilid fra Ræsingarferli vegna þess ad þad skiptir ut núverandi tanda-gognum.",
+    "Flyttu inn legacy-tandas og lysigogn aðeins ef þú ert að flytja fra eldra kerfinu. Þetta fyllir strax nothaefan gagnagrunn og svo klarar venjuleg greiningaruppsetning flutninginn.",
   startupFlowLegacyImported: "flutt inn",
   startupFlowLegacyDetected: "fannst en ekki flutt inn",
   startupFlowLegacySkipped: "fannst ekki",
+  libraryVerifyBadge: "Lokaathugun",
+  libraryVerifyTitle: "Stadfesta spilunarreidubun",
+  libraryVerifyHelp:
+    "Keyrdu þetta eftir innflutning og skonnun/uppsetningu. Thad athugar nuverandi gagnagrunn og segir fra um þad sem enn vantar fyrir spilun.",
   manualLibraryToolsTitle: "Handvirk uppsetning / viðhald",
   manualLibraryToolsBadge: "Adeins ef þarf",
   manualLibraryToolsHelp:
@@ -4689,8 +4969,11 @@ translations.is = {
   dataLocationLabel: "Gagnastaðsetning",
   dataLocationChoose: "Velja…",
   dataLocationHelp: "Gögn eru geymd í _tp_data möppu á völdum stað.",
+  confirmLegacyImport:
+    "Flytja inn legacy-safnsgogn ur {path}? Þetta skiptir ut nuverandi tandas, afritar nytanleg metadata strax og gerir svo rad fyrir eftirfylgniskonnun fyrir loka-greiningu.",
   legacyImportTitle: "Innflutningur úr eldra kerfi",
   legacyImportButton: "Flytja inn eldra safn",
+  legacyStyleReviewDone: "Ljúka stílayfirferð",
   legacyReadinessButton: "Staðfesta safnið",
   legacyStylesButton: "Syna eldri stila",
   legacyStylesLoading: "Les ohlik stilgildi ur legacy library.dat...",
@@ -4706,8 +4989,56 @@ translations.is = {
   legacyStylesAddAsNew: "Baeta vid sem nyjum stil",
   legacyStylesMapped: "{style}",
   legacyStylesUnmapped: "oskortlagt",
+  legacyReadinessRunning: "Keyri stadfestingar...",
+  legacyReadinessPass: "Stadfesting tokst.",
+  legacyReadinessWarn: "Tilbuid til spilunar med advorunum.",
+  legacyReadinessFail: "Stadfesting mistokst.",
+  legacyReadinessEmpty:
+    "Safnid er enn tomt. Flyttu inn legacy-gogn eða keyrðu skonnun áður en þú stadfestir.",
+  legacyReadinessSummary:
+    "{status} Log {total}; vantar lengd {missingDuration}; vantar loudness+gain {missingLoudness}; engin trim-merki {missingTrimSignals}; greiningarvillur {analysisErrors}; vantar bylgjumyndir {missingWaveforms}.",
+  libraryWorkflowBadge: "Maelt ferli",
+  libraryWorkflowTitle: "Uppsetningarferli safns",
+  libraryWorkflowHelp:
+    "Fylgdu þessari rod einu sinni fyrir hvert safn. Legacy-flutningur er valkvadur og sameinast venjulegu ferli aftur i greiningarskrefinu.",
+  libraryWorkflowRequired: "Nauðsynlegt",
+  libraryWorkflowOptional: "Valfrjálst",
+  libraryWorkflowStatusLabel: "Nunaera leiðbeining",
+  libraryWorkflowExpandStep: "Birta skref",
+  libraryWorkflowCollapseStep: "Fela skref",
+  libraryWorkflowDetailPrompt:
+    "Stækkaðu skref vinstra megin til að birta tengd stýritæki hér.",
+  libraryWorkflowDetailUnavailableLegacy:
+    "Legacy-skrar hafa ekki enn fundist fyrir nuverandi raetur.",
+  libraryWorkflowStepRoots: "Stilla raetur",
+  libraryWorkflowStepRootsHelp: "Baettu vid tonlistar- og cortinumoppum sem eru i notkun.",
+  libraryWorkflowRootsDone: "Ljúka möppuuppsetningu",
+  libraryWorkflowStepLegacyStyles: "Yfirfara legacy-stila",
+  libraryWorkflowStepLegacyStylesHelp:
+    "Kortleggdu gömul stilheiti yfir i nuverandi flokkun fyrir innflutning.",
+  libraryWorkflowStepLegacyImport: "Flytja inn legacy-metadata og tandas",
+  libraryWorkflowStepLegacyImportHelp:
+    "Endurnytir titla, artista, ar, BPM, trim, loudness og tandas ur library.dat og tandas.dat.",
+  libraryWorkflowStepAnalysis: "Keyra greiningaruppsetningu",
+  libraryWorkflowStepAnalysisHelp:
+    "Her sameinast legacy-grein aftur venjulega ferlinu.",
+  libraryWorkflowStepVerify: "Stadfesta reidubun",
+  libraryWorkflowStepVerifyHelp:
+    "Stadfestir ad metadata, greining og skyndiminni seu tilbun fyrir spilun.",
+  libraryWorkflowGuidanceRoots:
+    "Baettu fyrst vid badum raetum. Ef thu ert ad flytja ur Tanda Player skaltu hafa legacy-skrar vid hlidina a þessum mopum svo innflutningurinn finni thaer.",
+  libraryWorkflowGuidanceLegacy:
+    "Legacy-skrar eru tiltækar. Farðu yfir nauðsynleg stilkort og flyttu svo inn metadata og tandas áður en uppsetningin er keyrð.",
+  libraryWorkflowGuidanceAnalysis:
+    "Keyrðu Fulla uppsetningu eða skönnun fyrir tónlist/cortinur til ad skipta timabundinni legacy-greiningu ut fyrir nyjar niðurstöður og skyndiminni.",
+  libraryWorkflowGuidanceVerify:
+    "Safnid hefur verid skannad. Keyrdu Stadfesta safnid sem lokaathugun fyrir spilun.",
+  libraryWorkflowGuidanceReady:
+    "Stadfesting hefur verid keyrd. Ef advaranir eru eftir skaltu nota handvirku verkfaerin fyrir neðan aðeins til markvissra laga.",
   legacyImportDetected:
-    "Eldri skrár fundust á {path}. Flytja inn library.dat og cortinas.dat (án fullrar skönnunar)?",
+    "Eldri skrar fundust a {path}. Flytja inn library.dat og cortinas.dat og keyra svo greiningaruppsetningu.",
+  statusLegacyImportDone:
+    "Fluttar inn {tandas} tandas. Baett vid {added} logum, endurhlaedin {updated}, vantar {missing}. Keyrdu Fulla uppsetningu eller Skanna tonlist naest.",
   defaultTandaSize: "Sjálfgefin stærð töndu",
   clipboardNewLimitLabel: "Stærð nýs safns",
   searchMinScoreLabel: "Lágmarksleitarskor",
@@ -4794,6 +5125,7 @@ translations.is = {
   scanIssuesHelp: "Nýleg vandamál við skönnun og skrár sem þarfnast athygli.",
   scanIssuesMore: "...og {count} fleiri",
   viewScanIssues: "Skoða skönnunarvandamál",
+  openLibrarySetup: "Opna uppsetningu",
   diagnosticsPaths: "Slóðir",
   diagnosticsPathsUserData: "Notendagögn",
   diagnosticsPathsWaveforms: "Bylgjuform",

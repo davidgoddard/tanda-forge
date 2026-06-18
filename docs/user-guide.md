@@ -533,14 +533,16 @@ Each field can be modified and can also be used to add to a search for similar i
 
 ### 1) Choose Library Root Folders
 
-You need at least one music folder, and optionally a cortina folder.
+You need at least one music folder and, for a full DJ setup, a cortina folder.
 
 1. Open **Settings** (gear icon).
 2. In **System**, click **Add Music Folder** and choose a folder.
 3. (Optional) Click **Add Cortina Folder** and choose a folder.
-4. If migrating from an older Tanda Player system, use **Legacy Import** first.
-5. Then run **Startup Flow** to scan music/cortinas and build waveform and compressed caches.
-6. If you later want to unload a configured folder, use **Remove** beside that root in **Settings -> Library**.
+4. Follow the **Library setup flow** shown in **Settings > Library**.
+5. If migrating from an older Tanda Player system, review style mappings and use **Legacy Import** first.
+6. Then run **Startup Flow** to scan music/cortinas and build waveform and compressed caches.
+7. Finish with **Verify library readiness**.
+8. If you later want to unload a configured folder, use **Remove** beside that root in **Settings -> Library**.
    - Tanda Forge shows a confirmation with the affected track, tanda, and playlist counts first.
    - Confirming removal deletes that root's scanned tracks from the library database.
    - Any dependent tanda or playlist is marked invalid so the consequences remain visible and deliberate.
@@ -550,9 +552,11 @@ You need at least one music folder, and optionally a cortina folder.
 If you are migrating from the previous system:
 
 1. Open **Settings > Library**.
-2. Use **Legacy Import**.
-3. This imports legacy tandas and metadata into the database.
-4. Then run **Startup Flow** to scan the files properly and build the derived assets.
+2. Review **Style Families** and **Show legacy styles** if you need to remap old style names.
+3. Use **Legacy Import**.
+4. This imports legacy tandas and metadata into the database so titles, artists, years, BPM, trims, loudness, and tandas are immediately available.
+5. Then run **Startup Flow** to scan the files properly and build the derived assets.
+6. Finish with **Verify library readiness**.
 
 This is intentionally separate from the resumable startup flow because legacy import replaces tanda data rather than simply repairing caches.
 
@@ -572,9 +576,10 @@ This restores the full application data root, not just a playlist or tanda file.
 If the database has been erased or corrupted and you do **not** have a full system backup:
 
 1. Re-add the music and cortina roots if needed.
-2. If you have old-system data, run **Legacy Import** first.
+2. If you have old-system data, review style mappings and run **Legacy Import** first.
 3. Run **Startup Flow**.
 4. Wait for music scan, cortina scan, waveform generation, and compressed cache preparation to finish.
+5. Run **Verify library readiness**.
 
 ### 5) Importing a Playlist Onto Another Laptop
 
@@ -653,7 +658,19 @@ When importing legacy tandas, legacy names equal to `Auto Generated Tanda` or `S
 
 Although the old legacy data does include some information to help normalise the sound levels and trim tracks, the compression and trimming is slightly different and so it is recommended to use the **scan** buttons and leave the system to read the files.
 
-In **Settings -> Library**, the buttons are grouped by purpose:
+In **Settings -> Library**, the controls are grouped by purpose and tied together by a **Library setup flow** guide:
+
+- **Library setup flow** shows the normal path:
+  - configure roots,
+  - optionally review legacy styles and run **Legacy Import**,
+  - rejoin the normal path at analysis,
+  - finish with **Verify library readiness**.
+  - Each step can be expanded from the left-hand flow. The right-hand panel then
+    shows the real settings section(s) for that step. If no music root is
+    configured yet, the roots step opens by default; otherwise the steps start
+    collapsed.
+  - The legacy-style review step includes a **Done reviewing styles** action so
+    you can explicitly move on once you have checked or skipped the mappings.
 
 - **Startup Flow** runs the recommended end-to-end setup in one action.
   - It scans music and cortinas, generates missing waveform PNGs, and precomputes compressed companion files.
@@ -664,6 +681,12 @@ In **Settings -> Library**, the buttons are grouped by purpose:
 - **Legacy Import** is now a separate one-time migration step.
   - Use it only if you are bringing tandas and metadata across from the old system.
   - It is separate from **Startup Flow** because it replaces existing tanda data rather than behaving like a resumable rebuild step.
+  - It uses `library.dat` / `cortinas.dat` metadata to prefill the database immediately, including legacy title, artist, singer, vocal/instrumental state, year, BPM, and style-related fields.
+  - It matches legacy file references against the configured roots defensively, so small path-format differences such as slash style, letter case, Unicode composition, or an extra parent prefix do not stop the metadata/tanda link-up.
+  - It still expects the follow-up scan/setup step for final analysis consistency.
+- **Verify library readiness** is the final check.
+  - It verifies the current database, not the unimported legacy files sitting on disk.
+  - If the database is empty, it will now tell you to import legacy data or run a scan first.
 - **Library Scan** refreshes the database, analysis, and waveform PNG cache from the music and cortina folders.
 - Re-running **Scan Music** or **Scan Cortinas** imports newly discovered files, removes tracks whose files have disappeared, and skips overwriting stored editable metadata for already known tracks.
 - **Remove** beside a configured root unloads that folder from the library after an explicit warning about the tracks removed and dependent tandas/playlists invalidated.

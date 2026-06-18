@@ -38,15 +38,37 @@ Board, Diagnostics, System).
   is rewritten to a blank name so the app can use dynamic artist-summary rendering
   instead of the low-value legacy label. Matching is resilient to quote/dash/spacing
   variations of those labels.
+- CFG-LIB-008.b: When legacy `track.artist` uses a semicolon-separated
+  `artist; singer` credit, import stores the first segment as the orchestra/artist,
+  stores the latter segment as `singer`, and marks the track as sung even if the
+  legacy instrumental flag says otherwise.
+- CFG-LIB-008.c: If legacy metadata does not already provide a year and the
+  imported title ends with a 4-digit year token, or with that year followed only
+  by trailing punctuation and/or a parenthetical suffix such as
+  `Didi 1937. (Reliquias-flac)`, import copies that year into the track `year`
+  field while leaving the title text unchanged.
+- CFG-LIB-008.d: Legacy import matches `library.dat`, `cortinas.dat`, and
+  `tandas.dat` track paths to configured roots using normalized relative-path
+  comparison that tolerates slash differences, case differences, Unicode
+  normalization differences, and unique suffix matches, so imported metadata
+  binds to the actual scanned file path instead of creating parallel rows.
+- CFG-LIB-008.e: Singer inference must ignore generic vocal descriptors such as
+  trailing `con canto` and leave `singer` blank unless a plausible singer name
+  follows the marker.
 - CFG-LIB-009: Legacy import does not perform a full rescan; it validates file existence,
   derives trims from legacy analysis fields, and reuses legacy waveform PNGs when present.
+- CFG-LIB-009.a: Legacy import populates immediately usable track rows and tanda
+  membership from legacy files, but the follow-up scan/setup step is still the
+  expected route for final analysis, waveform, and cache readiness.
 - CFG-LIB-011: Style families are configured in the Library tab before import/scan workflows.
 - CFG-LIB-011.a: Each family row defines a playlist code letter, a base style, and optional sub-styles.
 - CFG-LIB-011.b: Legacy style mapping table supports mapping each legacy style to an existing style or creating a new family/style from that row.
 - CFG-LIB-011.c: Legacy style preview/import style extraction uses legacy `library.dat` classifier fields only (`classifiers.style`, `classifiers.sub-style`/`classifiers.subStyle`) and does not infer styles from ID3/tag genre values.
 - CFG-LIB-011.d: Legacy style rows with no classifier style/sub-style are shown as `?` in the legacy style preview.
 - CFG-LIB-011.e: Legacy style mappings selected in the UI are persisted per legacy root and automatically re-applied on later imports, so users do not need to remap each time.
-- CFG-LIB-012: Library tab section order is: library roots first, style families + legacy style mapper second, legacy import third, and scan/progress controls at the bottom.
+- CFG-LIB-012: Library tab section order is: library roots first, guided setup
+  flow second, style families third, legacy import fourth, setup/verification
+  cards fifth, and manual maintenance controls at the bottom.
 
 ## System Configuration
 

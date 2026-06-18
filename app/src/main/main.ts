@@ -1102,6 +1102,7 @@ const registerIpc = () => {
     schedulePlayableWarmup(5000);
     return {
       tandasImported: result.tandasImported,
+      tracksAdded: result.tracksAdded,
       tracksUpdated: result.tracksUpdated,
       missingTracks: result.missingTracks,
       missingFiles: result.missingFiles,

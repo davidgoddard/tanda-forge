@@ -256,6 +256,14 @@ export const createSettingsDiagnosticsController = (deps: DiagnosticsControllerD
     target.textContent = deps.translate("legacyReadinessRunning");
     try {
       const summary = await deps.getDiagnosticsDataReadiness();
+      if (summary.totalTracks <= 0) {
+        const message = deps.translate("legacyReadinessEmpty");
+        target.textContent = message;
+        return {
+          status: "fail" as const,
+          message,
+        };
+      }
       const decision = evaluateDataReadiness(summary);
       const statusText =
         decision.status === "pass"
@@ -263,7 +271,7 @@ export const createSettingsDiagnosticsController = (deps: DiagnosticsControllerD
           : decision.status === "warn"
             ? deps.translate("legacyReadinessWarn")
             : deps.translate("legacyReadinessFail");
-      target.textContent = deps.translate("legacyReadinessSummary", {
+      const message = deps.translate("legacyReadinessSummary", {
         status: statusText,
         total: summary.totalTracks,
         missingDuration: summary.missingDuration,
@@ -272,12 +280,20 @@ export const createSettingsDiagnosticsController = (deps: DiagnosticsControllerD
         analysisErrors: summary.analysisErrors,
         missingWaveforms: summary.missingWaveforms,
       });
-      return statusText;
+      target.textContent = message;
+      return {
+        status: decision.status,
+        message,
+      };
     } catch (error) {
-      target.textContent = deps.translate("diagnosticsPlaybackLogFailed", {
+      const message = deps.translate("diagnosticsPlaybackLogFailed", {
         message: error instanceof Error ? error.message : deps.translate("statusUnknownError"),
       });
-      return null;
+      target.textContent = message;
+      return {
+        status: null,
+        message,
+      };
     }
   };
 

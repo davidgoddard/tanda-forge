@@ -136,14 +136,41 @@ Settings are grouped into tabs (Library, System, etc.) and are accessible from
 the main screen without leaving the playback context.
 
 Rules:
-- UI-009.R1: Missing library roots trigger a visible banner with a shortcut to Settings.
+- UI-009.R1: Missing library roots trigger a visible banner with a shortcut to
+  the Library setup view in Settings rather than to unrelated diagnostics.
 - UI-009.R2: Destructive settings (e.g. database reset) require explicit confirmation.
 - UI-009.R3: Diagnostic information (scan issues) lives in a Diagnostics tab.
 - UI-009.R3.a: Diagnostics include playback-leveling logs so gain/loudness
   decisions can be reviewed without leaving the app.
 - UI-009.R3.b: The Library settings tab includes a one-click readiness verification
-  action near Legacy Import that reports pass/warn/fail plus data-readiness counts
-  (duration, loudness/gain, trim signals, analysis errors, waveforms).
+  action in the Library setup flow that reports pass/warn/fail plus data-readiness
+  counts (duration, loudness/gain, trim signals, analysis errors, waveforms).
+- UI-009.R3.c: The Library settings tab includes a visual setup flow that shows
+  the normal root -> analysis -> verify path plus the optional legacy-migration
+  branch rejoining before analysis.
+- UI-009.R3.d: Each Library setup-flow step can be expanded/collapsed from the
+  left-hand timeline, and the right-hand guidance panel mirrors the selected
+  step by showing the actual related settings sections rather than duplicate
+  proxy controls. Default state is roots-expanded only when no music root
+  exists; otherwise all steps start collapsed.
+- UI-009.R3.d.b: Clicking the left-hand step marker itself must also expand that
+  step, matching the visual affordance of the marker. Marker clicks are
+  expand-only and do not collapse an already open step.
+- UI-009.R3.d.a: That default roots expansion is applied only on entry to the
+  Settings workflow; once the roots step is open it remains open during folder
+  additions until the user explicitly collapses it via the timeline toggle or
+  the in-panel completion action.
+- UI-009.R3.e: The optional legacy-style review step includes an explicit
+  completion action so the workflow can advance before legacy import.
+- UI-009.R3.e.a: Activating that completion action scrolls the Settings view
+  back to the top of the Library workflow so the user can immediately see the
+  updated step state and next actions after reviewing a long style list.
+- UI-009.R3.f: In the Library setup flow, single-purpose review actions such as
+  `Show legacy styles` remain compact content-width controls rather than
+  full-width bars so they read as buttons and are easy to spot.
+- UI-009.R3.f.a: The roots panel includes a `Done configuring roots` action so
+  operators can collapse that section after adding folders without using the
+  left-hand step toggle.
 - UI-009.R4: Playlist and System settings use multi-column layout on wide screens,
   collapsing to a single column on narrow screens.
 - UI-009.R5: Display-board controls live in a dedicated Display Board settings tab.
@@ -241,6 +268,10 @@ Controls:
   shortcut (`S`) that appends that field value to the current Search query.
 - UI-010a.R19: Field-level search shortcuts are additive and de-duplicated so
   repeated clicks build composite queries without repeated tokens.
+- UI-010a.R20: Unsaved-change confirmation appears only when the current form
+  differs from the values displayed to the user; display-only normalization
+  (for example rounded BPM presentation) must not trigger a discard warning on
+  untouched tracks.
 
 ### UI-011 — Tanda Row Component
 

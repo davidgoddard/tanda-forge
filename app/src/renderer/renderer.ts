@@ -63,7 +63,7 @@ import {
   getDefaultStylesForRule,
 } from "../shared/playlist-defaults.js";
 import { shouldAutoCenterPlaylist } from "../shared/playlist-autocenter.js";
-import type { DisplayUpdatePayload, SystemBackupStatus } from "../shared/types.js";
+import type { DisplayUpdatePayload, LibraryRoot, SystemBackupStatus } from "../shared/types.js";
 import {
   computeCortinaStartOffsetMs,
   computeElapsedMsForEntry,
@@ -225,7 +225,11 @@ import { createSettingsSearchAudioController } from "./controllers/settings-sear
 import { createSettingsShellController } from "./controllers/settings-shell-controller.js";
 import { createPlaybackCompressionController } from "./controllers/playback-compression-controller.js";
 import { createPlaylistRuntimeController } from "./controllers/playlist-runtime-controller.js";
-import { computeTapTempoBpm } from "./modules/track-editor-view.js";
+import {
+  computeTapTempoBpm,
+  formatTrackEditorBpm,
+  trackEditorBpmDiffers,
+} from "./modules/track-editor-view.js";
 import {
   buildClipboardTandaFilterText,
   normalizeClipboardFilter,
@@ -241,6 +245,13 @@ import {
   pulseSettingsSection,
   resolveOutputModeValue,
 } from "./modules/settings-view.js";
+import {
+  deriveLibraryWorkflow,
+  getLibraryWorkflowGuidanceKey,
+  resolveLibraryWorkflowExpandedStep,
+  type LibraryWorkflowReadiness,
+  type LibraryWorkflowStepKey,
+} from "./modules/library-workflow.js";
 import { pulseStyleFamilyEditFields } from "./modules/style-family-view.js";
 import {
   createRendererUiStore,
@@ -371,14 +382,80 @@ const legacyImportDescription =
   document.querySelector<HTMLParagraphElement>("#legacy-import-description");
 const legacyImportButton =
   document.querySelector<HTMLButtonElement>("#legacy-import-button");
+const legacyImportResult =
+  document.querySelector<HTMLDivElement>("#legacy-import-result");
 const legacyReadinessButton =
   document.querySelector<HTMLButtonElement>("#legacy-readiness-button");
 const legacyReadinessResult =
   document.querySelector<HTMLDivElement>("#legacy-readiness-result");
+const libraryWorkflowGuidance =
+  document.querySelector<HTMLDivElement>("#library-workflow-guidance");
+const libraryWorkflowDetail =
+  document.querySelector<HTMLDivElement>("#library-workflow-detail");
+const libraryWorkflowEmptyDetail =
+  document.querySelector<HTMLDivElement>(".library-workflow-detail-empty");
+const libraryWorkflowShell =
+  document.querySelector<HTMLDivElement>(".library-workflow-shell");
+const libraryWorkflowSteps = Array.from(
+  document.querySelectorAll<HTMLElement>("#library-workflow .library-workflow-step"),
+);
+const libraryWorkflowStepToggles = Array.from(
+  document.querySelectorAll<HTMLButtonElement>(
+    "#library-workflow .library-workflow-step-toggle",
+  ),
+);
+const libraryWorkflowStepMarkers = Array.from(
+  document.querySelectorAll<HTMLButtonElement>(
+    "#library-workflow .library-workflow-step-marker[data-step-expand]",
+  ),
+);
+const libraryWorkflowPanels = new Map<
+  LibraryWorkflowStepKey,
+  HTMLDivElement | null
+>([
+  [
+    "roots",
+    document.querySelector<HTMLDivElement>("#library-workflow-panel-roots"),
+  ],
+  [
+    "legacy-styles",
+    document.querySelector<HTMLDivElement>("#library-workflow-panel-legacy-styles"),
+  ],
+  [
+    "legacy-import",
+    document.querySelector<HTMLDivElement>("#library-workflow-panel-legacy-import"),
+  ],
+  [
+    "analysis",
+    document.querySelector<HTMLDivElement>("#library-workflow-panel-analysis"),
+  ],
+  [
+    "verify",
+    document.querySelector<HTMLDivElement>("#library-workflow-panel-verify"),
+  ],
+]);
+const libraryRootsSection =
+  document.querySelector<HTMLDivElement>("#library-roots-section");
+const libraryRootsDoneButton =
+  document.querySelector<HTMLButtonElement>("#library-roots-done");
+const styleFamiliesSection =
+  document.querySelector<HTMLDivElement>("#style-families-section");
+const legacyStyleReviewSection =
+  document.querySelector<HTMLDivElement>("#legacy-style-review-section");
+const libraryLegacyImportSection =
+  document.querySelector<HTMLDivElement>("#library-legacy-import-section");
+const libraryStartupFlowSection =
+  document.querySelector<HTMLDivElement>("#library-startup-flow-section");
+const libraryVerifySection =
+  document.querySelector<HTMLDivElement>("#library-verify-section");
+const libraryScanSection =
+  document.querySelector<HTMLDivElement>("#library-scan-section");
 const legacyStylesButton =
   document.querySelector<HTMLButtonElement>("#legacy-styles-button");
 const legacyStylesResult =
   document.querySelector<HTMLDivElement>("#legacy-styles-result");
+const legacyStyleReviewDoneButton =
+  document.querySelector<HTMLButtonElement>("#legacy-style-review-done");
 const legacyStyleTools =
   document.querySelector<HTMLDivElement>("#legacy-style-tools");
 const legacyStyleMappingEl =
@@ -593,8 +670,8 @@ const playlistPerformanceStopToggle =
   document.querySelector<HTMLInputElement>("#playlist-performance-stop");
 const searchButton = document.querySelector<HTMLButtonElement>("#search-button");
 const alertBanner = document.querySelector<HTMLDivElement>("#alert-banner");
-const openDiagnosticsMain =
-  document.querySelector<HTMLButtonElement>("#open-diagnostics-main");
+const openLibrarySetupMain =
+  document.querySelector<HTMLButtonElement>("#open-library-setup-main");
 const openDiagnosticsSettings =
   document.querySelector<HTMLButtonElement>("#open-diagnostics-settings");
 const nowPlayingTrack =
@@ -924,6 +1001,14 @@ const pulseCortinaIndices = new Set<number>();
 const pulseClipboardTrackIds = new Set<string>();
 const pulseClipboardTandaIds = new Set<string>();
 let legacyImportRootPath: string | null = null;
+let libraryWorkflowRoots: LibraryRoot[] = [];
+let libraryWorkflowLegacyStylesReviewed = false;
+let libraryWorkflowLegacyImported = false;
+let libraryWorkflowAnalysisCompleted = false;
+let libraryWorkflowReadiness: LibraryWorkflowReadiness = "idle";
+let libraryWorkflowExpandedStep: LibraryWorkflowStepKey | null = null;
+let libraryWorkflowExpandedStepTouched = false;
+let libraryWorkflowInitialExpansionApplied = false;
 let tandaEditorReturnTab: RightPanelTab | null = null;
 
 let selectedClipboardTrackId: string | null = null;
@@ -940,6 +1025,7 @@ let legacyStyleRows: Array<{
   count: number;
   mappedTo: string;
 }> = [];
+let libraryWorkflowPanelsMounted = false;
 let styleVariantMenuEl: HTMLDivElement | null = null;
 let collectionTargetMenuEl: HTMLDivElement | null = null;
 
@@ -1239,6 +1325,7 @@ const applyTranslations = () => {
   renderLanguageOptions();
   updateSortButtons();
   updateNowPlayingDisplay();
+  renderLibraryWorkflow();
   renderTandaDesigner();
 };
 
@@ -1962,9 +2049,6 @@ const isTrackEditorDirty = () => {
   if (!original || !draft) {
     return false;
   }
-  const normalizedOriginalBpm =
-    original.bpm !== null && original.bpm !== undefined ? Number(original.bpm) : null;
-  const normalizedDraftBpm = draft.bpm !== null ? Number(draft.bpm) : null;
   return (
     draft.title !== (original.title ?? "") ||
     draft.artist !== (original.artist ?? "") ||
@@ -1974,7 +2058,7 @@ const isTrackEditorDirty = () => {
     draft.year !== (original.year ?? "") ||
     draft.genre !== (original.genre ?? "") ||
     draft.notes !== (original.notes ?? "") ||
-    normalizedDraftBpm !== normalizedOriginalBpm
+    trackEditorBpmDiffers(original.bpm, trackEditorBpmInput?.value)
   );
 };
 
@@ -2061,8 +2145,7 @@ const fillTrackEditorFields = (track: TrackRow) => {
   trackEditorYearInput.value = track.year ?? "";
   trackEditorGenreInput.value = track.genre ?? "";
   trackEditorNotesInput.value = track.notes ?? "";
-  trackEditorBpmInput.value =
-    track.bpm !== null && track.bpm !== undefined ? `${Math.round(track.bpm)}` : "";
+  trackEditorBpmInput.value = formatTrackEditorBpm(track.bpm);
   renderTrackEditorPathHints(
     track,
     getAudioDynamicsConfig().enabled,
@@ -13227,9 +13310,11 @@ const verifyLegacyReadiness = async () => {
   if (!controller) {
     return;
   }
-  const statusText = await controller.verifyLegacyReadiness(legacyReadinessResult);
-  if (statusText) {
-    setStatus(statusText);
+  const result = await controller.verifyLegacyReadiness(legacyReadinessResult);
+  if (result) {
+    libraryWorkflowReadiness = result.status ?? "idle";
+    renderLibraryWorkflow();
+    setStatus(result.message);
   }
 };
 
@@ -13844,8 +13929,17 @@ const setSettingsOpen = async (open: boolean) => {
   if (!settingsPanel) {
     return;
   }
+  const wasOpen = settingsPanel.classList.contains("open");
+  if (open && !wasOpen) {
+    libraryWorkflowExpandedStep = null;
+    libraryWorkflowExpandedStepTouched = false;
+    libraryWorkflowInitialExpansionApplied = false;
+  }
   settingsPanel.classList.toggle("open", open);
   settingsPanel.setAttribute("aria-hidden", open ? "false" : "true");
+  if (open) {
+    renderLibraryWorkflow();
+  }
 };
 
 const updateSearchTabVisibility = () => {
@@ -13869,14 +13963,151 @@ const updateSearchTabVisibility = () => {
   }
 };
 
+const mountLibraryWorkflowPanels = () => {
+  if (libraryWorkflowPanelsMounted) {
+    return;
+  }
+  libraryWorkflowPanels.get("roots")?.appendChild(libraryRootsSection ?? document.createElement("div"));
+  const legacyStylesPanel = libraryWorkflowPanels.get("legacy-styles");
+  if (legacyStylesPanel) {
+    if (styleFamiliesSection) {
+      legacyStylesPanel.appendChild(styleFamiliesSection);
+    }
+    if (legacyStyleReviewSection) {
+      legacyStylesPanel.appendChild(legacyStyleReviewSection);
+    }
+  }
+  libraryWorkflowPanels
+    .get("legacy-import")
+    ?.appendChild(libraryLegacyImportSection ?? document.createElement("div"));
+  const analysisPanel = libraryWorkflowPanels.get("analysis");
+  if (analysisPanel) {
+    if (libraryStartupFlowSection) {
+      analysisPanel.appendChild(libraryStartupFlowSection);
+    }
+    if (libraryScanSection) {
+      analysisPanel.appendChild(libraryScanSection);
+    }
+  }
+  libraryWorkflowPanels
+    .get("verify")
+    ?.appendChild(libraryVerifySection ?? document.createElement("div"));
+  libraryWorkflowPanelsMounted = true;
+};
+
+const loadLegacyStylesForDisplay = async () => {
+  if (!window.tanda || !legacyImportRootPath || !legacyStylesResult) {
+    return;
+  }
+  legacyStylesResult.textContent = t("legacyStylesLoading");
+  const result = await window.tanda.listLegacyStyles(legacyImportRootPath);
+  if (!result.ok) {
+    legacyStylesResult.textContent = t("legacyStylesUnavailable");
+    legacyStyleRows = [];
+    renderLegacyStyleMappingTable();
+    return;
+  }
+  if (result.styles.length === 0) {
+    legacyStylesResult.textContent = t("legacyStylesNoneFound");
+    legacyStyleRows = [];
+    renderLegacyStyleMappingTable();
+    return;
+  }
+  await refreshLegacyStyleRows();
+};
+
+const renderLibraryWorkflow = () => {
+  if (!libraryWorkflowGuidance || !libraryWorkflowDetail || libraryWorkflowSteps.length === 0) {
+    return;
+  }
+  mountLibraryWorkflowPanels();
+  const state = {
+    hasMusicRoot: libraryWorkflowRoots.some((root) => root.kind === "music"),
+    hasCortinaRoot: libraryWorkflowRoots.some((root) => root.kind === "cortina"),
+    legacyDetected: Boolean(legacyImportRootPath),
+    legacyStylesReviewed: libraryWorkflowLegacyStylesReviewed,
+    legacyImported: libraryWorkflowLegacyImported,
+    analysisCompleted: libraryWorkflowAnalysisCompleted,
+    readiness: libraryWorkflowReadiness,
+  };
+  libraryWorkflowExpandedStep = resolveLibraryWorkflowExpandedStep(
+    state,
+    libraryWorkflowExpandedStep,
+    libraryWorkflowInitialExpansionApplied,
+  );
+  libraryWorkflowInitialExpansionApplied = true;
+  const workflow = deriveLibraryWorkflow(state);
+  libraryWorkflowSteps.forEach((stepEl) => {
+    const status = workflow.steps.find((step) => step.key === stepEl.dataset.step)?.status ?? "pending";
+    stepEl.classList.toggle("completed", status === "complete");
+    stepEl.classList.toggle("current", status === "current");
+    stepEl.classList.toggle("attention", status === "attention");
+    stepEl.classList.toggle("optional", status === "optional");
+    stepEl.classList.toggle("expanded", stepEl.dataset.step === libraryWorkflowExpandedStep);
+  });
+  libraryWorkflowStepToggles.forEach((toggle) => {
+    const stepKey = (toggle.dataset.stepToggle ?? "") as LibraryWorkflowStepKey;
+    const expanded = stepKey === libraryWorkflowExpandedStep;
+    const label = t(expanded ? "libraryWorkflowCollapseStep" : "libraryWorkflowExpandStep");
+    toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+    toggle.setAttribute("aria-label", label);
+    toggle.title = label;
+    const labelEl = toggle.querySelector<HTMLElement>(".library-workflow-step-toggle-label");
+    if (labelEl) {
+      labelEl.textContent = label;
+    }
+  });
+  libraryWorkflowGuidance.textContent = t(
+    getLibraryWorkflowGuidanceKey(state, libraryWorkflowExpandedStep),
+  );
+  libraryWorkflowEmptyDetail?.classList.toggle(
+    "hidden",
+    libraryWorkflowExpandedStep !== null,
+  );
+  libraryWorkflowPanels.forEach((panel, key) => {
+    panel?.classList.toggle("hidden", key !== libraryWorkflowExpandedStep);
+  });
+  legacyStyleReviewSection?.classList.toggle("hidden", !legacyImportRootPath);
+  libraryLegacyImportSection?.classList.toggle("hidden", !legacyImportRootPath);
+  if (legacyStyleReviewDoneButton) {
+    legacyStyleReviewDoneButton.disabled = !legacyImportRootPath;
+  }
+  if (
+    libraryWorkflowExpandedStep === "legacy-styles" &&
+    legacyImportRootPath &&
+    legacyStyleRows.length === 0 &&
+    !legacyStylesResult?.textContent?.trim()
+  ) {
+    void loadLegacyStylesForDisplay();
+  }
+};
+
+const scrollLibraryWorkflowToTop = () => {
+  if (!libraryWorkflowShell) {
+    return;
+  }
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      libraryWorkflowShell.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  });
+};
+
 const renderRoots = async () => {
   if (!window.tanda || !rootList || !rootBanner || !rootBannerText) {
     return;
   }
   const roots = await window.tanda.listRoots();
+  libraryWorkflowRoots = roots;
+  if (!roots.some((root) => root.kind === "music") || !roots.some((root) => root.kind === "cortina")) {
+    libraryWorkflowLegacyStylesReviewed = false;
+    libraryWorkflowLegacyImported = false;
+    libraryWorkflowAnalysisCompleted = false;
+    libraryWorkflowReadiness = "idle";
+  }
   rootList.innerHTML = "";
   if (roots.length === 0) {
-      rootBannerText.textContent = t("statusNoRoots");
+    rootBannerText.textContent = t("statusNoRoots");
     rootBanner.classList.add("visible");
   } else {
     const missing = roots.filter((root) => !root.available);
@@ -13959,6 +14190,7 @@ const renderRoots = async () => {
     row.append(label, kind, status, path, removeBtn);
     rootList.appendChild(row);
   });
+  renderLibraryWorkflow();
 };
 
 const renderDataLocation = async () => {
@@ -13974,8 +14206,18 @@ const updateLegacyImport = async (candidatePath?: string | null) => {
   if (!window.tanda || !legacyImportSection || !legacyImportDescription) {
     return;
   }
+  const previousRootPath = legacyImportRootPath;
   const result = await window.tanda.detectLegacy(candidatePath ?? null);
   if (result.available) {
+    if (previousRootPath && previousRootPath !== result.rootPath) {
+      libraryWorkflowLegacyStylesReviewed = false;
+      libraryWorkflowLegacyImported = false;
+      libraryWorkflowAnalysisCompleted = false;
+      libraryWorkflowReadiness = "idle";
+      if (legacyImportResult) {
+        legacyImportResult.textContent = "";
+      }
+    }
     legacyImportRootPath = result.rootPath;
     legacyImportSection.classList.remove("hidden");
     legacyImportDescription.textContent = t("legacyImportDetected", {
@@ -13991,7 +14233,12 @@ const updateLegacyImport = async (candidatePath?: string | null) => {
     renderLegacyStyleMappingTable();
   } else {
     legacyImportRootPath = null;
+    libraryWorkflowLegacyStylesReviewed = false;
+    libraryWorkflowLegacyImported = false;
     legacyImportDescription.textContent = "";
+    if (legacyImportResult) {
+      legacyImportResult.textContent = "";
+    }
     if (legacyReadinessResult) {
       legacyReadinessResult.textContent = "";
     }
@@ -14003,6 +14250,7 @@ const updateLegacyImport = async (candidatePath?: string | null) => {
     renderLegacyStyleMappingTable();
     legacyImportSection.classList.add("hidden");
   }
+  renderLibraryWorkflow();
 };
 
 const init = async () => {
@@ -14065,6 +14313,11 @@ const init = async () => {
     getCompressionConfig: getAudioDynamicsConfig,
     scheduleCompressionPrefetch,
     onScanCompleted: async (kind) => {
+      if (kind === "music" || kind === "cortina") {
+        libraryWorkflowAnalysisCompleted = true;
+        libraryWorkflowReadiness = "idle";
+        renderLibraryWorkflow();
+      }
       await loadStyles();
       await loadCortinaSets();
       if (kind === "music") {
@@ -14086,6 +14339,9 @@ const init = async () => {
       updateNowPlayingDisplay();
     },
     onStartupFlowCompleted: async () => {
+      libraryWorkflowAnalysisCompleted = true;
+      libraryWorkflowReadiness = "idle";
+      renderLibraryWorkflow();
       await loadTandaDrafts();
       await loadStyles();
       await loadCortinaSets();
@@ -14734,7 +14990,6 @@ const init = async () => {
       openSettingsBtn,
       fullscreenToggle,
       openDisplayBtn,
-      openDiagnosticsMain,
       openDiagnosticsSettings,
       openDiagnosticsPrecompute,
       tabButtons,
@@ -14765,6 +15020,16 @@ const init = async () => {
         t("statusFullscreenFailedDetail", { message }),
       noApi: t("statusNoApi"),
     },
+  });
+  openLibrarySetupMain?.addEventListener("click", async () => {
+    await setSettingsOpen(true);
+    activateSettingsTab(tabButtons, tabPanels, "library");
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        libraryRootsSection?.scrollIntoView({ block: "start", behavior: "smooth" });
+        pulseSettingsSection(libraryRootsSection);
+      });
+    });
   });
   const savedMode = (localStorage.getItem("tanda-mode") ?? "prep") as OutputMode;
   setAppModeState(resolveOutputModeValue(savedMode));
@@ -15454,13 +15719,21 @@ const init = async () => {
     }
     await applyStoredLegacyStyleMappingsForImport();
     const result = await window.tanda.importLegacy(legacyImportRootPath);
-    setStatus(
-      t("statusLegacyImportDone", {
-        tandas: result.tandasImported,
-        tracks: result.tracksUpdated,
-        missing: result.missingTracks,
-      }),
-    );
+    libraryWorkflowLegacyStylesReviewed = true;
+    libraryWorkflowLegacyImported = result.tracksAdded + result.tracksUpdated + result.tandasImported > 0;
+    libraryWorkflowAnalysisCompleted = false;
+    libraryWorkflowReadiness = "idle";
+    const importMessage = t("statusLegacyImportDone", {
+      tandas: result.tandasImported,
+      added: result.tracksAdded,
+      updated: result.tracksUpdated,
+      missing: result.missingTracks,
+    });
+    if (legacyImportResult) {
+      legacyImportResult.textContent = importMessage;
+    }
+    renderLibraryWorkflow();
+    setStatus(importMessage);
     if (result.missingFiles) {
       settingsLibraryController.updateScanIssues(result.missingFiles);
     }
@@ -15475,25 +15748,38 @@ const init = async () => {
   legacyReadinessButton?.addEventListener("click", () => {
     void verifyLegacyReadiness();
   });
+  libraryWorkflowStepToggles.forEach((toggle) => {
+    toggle.addEventListener("click", () => {
+      const stepKey = (toggle.dataset.stepToggle ?? "") as LibraryWorkflowStepKey;
+      libraryWorkflowExpandedStepTouched = true;
+      libraryWorkflowExpandedStep =
+        libraryWorkflowExpandedStep === stepKey ? null : stepKey;
+      renderLibraryWorkflow();
+    });
+  });
+  libraryWorkflowStepMarkers.forEach((marker) => {
+    marker.addEventListener("click", () => {
+      const stepKey = (marker.dataset.stepExpand ?? "") as LibraryWorkflowStepKey;
+      if (!stepKey) {
+        return;
+      }
+      libraryWorkflowExpandedStepTouched = true;
+      libraryWorkflowExpandedStep = stepKey;
+      renderLibraryWorkflow();
+    });
+  });
+  libraryRootsDoneButton?.addEventListener("click", () => {
+    libraryWorkflowExpandedStepTouched = true;
+    libraryWorkflowExpandedStep = null;
+    renderLibraryWorkflow();
+  });
+  legacyStyleReviewDoneButton?.addEventListener("click", () => {
+    libraryWorkflowLegacyStylesReviewed = true;
+    renderLibraryWorkflow();
+    scrollLibraryWorkflowToTop();
+  });
   legacyStylesButton?.addEventListener("click", async () => {
-    if (!window.tanda || !legacyImportRootPath || !legacyStylesResult) {
-      return;
-    }
-    legacyStylesResult.textContent = t("legacyStylesLoading");
-    const result = await window.tanda.listLegacyStyles(legacyImportRootPath);
-    if (!result.ok) {
-      legacyStylesResult.textContent = t("legacyStylesUnavailable");
-      legacyStyleRows = [];
-      renderLegacyStyleMappingTable();
-      return;
-    }
-    if (result.styles.length === 0) {
-      legacyStylesResult.textContent = t("legacyStylesNoneFound");
-      legacyStyleRows = [];
-      renderLegacyStyleMappingTable();
-      return;
-    }
-    await refreshLegacyStyleRows();
+    await loadLegacyStylesForDisplay();
   });
 
   exportTandasBtn?.addEventListener("click", async () => {

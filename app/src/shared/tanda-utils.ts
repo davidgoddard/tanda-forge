@@ -257,6 +257,7 @@ const extractSingerNameFromText = (input: string) => {
   if (!singerPart) {
     return "";
   }
+  const normalizedMarker = stripDiacritics(match[0]).toUpperCase();
   const normalizedSinger = stripDiacritics(singerPart).toUpperCase();
   const nonSingerTokens = [
     "ORCHESTRA",
@@ -280,6 +281,11 @@ const extractSingerNameFromText = (input: string) => {
     "Y SU ORQUESTA",
     "Y SU ORQUESTA TIPICA",
   ];
+  const genericVocalCreditPattern =
+    /^(?:CANTO|CANTO Y ESTRIBILLO|ESTRIBILLO|VOCAL(?:ES)?|VOCES|CORO(?:S)?)$/;
+  if (normalizedMarker === "CON" && genericVocalCreditPattern.test(normalizedSinger)) {
+    return "";
+  }
   if (
     nonSingerPhrases.some((phrase) => normalizedSinger.includes(phrase)) ||
     nonSingerTokens.some((token) =>
