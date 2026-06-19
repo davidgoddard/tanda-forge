@@ -156,6 +156,8 @@ Rules:
 - UI-009.R3.d.b: Clicking the left-hand step marker itself must also expand that
   step, matching the visual affordance of the marker. Marker clicks are
   expand-only and do not collapse an already open step.
+- UI-009.R3.d.c: Completed-step tick graphics must remain visually centered
+  within the circular marker button after any interaction/accessibility changes.
 - UI-009.R3.d.a: That default roots expansion is applied only on entry to the
   Settings workflow; once the roots step is open it remains open during folder
   additions until the user explicitly collapses it via the timeline toggle or
@@ -272,6 +274,9 @@ Controls:
   differs from the values displayed to the user; display-only normalization
   (for example rounded BPM presentation) must not trigger a discard warning on
   untouched tracks.
+- UI-010a.R20.a: After a save leaves the editor open, the unsaved-change
+  baseline must be refreshed from the values currently shown in the form so
+  switching to another track does not immediately prompt for unchanged edits.
 
 ### UI-011 — Tanda Row Component
 

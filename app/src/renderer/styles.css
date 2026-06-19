@@ -2955,7 +2955,7 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   width: 6px;
   height: 11px;
   left: 7px;
-  top: 4px;
+  top: 2px;
   border-right: 2px solid #ffffff;
   border-bottom: 2px solid #ffffff;
   transform: rotate(45deg);

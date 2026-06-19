@@ -228,7 +228,8 @@ import { createPlaylistRuntimeController } from "./controllers/playlist-runtime-
 import {
   computeTapTempoBpm,
   formatTrackEditorBpm,
-  trackEditorBpmDiffers,
+  trackEditorDraftDiffers,
+  type TrackEditorDraft,
 } from "./modules/track-editor-view.js";
 import {
   buildClipboardTandaFilterText,
@@ -1212,12 +1213,14 @@ let systemBackupStatus: SystemBackupStatus = { state: "idle", path: "" };
 
 type TrackEditorState = {
   track: TrackRow | null;
+  baselineDraft: TrackEditorDraft | null;
   taps: number[];
   tapTimeoutId: number | null;
 };
 
 const trackEditorState: TrackEditorState = {
   track: null,
+  baselineDraft: null,
   taps: [],
   tapTimeoutId: null,
 };
@@ -2012,6 +2015,7 @@ const isTrackEditorOpen = () => Boolean(trackEditor?.classList.contains("open"))
 
 const clearTrackEditorState = () => {
   trackEditorState.track = null;
+  trackEditorState.baselineDraft = null;
   if (trackEditorPathHint) {
     trackEditorPathHint.textContent = "";
     trackEditorPathHint.title = "";
@@ -2023,7 +2027,7 @@ const clearTrackEditorState = () => {
   resetTapTempo();
 };
 
-const getTrackEditorDraftPayload = () => {
+const getTrackEditorDraftPayload = (): TrackEditorDraft | null => {
   if (!trackEditorState.track) {
     return null;
   }
@@ -2044,22 +2048,9 @@ const getTrackEditorDraftPayload = () => {
 };
 
 const isTrackEditorDirty = () => {
-  const original = trackEditorState.track;
+  const original = trackEditorState.baselineDraft;
   const draft = getTrackEditorDraftPayload();
-  if (!original || !draft) {
-    return false;
-  }
-  return (
-    draft.title !== (original.title ?? "") ||
-    draft.artist !== (original.artist ?? "") ||
-    draft.singer !== (original.singer ?? "") ||
-    draft.instrumental !== Boolean(original.instrumental) ||
-    draft.album !== (original.album ?? "") ||
-    draft.year !== (original.year ?? "") ||
-    draft.genre !== (original.genre ?? "") ||
-    draft.notes !== (original.notes ?? "") ||
-    trackEditorBpmDiffers(original.bpm, trackEditorBpmInput?.value)
-  );
+  return trackEditorDraftDiffers(original, draft);
 };
 
 const confirmTrackEditorDiscardIfDirty = async () => {
@@ -2146,6 +2137,7 @@ const fillTrackEditorFields = (track: TrackRow) => {
   trackEditorGenreInput.value = track.genre ?? "";
   trackEditorNotesInput.value = track.notes ?? "";
   trackEditorBpmInput.value = formatTrackEditorBpm(track.bpm);
+  trackEditorState.baselineDraft = getTrackEditorDraftPayload();
   renderTrackEditorPathHints(
     track,
     getAudioDynamicsConfig().enabled,

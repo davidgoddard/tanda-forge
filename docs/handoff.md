@@ -5,6 +5,12 @@
 - Version: `0.3.10` (from `package.json`)
 
 ### Latest change
+- Fixed the returned false dirty-state prompt after save-while-open in the track editor, and moved the workflow completion tick higher in its circle.
+  - In `app/src/renderer/modules/track-editor-view.ts`, added a whole-form draft comparison helper so dirty checks compare against a captured editor baseline instead of raw track rows.
+  - In `app/src/renderer/renderer.ts`, the track editor now stores a baseline draft whenever fields are filled, clears that baseline when the editor closes, and uses it for unsaved-change detection after save-while-open flows.
+  - In `tests/track-editor-view.test.ts`, added a regression covering baseline-draft comparisons.
+  - In `app/src/renderer/styles.css`, the completed-step tick is positioned higher inside the workflow marker circle.
+  - Updated `design/05-ui-principles-and-components.md`.
 - Centered the completed-step tick inside the workflow marker circle.
   - In `app/src/renderer/styles.css`, the marker now uses relative positioning and the completed-state checkmark uses explicit `left`/`top` placement instead of margin offsets, which lifts it out of the bottom edge and centers it visually.
 - Restored the workflow marker buttons to true circular controls.
@@ -8706,7 +8712,18 @@
 - Fixed the real non-modal track editor corner artifact.
   - In `app/src/renderer/styles.css`, `#track-editor.non-modal` and `#track-editor.non-modal.open` now explicitly keep a transparent background and disable the backdrop filter.
   - The visible square corners were coming from the non-modal editor container inheriting the generic `#track-editor.open` dark rectangular backdrop, not from the rounded modal card itself.
-  - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`91` files, `454` tests).
+## 2026-06-19 — E2E library-setup workflow selectors repaired
+
+- Fixed the Playwright Electron workflows that were broken by the new guided Library setup page collapsing the old sections into workflow panels.
+- Updated `tests/e2e/workflows.e2e.ts` with an explicit `expandLibraryWorkflowStep(...)` helper so tests open the required workflow step before interacting with roots, legacy import, style-family editing, scans, or startup flow.
+- Corrected the seeded-roots regression case to launch the `full` fixture instead of the `empty` fixture for the settings-root count assertion.
+- This keeps the production workflow UI unchanged and makes the end-to-end suite assert the new guided setup behavior rather than the previous always-visible layout.
+- Verification passed:
+  - `npm run build`
+  - `npm test` (`94` files, `473` tests)
+  - `npx playwright test` (`51` tests)
+
+ - Verification passed: `source ~/.nvm/nvm.sh && npm run build`; `source ~/.nvm/nvm.sh && npm test` (`91` files, `454` tests).
 - Fixed playlist-import tanda identity collisions and tightened tanda-size search semantics.
   - In `app/src/main/library-transfer.ts`, imported playlist tanda snapshots now get unique IDs per item (`imported-<index>-<slug>`) instead of reusing `imported-<name>`, which could cause distinct imported tandas with the same name to overwrite each other in the renderer cache and then appear as duplicates.
   - In `app/src/main/library/tandas.ts`, tanda search now excludes `invalid` tandas and applies the size filter to the count of currently resolvable track rows (`tanda_tracks` joined to `tracks`), rather than raw slot count.

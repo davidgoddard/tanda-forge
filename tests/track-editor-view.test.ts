@@ -3,6 +3,8 @@ import {
   computeTapTempoBpm,
   formatTrackEditorBpm,
   trackEditorBpmDiffers,
+  trackEditorDraftDiffers,
+  type TrackEditorDraft,
 } from "../app/src/renderer/modules/track-editor-view";
 
 describe("track editor tap tempo", () => {
@@ -25,5 +27,23 @@ describe("track editor tap tempo", () => {
     expect(trackEditorBpmDiffers(65.6, "66")).toBe(false);
     expect(trackEditorBpmDiffers(65.4, "66")).toBe(true);
     expect(trackEditorBpmDiffers(null, "")).toBe(false);
+  });
+
+  it("compares the current form against a captured baseline draft", () => {
+    const baseline: TrackEditorDraft = {
+      id: "track-1",
+      title: "Didi 1937",
+      artist: "Roberto Firpo",
+      singer: "",
+      instrumental: false,
+      album: "Tangazos",
+      year: "1937",
+      genre: "Tango",
+      notes: "",
+      bpm: 65,
+    };
+
+    expect(trackEditorDraftDiffers(baseline, { ...baseline })).toBe(false);
+    expect(trackEditorDraftDiffers(baseline, { ...baseline, genre: "Vals" })).toBe(true);
   });
 });

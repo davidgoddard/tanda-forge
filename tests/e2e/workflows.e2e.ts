@@ -4,6 +4,13 @@ import path from "path";
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { launchSeededApp, relaunchSeededApp } from "./support/electron-app";
 
+type LibraryWorkflowStepKey =
+  | "roots"
+  | "legacy-styles"
+  | "legacy-import"
+  | "analysis"
+  | "verify";
+
 const runSearch = async (page: Page, query: string) => {
   const searchTracks = page.locator("#search-tracks");
   const beforeReadyToken = await searchTracks.getAttribute("data-ready-token");
@@ -602,9 +609,20 @@ const setOpenDialogResponses = async (page: Page, paths: string[]) => {
   }, paths);
 };
 
+const expandLibraryWorkflowStep = async (page: Page, step: LibraryWorkflowStepKey) => {
+  const stepLocator = page.locator(`#library-workflow .library-workflow-step[data-step="${step}"]`);
+  await expect(stepLocator).toBeVisible();
+  if (!(await stepLocator.evaluate((element) => element.classList.contains("expanded")))) {
+    await stepLocator.locator(`.library-workflow-step-marker[data-step-expand="${step}"]`).click();
+  }
+  await expect(stepLocator).toHaveClass(/expanded/);
+  await expect(page.locator(`#library-workflow-panel-${step}`)).toBeVisible();
+};
+
 const addMusicRootViaSettings = async (page: Page, musicRoot: string) => {
   await openSettings(page);
   await page.locator('button[data-tab="library"]').click();
+  await expandLibraryWorkflowStep(page, "roots");
   await setOpenDialogResponses(page, [musicRoot]);
   await page.locator("#add-music").click();
   await expect
@@ -618,6 +636,7 @@ const addMusicRootViaSettings = async (page: Page, musicRoot: string) => {
 const importLegacyTandasViaSettings = async (page: Page) => {
   await openSettings(page);
   await page.locator('button[data-tab="library"]').click();
+  await expandLibraryWorkflowStep(page, "legacy-import");
   await expect(page.locator("#legacy-import")).toBeVisible();
   await page.locator("#legacy-import-button").click();
   await confirmIfPrompted(page);
@@ -625,6 +644,7 @@ const importLegacyTandasViaSettings = async (page: Page) => {
 
 const runMusicScan = async (page: Page) => {
   const before = await getCapturedScanSummaries(page);
+  await expandLibraryWorkflowStep(page, "analysis");
   const scanButton = page.locator("#scan-music");
   await scanButton.click();
   await expect(scanButton).toBeDisabled();
@@ -1751,7 +1771,7 @@ test.describe("Electron app end-to-end workflows", () => {
   });
 
   test("02 - shows seeded library roots in settings", async () => {
-    const launched = await launchSeededApp("empty");
+    const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
       await openSettings(page);
@@ -2497,6 +2517,7 @@ test.describe("Electron app end-to-end workflows", () => {
     try {
       await openSettings(page);
       await page.locator('button[data-tab="library"]').click();
+      await expandLibraryWorkflowStep(page, "legacy-styles");
       await page.locator("#style-family-code-input").fill("T");
       await page.locator("#style-family-base-input").fill("Tango");
       await page.locator("#style-family-variants-input").fill("Modern,Nuevo");
@@ -2577,6 +2598,7 @@ test.describe("Electron app end-to-end workflows", () => {
     try {
       await openSettings(page);
       await page.locator('button[data-tab="library"]').click();
+      await expandLibraryWorkflowStep(page, "legacy-styles");
       await page.locator("#style-family-code-input").fill("T");
       await page.locator("#style-family-base-input").fill("Tango");
       await page.locator("#style-family-variants-input").fill("Traditional,Alternative,Nuevo");
@@ -3792,6 +3814,7 @@ test.describe("Electron app end-to-end workflows", () => {
 
       await openSettings(page);
       await page.locator('button[data-tab="library"]').click();
+      await expandLibraryWorkflowStep(page, "legacy-import");
       await expect(page.locator("#legacy-import")).toBeVisible();
       await page.locator("#legacy-import-button").click();
       await confirmIfPrompted(page);
@@ -3801,6 +3824,7 @@ test.describe("Electron app end-to-end workflows", () => {
           return tandas?.some((tanda) => tanda.name === "Legacy Tango Pair") ?? false;
         })
         .toBe(true);
+      await expandLibraryWorkflowStep(page, "analysis");
       await page.locator("#startup-flow-button").click();
       await expect(page.locator("#startup-flow-result")).toContainText("Setup complete", {
         timeout: 30_000,
@@ -3917,6 +3941,7 @@ test.describe("Electron app end-to-end workflows", () => {
 
       await openSettings(page);
       await page.locator('button[data-tab="library"]').click();
+      await expandLibraryWorkflowStep(page, "legacy-import");
       await expect(page.locator("#legacy-import")).toBeVisible();
       await page.locator("#legacy-import-button").click();
       await confirmIfPrompted(page);
@@ -3926,6 +3951,7 @@ test.describe("Electron app end-to-end workflows", () => {
           return tandas?.some((tanda) => tanda.name === "Legacy Tango Pair") ?? false;
         })
         .toBe(true);
+      await expandLibraryWorkflowStep(page, "analysis");
       await page.locator("#startup-flow-button").click();
       await expect(page.locator("#startup-flow-result")).toContainText("Setup complete", {
         timeout: 30_000,
