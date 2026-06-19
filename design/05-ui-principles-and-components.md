@@ -427,6 +427,9 @@ Requirements:
   should be used.
 - UI-050.a.R5: All manual setup and maintenance actions are visually grouped
   within a shared outer container so they read as optional/manual tools.
+- UI-050.a.R6: Background system export shows a live checklist of the managed
+  items being copied, using the same circular left-hand markers as the guided
+  setup workflow so completed export steps are obvious at a glance.
 - UI-016.R4: Each tanda has Save and Delete actions.
 - UI-016.R5: Tandas are selectable; the selected tanda is the target for incoming tracks.
 - UI-016.R6: Tracks can be added from search/clipboard via the add action or drag/drop.

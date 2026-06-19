@@ -4,6 +4,7 @@ import type {
   ScanSummary,
   StartupFlowPhase,
   SystemBackupStatus,
+  SystemBackupStepId,
 } from "../../shared/types.js";
 
 type ScanIssue = { filePath: string; message: string };
@@ -43,6 +44,7 @@ type LibraryMaintenanceElements = {
   exportSystemBtn?: HTMLButtonElement | null;
   importSystemBtn?: HTMLButtonElement | null;
   systemTransferResult?: HTMLElement | null;
+  systemTransferProgress?: HTMLElement | null;
   cacheVerifyResult?: HTMLElement | null;
 };
 
@@ -132,6 +134,17 @@ const renderPrecomputeFailureResult = (
 const STARTUP_ETA_MIN_PROGRESS_COUNT = 25;
 const STARTUP_ETA_MIN_PROGRESS_FRACTION = 0.02;
 const STARTUP_ETA_MIN_ELAPSED_MS = 20000;
+const SYSTEM_BACKUP_STEP_LABEL_KEYS: Record<SystemBackupStepId, string> = {
+  database: "systemBackupStepDatabase",
+  databaseWal: "systemBackupStepDatabaseWal",
+  databaseShm: "systemBackupStepDatabaseShm",
+  waveforms: "systemBackupStepWaveforms",
+  compressedAudioCache: "systemBackupStepCompressedAudioCache",
+  playableAudioCache: "systemBackupStepPlayableAudioCache",
+  rendererErrorsLog: "systemBackupStepRendererErrorsLog",
+  playbackDiagnosticsLog: "systemBackupStepPlaybackDiagnosticsLog",
+  manifest: "systemBackupStepManifest",
+};
 
 export const createSettingsLibraryController = (deps: LibraryMaintenanceControllerDeps) => {
   let currentIssueErrors: ScanIssue[] = [];
@@ -837,11 +850,48 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
     }
   };
 
+  const renderSystemBackupProgress = (status: SystemBackupStatus) => {
+    const progressEl = deps.elements.systemTransferProgress;
+    if (!progressEl) {
+      return;
+    }
+    if (!status.steps || status.steps.length === 0) {
+      progressEl.classList.add("hidden");
+      progressEl.innerHTML = "";
+      return;
+    }
+    const items = status.steps
+      .map((step) => {
+        const label = deps.translate(SYSTEM_BACKUP_STEP_LABEL_KEYS[step.id]);
+        const statusClass =
+          step.status === "complete"
+            ? "completed"
+            : step.status === "running"
+              ? "current"
+              : step.status === "failed"
+                ? "failed"
+                : "pending";
+        const stateText =
+          step.status === "complete"
+            ? deps.translate("systemBackupStepStateComplete")
+            : step.status === "running"
+              ? deps.translate("systemBackupStepStateRunning")
+              : step.status === "failed"
+                ? deps.translate("systemBackupStepStateFailed")
+                : deps.translate("systemBackupStepStatePending");
+        return `<li class="system-transfer-checklist-item ${statusClass}"><span class="system-transfer-checklist-marker" aria-hidden="true"></span><span class="system-transfer-checklist-label">${label}</span><span class="sr-only">${stateText}</span></li>`;
+      })
+      .join("");
+    progressEl.innerHTML = `<div class="system-transfer-checklist-title">${deps.translate("systemExportProgressTitle")}</div><ol class="system-transfer-checklist">${items}</ol>`;
+    progressEl.classList.remove("hidden");
+  };
+
   const handleSystemBackupStatus = (status: SystemBackupStatus) => {
     const resultEl = deps.elements.systemTransferResult;
     if (!resultEl) {
       return;
     }
+    renderSystemBackupProgress(status);
     if (status.state === "running") {
       resultEl.textContent = deps.translate("systemExportRunningBackground", {
         path: status.path || "",
@@ -860,6 +910,10 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
       resultEl.textContent = deps.translate("systemExportFailed", {
         message: status.error ?? deps.translate("statusUnknownError"),
       });
+      return;
+    }
+    if (status.state === "idle") {
+      renderSystemBackupProgress(status);
     }
   };
 

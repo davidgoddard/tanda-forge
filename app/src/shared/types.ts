@@ -121,12 +121,32 @@ export type CompressionReadinessIssue = {
 
 export type StartupFlowPhase = "music" | "cortina" | "compression" | "complete" | "failed";
 
+export type SystemBackupStepId =
+  | "database"
+  | "databaseWal"
+  | "databaseShm"
+  | "waveforms"
+  | "compressedAudioCache"
+  | "playableAudioCache"
+  | "rendererErrorsLog"
+  | "playbackDiagnosticsLog"
+  | "manifest";
+
+export type SystemBackupStepStatus = "pending" | "running" | "complete" | "failed";
+
+export type SystemBackupStep = {
+  id: SystemBackupStepId;
+  status: SystemBackupStepStatus;
+};
+
 export type SystemBackupStatus = {
   state: "idle" | "running" | "succeeded" | "failed";
   path: string;
   startedAt?: string;
   completedAt?: string;
   error?: string;
+  steps?: SystemBackupStep[];
+  activeStepId?: SystemBackupStepId;
 };
 
 export type CompressedTrackLookupParams = {

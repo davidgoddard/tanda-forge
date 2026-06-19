@@ -469,6 +469,8 @@ const importSystemBtn =
   document.querySelector<HTMLButtonElement>("#import-system-data");
 const systemTransferResult =
   document.querySelector<HTMLDivElement>("#system-transfer-result");
+const systemTransferProgress =
+  document.querySelector<HTMLDivElement>("#system-transfer-progress");
 const exportTandasBtn =
   document.querySelector<HTMLButtonElement>("#export-tandas-data");
 const tandaExportResult =
@@ -14298,6 +14300,7 @@ const init = async () => {
       exportSystemBtn,
       importSystemBtn,
       systemTransferResult,
+      systemTransferProgress,
       cacheVerifyResult,
     },
     setStatus,

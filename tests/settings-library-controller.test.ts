@@ -84,6 +84,7 @@ const createElements = () => ({
   exportSystemBtn: new FakeElement(),
   importSystemBtn: new FakeElement(),
   systemTransferResult: new FakeElement(),
+  systemTransferProgress: new FakeElement(),
   cacheVerifyResult: new FakeElement(),
 });
 
@@ -752,5 +753,46 @@ describe("settings library controller", () => {
       'storedMetadataRefreshDone:{"total":12,"updated":5,"unchanged":7}',
     );
     expect(onStoredMetadataRefreshed).toHaveBeenCalled();
+  });
+
+  it("renders live system backup checklist progress and completion", () => {
+    const elements = createElements();
+    const controller = createController(elements);
+
+    controller.handleSystemBackupStatus({
+      state: "running",
+      path: "/tmp/backup",
+      steps: [
+        { id: "database", status: "complete" },
+        { id: "waveforms", status: "running" },
+        { id: "manifest", status: "pending" },
+      ],
+    });
+
+    expect(elements.systemTransferResult.textContent).toBe(
+      'systemExportRunningBackground:{"path":"/tmp/backup"}',
+    );
+    expect(elements.systemTransferProgress.classList.contains("hidden")).toBe(false);
+    expect(elements.systemTransferProgress.innerHTML).toContain("systemExportProgressTitle:");
+    expect(elements.systemTransferProgress.innerHTML).toContain("systemBackupStepDatabase:");
+    expect(elements.systemTransferProgress.innerHTML).toContain("completed");
+    expect(elements.systemTransferProgress.innerHTML).toContain("systemBackupStepWaveforms:");
+    expect(elements.systemTransferProgress.innerHTML).toContain("current");
+
+    controller.handleSystemBackupStatus({
+      state: "succeeded",
+      path: "/tmp/backup",
+      steps: [
+        { id: "database", status: "complete" },
+        { id: "waveforms", status: "complete" },
+        { id: "manifest", status: "complete" },
+      ],
+    });
+
+    expect(elements.systemTransferResult.textContent).toBe(
+      'systemExportDone:{"path":"/tmp/backup"}',
+    );
+    expect(elements.systemTransferProgress.innerHTML).toContain("systemBackupStepManifest:");
+    expect(elements.systemTransferProgress.innerHTML).toContain("completed");
   });
 });

@@ -5,6 +5,20 @@
 - Version: `0.3.10` (from `package.json`)
 
 ### Latest change
+- Clarified legacy-import vs rescan behavior in `docs/user-guide.md`.
+  - The guide now states explicitly that re-running **Legacy Import** reloads legacy metadata and overwrites matched Tanda Forge metadata fields, so it should normally be treated as a one-time migration step.
+  - The guide also now states explicitly that normal rescans do not overwrite stored editable metadata for already known tracks, and should mostly skim existing files while focusing work on genuinely new or changed material.
+  - The follow-up scan after legacy import is now explained in Tanda Forge terms: it is still required because Tanda Forge uses its own current analysis / audio-level pipeline even when legacy metadata has already populated titles, BPM, style, and similar fields.
+- Added live per-entry progress feedback for **System Export / Import**.
+  - In `app/src/main/system-transfer.ts`, async backup export now reports start/complete events for each managed entry plus the final manifest, and exposes stable backup-entry ordering/mapping helpers.
+  - In `app/src/main/main.ts`, background backup status now carries a structured checklist of steps so the renderer can update in real time as each item completes.
+  - In `app/src/shared/types.ts`, `SystemBackupStatus` now includes typed backup steps and active-step metadata.
+  - In `app/src/renderer/controllers/settings-library-controller.ts`, the Library settings card now renders a live export checklist under the status text using the same circular left-hand markers as the setup workflow.
+  - In `app/src/renderer/index.html`, `app/src/renderer/renderer.ts`, `app/src/renderer/styles.css`, and `app/src/renderer/i18n.ts`, the new checklist container, styling, and localized labels/state text are wired into the System Export card.
+  - Added regressions in `tests/system-transfer.test.ts` and `tests/settings-library-controller.test.ts`.
+  - Updated `design/02-functional-requirements.md`, `design/05-ui-principles-and-components.md`, and `docs/user-guide.md`.
+  - Verification passed: `npm run build`; `npm test` (`94` files, `475` tests); `npx playwright test tests/e2e/workflows.e2e.ts -g "40 - system export succeeds to a different folder on the same drive"`.
+  - Full `npx playwright test` remains flaky in unrelated existing tanda-action cases (`15` and `16`); both passed on isolated rerun.
 - Fixed the returned false dirty-state prompt after save-while-open in the track editor, and moved the workflow completion tick higher in its circle.
   - In `app/src/renderer/modules/track-editor-view.ts`, added a whole-form draft comparison helper so dirty checks compare against a captured editor baseline instead of raw track rows.
   - In `app/src/renderer/renderer.ts`, the track editor now stores a baseline draft whenever fields are filled, clears that baseline when the editor closes, and uses it for unsaved-change detection after save-while-open flows.

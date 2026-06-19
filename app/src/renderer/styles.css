@@ -2072,6 +2072,120 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   padding: 0.6rem 0.7rem;
 }
 
+.system-transfer-progress {
+  margin-top: 0.8rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel-solid) 88%, transparent);
+}
+
+.system-transfer-progress.hidden {
+  display: none;
+}
+
+.system-transfer-checklist-title {
+  margin-bottom: 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.system-transfer-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.system-transfer-checklist-item {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--muted);
+}
+
+.system-transfer-checklist-marker {
+  display: block;
+  position: relative;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--border) 84%, transparent);
+  background: color-mix(in srgb, var(--panel-solid) 92%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--panel-solid) 88%, transparent);
+}
+
+.system-transfer-checklist-item.completed {
+  color: var(--text);
+}
+
+.system-transfer-checklist-item.completed .system-transfer-checklist-marker {
+  border-color: color-mix(in srgb, #57bf84 78%, #ffffff 22%);
+  background: color-mix(in srgb, #57bf84 78%, #ffffff 22%);
+}
+
+.system-transfer-checklist-item.completed .system-transfer-checklist-marker::after {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 11px;
+  left: 7px;
+  top: 2px;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  transform: rotate(45deg);
+}
+
+.system-transfer-checklist-item.current {
+  color: var(--text);
+}
+
+.system-transfer-checklist-item.current .system-transfer-checklist-marker {
+  border-color: color-mix(in srgb, var(--accent) 74%, #ffffff 26%);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent-soft) 42%, transparent),
+    0 0 0 10px color-mix(in srgb, var(--accent-soft) 12%, transparent);
+}
+
+.system-transfer-checklist-item.failed {
+  color: var(--text);
+}
+
+.system-transfer-checklist-item.failed .system-transfer-checklist-marker {
+  border-color: color-mix(in srgb, var(--danger) 74%, #ffffff 26%);
+  background: color-mix(in srgb, var(--danger) 16%, var(--panel-solid) 84%);
+}
+
+.system-transfer-checklist-item.failed .system-transfer-checklist-marker::after,
+.system-transfer-checklist-item.failed .system-transfer-checklist-marker::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 5px;
+  width: 10px;
+  border-top: 2px solid color-mix(in srgb, var(--danger) 82%, #ffffff 18%);
+}
+
+.system-transfer-checklist-item.failed .system-transfer-checklist-marker::before {
+  transform: rotate(45deg);
+}
+
+.system-transfer-checklist-item.failed .system-transfer-checklist-marker::after {
+  transform: rotate(-45deg);
+}
+
+.system-transfer-checklist-label {
+  min-width: 0;
+  line-height: 1.35;
+}
+
 .banner {
   display: none;
   align-items: center;

@@ -447,6 +447,10 @@ folder. You can keep using the app while the backup is written. If you try to
 close the app before it finishes, Tanda Forge warns that the backup is still
 running.
 
+While the backup runs, the same card shows a live checklist of the managed app
+data entries being copied. Each completed item receives a green circular tick,
+so you can see which parts are done and which part is currently in progress.
+
 #### Practical Recommendation
 
 Choose the export/import path based on what you are trying to preserve:
@@ -645,7 +649,7 @@ Use **Styles** in **Settings -> Library** to add or remove style labels used for
 
 If key files from an old Tanda Player are available in the location the user identifies as the music and cortina source, the system will provide a button to allow importing the legacy data so that the DJ does not have to re-create all their tandas and fix up track data.
 
-Before importing the user should set up the mapping of the legacy style names to the style names the new app should use for all filtering and playlist construction.  This is done in the settings page under system.  Once done, go back to the library tab and import the legacy data.
+Before importing, set up the mapping of the legacy style names to the style names the new app should use for filtering and playlist construction. This is done in **Settings -> Library** under **Style Families** / **legacy style review**.
 
 In **Library -> Style Families**, click **Show legacy styles** to view distinct classifier-derived styles from `library.dat` (`classifiers.style` plus optional `classifiers.sub-style`), how often they appear, and whether they currently map to an existing canonical style. Values with no classifier style are shown as `?`.
 For each legacy style row:
@@ -656,7 +660,7 @@ For each legacy style row:
 
 When importing legacy tandas, legacy names equal to `Auto Generated Tanda` or `Saved Auto-Generated Tanda` are intentionally cleared so the app can show its richer dynamic artist-summary label instead (including simple quote/dash/spacing variants of those labels).
 
-Although the old legacy data does include some information to help normalise the sound levels and trim tracks, the compression and trimming is slightly different and so it is recommended to use the **scan** buttons and leave the system to read the files.
+Although the old legacy data does include information about trims and loudness, Tanda Forge uses different analysis and audio-level handling from the older Tanda Player. Because of that, you should still run **Startup Flow** or at least the relevant **scan** step after a legacy import so Tanda Forge can analyze the real files using its own current pipeline.
 
 In **Settings -> Library**, the controls are grouped by purpose and tied together by a **Library setup flow** guide:
 
@@ -682,13 +686,18 @@ In **Settings -> Library**, the controls are grouped by purpose and tied togethe
   - Use it only if you are bringing tandas and metadata across from the old system.
   - It is separate from **Startup Flow** because it replaces existing tanda data rather than behaving like a resumable rebuild step.
   - It uses `library.dat` / `cortinas.dat` metadata to prefill the database immediately, including legacy title, artist, singer, vocal/instrumental state, year, BPM, and style-related fields.
+  - Re-running **Legacy Import** reloads those metadata values from the legacy files and overwrites the corresponding values already stored in Tanda Forge for matched tracks. In practice, this means edited title / artist / year / style / BPM / notes and related legacy-managed fields are replaced by the legacy values again.
+  - Because of that overwrite behavior, **Legacy Import** is normally best treated as a one-time migration step.
   - It matches legacy file references against the configured roots defensively, so small path-format differences such as slash style, letter case, Unicode composition, or an extra parent prefix do not stop the metadata/tanda link-up.
   - It still expects the follow-up scan/setup step for final analysis consistency.
+  - After legacy import, the follow-up scan uses the files on disk for Tanda Forge's own analysis, waveform generation, and cache building, but it does **not** overwrite the imported/stored editable metadata for already known tracks during a normal rescan.
 - **Verify library readiness** is the final check.
   - It verifies the current database, not the unimported legacy files sitting on disk.
   - If the database is empty, it will now tell you to import legacy data or run a scan first.
 - **Library Scan** refreshes the database, analysis, and waveform PNG cache from the music and cortina folders.
 - Re-running **Scan Music** or **Scan Cortinas** imports newly discovered files, removes tracks whose files have disappeared, and skips overwriting stored editable metadata for already known tracks.
+- In normal use, this means a rescan should skim quickly over existing known files and only do real work for genuinely new or changed files. If you add one CD's worth of tracks, the scan should mostly skim the existing collection and then spend its effort on that newly added material.
+- A normal rescan can still fill in metadata for a track if the stored Tanda Forge field is blank and the rescan can now read a non-blank value from the file or imported metadata source.
 - **Remove** beside a configured root unloads that folder from the library after an explicit warning about the tracks removed and dependent tandas/playlists invalidated.
 - If you intentionally want to rebuild track text fields from stored tags after parser changes, use **Re-parse Stored Metadata** instead of a normal scan.
 - **Re-parse Stored Metadata** rebuilds title, artist, artist summary, and singer from already stored tag data.

@@ -72,6 +72,9 @@ Analysis:
   because it replaces current application data.
 - FR-001.5.R5: System backup export must be allowed to run in the background,
   and the app must warn before closing while that export is still running.
+- FR-001.5.R5.a: While a system backup export is running, the Library settings
+  view must show per-entry progress for each exported managed data item and the
+  manifest so the user can see what has completed and what is still pending.
 
 ---
 

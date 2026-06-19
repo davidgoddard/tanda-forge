@@ -6,6 +6,8 @@ import {
   buildSystemBackupFolderName,
   isPathWithin,
   isValidSystemBackupManifest,
+  listSystemBackupEntryNames,
+  mapSystemBackupEntryNameToStepId,
   restoreSystemBackup,
   validateSystemBackupExportRoot,
   writeSystemBackup,
@@ -114,16 +116,38 @@ describe("system transfer helpers", () => {
         createdAt: "2026-03-23T10:11:12.345Z",
         appVersion: "0.3.0",
       },
-      ({ completed, total, entryName }) => {
-        progress.push(`${completed}/${total}:${entryName}`);
+      ({ stage, completed, total, entryName }) => {
+        progress.push(`${stage}:${completed}/${total}:${entryName}`);
       },
     );
 
     expect(fs.existsSync(path.join(exportRoot, "tanda-player.db"))).toBe(true);
     expect(fs.existsSync(path.join(exportRoot, "playable-audio-cache", "track-a.wav"))).toBe(true);
-    expect(progress.length).toBe(2);
-    expect(progress.some((entry) => entry.endsWith(":tanda-player.db"))).toBe(true);
-    expect(progress.some((entry) => entry.endsWith(":playable-audio-cache"))).toBe(true);
+    expect(progress).toEqual([
+      "copy-start:0/3:tanda-player.db",
+      "copy-complete:1/3:tanda-player.db",
+      "copy-start:1/3:playable-audio-cache",
+      "copy-complete:2/3:playable-audio-cache",
+      "manifest-start:2/3:tanda-forge-system-backup.json",
+      "manifest-complete:3/3:tanda-forge-system-backup.json",
+    ]);
+  });
+
+  it("lists backup entries in stable display order and maps them to step ids", () => {
+    const sourceRoot = createTempDir("tanda-system-source-steps");
+    fs.mkdirSync(path.join(sourceRoot, "waveforms"), { recursive: true });
+    fs.writeFileSync(path.join(sourceRoot, "tanda-player.db"), "db", "utf-8");
+    fs.writeFileSync(path.join(sourceRoot, "renderer-errors.log"), "log", "utf-8");
+
+    expect(listSystemBackupEntryNames(sourceRoot)).toEqual([
+      "tanda-player.db",
+      "waveforms",
+      "renderer-errors.log",
+    ]);
+    expect(mapSystemBackupEntryNameToStepId("tanda-player.db")).toBe("database");
+    expect(mapSystemBackupEntryNameToStepId("waveforms")).toBe("waveforms");
+    expect(mapSystemBackupEntryNameToStepId("renderer-errors.log")).toBe("rendererErrorsLog");
+    expect(mapSystemBackupEntryNameToStepId("unknown")).toBeNull();
   });
 
   it("rejects synchronous and async export targets nested inside the source root", async () => {

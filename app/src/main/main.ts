@@ -95,13 +95,20 @@ import { computeSearchDiversityStats } from "./search-diversity";
 import {
   buildSystemBackupFolderName,
   isPathWithin,
+  listSystemBackupEntryNames,
+  mapSystemBackupEntryNameToStepId,
   readSystemBackupManifest,
   restoreSystemBackup,
   validateSystemBackupExportRoot,
   SYSTEM_BACKUP_VERSION,
   writeSystemBackupAsync,
 } from "./system-transfer";
-import type { StartupFlowPhase, SystemBackupStatus } from "../shared/types";
+import type {
+  StartupFlowPhase,
+  SystemBackupStatus,
+  SystemBackupStep,
+  SystemBackupStepId,
+} from "../shared/types";
 import { requiresPlaybackTranscode } from "../shared/audio-playback-source";
 import {
   buildPlaylistExportFileName,
@@ -285,6 +292,20 @@ const setSystemBackupStatus = (next: SystemBackupStatus) => {
   broadcastSystemBackupStatus();
 };
 
+const buildSystemBackupSteps = (sourceRoot: string): SystemBackupStep[] => [
+  ...listSystemBackupEntryNames(sourceRoot)
+    .map((entryName) => mapSystemBackupEntryNameToStepId(entryName))
+    .filter((stepId): stepId is SystemBackupStepId => Boolean(stepId))
+    .map((id) => ({ id, status: "pending" as const })),
+  { id: "manifest", status: "pending" as const },
+];
+
+const updateSystemBackupStepStatus = (
+  steps: SystemBackupStep[],
+  stepId: SystemBackupStepId,
+  status: SystemBackupStep["status"],
+) => steps.map((step) => (step.id === stepId ? { ...step, status } : step));
+
 const hasRunningSystemBackup = () => systemBackupStatus.state === "running";
 
 const ensurePlayableTrackRendered = async (filePath: string) => {
@@ -369,10 +390,12 @@ const startSystemBackupExport = async (exportRoot: string) => {
     return { ok: false as const, error: "System backup already running" };
   }
   const createdAt = new Date().toISOString();
+  const steps = buildSystemBackupSteps(getDataRoot());
   setSystemBackupStatus({
     state: "running",
     path: exportRoot,
     startedAt: createdAt,
+    steps,
   });
   systemBackupPromise = (async () => {
     try {
@@ -381,20 +404,59 @@ const startSystemBackupExport = async (exportRoot: string) => {
         version: SYSTEM_BACKUP_VERSION,
         createdAt,
         appVersion: app.getVersion(),
+      }, (progress) => {
+        const stepId =
+          progress.entryName === "tanda-forge-system-backup.json"
+            ? "manifest"
+            : mapSystemBackupEntryNameToStepId(progress.entryName);
+        if (!stepId) {
+          return;
+        }
+        const stepStatus =
+          progress.stage === "copy-start" || progress.stage === "manifest-start"
+            ? "running"
+            : "complete";
+        setSystemBackupStatus({
+          ...systemBackupStatus,
+          state: "running",
+          path: exportRoot,
+          startedAt: createdAt,
+          activeStepId: stepStatus === "running" ? stepId : undefined,
+          steps: updateSystemBackupStepStatus(
+            systemBackupStatus.steps ?? steps,
+            stepId,
+            stepStatus,
+          ),
+        });
       });
       setSystemBackupStatus({
         state: "succeeded",
         path: exportRoot,
         startedAt: createdAt,
         completedAt: new Date().toISOString(),
+        steps: (systemBackupStatus.steps ?? steps).map((step) => ({
+          ...step,
+          status: step.status === "failed" ? "failed" : "complete",
+        })),
       });
     } catch (error) {
+      const activeStepId =
+        systemBackupStatus.activeStepId ??
+        (systemBackupStatus.steps ?? steps).find((step) => step.status === "running")?.id;
       setSystemBackupStatus({
         state: "failed",
         path: exportRoot,
         startedAt: createdAt,
         completedAt: new Date().toISOString(),
         error: error instanceof Error ? error.message : "System backup failed",
+        activeStepId,
+        steps: activeStepId
+          ? updateSystemBackupStepStatus(
+              systemBackupStatus.steps ?? steps,
+              activeStepId,
+              "failed",
+            )
+          : systemBackupStatus.steps ?? steps,
       });
     } finally {
       systemBackupPromise = null;
