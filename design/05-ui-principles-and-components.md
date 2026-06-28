@@ -364,6 +364,10 @@ Interactions:
 - UI-014.R27: The centered app-title block includes a subtitle showing the live
   application version from the packaged app metadata in the form
   `Version: {version} © David Goddard 2026`.
+- UI-014.R28: On app startup, when the GitHub releases endpoint is reachable and
+  reports a newer version/tag than the packaged app version, the renderer shows
+  an in-app modal popup with the new version number and an action to open the
+  repository releases page in the user's default browser.
 
 ## UI-015 — Now Playing Strip
 

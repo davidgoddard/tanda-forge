@@ -5,6 +5,9 @@ Code diffs are omitted; only intent and outcomes are captured.
 
 ## Timeline Highlights
 
+- User: Asked for an actual in-app popup on startup when the app can reach the GitHub releases page and a newer version is available.
+  Assistant: Added a startup GitHub release/tag check in the main process, exposed it over IPC, and wired an in-app modal popup that offers to open the releases page in the default browser.
+
 - User: Reported a flaky failing Playwright workflow around the performance-stop
   live-playback scenario and asked to fix the test.
   Assistant: Stabilized the test by waiting for the playlist to enter the

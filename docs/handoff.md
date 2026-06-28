@@ -2,9 +2,17 @@
 
 ### Current branch / version
 - Branch: `main`
-- Version: `0.3.10` (from `package.json`)
+- Version: `0.3.12` (from `package.json`)
 
 ### Latest change
+- Added a startup update popup for newer GitHub releases/tags.
+  - In `app/src/main/release-check.ts`, added a pure release-check helper that compares the packaged app version against the latest GitHub release/tag with timeout protection and repo-url validation.
+  - In `app/src/main/main.ts`, added IPC handlers to fetch update information and open the releases page in the default browser.
+  - In `app/src/preload/preload.ts` and `app/src/shared/types.ts`, exposed typed renderer APIs for the release check and releases-page action.
+  - In `app/src/renderer/renderer.ts`, startup now performs a delayed non-blocking check and shows an in-app modal popup when a newer version is available.
+  - In `app/src/renderer/i18n.ts` and `app/src/renderer/styles.css`, added localized popup copy and modal title styling.
+  - Added regressions in `tests/release-check.test.ts` and `tests/i18n.test.ts`.
+  - Updated `design/05-ui-principles-and-components.md`, `design/09-ipc-and-api.md`, and `docs/user-guide.md`.
 - Clarified legacy-import vs rescan behavior in `docs/user-guide.md`.
   - The guide now states explicitly that re-running **Legacy Import** reloads legacy metadata and overwrites matched Tanda Forge metadata fields, so it should normally be treated as a one-time migration step.
   - The guide also now states explicitly that normal rescans do not overwrite stored editable metadata for already known tracks, and should mostly skim existing files while focusing work on genuinely new or changed material.
@@ -117,6 +125,23 @@
     and it would replace current tanda data again.
 
 ### What I was doing last
+- Implemented a startup GitHub-release popup.
+  - The app now checks the latest GitHub release/tag on startup, only when reachable, and shows an in-app popup with the version and a button that opens the releases page externally.
+- Updated files:
+  - `app/src/main/release-check.ts`
+  - `app/src/main/main.ts`
+  - `app/src/preload/preload.ts`
+  - `app/src/shared/types.ts`
+  - `app/src/renderer/renderer.ts`
+  - `app/src/renderer/i18n.ts`
+  - `app/src/renderer/styles.css`
+  - `tests/release-check.test.ts`
+  - `tests/i18n.test.ts`
+  - `design/05-ui-principles-and-components.md`
+  - `design/09-ipc-and-api.md`
+  - `docs/user-guide.md`
+- Verification re-run after this change:
+  - pending in this session
 - Stabilized the performance-stop E2E start assertion:
   - test `43 - performance stop pauses after tanda, blanks display text, and
     resumes via the same cortina` now waits for playlist playback to enter the

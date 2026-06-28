@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, session } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, session, shell } from "electron";
 
 if (process.platform === "darwin" && process.arch === "x64") {
   app.disableHardwareAcceleration();
@@ -104,6 +104,7 @@ import {
   writeSystemBackupAsync,
 } from "./system-transfer";
 import type {
+  ReleaseUpdateInfo,
   StartupFlowPhase,
   SystemBackupStatus,
   SystemBackupStep,
@@ -120,6 +121,11 @@ import {
   writeTandasExport,
 } from "./library-transfer";
 import type { PlaylistExportManifest } from "../shared/library-transfer";
+import {
+  getReleaseUpdateInfo,
+  isSupportedReleaseUrl,
+  RELEASES_PAGE_URL,
+} from "./release-check";
 
 const forcedUserDataRoot = process.env.TANDA_USER_DATA_ROOT?.trim();
 if (forcedUserDataRoot) {
@@ -862,6 +868,24 @@ const registerIpc = () => {
   });
 
   ipcMain.handle("app:getVersion", async () => app.getVersion());
+  ipcMain.handle("app:getReleaseUpdateInfo", async (): Promise<ReleaseUpdateInfo | null> => {
+    if (process.env.NODE_ENV === "test") {
+      return null;
+    }
+    return getReleaseUpdateInfo(app.getVersion());
+  });
+  ipcMain.handle("app:openReleasePage", async (_event, url?: string | null) => {
+    const target = url && isSupportedReleaseUrl(url) ? url : RELEASES_PAGE_URL;
+    try {
+      await shell.openExternal(target);
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : "Failed to open release page",
+      };
+    }
+  });
 
   ipcMain.handle("app:toggleFullscreen", async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow();

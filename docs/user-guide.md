@@ -41,6 +41,11 @@ The buttons are:
 - Toggle themes
 - Close app.
 
+When Tanda Forge starts, it also performs a lightweight version check against
+the GitHub releases feed when the network is reachable. If a newer release/tag
+is found, the app shows an in-app popup with the new version number and an
+**Open releases page** action. If GitHub cannot be reached, no popup is shown.
+
 The playlist is configured in the "config" page by clicking the "Settings" button in the top right and then clicking on the playlist tab.  The main things
 to set are the size and style of each tanda in the sequence required - typically this seems to be some variation of 3 or 4 tracks per tanda in the sequence of 
 some tangos, then a break such as a Waltz followed by more tangos and a milonga and then the sequence repeats.  This sequence is set using the sequence of numbers
@@ -706,6 +711,7 @@ In **Settings -> Library**, the controls are grouped by purpose and tied togethe
 - **Library Maintenance** contains database-only cleanup.
 - **System Export / Import** backs up or restores the complete application data folder (database, caches, logs, and persisted settings).
 - **System Export** must be written outside the active Tanda Forge data folder. Exporting into a subfolder of the live data directory is blocked to prevent recursive self-copy and runaway disk usage.
+- The startup update popup is informational only. It points you at the GitHub releases page but does not auto-update the app.
 
 The legacy migration card is shown separately from the resumable startup flow, and the remaining scan/cache/maintenance/backup tools sit inside one shared manual-tools area so their optional/manual role is clear.
 

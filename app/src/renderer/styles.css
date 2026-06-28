@@ -2384,6 +2384,11 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   gap: 0.9rem;
 }
 
+.confirm-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
 .confirm-message {
   font-size: 0.98rem;
   line-height: 1.4;

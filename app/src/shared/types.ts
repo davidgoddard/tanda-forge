@@ -149,6 +149,12 @@ export type SystemBackupStatus = {
   activeStepId?: SystemBackupStepId;
 };
 
+export type ReleaseUpdateInfo = {
+  currentVersion: string;
+  latestVersion: string;
+  releasesUrl: string;
+};
+
 export type CompressedTrackLookupParams = {
   trackId: string;
   filePath: string;
@@ -234,6 +240,8 @@ export type E2ESeedPayload = {
 export type AppApi = {
   ping: () => Promise<string>;
   getAppVersion: () => Promise<string>;
+  getReleaseUpdateInfo: () => Promise<ReleaseUpdateInfo | null>;
+  openReleasePage: (url?: string | null) => Promise<{ ok: boolean; error?: string }>;
   pickRoot: (kind: "music" | "cortina" | "background") => Promise<string | null>;
   pickDataLocation: () => Promise<string | null>;
   getDataLocation: () => Promise<{ path: string; defaultPath: string }>;

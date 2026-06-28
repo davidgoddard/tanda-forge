@@ -65,6 +65,8 @@ identified as `IPC-<section>.R<n>` in order under each section. Sub-bullets use
 - IPC-003.R5.g: `app:close(): void`
 - IPC-003.R5.h: `app:logClientError(payload): void`
 - IPC-003.R5.i: `diagnostics:getDataReadiness(): { totalTracks, missingDuration, missingLoudness, missingTrimSignals, analysisErrors, missingWaveforms }`
+- IPC-003.R5.j: `app:getReleaseUpdateInfo(): { currentVersion, latestVersion, releasesUrl } | null`
+- IPC-003.R5.k: `app:openReleasePage(url?): { ok, error? }`
 
 ## IPC-004 — Versioning
 

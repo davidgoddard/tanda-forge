@@ -88,6 +88,14 @@ describe("renderer i18n", () => {
     ).toBe("Version: 0.3.8 © David Goddard 2026");
   });
 
+  it("interpolates the update popup message with the remote version string", () => {
+    expect(
+      translate("en", "releaseUpdateMessage", {
+        version: "0.3.13",
+      }),
+    ).toBe("New version available: 0.3.13. Open the releases page?");
+  });
+
   it("interpolates output routing failure details", () => {
     const value = translate("en", "outputRoutingFailedDetail", {
       channel: "Main output",

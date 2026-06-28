@@ -349,10 +349,12 @@ const orchestraListEl =
 
 let allowAppClose = false;
 let confirmModalEl: HTMLDivElement | null = null;
+let confirmModalTitle: HTMLDivElement | null = null;
 let confirmModalMessage: HTMLDivElement | null = null;
 let confirmModalOk: HTMLButtonElement | null = null;
 let confirmModalCancel: HTMLButtonElement | null = null;
 let confirmModalResolve: ((value: boolean) => void) | null = null;
+let releaseUpdatePromptShown = false;
 let clipboardClearModalEl: HTMLDivElement | null = null;
 let clipboardClearModalResolve:
   | ((value: { selectedIds: string[]; removeEmpty: boolean } | null) => void)
@@ -4797,6 +4799,8 @@ const ensureConfirmModal = () => {
   overlay.className = "confirm-modal hidden";
   const dialog = document.createElement("div");
   dialog.className = "confirm-dialog";
+  const title = document.createElement("div");
+  title.className = "confirm-title hidden";
   const message = document.createElement("div");
   message.className = "confirm-message";
   const actions = document.createElement("div");
@@ -4810,10 +4814,11 @@ const ensureConfirmModal = () => {
   okBtn.className = "confirm-ok";
   okBtn.textContent = t("confirmOk");
   actions.append(cancelBtn, okBtn);
-  dialog.append(message, actions);
+  dialog.append(title, message, actions);
   overlay.append(dialog);
   document.body.appendChild(overlay);
   confirmModalEl = overlay;
+  confirmModalTitle = title;
   confirmModalMessage = message;
   confirmModalOk = okBtn;
   confirmModalCancel = cancelBtn;
@@ -4842,21 +4847,72 @@ const ensureConfirmModal = () => {
 const showConfirmModal = async (
   message: string,
   confirmLabel?: string,
+  options?: {
+    title?: string;
+    cancelLabel?: string;
+  },
 ) => {
   ensureConfirmModal();
-  if (!confirmModalEl || !confirmModalMessage || !confirmModalOk || !confirmModalCancel) {
+  if (
+    !confirmModalEl ||
+    !confirmModalMessage ||
+    !confirmModalOk ||
+    !confirmModalCancel ||
+    !confirmModalTitle
+  ) {
     return false;
   }
   if (confirmModalResolve) {
     return false;
   }
+  const titleText = options?.title?.trim() ?? "";
+  confirmModalTitle.textContent = titleText;
+  confirmModalTitle.classList.toggle("hidden", titleText.length === 0);
   confirmModalMessage.textContent = message;
   confirmModalOk.textContent = confirmLabel ?? t("confirmOk");
-  confirmModalCancel.textContent = t("cancel");
+  confirmModalCancel.textContent = options?.cancelLabel ?? t("cancel");
   confirmModalEl.classList.remove("hidden");
   return new Promise<boolean>((resolve) => {
     confirmModalResolve = resolve;
   });
+};
+
+const maybeShowReleaseUpdatePopup = async () => {
+  if (
+    releaseUpdatePromptShown ||
+    !window.tanda?.getReleaseUpdateInfo ||
+    !window.tanda?.openReleasePage
+  ) {
+    return;
+  }
+  try {
+    const update = await window.tanda.getReleaseUpdateInfo();
+    if (!update || releaseUpdatePromptShown) {
+      return;
+    }
+    releaseUpdatePromptShown = true;
+    const openReleasePage = await showConfirmModal(
+      t("releaseUpdateMessage", {
+        version: update.latestVersion,
+      }),
+      t("releaseUpdateOpen"),
+      {
+        title: t("releaseUpdateTitle"),
+        cancelLabel: t("releaseUpdateLater"),
+      },
+    );
+    if (!openReleasePage) {
+      return;
+    }
+    const result = await window.tanda.openReleasePage(update.releasesUrl);
+    if (!result.ok) {
+      setStatus(
+        t("releaseUpdateOpenFailed", {
+          message: result.error ?? t("statusUnknownError"),
+        }),
+      );
+    }
+  } catch {}
 };
 
 const ensureClipboardClearModal = () => {
@@ -15953,6 +16009,9 @@ const init = async () => {
   await refreshSearch();
   await loadPlaylistFromStorage();
   renderAllLists();
+  window.setTimeout(() => {
+    void maybeShowReleaseUpdatePopup();
+  }, 300);
   window.setInterval(updateNowPlayingDisplay, 200);
   window.setInterval(maybeAutoCenterPlaylist, 5000);
 };
