@@ -8842,3 +8842,9 @@
 - Added a Playwright Electron regression in `tests/e2e/workflows.e2e.ts` proving that system export succeeds when the backup target is a different folder on the same filesystem as the music root.
 - The workflow now creates a real scanned music root, then exports the system backup to a sibling folder outside the active data root and verifies the background export completes successfully and writes a valid backup manifest/database/waveform payload.
 - Also hardened the E2E harness in `app/src/main/main.ts` so system export/import directory pickers consume the existing test dialog override, matching the other automated folder-picking flows.
+- Diagnosed an external macOS first-run report where complete setup raised `spawn ffmpeg EMFILE` and all subsequent track analysis failed with `spawn ffmpeg/ffprobe ENOENT`.
+  - The affected app's Diagnostics resolved both tools as bare system-PATH names rather than bundled resources.
+  - `app/resources/ffmpeg/*` is git-ignored (apart from its README), and `.github/workflows/release.yml` currently neither stages tools with `scripts/fetch-ffmpeg.sh` nor verifies their presence/executability inside the packaged app.
+  - This allows release installers without FFmpeg/ffprobe to pass the current artifact/signature checks.
+  - No runtime code change was made; the immediate user workaround is selecting a folder containing both tools under Settings -> Diagnostics, while the release workflow needs a staging step and packaged-tool assertions.
+- Supplied a copy-ready affected-user support response covering the temporary macOS FFmpeg installation and custom tools-folder workaround.
