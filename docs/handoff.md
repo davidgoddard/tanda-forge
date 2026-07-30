@@ -8883,3 +8883,9 @@
   - Focused regression suite: 4 files / 23 tests passed.
   - `npm run build` passed.
   - `npm test` passed: 95 files / 487 tests.
+- Release handoff:
+  - Implementation commit `b917149` was pushed to `origin/main`.
+  - Tag `v0.3.14` was created and pushed.
+  - GitHub release publication remains pending because this environment had no
+    GitHub CLI or connected authenticated in-app browser; publishing the release
+    will trigger `.github/workflows/release.yml`.
