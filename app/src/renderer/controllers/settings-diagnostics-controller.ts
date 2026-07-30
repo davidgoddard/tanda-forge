@@ -279,6 +279,9 @@ export const createSettingsDiagnosticsController = (deps: DiagnosticsControllerD
         missingTrimSignals: summary.missingTrimSignals,
         analysisErrors: summary.analysisErrors,
         missingWaveforms: summary.missingWaveforms,
+        compressedEligible: summary.compressedEligible,
+        compressedReady: summary.compressedReady,
+        compressedMissing: summary.compressedMissing,
       });
       target.textContent = message;
       return {

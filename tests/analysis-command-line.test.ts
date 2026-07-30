@@ -5,6 +5,7 @@ import {
   buildCommandLine,
   buildSilenceDetectFilter,
   deriveTrimOffsetsFromSilence,
+  formatCommandAttemptErrors,
   parseSilenceDetectOutput,
 } from "../app/src/main/library/analysis";
 
@@ -20,6 +21,17 @@ describe("buildCommandLine", () => {
       ]),
     ).toBe(
       "/usr/local/bin/ffmpeg -i '/tmp/O'\\''Connor Test/input song.mp3' -af acompressor=threshold=-32dB:ratio=4 '/tmp/output file.wav'",
+    );
+  });
+
+  it("preserves the primary command error when a fallback also fails", () => {
+    expect(
+      formatCommandAttemptErrors(
+        new Error("decoder rejected original file"),
+        new Error("spawn ffmpeg ENOENT"),
+      ),
+    ).toBe(
+      "Primary error: decoder rejected original file\nFallback error: spawn ffmpeg ENOENT",
     );
   });
 

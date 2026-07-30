@@ -20,7 +20,6 @@ export const evaluateDataReadiness = (
   const blockers =
     summary.missingDuration +
     summary.missingLoudness +
-    summary.missingTrimSignals +
     summary.analysisErrors +
     (summary.compressedMissing ?? 0);
   const warnings = summary.missingWaveforms;

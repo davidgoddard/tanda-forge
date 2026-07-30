@@ -246,7 +246,7 @@ export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => Data
     const hasLoudness =
       typeof row.loudness_db === "number" && Number.isFinite(row.loudness_db);
     const hasGain = typeof row.gain_db === "number" && Number.isFinite(row.gain_db);
-    if (!hasLoudness && !hasGain) {
+    if (!hasLoudness || !hasGain) {
       missingLoudness += 1;
     }
     const startOffsetMs =

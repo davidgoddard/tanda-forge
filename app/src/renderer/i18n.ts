@@ -89,7 +89,7 @@ export const translations = {
     legacyReadinessEmpty:
       "Library is still empty. Import legacy data or run a scan before verifying readiness.",
     legacyReadinessSummary:
-      "{status} Tracks {total}; missing duration {missingDuration}; missing loudness+gain {missingLoudness}; no trim signals {missingTrimSignals}; analysis errors {analysisErrors}; missing waveforms {missingWaveforms}.",
+      "{status} Tracks {total}; missing duration {missingDuration}; missing loudness+gain {missingLoudness}; no trim applied {missingTrimSignals} (informational); analysis errors {analysisErrors}; missing waveforms {missingWaveforms}; compressed audio ready {compressedReady}/{compressedEligible}, missing {compressedMissing}.",
     libraryWorkflowBadge: "Recommended path",
     libraryWorkflowTitle: "Library setup flow",
     libraryWorkflowHelp:
@@ -866,7 +866,7 @@ export const translations = {
     legacyReadinessEmpty:
       "La biblioteca sigue vacia. Importa datos legacy o ejecuta un escaneo antes de verificar.",
     legacyReadinessSummary:
-      "{status} Pistas {total}; duracion faltante {missingDuration}; sonoridad+ganancia faltante {missingLoudness}; sin senales de recorte {missingTrimSignals}; errores de analisis {analysisErrors}; formas de onda faltantes {missingWaveforms}.",
+      "{status} Pistas {total}; duracion faltante {missingDuration}; sonoridad+ganancia faltante {missingLoudness}; sin recorte aplicado {missingTrimSignals} (informativo); errores de analisis {analysisErrors}; formas de onda faltantes {missingWaveforms}; audio comprimido listo {compressedReady}/{compressedEligible}, faltante {compressedMissing}.",
     libraryWorkflowBadge: "Ruta recomendada",
     libraryWorkflowTitle: "Flujo de configuracion de biblioteca",
     libraryWorkflowHelp:
@@ -1665,7 +1665,7 @@ export const translations = {
     legacyReadinessEmpty:
       "La bibliotheque est encore vide. Importez les donnees legacy ou lancez un scan avant la verification.",
     legacyReadinessSummary:
-      "{status} Pistes {total}; duree manquante {missingDuration}; loudness+gain manquants {missingLoudness}; aucun signal de trim {missingTrimSignals}; erreurs d'analyse {analysisErrors}; formes d'onde manquantes {missingWaveforms}.",
+      "{status} Pistes {total}; duree manquante {missingDuration}; loudness+gain manquants {missingLoudness}; aucun trim applique {missingTrimSignals} (informatif); erreurs d'analyse {analysisErrors}; formes d'onde manquantes {missingWaveforms}; audio compresse pret {compressedReady}/{compressedEligible}, manquant {compressedMissing}.",
     libraryWorkflowBadge: "Parcours recommande",
     libraryWorkflowTitle: "Flux de configuration de la bibliotheque",
     libraryWorkflowHelp:
@@ -2473,7 +2473,7 @@ export const translations = {
     legacyReadinessEmpty:
       "Die Bibliothek ist noch leer. Importieren Sie Legacy-Daten oder fuehren Sie zuerst einen Scan aus.",
     legacyReadinessSummary:
-      "{status} Tracks {total}; fehlende Dauer {missingDuration}; fehlende Lautheit+Gain {missingLoudness}; keine Trim-Signale {missingTrimSignals}; Analysefehler {analysisErrors}; fehlende Wellenformen {missingWaveforms}.",
+      "{status} Tracks {total}; fehlende Dauer {missingDuration}; fehlende Lautheit+Gain {missingLoudness}; kein Trim angewendet {missingTrimSignals} (informativ); Analysefehler {analysisErrors}; fehlende Wellenformen {missingWaveforms}; komprimiertes Audio bereit {compressedReady}/{compressedEligible}, fehlend {compressedMissing}.",
     libraryWorkflowBadge: "Empfohlener Ablauf",
     libraryWorkflowTitle: "Bibliotheks-Einrichtungsablauf",
     libraryWorkflowHelp:
@@ -3283,7 +3283,7 @@ export const translations = {
     legacyReadinessEmpty:
       "A biblioteca ainda esta vazia. Importe dados legacy ou execute uma varredura antes da verificacao.",
     legacyReadinessSummary:
-      "{status} Faixas {total}; duracao ausente {missingDuration}; loudness+ganho ausentes {missingLoudness}; sem sinais de trim {missingTrimSignals}; erros de analise {analysisErrors}; formas de onda ausentes {missingWaveforms}.",
+      "{status} Faixas {total}; duracao ausente {missingDuration}; loudness+ganho ausentes {missingLoudness}; sem corte aplicado {missingTrimSignals} (informativo); erros de analise {analysisErrors}; formas de onda ausentes {missingWaveforms}; audio comprimido pronto {compressedReady}/{compressedEligible}, ausente {compressedMissing}.",
     libraryWorkflowBadge: "Caminho recomendado",
     libraryWorkflowTitle: "Fluxo de configuracao da biblioteca",
     libraryWorkflowHelp:
@@ -4093,7 +4093,7 @@ export const translations = {
     legacyReadinessEmpty:
       "La libreria e ancora vuota. Importa dati legacy oppure esegui una scansione prima della verifica.",
     legacyReadinessSummary:
-      "{status} Brani {total}; durata mancante {missingDuration}; loudness+gain mancanti {missingLoudness}; nessun segnale di trim {missingTrimSignals}; errori di analisi {analysisErrors}; forme d'onda mancanti {missingWaveforms}.",
+      "{status} Brani {total}; durata mancante {missingDuration}; loudness+gain mancanti {missingLoudness}; nessun taglio applicato {missingTrimSignals} (informativo); errori di analisi {analysisErrors}; forme d'onda mancanti {missingWaveforms}; audio compresso pronto {compressedReady}/{compressedEligible}, mancante {compressedMissing}.",
     libraryWorkflowBadge: "Percorso consigliato",
     libraryWorkflowTitle: "Flusso di configurazione libreria",
     libraryWorkflowHelp:
@@ -5129,7 +5129,7 @@ translations.is = {
   legacyReadinessEmpty:
     "Safnid er enn tomt. Flyttu inn legacy-gogn eða keyrðu skonnun áður en þú stadfestir.",
   legacyReadinessSummary:
-    "{status} Log {total}; vantar lengd {missingDuration}; vantar loudness+gain {missingLoudness}; engin trim-merki {missingTrimSignals}; greiningarvillur {analysisErrors}; vantar bylgjumyndir {missingWaveforms}.",
+    "{status} Log {total}; vantar lengd {missingDuration}; vantar loudness+gain {missingLoudness}; engin klipping notuð {missingTrimSignals} (til upplýsingar); greiningarvillur {analysisErrors}; vantar bylgjumyndir {missingWaveforms}; þjappað hljóð tilbúið {compressedReady}/{compressedEligible}, vantar {compressedMissing}.",
   libraryWorkflowBadge: "Maelt ferli",
   libraryWorkflowTitle: "Uppsetningarferli safns",
   libraryWorkflowHelp:

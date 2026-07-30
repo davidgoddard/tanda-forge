@@ -126,6 +126,26 @@ describe("settings diagnostics controller", () => {
     expect(target.textContent).toContain("diagnosticsReadinessMissingWaveforms");
   });
 
+  it("includes compressed readiness in the Library final-check summary", async () => {
+    const target = createFakeElement() as unknown as HTMLElement;
+    const controller = createSettingsDiagnosticsController({
+      ...createDeps(),
+      getDiagnosticsDataReadiness: async () => ({
+        ...(await createDeps().getDiagnosticsDataReadiness()),
+        compressedEligible: 2,
+        compressedReady: 1,
+        compressedMissing: 1,
+      }),
+    });
+
+    const result = await controller.verifyLegacyReadiness(target);
+
+    expect(result.status).toBe("fail");
+    expect(target.textContent).toContain('"compressedEligible":2');
+    expect(target.textContent).toContain('"compressedReady":1');
+    expect(target.textContent).toContain('"compressedMissing":1');
+  });
+
   it("renders suspicious track length issues", async () => {
     const target = createFakeElement() as unknown as HTMLElement;
     const controller = createSettingsDiagnosticsController({

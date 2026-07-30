@@ -144,7 +144,10 @@ Rules:
   decisions can be reviewed without leaving the app.
 - UI-009.R3.b: The Library settings tab includes a one-click readiness verification
   action in the Library setup flow that reports pass/warn/fail plus data-readiness
-  counts (duration, loudness/gain, trim signals, analysis errors, waveforms).
+  counts (duration, loudness/gain, informational zero-trim results, analysis
+  errors, waveforms, and compressed-cache eligible/ready/missing totals). A
+  valid zero-trim result must not block readiness, while a missing required
+  compressed companion must be visible whenever it blocks readiness.
 - UI-009.R3.c: The Library settings tab includes a visual setup flow that shows
   the normal root -> analysis -> verify path plus the optional legacy-migration
   branch rejoining before analysis.

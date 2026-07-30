@@ -13,6 +13,9 @@
 - PKG-FFM-003: Licensing requirements are documented and included in the app bundle.
 - PKG-FFM-004: Packaged builds resolve binaries from `process.resourcesPath/ffmpeg/<platform>/`.
 - PKG-FFM-005: Use `scripts/fetch-ffmpeg.sh` to download binaries for macOS, Windows, and Linux.
+- PKG-FFM-006: Release CI must stage the platform FFmpeg/ffprobe payload before
+  packaging and must fail macOS package verification when either packaged tool
+  is missing or not executable.
 
 ## Release Delivery
 

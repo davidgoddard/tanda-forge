@@ -184,6 +184,39 @@ const runCommandAllowFailure = (command: string, args: string[]) =>
     });
   });
 
+const commandErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message.trim() || error.name : String(error);
+
+export const formatCommandAttemptErrors = (
+  primaryError: unknown,
+  fallbackError?: unknown,
+) =>
+  fallbackError === undefined
+    ? commandErrorMessage(primaryError)
+    : [
+        `Primary error: ${commandErrorMessage(primaryError)}`,
+        `Fallback error: ${commandErrorMessage(fallbackError)}`,
+      ].join("\n");
+
+const runCommandWithFallback = async (
+  command: string,
+  fallback: string,
+  args: string[],
+) => {
+  try {
+    return await runCommand(command, args);
+  } catch (primaryError) {
+    if (command === fallback) {
+      throw primaryError;
+    }
+    try {
+      return await runCommand(fallback, args);
+    } catch (fallbackError) {
+      throw new Error(formatCommandAttemptErrors(primaryError, fallbackError));
+    }
+  }
+};
+
 let customFfmpegToolsDir: string | null = null;
 
 export const setCustomFfmpegToolsDir = (dirPath: string | null) => {
@@ -438,20 +471,14 @@ export const readTrackMetadata = async (filePath: string): Promise<TrackMetadata
   ];
 
   try {
-    const { stdout } = await runCommand(binary, args);
+    const { stdout } = await runCommandWithFallback(binary, fallback, args);
     return parseTrackMetadata(stdout);
-  } catch {
-    try {
-      const { stdout } = await runCommand(fallback, args);
-      return parseTrackMetadata(stdout);
-    } catch (innerError) {
-      return {
-        tags: {},
-        durationMs: 0,
-        error:
-          innerError instanceof Error ? innerError.message : "Metadata read failed",
-      };
-    }
+  } catch (error) {
+    return {
+      tags: {},
+      durationMs: 0,
+      error: error instanceof Error ? error.message : "Metadata read failed",
+    };
   }
 };
 
@@ -508,29 +535,37 @@ export const renderWaveformPng = async (
     // Ignore stale temp cleanup failures before render.
   }
 
+  const attempts: Array<{ command: string; args: string[] }> = [
+    { command: binary, args },
+  ];
+  if (fallback !== binary) {
+    attempts.push({ command: fallback, args });
+  }
+  attempts.push({ command: binary, args: legacyArgs });
+  if (fallback !== binary) {
+    attempts.push({ command: fallback, args: legacyArgs });
+  }
+  const failures: unknown[] = [];
   try {
-    await runCommand(binary, args);
-    fs.renameSync(tempOutputPath, outputPath);
-  } catch {
-    try {
-      await runCommand(fallback, args);
-      fs.renameSync(tempOutputPath, outputPath);
-    } catch {
+    for (const attempt of attempts) {
       try {
-        await runCommand(binary, legacyArgs);
+        await runCommand(attempt.command, attempt.args);
         fs.renameSync(tempOutputPath, outputPath);
-      } catch {
-        try {
-          await runCommand(fallback, legacyArgs);
-          fs.renameSync(tempOutputPath, outputPath);
-        } finally {
-          try {
-            fs.rmSync(tempOutputPath, { force: true });
-          } catch {
-            // Ignore best-effort temp cleanup failures.
-          }
-        }
+        return;
+      } catch (error) {
+        failures.push(error);
       }
+    }
+    throw new Error(
+      failures
+        .map((error, index) => `Attempt ${index + 1}: ${commandErrorMessage(error)}`)
+        .join("\n"),
+    );
+  } finally {
+    try {
+      fs.rmSync(tempOutputPath, { force: true });
+    } catch {
+      // Ignore best-effort temp cleanup failures.
     }
   }
 };
@@ -691,12 +726,10 @@ export const renderCompressedAudio = async (
         fallbackError instanceof Error ? fallbackError.message.trim() : "Fallback render failed";
       throw new Error(
         [
-          fallbackMessage,
+          `Primary error: ${primaryMessage}`,
+          `Fallback error: ${fallbackMessage}`,
           `Primary command: ${primaryCommandLine}`,
           `Fallback command: ${fallbackCommandLine}`,
-          primaryMessage && primaryMessage !== fallbackMessage
-            ? `Primary error: ${primaryMessage}`
-            : null,
         ]
           .filter(Boolean)
           .join("\n"),
@@ -757,12 +790,10 @@ export const renderPlayableAudio = async (filePath: string, outputPath: string) 
         fallbackError instanceof Error ? fallbackError.message.trim() : "Fallback render failed";
       throw new Error(
         [
-          fallbackMessage,
+          `Primary error: ${primaryMessage}`,
+          `Fallback error: ${fallbackMessage}`,
           `Primary command: ${primaryCommandLine}`,
           `Fallback command: ${fallbackCommandLine}`,
-          primaryMessage && primaryMessage !== fallbackMessage
-            ? `Primary error: ${primaryMessage}`
-            : null,
         ]
           .filter(Boolean)
           .join("\n"),
@@ -813,14 +844,41 @@ const readSilenceAndLoudness = async (filePath: string) => {
       error: primary.code === 0 ? undefined : sanitizeFfmpegError(primary.stderr),
     };
   }
-  const secondary = await runCommandAllowFailure(fallback, args);
+  if (binary === fallback) {
+    return {
+      ...primaryParsed,
+      loudnessDb: primaryLoudness.loudnessDb,
+      gainDb: primaryLoudness.gainDb,
+      error: sanitizeFfmpegError(primary.stderr) ?? `FFmpeg exited with code ${primary.code}`,
+    };
+  }
+  let secondary: { stdout: string; stderr: string; code: number };
+  try {
+    secondary = await runCommandAllowFailure(fallback, args);
+  } catch (fallbackError) {
+    return {
+      ...primaryParsed,
+      loudnessDb: primaryLoudness.loudnessDb,
+      gainDb: primaryLoudness.gainDb,
+      error: formatCommandAttemptErrors(
+        sanitizeFfmpegError(primary.stderr) ?? `FFmpeg exited with code ${primary.code}`,
+        fallbackError,
+      ),
+    };
+  }
   const secondaryParsed = parseSilenceDetectOutput(secondary.stderr);
   const secondaryLoudness = parseLoudnessJson(secondary.stderr);
   return {
     ...secondaryParsed,
     loudnessDb: secondaryLoudness.loudnessDb,
     gainDb: secondaryLoudness.gainDb,
-    error: secondary.code === 0 ? undefined : sanitizeFfmpegError(secondary.stderr),
+    error:
+      secondary.code === 0
+        ? undefined
+        : formatCommandAttemptErrors(
+            sanitizeFfmpegError(primary.stderr) ?? `FFmpeg exited with code ${primary.code}`,
+            sanitizeFfmpegError(secondary.stderr) ?? `FFmpeg exited with code ${secondary.code}`,
+          ),
   };
 };
 

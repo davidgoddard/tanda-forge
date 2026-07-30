@@ -699,6 +699,12 @@ In **Settings -> Library**, the controls are grouped by purpose and tied togethe
 - **Verify library readiness** is the final check.
   - It verifies the current database, not the unimported legacy files sitting on disk.
   - If the database is empty, it will now tell you to import legacy data or run a scan first.
+  - A zero-trim result is informational: it means no qualifying leading or
+    trailing silence was detected, and it does not prevent readiness.
+  - The result includes compressed-audio eligible, ready, and missing counts so
+    a missing compressed companion cannot be hidden behind a generic failure.
+  - If loudness or gain is incomplete for an otherwise unchanged track, the next
+    scan retries that track instead of reusing the incomplete analysis.
 - **Library Scan** refreshes the database, analysis, and waveform PNG cache from the music and cortina folders.
 - Re-running **Scan Music** or **Scan Cortinas** imports newly discovered files, removes tracks whose files have disappeared, and skips overwriting stored editable metadata for already known tracks.
 - In normal use, this means a rescan should skim quickly over existing known files and only do real work for genuinely new or changed files. If you add one CD's worth of tracks, the scan should mostly skim the existing collection and then spend its effort on that newly added material.

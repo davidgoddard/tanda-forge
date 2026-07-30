@@ -14,6 +14,8 @@ describe("shouldReuseUnchangedAnalysis", () => {
           duration_ms: 120000,
           start_offset_ms: 200,
           end_trim_ms: 100,
+          loudness_db: -18,
+          gain_db: 2,
           tag_json: "{}",
           analysis_json: JSON.stringify({ pipelineVersion: ANALYSIS_PIPELINE_VERSION }),
           tag_error: "",
@@ -33,6 +35,27 @@ describe("shouldReuseUnchangedAnalysis", () => {
           duration_ms: 0,
           start_offset_ms: 0,
           end_trim_ms: 0,
+          tag_json: "{}",
+          analysis_json: JSON.stringify({ pipelineVersion: ANALYSIS_PIPELINE_VERSION }),
+          tag_error: "",
+          analysis_error: "",
+        },
+        stat,
+      ),
+    ).toBe(false);
+  });
+
+  it("forces re-analysis when loudness and gain are incomplete", () => {
+    expect(
+      shouldReuseUnchangedAnalysis(
+        {
+          file_size: 1000,
+          file_mtime_ms: 1000,
+          duration_ms: 120000,
+          start_offset_ms: 0,
+          end_trim_ms: 0,
+          loudness_db: null,
+          gain_db: null,
           tag_json: "{}",
           analysis_json: JSON.stringify({ pipelineVersion: ANALYSIS_PIPELINE_VERSION }),
           tag_error: "",

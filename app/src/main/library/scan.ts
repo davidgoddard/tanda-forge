@@ -47,6 +47,8 @@ type ExistingTrackAnalysisState = {
   duration_ms?: number;
   start_offset_ms?: number;
   end_trim_ms?: number;
+  loudness_db?: number | null;
+  gain_db?: number | null;
   tag_error?: string;
   analysis_error?: string;
   tag_json?: string;
@@ -98,6 +100,16 @@ export const shouldReuseUnchangedAnalysis = (
   }
   const durationMs = existing.duration_ms ?? 0;
   if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    return false;
+  }
+  const loudnessDb = existing.loudness_db;
+  const gainDb = existing.gain_db;
+  if (
+    typeof loudnessDb !== "number" ||
+    !Number.isFinite(loudnessDb) ||
+    typeof gainDb !== "number" ||
+    !Number.isFinite(gainDb)
+  ) {
     return false;
   }
   const startOffsetMs = existing.start_offset_ms ?? 0;

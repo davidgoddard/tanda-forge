@@ -8848,3 +8848,38 @@
   - This allows release installers without FFmpeg/ffprobe to pass the current artifact/signature checks.
   - No runtime code change was made; the immediate user workaround is selecting a folder containing both tools under Settings -> Diagnostics, while the release workflow needs a staging step and packaged-tool assertions.
 - Supplied a copy-ready affected-user support response covering the temporary macOS FFmpeg installation and custom tools-folder workaround.
+- Diagnosed the affected user's follow-up readiness result (3,745 tracks; 34 missing loudness/gain; 130 no trim signals; zero duration, analysis, or waveform failures).
+  - `missingTrimSignals` currently means both stored trim offsets are zero; valid tracks with no qualifying leading/trailing silence are therefore incorrectly treated as blockers.
+  - The 34 loudness cases represent successful FFmpeg runs with no finite parsed loudnorm value (for example silent/near-silent material); playback safely falls back to unity gain, but those tracks are not automatically normalized.
+  - A full database reset/rescan is not indicated by this result. The user should spot-check the exceptional tracks; the readiness semantics and silent/non-measurable loudness reporting merit a future code/UI correction.
+- Follow-up source verification of a separate Codex review refined that diagnosis for 0.3.13:
+  - `shouldReuseUnchangedAnalysis(...)` accepts current-pipeline rows without requiring finite `loudness_db`/`gain_db`, so the 34 incomplete results are reused rather than retried even if FFmpeg now works.
+  - `evaluateDataReadiness(...)` includes `compressedMissing` as a blocker, but `legacyReadinessSummary` omits compressed readiness counts, creating a hidden failure reason in the Library final-check card.
+  - FFmpeg/ffprobe primary failures can be masked by later fallback attempts against the bare system-PATH command, leaving the less useful fallback `ENOENT` as the surfaced error.
+  - The report's named missing 1942 compressed track depends on the user's supplied database/cache evidence; the general hidden compressed-blocker defect is confirmed in source.
+
+## 2026-07-30 — Readiness repair release 0.3.14
+
+- Bumped the application release from 0.3.13 to 0.3.14.
+- Corrected readiness evaluation so valid tracks with zero leading/end trim no
+  longer block readiness; their count remains visible as informational.
+- Tightened unchanged-analysis reuse so missing/non-finite loudness or gain
+  forces per-track reanalysis on the next scan.
+- Added compressed eligible/ready/missing totals to the Library final-check
+  summary, eliminating hidden compressed-cache blockers.
+- Preserved primary FFmpeg/ffprobe failures when fallback attempts also fail,
+  including multi-attempt waveform and compressed/playable render diagnostics.
+- Updated release CI to stage the platform FFmpeg payload before packaging and
+  to fail macOS verification unless packaged `ffmpeg` and `ffprobe` are present
+  and executable.
+- Added/updated regression coverage in:
+  - `tests/data-readiness.test.ts`
+  - `tests/scan-reuse-analysis.test.ts`
+  - `tests/analysis-command-line.test.ts`
+  - `tests/settings-diagnostics-controller.test.ts`
+- Updated functional, UI, packaging, feature-matrix, and user-guide documentation
+  for the repaired behavior.
+- Verification:
+  - Focused regression suite: 4 files / 23 tests passed.
+  - `npm run build` passed.
+  - `npm test` passed: 95 files / 487 tests.

@@ -84,6 +84,16 @@ jobs:
           npm_config_arch: ${{ matrix.arch }}
           npm_config_target_arch: ${{ matrix.arch }}
 
+      - name: Stage bundled FFmpeg tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.target }}" in
+            mac-*) ./scripts/fetch-ffmpeg.sh macos ;;
+            windows) ./scripts/fetch-ffmpeg.sh windows ;;
+            linux) ./scripts/fetch-ffmpeg.sh linux ;;
+          esac
+
       - name: Package
         shell: bash
         run: |
@@ -137,6 +147,8 @@ jobs:
             echo "Could not resolve packaged .app in dist/"
             exit 1
           fi
+          test -x "$APP_ROOT/Contents/Resources/ffmpeg/darwin/ffmpeg"
+          test -x "$APP_ROOT/Contents/Resources/ffmpeg/darwin/ffprobe"
           if /usr/bin/codesign -dv "$APP_ROOT" >/dev/null 2>&1; then
             /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP_ROOT"
             sign_info=$(/usr/bin/codesign -dv --verbose=4 "$APP_ROOT" 2>&1 || true)

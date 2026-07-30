@@ -39,6 +39,12 @@ Analysis:
 - FR-001.2.R10: Per-track scan work may run independent analysis and waveform
   generation in parallel; a failure in one step must not cancel the other step,
   and all failures must be logged for diagnostics.
+- FR-001.2.R11: An unchanged track may reuse completed analysis only when duration,
+  loudness, and gain outputs are finite and current; incomplete loudness/gain
+  results must be retried on the next scan.
+- FR-001.2.R12: When a bundled/custom FFmpeg attempt and its PATH fallback both
+  fail, diagnostics must preserve the primary failure as well as the fallback
+  failure instead of replacing the actionable original error.
 
 ### FR-001.3 Progress and Resume
 - FR-001.3.R1: Scanning must report progress continuously (current, total, current file).
