@@ -8889,3 +8889,6 @@
   - GitHub release publication remains pending because this environment had no
     GitHub CLI or connected authenticated in-app browser; publishing the release
     will trigger `.github/workflows/release.yml`.
+- Supplied copy-ready GitHub release notes for v0.3.14, including the post-upgrade
+  instruction to rerun the library scan so incomplete 0.3.13 loudness/gain rows
+  are retried.
