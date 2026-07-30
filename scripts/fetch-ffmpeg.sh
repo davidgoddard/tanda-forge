@@ -8,6 +8,7 @@ TMP_DIR="${TMPDIR:-/tmp}/tanda-ffmpeg"
 mkdir -p "$FFMPEG_DIR/darwin" "$FFMPEG_DIR/win32" "$FFMPEG_DIR/linux" "$TMP_DIR"
 
 fetch_macos() {
+  mkdir -p "$TMP_DIR/ffmpeg" "$TMP_DIR/ffprobe"
   curl -L -o "$TMP_DIR/ffmpeg.zip" https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip
   curl -L -o "$TMP_DIR/ffprobe.zip" https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip
   unzip -o "$TMP_DIR/ffmpeg.zip" -d "$TMP_DIR/ffmpeg"
@@ -18,6 +19,7 @@ fetch_macos() {
 }
 
 fetch_windows() {
+  mkdir -p "$TMP_DIR/ffmpeg-win"
   curl -L -o "$TMP_DIR/ffmpeg-win.zip" https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
   unzip -o "$TMP_DIR/ffmpeg-win.zip" -d "$TMP_DIR/ffmpeg-win"
   local bin_dir
@@ -31,6 +33,7 @@ fetch_windows() {
 }
 
 fetch_linux() {
+  mkdir -p "$TMP_DIR/ffmpeg-linux"
   curl -L -o "$TMP_DIR/ffmpeg-linux.tar.xz" https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
   tar -xJf "$TMP_DIR/ffmpeg-linux.tar.xz" -C "$TMP_DIR/ffmpeg-linux"
   local bin_dir

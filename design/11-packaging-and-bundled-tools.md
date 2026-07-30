@@ -16,6 +16,9 @@
 - PKG-FFM-006: Release CI must stage the platform FFmpeg/ffprobe payload before
   packaging and must fail macOS package verification when either packaged tool
   is missing or not executable.
+- PKG-FFM-007: The platform fetch script must create each temporary extraction
+  directory before invoking archive tools so clean CI runners can stage the
+  payload without relying on pre-existing temporary folders.
 
 ## Release Delivery
 

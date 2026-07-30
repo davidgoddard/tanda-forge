@@ -8892,3 +8892,14 @@
 - Supplied copy-ready GitHub release notes for v0.3.14, including the post-upgrade
   instruction to rerun the library scan so incomplete 0.3.13 loudness/gain rows
   are retried.
+- Repaired the v0.3.14 Linux release staging failure in
+  `scripts/fetch-ffmpeg.sh`: each platform extraction directory is now created
+  before its archive tool runs, including the previously missing
+  `/tmp/tanda-ffmpeg/ffmpeg-linux` directory.
+- Added `tests/fetch-ffmpeg-script.test.ts` to enforce extraction-directory
+  creation before `unzip`/`tar`, and added packaging requirement `PKG-FFM-007`.
+- Verification after the staging repair:
+  - `bash -n scripts/fetch-ffmpeg.sh` passed.
+  - Focused fetch-script regression passed.
+  - `npm run build` passed.
+  - `npm test` passed: 96 files / 488 tests.
