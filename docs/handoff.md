@@ -8903,3 +8903,11 @@
   - Focused fetch-script regression passed.
   - `npm run build` passed.
   - `npm test` passed: 96 files / 488 tests.
+# Current handoff
+
+- Artist-summary accent preservation:
+  - `summarizeArtistName(...)` continues to use accent-insensitive matching for
+    orchestra-noise removal, but restores source diacritics in the display value.
+  - Existing stored summaries can be refreshed with **Settings -> Library ->
+    Re-parse Stored Metadata**.
+  - Added regressions for `Miguel Caló` and `Aníbal Troilo`.

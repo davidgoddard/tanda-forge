@@ -116,7 +116,8 @@ Fields:
 
 - DATA-005.R1: Track identity is `root_id + relative_path + file_hash`.
 - DATA-005.R2: `file_hash` is computed when a file changes and stored.
-- DATA-005.R3: `artist_summary` is normalized for display in tanda summaries.
+- DATA-005.R3: `artist_summary` is normalized for display in tanda summaries while
+  preserving the source artist name's Unicode accents and diacritics.
 - DATA-005.R4: `genre` is normalized on scan to prevent case-duplicate styles.
 - DATA-005.R5: Artist normalization is based on legacy `similar.js` noise removal and
   abbreviation expansion to yield a consistent primary artist string.

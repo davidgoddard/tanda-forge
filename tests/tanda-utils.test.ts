@@ -81,6 +81,12 @@ describe("tanda utils", () => {
       "Anibal Troilo",
     );
     expect(summarizeArtistName("Juan D'Arienzo")).toBe("Juan D'Arienzo");
+    expect(summarizeArtistName("Miguel Caló Y Su Orquesta Típica")).toBe(
+      "Miguel Caló",
+    );
+    expect(summarizeArtistName("Aníbal Troilo and his orchestra")).toBe(
+      "Aníbal Troilo",
+    );
     expect(summarizeArtistName("Alfredo De Angelis, Dante/ Martel")).toBe(
       "Alfredo De Angelis",
     );

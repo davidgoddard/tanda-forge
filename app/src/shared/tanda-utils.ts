@@ -159,6 +159,29 @@ const cleanArtistCandidate = (value: string) => {
   return titleCase(swapped.toLowerCase());
 };
 
+const restoreCandidateDiacritics = (candidate: string, source: string) => {
+  const accentedTokens = new Map<string, string>();
+  const sourceTokens = source.match(/[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu) ?? [];
+  sourceTokens.forEach((token) => {
+    if (stripDiacritics(token) === token) {
+      return;
+    }
+    accentedTokens.set(
+      stripDiacritics(token).toLowerCase().replace(/’/g, "'"),
+      titleCase(token.toLowerCase()).replace(/’/g, "'"),
+    );
+  });
+  if (accentedTokens.size === 0) {
+    return candidate;
+  }
+  return candidate.replace(
+    /[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu,
+    (token) => accentedTokens.get(
+      stripDiacritics(token).toLowerCase().replace(/’/g, "'"),
+    ) ?? token,
+  );
+};
+
 const stripSingerSuffixForArtistSummary = (input: string) => {
   const raw = collapseWhitespace(input);
   if (!raw) {
@@ -235,9 +258,9 @@ export const summarizeArtistName = (input: string) => {
   const raw = stripSingerSuffixForArtistSummary(input);
   const candidates = extractArtistCandidates(raw);
   if (candidates.length > 0) {
-    return candidates[0];
+    return restoreCandidateDiacritics(candidates[0], raw);
   }
-  const cleaned = collapseWhitespace(stripDiacritics(raw));
+  const cleaned = collapseWhitespace(raw);
   return cleaned ? titleCase(cleaned.toLowerCase()) : "";
 };
 
