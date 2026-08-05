@@ -118,6 +118,14 @@ Fields:
 - DATA-005.R2: `file_hash` is computed when a file changes and stored.
 - DATA-005.R3: `artist_summary` is normalized for display in tanda summaries while
   preserving the source artist name's Unicode accents and diacritics.
+- DATA-005.R3.a: Stored-metadata refresh compares the regenerated summary with the
+  persisted `artist_summary` value so normalization-rule changes repair existing rows.
+- DATA-005.R3.b: Display-facing tanda aggregation derives its artist label from the
+  full source `artist` value before falling back to `artist_summary`, preventing a
+  stale or historically lossy normalized field from degrading Unicode spelling.
+- DATA-005.R3.c: When a saved tanda name is accent-insensitively identical to its
+  single summarized artist, display summaries use the artist's current accented
+  spelling without changing descriptive or multi-artist tanda names.
 - DATA-005.R4: `genre` is normalized on scan to prevent case-duplicate styles.
 - DATA-005.R5: Artist normalization is based on legacy `similar.js` noise removal and
   abbreviation expansion to yield a consistent primary artist string.

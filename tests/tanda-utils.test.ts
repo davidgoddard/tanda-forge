@@ -8,6 +8,8 @@ import {
   summarizeTandaTracks,
   normalizeStyleName,
   summarizeArtistName,
+  summarizeTrackArtist,
+  restoreEquivalentArtistSpelling,
   extractArtistCandidates,
   extractSingerName,
 } from "../app/src/shared/tanda-utils";
@@ -96,6 +98,29 @@ describe("tanda utils", () => {
     expect(
       extractArtistCandidates("D'Agostino, Angel y su orquesta tipica"),
     ).toContain("Angel D'Agostino");
+  });
+
+  it("prefers accented source artist text over a stale normalized summary", () => {
+    expect(
+      summarizeTrackArtist({
+        artist: "Miguel Caló Y Su Orquesta Típica",
+        artist_summary: "Miguel Calo",
+      }),
+    ).toBe("Miguel Caló");
+  });
+
+  it("restores accents in a tanda name that only repeats its single artist", () => {
+    expect(
+      restoreEquivalentArtistSpelling("Miguel Calo", ["Miguel Caló"]),
+    ).toBe("Miguel Caló");
+    expect(
+      restoreEquivalentArtistSpelling("Carlos Di Sarli canta Podesta", [
+        "Carlos Di Sarli",
+      ]),
+    ).toBe("Carlos Di Sarli canta Podesta");
+    expect(
+      restoreEquivalentArtistSpelling("Mixed tanda", ["Miguel Caló", "Ángel Vargas"]),
+    ).toBe("Mixed tanda");
   });
 
   it("extracts singer names from markers", () => {

@@ -266,6 +266,35 @@ export const summarizeArtistName = (input: string) => {
 
 export const normalizeArtistName = (input: string) => summarizeArtistName(input);
 
+export const summarizeTrackArtist = (track: {
+  artist?: string | null;
+  artist_summary?: string | null;
+}) => summarizeArtistName(track.artist || track.artist_summary || "");
+
+const normalizeArtistDisplayComparison = (value: string) =>
+  stripDiacritics(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+export const restoreEquivalentArtistSpelling = (
+  tandaName: string,
+  artistNames: string[],
+) => {
+  const name = tandaName.trim();
+  if (!name || artistNames.length !== 1) {
+    return name;
+  }
+  const artist = artistNames[0]?.trim() ?? "";
+  if (
+    artist &&
+    normalizeArtistDisplayComparison(name) === normalizeArtistDisplayComparison(artist)
+  ) {
+    return artist;
+  }
+  return name;
+};
+
 const extractSingerNameFromText = (input: string) => {
   const raw = collapseWhitespace(input);
   if (!raw) {

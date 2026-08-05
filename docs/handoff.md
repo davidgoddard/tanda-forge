@@ -8911,3 +8911,13 @@
   - Existing stored summaries can be refreshed with **Settings -> Library ->
     Re-parse Stored Metadata**.
   - Added regressions for `Miguel Caló` and `Aníbal Troilo`.
+  - Follow-up fix: stored-metadata refresh now compares against the actual persisted
+    `artist_summary` instead of recomputing both sides of the comparison, and the
+    renderer reloads already-cached tracks so open playlist summaries update immediately.
+  - Tanda summaries and audience-display artist labels now prefer the full `artist`
+    spelling and normalize it at display time, using `artist_summary` only as fallback.
+  - The built-in orchestra registry canonical spelling is now `Miguel Caló`.
+  - Follow-up from the 0.3.15 screenshot: the remaining accentless text was the
+    persisted tanda `name`, not its repaired track summary. Collapsed and expanded
+    tanda summaries now substitute the current accented artist spelling only when
+    that name is otherwise an exact accent-insensitive single-artist duplicate.

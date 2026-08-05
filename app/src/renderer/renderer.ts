@@ -3,6 +3,8 @@ import {
   deriveInstrumental,
   normalizeStyleName,
   summarizeArtistName,
+  summarizeTrackArtist,
+  restoreEquivalentArtistSpelling,
   summarizeTandaTracks,
   collectStylesFromTracks,
 } from "../shared/tanda-utils.js";
@@ -2912,7 +2914,7 @@ const getNextTandaArtistSummary = () => {
           .filter(Boolean)
           .map((trackId) => trackCache.get(trackId ?? "") ?? null)
           .filter((track): track is TrackRow => Boolean(track))
-          .map((track) => summarizeArtistName(track.artist_summary || track.artist || ""))
+          .map((track) => summarizeTrackArtist(track))
           .filter((artist) => artist.length > 0),
       ),
     );
@@ -2928,7 +2930,7 @@ const getNextTandaArtistSummary = () => {
 };
 
 const getDisplayTrackArtist = (track: TrackRow) =>
-  summarizeArtistName(track.artist_summary || track.artist || "") || t("tandaUnknownArtist");
+  summarizeTrackArtist(track) || t("tandaUnknownArtist");
 
 const getDisplayTrackSinger = (track: TrackRow) => {
   const singer = track.singer?.trim() ?? "";
@@ -7141,7 +7143,7 @@ const getInstrumentalLabel = (status: string) => {
 };
 
 const buildTandaSummaryText = (tanda: TandaDraft, fallbackName?: string) => {
-  const name = (tanda.name || fallbackName || "").trim();
+  const rawName = (tanda.name || fallbackName || "").trim();
   const tracks = tanda.trackSlots.map((trackId) =>
     trackId ? trackCache.get(trackId) ?? null : null,
   );
@@ -7150,8 +7152,7 @@ const buildTandaSummaryText = (tanda: TandaDraft, fallbackName?: string) => {
       if (!track) {
         return null;
       }
-      const artist =
-        track.artist_summary || summarizeArtistName(track.artist);
+      const artist = summarizeTrackArtist(track);
       return {
         artist,
         year: track.year,
@@ -7167,6 +7168,10 @@ const buildTandaSummaryText = (tanda: TandaDraft, fallbackName?: string) => {
           )
           .join(" / ")
       : t("tandaUnknownArtist");
+  const name = restoreEquivalentArtistSpelling(
+    rawName,
+    summary.artists.map((artist) => artist.name),
+  );
   const yearLabel = summary.years.length > 0 ? summary.years.join(",") : "";
   const instrumentalLabel = getInstrumentalLabel(summary.instrumentalStatus);
   const bpmValues = tracks
@@ -7204,8 +7209,7 @@ const getTandaSortKey = (tanda: TandaDraft) => {
       if (!track) {
         return null;
       }
-      const artist =
-        track.artist_summary || summarizeArtistName(track.artist);
+      const artist = summarizeTrackArtist(track);
       return {
         artist,
         year: track.year,
@@ -7220,7 +7224,7 @@ const buildTandaExpandedSummaryText = (
   tanda: TandaDraft,
   fallbackName?: string,
 ) => {
-  const name = (tanda.name || fallbackName || "").trim();
+  const rawName = (tanda.name || fallbackName || "").trim();
   const tracks = tanda.trackSlots.map((trackId) =>
     trackId ? trackCache.get(trackId) ?? null : null,
   );
@@ -7230,10 +7234,15 @@ const buildTandaExpandedSummaryText = (
         return null;
       }
       return {
+        artist: summarizeTrackArtist(track),
         year: track.year,
         instrumental: track.instrumental ?? null,
       };
     }),
+  );
+  const name = restoreEquivalentArtistSpelling(
+    rawName,
+    summary.artists.map((artist) => artist.name),
   );
   const yearLabel =
     summary.years.length > 0 ? getTandaYearRange(summary.years) : "";
@@ -10766,7 +10775,7 @@ const renderTandaDesigner = () => {
           return null;
         }
         return {
-          artist: track.artist_summary || summarizeArtistName(track.artist),
+          artist: summarizeTrackArtist(track),
           year: track.year,
           instrumental: track.instrumental ?? null,
         };
@@ -14379,6 +14388,11 @@ const init = async () => {
       renderAllLists();
     },
     onStoredMetadataRefreshed: async () => {
+      const cachedTrackIds = Array.from(trackCache.keys());
+      if (cachedTrackIds.length > 0) {
+        const refreshedTracks = await window.tanda!.getTracksByIds(cachedTrackIds);
+        refreshedTracks.forEach((track) => trackCache.set(track.id, track));
+      }
       await refreshNewCollectionTracks();
       await refreshSearch();
       renderAllLists();

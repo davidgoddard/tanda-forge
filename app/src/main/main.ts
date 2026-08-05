@@ -40,7 +40,10 @@ import {
   auditCompressionReadiness,
   listCompressionEligibleTracks,
 } from "./library/compression-readiness";
-import { refreshStoredTrackMetadata } from "./library/stored-metadata-refresh";
+import {
+  refreshStoredTrackMetadata,
+  storedTrackMetadataNeedsRefresh,
+} from "./library/stored-metadata-refresh";
 import {
   buildJumpIndex,
   getSortKeySql,
@@ -1343,11 +1346,12 @@ const registerIpc = () => {
   ipcMain.handle("library:refreshStoredMetadata", async () => {
     const db = getDb();
     const rows = db
-      .prepare("select id, title, artist, singer, tag_json from tracks")
+      .prepare("select id, title, artist, artist_summary, singer, tag_json from tracks")
       .all() as Array<{
       id: string;
       title: string | null;
       artist: string | null;
+      artist_summary: string | null;
       singer: string | null;
       tag_json: string | null;
     }>;
@@ -1360,16 +1364,7 @@ const registerIpc = () => {
     let updated = 0;
     rows.forEach((row) => {
       const refreshed = refreshStoredTrackMetadata(row);
-      const currentTitle = (row.title ?? "").trim();
-      const currentArtist = (row.artist ?? "").trim();
-      const currentSinger = (row.singer ?? "").trim();
-      const currentArtistSummary = currentArtist ? summarizeArtistName(currentArtist) : "";
-      if (
-        currentTitle === refreshed.title &&
-        currentArtist === refreshed.artist &&
-        currentArtistSummary === refreshed.artistSummary &&
-        currentSinger === refreshed.singer
-      ) {
+      if (!storedTrackMetadataNeedsRefresh(row, refreshed)) {
         return;
       }
       updateTrack.run(

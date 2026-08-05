@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { refreshStoredTrackMetadata } from "../app/src/main/library/stored-metadata-refresh";
+import {
+  refreshStoredTrackMetadata,
+  storedTrackMetadataNeedsRefresh,
+} from "../app/src/main/library/stored-metadata-refresh";
 
 describe("stored metadata refresh", () => {
   it("rebuilds title, artist summary, and singer from stored tags", () => {
@@ -35,5 +38,24 @@ describe("stored metadata refresh", () => {
       artistSummary: "Carlos Di Sarli",
       singer: "Ernesto Fama",
     });
+  });
+
+  it("detects a stale stored summary even when the artist field is unchanged", () => {
+    const row = {
+      title: "El Pillete",
+      artist: "Miguel Caló Y Su Orquesta Típica",
+      artist_summary: "Miguel Calo",
+      singer: "",
+      tag_json: null,
+    };
+    const refreshed = refreshStoredTrackMetadata(row);
+    expect(refreshed.artistSummary).toBe("Miguel Caló");
+    expect(storedTrackMetadataNeedsRefresh(row, refreshed)).toBe(true);
+    expect(
+      storedTrackMetadataNeedsRefresh(
+        { ...row, artist_summary: "Miguel Caló" },
+        refreshed,
+      ),
+    ).toBe(false);
   });
 });

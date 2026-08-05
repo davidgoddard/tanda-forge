@@ -6,6 +6,7 @@ import {
 export type StoredTrackMetadataRow = {
   title: string | null;
   artist: string | null;
+  artist_summary?: string | null;
   singer: string | null;
   tag_json: string | null;
 };
@@ -42,3 +43,12 @@ export const refreshStoredTrackMetadata = (row: StoredTrackMetadataRow) => {
     singer,
   };
 };
+
+export const storedTrackMetadataNeedsRefresh = (
+  row: StoredTrackMetadataRow,
+  refreshed: ReturnType<typeof refreshStoredTrackMetadata>,
+) =>
+  (row.title ?? "").trim() !== refreshed.title ||
+  (row.artist ?? "").trim() !== refreshed.artist ||
+  (row.artist_summary ?? "").trim() !== refreshed.artistSummary ||
+  (row.singer ?? "").trim() !== refreshed.singer;

@@ -2,6 +2,7 @@ import {
   collectStylesFromTracks,
   normalizeStyleName,
   summarizeArtistName,
+  summarizeTrackArtist,
   summarizeTandaTracks,
   type TrackStyleFields,
   type TandaSummaryTrack,
@@ -30,9 +31,7 @@ export const buildTandaSearchQuery = (params: {
   tracks: TandaSearchTrack[];
 }) => {
   const summaryTracks: TandaSummaryTrack[] = params.tracks.map((track) => ({
-    artist:
-      track.artist_summary ||
-      (track.artist ? summarizeArtistName(track.artist) : ""),
+    artist: summarizeTrackArtist(track),
     year: track.year,
     instrumental: track.instrumental ?? null,
   }));

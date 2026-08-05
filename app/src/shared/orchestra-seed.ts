@@ -12,7 +12,7 @@ export const ORCHESTRA_SEED_DATA: OrchestraSeedEntry[] = [
   { canonical: "Osvaldo Pugliese", aliases: ["Pugliese", "Orquesta Osvaldo Pugliese", "Orquesta Tipica Osvaldo Pugliese"] },
   { canonical: "Francisco Canaro", aliases: ["Canaro", "Orquesta Francisco Canaro", "Orquesta Tipica Francisco Canaro"] },
   { canonical: "Alfredo De Angelis", aliases: ["De Angelis", "Alfredo de Angelis", "Orquesta Tipica Alfredo De Angelis"] },
-  { canonical: "Miguel Calo", aliases: ["Miguel Caló", "Calo", "Caló", "Orquesta Tipica Miguel Calo", "Orquesta Típica Miguel Caló"] },
+  { canonical: "Miguel Caló", aliases: ["Miguel Calo", "Calo", "Caló", "Orquesta Tipica Miguel Calo", "Orquesta Típica Miguel Caló"] },
   { canonical: "Rodolfo Biagi", aliases: ["Biagi", "Orquesta Rodolfo Biagi", "Orquesta Tipica Rodolfo Biagi"] },
   { canonical: "Ricardo Tanturi", aliases: ["Tanturi", "Orquesta Ricardo Tanturi", "Orquesta Tipica Ricardo Tanturi"] },
   { canonical: "Angel D'Agostino", aliases: ["Ángel D'Agostino", "D'Agostino", "Angel D Agostino", "Orquesta Angel D'Agostino"] },
