@@ -47,6 +47,7 @@ const createSchema = (database: Database.Database) => {
       analysis_error text,
       tag_json text,
       analysis_json text,
+      deleted_at text,
       created_at text not null,
       updated_at text not null,
       last_scanned_at text,
@@ -175,6 +176,12 @@ export const initDb = () => {
   } catch {}
   try {
     db.exec("alter table tracks add column last_scanned_at text");
+  } catch {}
+  try {
+    db.exec("alter table tracks add column deleted_at text");
+  } catch {}
+  try {
+    db.exec("create index if not exists idx_tracks_deleted_at on tracks (deleted_at)");
   } catch {}
   try {
     db.exec("alter table tandas add column rating integer");

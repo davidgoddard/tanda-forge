@@ -4,7 +4,8 @@ import { buildTandaSearchWhere } from "../app/src/main/library/tandas";
 describe("tanda search helpers", () => {
   it("returns the baseline valid-tanda filter when no filters", () => {
     const result = buildTandaSearchWhere({ query: "", styles: [], size: null });
-    expect(result.whereSql).toBe("where coalesce(tandas.invalid, 0) = 0");
+    expect(result.whereSql).toContain("where coalesce(tandas.invalid, 0) = 0");
+    expect(result.whereSql).toContain("deleted_t.deleted_at is not null");
     expect(result.values).toEqual([]);
   });
 

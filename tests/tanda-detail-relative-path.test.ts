@@ -5,7 +5,7 @@ describe("tanda detail loading", () => {
   it("preserves track relative_path for renderer consumers", () => {
     const db = {
       prepare: (sql: string) => {
-        if (sql.includes("from tandas where id = ?")) {
+        if (sql.includes("from tandas") && sql.includes("where id = ?")) {
           return {
             get: () => ({
               id: "t1",

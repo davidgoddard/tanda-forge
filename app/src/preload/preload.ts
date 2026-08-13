@@ -79,6 +79,9 @@ const api: AppApi = {
     ipcRenderer.invoke("tracks:searchJumpToPrefix", params),
   getTrackStyles: async () => ipcRenderer.invoke("tracks:getStyles"),
   updateTrack: async (payload) => ipcRenderer.invoke("tracks:update", payload),
+  deleteTrack: async (payload) => ipcRenderer.invoke("tracks:delete", payload),
+  listDeletedTracks: async () => ipcRenderer.invoke("tracks:listDeleted"),
+  restoreDeletedTracks: async (ids) => ipcRenderer.invoke("tracks:restoreDeleted", ids),
   getWaveform: async (trackId) => ipcRenderer.invoke("tracks:getWaveform", trackId),
   generateWaveform: async (trackId) =>
     ipcRenderer.invoke("tracks:generateWaveform", trackId),

@@ -9,7 +9,7 @@ export type SearchFilters = {
   bpmRange: number;
 };
 
-const selectTrackSql = `select t.id, t.full_path, t.relative_path, t.title, t.artist, t.artist_summary, t.singer, t.album,\n  t.album_artist, t.year, t.genre, t.bpm, t.notes, t.instrumental, t.duration_ms, t.start_offset_ms, t.end_trim_ms,\n  t.analysis_json, t.loudness_db, t.gain_db, t.tag_error, t.analysis_error\nfrom tracks t\njoin library_roots r on r.id = t.root_id\nwhere r.kind = 'music'`;
+const selectTrackSql = `select t.id, t.full_path, t.relative_path, t.title, t.artist, t.artist_summary, t.singer, t.album,\n  t.album_artist, t.year, t.genre, t.bpm, t.notes, t.instrumental, t.duration_ms, t.start_offset_ms, t.end_trim_ms,\n  t.analysis_json, t.loudness_db, t.gain_db, t.tag_error, t.analysis_error\nfrom tracks t\njoin library_roots r on r.id = t.root_id\nwhere r.kind = 'music' and t.deleted_at is null`;
 
 export const fetchSearchCandidates = (db: Database.Database, styles: string[]) => {
   if (!styles.length) {

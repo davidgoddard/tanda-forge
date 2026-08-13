@@ -162,6 +162,11 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
   }
 
   where.push("coalesce(tandas.invalid, 0) = 0");
+  where.push(`not exists (
+    select 1 from tanda_tracks deleted_tt
+    join tracks deleted_t on deleted_t.id = deleted_tt.track_id
+    where deleted_tt.tanda_id = tandas.id and deleted_t.deleted_at is not null
+  )`);
 
   if (params.size && Number.isFinite(params.size) && params.size >= 1) {
     where.push(`(
@@ -183,6 +188,7 @@ export const listTandas = (db: Database.Database): TandaDetail[] => {
     .prepare(
       `select id, name, rating, instrumental, total_duration_ms, slot_count
        from tandas
+       where coalesce(invalid, 0) = 0
        order by updated_at desc`,
     )
     .all() as {
@@ -206,6 +212,7 @@ export const listRecentTandaIds = (
     .prepare(
       `select id
        from tandas
+       where coalesce(invalid, 0) = 0
        order by updated_at desc
        limit ?`,
     )
@@ -283,7 +290,7 @@ export const saveTanda = (
         .prepare(
       `select id, title, artist, artist_summary, album, genre, year, notes, full_path,
             singer, instrumental, duration_ms, start_offset_ms, end_trim_ms, loudness_db, gain_db
-           from tracks where id in (${trackIds.map(() => "?").join(", ")})`,
+           from tracks where deleted_at is null and id in (${trackIds.map(() => "?").join(", ")})`,
         )
         .all(...trackIds) as TandaDetail["tracks"])
     : [];
@@ -360,7 +367,13 @@ const loadTandaDetail = (
   const row = db
     .prepare(
       `select id, name, rating, instrumental, total_duration_ms, slot_count
-       from tandas where id = ?`,
+       from tandas
+       where id = ? and coalesce(invalid, 0) = 0
+         and not exists (
+           select 1 from tanda_tracks deleted_tt
+           join tracks deleted_t on deleted_t.id = deleted_tt.track_id
+           where deleted_tt.tanda_id = tandas.id and deleted_t.deleted_at is not null
+         )`,
     )
     .get(tandaId) as {
     id: string;
@@ -388,7 +401,7 @@ const loadTandaDetail = (
               t.end_trim_ms, t.loudness_db, t.gain_db
        from tanda_tracks tt
        join tracks t on t.id = tt.track_id
-       where tt.tanda_id = ?
+       where tt.tanda_id = ? and t.deleted_at is null
        order by tt.position`,
     )
     .all(tandaId) as {

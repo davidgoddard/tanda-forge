@@ -8905,6 +8905,11 @@
   - `npm test` passed: 96 files / 488 tests.
 # Current handoff
 
+- Release version:
+  - Bumped the application and lockfile package version to `0.3.16` for the
+    logical track deletion and Library Un-delete release.
+  - The detailed workflow remains in the user guide; the main README is intentionally unchanged.
+
 - Artist-summary accent preservation:
   - `summarizeArtistName(...)` continues to use accent-insensitive matching for
     orchestra-noise removal, but restores source diacritics in the display value.
@@ -8921,3 +8926,24 @@
     persisted tanda `name`, not its repaired track summary. Collapsed and expanded
     tanda summaries now substitute the current accented artist spelling only when
     that name is otherwise an exact accent-insensitive single-artist duplicate.
+- Waveform played-region contrast:
+  - Increased the shared `.waveform-progress` dark overlay from 18% to 36% opacity
+    after the initial 28% adjustment was still too subtle.
+  - This affects both the main now-playing waveform and the track-editor waveform,
+    making the section left of the playhead easier to distinguish.
+- Library workflow analysis-step label:
+  - Renamed `Run analysis setup` to `Run setup / import / rescan` so the step
+    describes initial setup, legacy migration, and later maintenance scans.
+  - Updated the localized `libraryWorkflowStepAnalysis` value in English,
+    Spanish, French, German, Portuguese, Italian, and Icelandic, plus the HTML fallback.
+- Logical track deletion:
+  - The track editor now has a Delete Track action with confirmation and an
+    optional unchecked source-file removal choice.
+  - Deleted tracks retain a `deleted_at` tombstone, remain excluded from search,
+    ID restoration, recent collections, tanda use, playlist playback, and
+    auto-fill after rescans, and invalidate dependent tandas/playlists.
+  - Disk-removal permission/filesystem errors are reported without reversing the
+    logical deletion.
+  - The Library tab ends with an Un-delete checklist showing deleted tracks by
+    title and artist. Restoring selected rows clears their tombstones and only
+    revalidates dependencies when every referenced item is usable.

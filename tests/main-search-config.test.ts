@@ -10,14 +10,14 @@ import {
 describe("search-config", () => {
   it("buildStyleWhere defaults to music root constraint", () => {
     expect(buildStyleWhere([])).toEqual({
-      whereSql: "where r.kind = 'music'",
+      whereSql: "where r.kind = 'music' and t.deleted_at is null",
       values: [],
     });
   });
 
   it("buildStyleWhere appends genre placeholders for style filters", () => {
     expect(buildStyleWhere(["Tango", "Milonga"])).toEqual({
-      whereSql: "where r.kind = 'music' and t.genre in (?, ?)",
+      whereSql: "where r.kind = 'music' and t.deleted_at is null and t.genre in (?, ?)",
       values: ["Tango", "Milonga"],
     });
   });

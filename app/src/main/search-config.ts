@@ -1,7 +1,7 @@
 import type { SortColumn } from "./library/query";
 
 export const buildStyleWhere = (styles: string[]) => {
-  const base = "where r.kind = 'music'";
+  const base = "where r.kind = 'music' and t.deleted_at is null";
   if (!styles || styles.length === 0) {
     return { whereSql: base, values: [] as unknown[] };
   }

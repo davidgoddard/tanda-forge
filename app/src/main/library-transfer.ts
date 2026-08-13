@@ -161,7 +161,7 @@ type TrackLookupMaps = {
 
 const buildTrackLookupMaps = (db: Database.Database): TrackLookupMaps => {
   const rows = db
-    .prepare("select id, full_path, relative_path, title, artist from tracks")
+    .prepare("select id, full_path, relative_path, title, artist from tracks where deleted_at is null")
     .all() as Array<{
       id: string;
       full_path: string;

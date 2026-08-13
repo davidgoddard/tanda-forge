@@ -83,6 +83,7 @@ import {
   searchTandas,
 } from "./library/tandas";
 import { getRootRemovalPreview, removeLibraryRoot } from "./library/root-removal";
+import { listDeletedTracks, logicallyDeleteTrack, restoreDeletedTracks } from "./library/track-deletion";
 import {
   detectLegacyFromRoots,
   detectLegacyRoot,
@@ -1450,7 +1451,7 @@ const registerIpc = () => {
           t.loudness_db, t.gain_db, t.tag_error, t.analysis_error
          from tracks t
          join library_roots r on r.id = t.root_id
-         where r.kind = 'music'
+         where r.kind = 'music' and t.deleted_at is null
          order by t.artist, t.title`,
       )
       .all();
@@ -1483,7 +1484,7 @@ const registerIpc = () => {
             t.loudness_db, t.gain_db, t.tag_error, t.analysis_error
            from tracks t
            join library_roots r on r.id = t.root_id
-           where r.kind = 'music'
+           where r.kind = 'music' and t.deleted_at is null
            order by ${sortSql} ${sortDir}${extraSort}, t.id ${sortDir}
            limit ? offset ?`,
         )
@@ -1980,7 +1981,7 @@ const registerIpc = () => {
                    ${keySql} as key
             from tracks t
             join library_roots r on r.id = t.root_id
-            where r.kind = 'music'
+            where r.kind = 'music' and t.deleted_at is null
           ) where ${whereClause}
           limit 1`,
         )
@@ -2001,7 +2002,7 @@ const registerIpc = () => {
         `select distinct substr(${keySql}, 1, 1) as prefix
          from tracks t
          join library_roots r on r.id = t.root_id
-         where r.kind = 'music' and ${keySql} != ''`,
+         where r.kind = 'music' and t.deleted_at is null and ${keySql} != ''`,
       )
       .all()
       .map((row) => (row as { prefix: string }).prefix);
@@ -2093,6 +2094,20 @@ const registerIpc = () => {
         .get(payload.id);
       return row ? normalizeTrackRow(row) : null;
     },
+  );
+
+  ipcMain.handle(
+    "tracks:delete",
+    async (_event, payload: { id: string; removeFile: boolean }) => {
+      if (!payload?.id || typeof payload.id !== "string") {
+        return { ok: false, fileRemoved: false };
+      }
+      return logicallyDeleteTrack(getDb(), payload.id, payload.removeFile === true);
+    },
+  );
+  ipcMain.handle("tracks:listDeleted", async () => listDeletedTracks(getDb()));
+  ipcMain.handle("tracks:restoreDeleted", async (_event, ids: string[]) =>
+    restoreDeletedTracks(getDb(), Array.isArray(ids) ? ids : []),
   );
 
   ipcMain.handle("tracks:getWaveform", async (_event, trackId: string) => {
@@ -2406,7 +2421,7 @@ const registerIpc = () => {
                 album, year, genre, bpm, notes, instrumental, duration_ms,
                 start_offset_ms, end_trim_ms, analysis_json, loudness_db,
                 gain_db, tag_error, analysis_error
-         from tracks where id in (${placeholders})`,
+           from tracks where deleted_at is null and id in (${placeholders})`,
       )
       .all(...ids);
     return normalizeTrackRows(rows);
@@ -2426,7 +2441,7 @@ const registerIpc = () => {
           `select t.id
            from tracks t
            join library_roots r on r.id = t.root_id
-           where r.kind = 'music'
+           where r.kind = 'music' and t.deleted_at is null
            order by t.created_at desc
            limit ?`,
         )

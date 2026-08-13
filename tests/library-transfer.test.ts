@@ -149,7 +149,7 @@ describe("playlist file import", () => {
     const db = {
       prepare: (sql: string) => ({
         all: () => {
-          expect(sql).toContain("select id, full_path, relative_path, title, artist from tracks");
+          expect(sql).toContain("select id, full_path, relative_path, title, artist from tracks where deleted_at is null");
           return rows;
         },
       }),

@@ -496,6 +496,9 @@ const rootBannerText =
 const openSettingsBtn =
   document.querySelector<HTMLButtonElement>("#open-settings");
 const resetDbBtn = document.querySelector<HTMLButtonElement>("#reset-db");
+const undeleteTracksList = document.querySelector<HTMLDivElement>("#undelete-tracks-list");
+const undeleteTracksButton = document.querySelector<HTMLButtonElement>("#undelete-tracks-button");
+const undeleteTracksResult = document.querySelector<HTMLDivElement>("#undelete-tracks-result");
 const searchInput = document.querySelector<HTMLInputElement>("#search-input");
 const styleOptions = document.querySelector<HTMLDivElement>("#style-options");
 const searchTracksEl = document.querySelector<HTMLDivElement>("#search-tracks");
@@ -752,6 +755,8 @@ const trackEditorBpmInput =
   document.querySelector<HTMLInputElement>("#track-editor-bpm");
 const trackEditorTapBtn =
   document.querySelector<HTMLButtonElement>("#track-editor-tap");
+const trackEditorDeleteBtn =
+  document.querySelector<HTMLButtonElement>("#track-editor-delete");
 const trackEditorCloseBtn =
   document.querySelector<HTMLButtonElement>("#track-editor-close");
 const trackEditorSaveBtn =
@@ -4876,6 +4881,46 @@ const showConfirmModal = async (
   confirmModalEl.classList.remove("hidden");
   return new Promise<boolean>((resolve) => {
     confirmModalResolve = resolve;
+  });
+};
+
+const showDeleteTrackModal = async (): Promise<boolean | null> => {
+  const overlay = document.createElement("div");
+  overlay.className = "confirm-modal";
+  const dialog = document.createElement("div");
+  dialog.className = "confirm-dialog";
+  const title = document.createElement("div");
+  title.className = "confirm-title";
+  title.textContent = t("trackEditorDeleteTitle");
+  const message = document.createElement("div");
+  message.className = "confirm-message";
+  message.textContent = t("trackEditorDeleteMessage");
+  const fileOption = document.createElement("label");
+  fileOption.className = "confirm-checkbox";
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  const optionText = document.createElement("span");
+  optionText.textContent = t("trackEditorDeleteFileOption");
+  fileOption.append(checkbox, optionText);
+  const actions = document.createElement("div");
+  actions.className = "confirm-actions";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "confirm-cancel";
+  cancel.textContent = t("cancel");
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  confirm.className = "danger";
+  confirm.textContent = t("trackEditorDelete");
+  actions.append(cancel, confirm);
+  dialog.append(title, message, fileOption, actions);
+  overlay.append(dialog);
+  document.body.appendChild(overlay);
+  return new Promise((resolve) => {
+    const close = (result: boolean | null) => { overlay.remove(); resolve(result); };
+    cancel.addEventListener("click", () => close(null));
+    confirm.addEventListener("click", () => close(checkbox.checked));
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) close(null); });
   });
 };
 
@@ -14252,6 +14297,38 @@ const renderRoots = async () => {
   renderLibraryWorkflow();
 };
 
+const renderDeletedTracks = async () => {
+  if (!window.tanda || !undeleteTracksList || !undeleteTracksButton) return;
+  const rows = await window.tanda.listDeletedTracks();
+  undeleteTracksList.innerHTML = "";
+  undeleteTracksButton.disabled = true;
+  if (rows.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "settings-note";
+    empty.textContent = t("undeleteTracksEmpty");
+    undeleteTracksList.appendChild(empty);
+    return;
+  }
+  rows.forEach((track) => {
+    const label = document.createElement("label");
+    label.className = "undelete-track-row";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = track.id;
+    checkbox.addEventListener("change", () => {
+      undeleteTracksButton.disabled =
+        !undeleteTracksList.querySelector<HTMLInputElement>('input[type="checkbox"]:checked');
+    });
+    const text = document.createElement("span");
+    text.textContent = t("undeleteTrackLabel", {
+      title: track.title || t("unknownTitle"),
+      artist: track.artist || t("unknownArtist"),
+    });
+    label.append(checkbox, text);
+    undeleteTracksList.appendChild(label);
+  });
+};
+
 const renderDataLocation = async () => {
   if (!window.tanda || !dataLocationPathInput) {
     return;
@@ -15539,6 +15616,29 @@ const init = async () => {
   trackEditorResetBtn?.addEventListener("click", () => {
     resetTrackEditorFields();
   });
+  trackEditorDeleteBtn?.addEventListener("click", async () => {
+    const track = trackEditorState.track;
+    if (!window.tanda || !track) return;
+    const removeFile = await showDeleteTrackModal();
+    if (removeFile === null) return;
+    try {
+      const result = await window.tanda.deleteTrack({ id: track.id, removeFile });
+      if (!result.ok) {
+        setStatus(t("statusTrackDeleteFailed"));
+        return;
+      }
+      setTrackEditorOpen(false);
+      clearTrackEditorState();
+      setStatus(result.fileRemovalError
+        ? t("statusTrackDeletedFileFailed", { message: result.fileRemovalError })
+        : result.fileRemoved ? t("statusTrackDeletedWithFile") : t("statusTrackDeleted"));
+      await refreshSearch();
+      await renderDeletedTracks();
+      renderAllLists();
+    } catch {
+      setStatus(t("statusTrackDeleteFailed"));
+    }
+  });
   trackEditorCloseBtn?.addEventListener("click", async () => {
     if (!(await confirmTrackEditorDiscardIfDirty())) {
       return;
@@ -15996,10 +16096,29 @@ const init = async () => {
     if (result?.ok) {
       setStatus(t("statusDatabaseErased"));
       await renderRoots();
+      await renderDeletedTracks();
       await loadStyles();
       await refreshSearch();
       renderAllLists();
     }
+  });
+  undeleteTracksButton?.addEventListener("click", async () => {
+    if (!window.tanda || !undeleteTracksList) return;
+    const ids = Array.from(
+      undeleteTracksList.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked'),
+    ).map((input) => input.value);
+    if (ids.length === 0) return;
+    const result = await window.tanda.restoreDeletedTracks(ids);
+    if (undeleteTracksResult) {
+      undeleteTracksResult.textContent = t("undeleteTracksRestored", { count: result.restored });
+    }
+    trackCache.clear();
+    tandaCache.clear();
+    await renderDeletedTracks();
+    await loadTandaDrafts();
+    await refreshNewCollectionTracks();
+    await refreshSearch();
+    renderAllLists();
   });
 
   applyTranslations();
@@ -16015,6 +16134,7 @@ const init = async () => {
   updateSearchTabVisibility();
   await ensureAudioOutputs();
   await renderRoots();
+  await renderDeletedTracks();
   await renderDataLocation();
   await updateLegacyImport();
   await ensureDefaultStyles("init");

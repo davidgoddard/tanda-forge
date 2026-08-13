@@ -38,6 +38,9 @@ identified as `IPC-<section>.R<n>` in order under each section. Sub-bullets use
 - IPC-003.R2.g: `tracks:searchJumpToPrefix(params): { offset: number }`
 - IPC-003.R2.h: `tracks:getStyles(): string[]`
 - IPC-003.R2.i: `tracks:getByIds(ids): TrackRow[]`
+- IPC-003.R2.j: `tracks:delete({ id, removeFile }): { ok, fileRemoved, fileRemovalError? }`
+- IPC-003.R2.k: `tracks:listDeleted(): DeletedTrackRow[]`
+- IPC-003.R2.l: `tracks:restoreDeleted(ids): { restored: number }`
 
 ### Tandas
 

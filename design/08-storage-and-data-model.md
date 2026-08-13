@@ -142,6 +142,10 @@ Fields:
   `featuring`.
 - DATA-005.R11.a: As a fallback, explicit guest-credit markers in titles may be
   used to infer singer values when the artist field does not carry the credit.
+- DATA-005.R12: `tracks.deleted_at` is a persistent logical-deletion timestamp.
+  Active-library queries exclude tombstoned tracks, normal rescans preserve the
+  tombstone while the source file remains, and dependent tandas/playlists are
+  marked invalid at deletion time.
 
 ## DATA-006 — Local UI State
 

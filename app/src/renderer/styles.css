@@ -309,7 +309,7 @@ body {
   position: absolute;
   inset: 0;
   width: 0%;
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(0, 0, 0, 0.36);
   pointer-events: none;
   transition: width 140ms linear;
   z-index: 2;
@@ -2394,6 +2394,18 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   line-height: 1.4;
 }
 
+.confirm-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.confirm-checkbox input {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
 .confirm-actions {
   display: flex;
   justify-content: flex-end;
@@ -3253,6 +3265,23 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   margin-bottom: 0;
   padding-bottom: 0;
   border-bottom: none;
+}
+
+.undelete-tracks-list {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 18rem;
+  overflow: auto;
+  margin: 0.75rem 0;
+}
+
+.undelete-track-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.45rem;
+  background: var(--panel-muted);
 }
 
 @keyframes settingsSectionPulse {

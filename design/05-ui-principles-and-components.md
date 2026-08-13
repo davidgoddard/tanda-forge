@@ -176,6 +176,8 @@ Rules:
 - UI-009.R3.f.a: The roots panel includes a `Done configuring roots` action so
   operators can collapse that section after adding folders without using the
   left-hand step toggle.
+- UI-009.R3.g: The workflow step that groups initial setup, legacy import, and
+  later scanning is labelled with all three routes in every supported language.
 - UI-009.R4: Playlist and System settings use multi-column layout on wide screens,
   collapsing to a single column on narrow screens.
 - UI-009.R5: Display-board controls live in a dedicated Display Board settings tab.
@@ -280,6 +282,13 @@ Controls:
 - UI-010a.R20.a: After a save leaves the editor open, the unsaved-change
   baseline must be refreshed from the values currently shown in the form so
   switching to another track does not immediately prompt for unchanged edits.
+- UI-010a.R21: The track editor provides a localized Delete Track action with
+  confirmation and an unchecked option to also remove the source audio file.
+- UI-010a.R22: A failed optional disk removal is reported clearly while the
+  track remains logically deleted from Tanda Forge.
+- UI-010a.R23: The bottom of the Library setup tab provides an Un-delete
+  section listing deleted tracks by title and artist with individual checkboxes
+  and a Restore Selected action.
 
 ### UI-011 — Tanda Row Component
 
@@ -397,6 +406,8 @@ Requirements:
   display, it must not stop main playback.
 - UI-015.R12: The waveform container uses a fixed height so showing/hiding the
   waveform does not change the now-playing layout height.
+- UI-015.R13: The played portion to the left of the playhead uses a subtle dark
+  overlay so elapsed audio is distinguishable from the remaining waveform.
 
 ## UI-016 — Tanda Designer Panel
 

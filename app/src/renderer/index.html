@@ -652,6 +652,9 @@
             </div>
           </div>
           <footer class="modal-footer">
+            <button id="track-editor-delete" class="danger" data-i18n="trackEditorDelete">
+              Delete track
+            </button>
             <button id="track-editor-close" data-i18n="close">
               Close
             </button>
@@ -850,7 +853,7 @@
                     ></button>
                     <div class="library-workflow-step-copy">
                       <div class="library-workflow-step-row">
-                        <span data-i18n="libraryWorkflowStepAnalysis">Run analysis setup</span>
+                        <span data-i18n="libraryWorkflowStepAnalysis">Run setup / import / rescan</span>
                         <span class="library-workflow-step-badge" data-i18n="libraryWorkflowRequired">Required</span>
                       </div>
                       <div class="library-workflow-step-note" data-i18n="libraryWorkflowStepAnalysisHelp">
@@ -1206,6 +1209,19 @@
               </div>
               <div id="system-transfer-result" class="diagnostics-result diagnostics-log"></div>
               <div id="system-transfer-progress" class="system-transfer-progress hidden"></div>
+            </div>
+            <div class="settings-section setup-card" id="undelete-tracks-section">
+              <h3 data-i18n="undeleteTracksTitle">Un-delete</h3>
+              <p class="settings-note settings-note-compact" data-i18n="undeleteTracksSummary">
+                Restore tracks previously removed from Tanda Forge when their audio files remain available.
+              </p>
+              <div id="undelete-tracks-list" class="undelete-tracks-list"></div>
+              <div class="settings-actions">
+                <button id="undelete-tracks-button" data-i18n="undeleteTracksButton" disabled>
+                  Restore selected tracks
+                </button>
+              </div>
+              <div id="undelete-tracks-result" class="diagnostics-result"></div>
             </div>
             </div>
           </div>

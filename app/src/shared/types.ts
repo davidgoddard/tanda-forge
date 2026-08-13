@@ -396,6 +396,18 @@ export type AppApi = {
     notes?: string | null;
     instrumental?: boolean | null;
   }) => Promise<TrackRow | null>;
+  deleteTrack: (payload: { id: string; removeFile: boolean }) => Promise<{
+    ok: boolean;
+    fileRemoved: boolean;
+    fileRemovalError?: string;
+  }>;
+  listDeletedTracks: () => Promise<Array<{
+    id: string;
+    title: string;
+    artist: string;
+    deleted_at: string;
+  }>>;
+  restoreDeletedTracks: (ids: string[]) => Promise<{ restored: number }>;
   getWaveform: (trackId: string) => Promise<string | null>;
   generateWaveform: (trackId: string) => Promise<{ ok: boolean; path?: string; error?: string }>;
   getCompressedTrackPath: (params: CompressedTrackLookupParams) => Promise<{

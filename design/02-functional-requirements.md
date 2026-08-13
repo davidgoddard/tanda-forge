@@ -66,6 +66,10 @@ Analysis:
 - FR-001.4.R5: Combined scan/precompute failures must be surfaced to the user
   without aborting unrelated successful work.
 - FR-001.4.R6: Normal library rescans must import newly discovered files, remove missing files, and preserve stored editable metadata for already known tracks unless an explicit migration override applies.
+- FR-001.4.R7: A user may remove an individual track from Tanda Forge by logical deletion. Deleted tracks must remain excluded from browse, search, saved-item restoration, tanda construction, playlist playback, and auto-fill across later rescans. The confirmation may optionally request removal of the source audio file, and failure to remove that file must not undo the logical deletion.
+- FR-001.4.R8: Library maintenance must list logically deleted tracks and allow
+  selected tracks to be restored. Restoration clears the logical-deletion flag
+  and revalidates dependent tandas/playlists only when all their references are usable.
 
 ### FR-001.5 System Backup and Restore
 - FR-001.5.R1: The system must export the full application data root as a

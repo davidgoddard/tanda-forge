@@ -536,6 +536,21 @@ Any track data can be modified by using the **E** menu option which opens the ed
 
 Each field can be modified and can also be used to add to a search for similar items using the **S** button next to each field - the current field value is appended to the search
 
+To remove an unwanted track, open it in the editor and choose **Delete track**.
+After confirmation the track is logically removed: it no longer appears in
+searches, restored collections, tanda building, playlist playback, or auto-fill,
+even after later rescans. The confirmation includes an optional, unchecked choice
+to also delete the audio file from disk. If the operating system does not grant
+permission to remove the file, Tanda Forge reports that error but still keeps the
+track removed from the app. Tandas and saved playlists that referenced the track
+are marked invalid so they cannot be played accidentally.
+
+To undo a logical deletion, open **Settings → Library** and scroll to the
+**Un-delete** section at the bottom. Select tracks using the checkboxes beside
+their title and artist, then choose **Restore selected tracks**. Referencing
+tandas and playlists become usable again only when none of their tracks remain
+deleted or missing. This cannot recover an audio file that was deleted from disk.
+
 <img src="../images/user-guide/16-editor.png" width="400px">
 
 ## Initial Setup
