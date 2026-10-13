@@ -5943,3 +5943,7 @@ The algorithms for audio levelling is different to the older Tanda Player approa
 - User: "Is this feature described in the user guide? If not, please add."
 - Assistant: "I’ll check the user guide and update anything missing or out of date."
 - Assistant: Confirmed the feature was documented; moved its section alongside Collections and updated the location and Clear button wording to match the latest UI. Documentation-only change; whitespace check passed.
+
+- User: "I have commited to the local branch, please push the branch to the main repo"
+- Assistant: "I’ll check the branch and remote, then push your local commits."
+- Assistant: Pushed `feature/rating-filter` at `87506ec` to `origin` (`davidgoddard/tanda-forge`) and configured upstream tracking. Required dialogue/handoff notes were recorded locally after the push and remain uncommitted.

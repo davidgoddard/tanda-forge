@@ -1,6 +1,7 @@
 ## Handoff
 
 ### Current branch / version
+- Published `feature/rating-filter` to `origin/feature/rating-filter` at `87506ec`; upstream tracking configured. Post-push dialogue/handoff notes remain local and uncommitted.
 - Branch: `feature/rating-filter`
 - Version: `0.3.17` (from `package.json`)
 
