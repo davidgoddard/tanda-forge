@@ -1,3 +1,4 @@
+import { matchesRating, normalizeRatingFilter, type RatingFilter, type RatingSnapshot } from "../shared/rating-filter.js";
 import {
   buildTandaArtistSortKey,
   deriveInstrumental,
@@ -499,6 +500,51 @@ const resetDbBtn = document.querySelector<HTMLButtonElement>("#reset-db");
 const undeleteTracksList = document.querySelector<HTMLDivElement>("#undelete-tracks-list");
 const undeleteTracksButton = document.querySelector<HTMLButtonElement>("#undelete-tracks-button");
 const undeleteTracksResult = document.querySelector<HTMLDivElement>("#undelete-tracks-result");
+let ratingFilter: RatingFilter = { mode: "any", stars: 1 };
+let clipboardRenderVersion = 0;
+let tandaSearchVersion = 0;
+const ratingModeKeys = {
+  any: "ratingFilterAny", unrated: "ratingFilterUnrated", atLeast: "ratingFilterAtLeast",
+  exactly: "ratingFilterExactly", atMost: "ratingFilterAtMost",
+};
+const renderRatingFilter = () => {
+  const summary = document.querySelector<HTMLElement>("#rating-filter-summary");
+  if (summary) {
+    summary.textContent = ratingFilter.mode === "any" ? t("ratingFilterLabel") : t("ratingFilterActive", {
+      comparison: t(ratingModeKeys[ratingFilter.mode]),
+      stars: ratingFilter.mode === "unrated" ? "" : "★".repeat(ratingFilter.stars),
+    });
+  }
+  const mode = document.querySelector<HTMLSelectElement>("#rating-filter-mode");
+  if (mode) mode.value = ratingFilter.mode;
+  document.querySelector("#rating-filter-clear")?.classList.toggle("hidden", ratingFilter.mode === "any");
+  const stars = document.querySelector("#rating-filter-stars");
+  if (stars) {
+    stars.replaceChildren();
+    for (let count = 1; count <= 5; count++) {
+      const button = document.createElement("button");
+      button.type = "button";
+      const hasStars = ratingFilter.mode !== "any" && ratingFilter.mode !== "unrated";
+      button.textContent = hasStars && count <= ratingFilter.stars ? "★" : "☆";
+      button.setAttribute("aria-label", t("ratingFilterStarCount", { count }));
+      button.setAttribute("aria-pressed", String(ratingFilter.mode !== "any" && ratingFilter.mode !== "unrated" && count === ratingFilter.stars));
+      button.addEventListener("click", () => {
+        setRatingFilter({ mode: ratingFilter.mode === "any" || ratingFilter.mode === "unrated" ? "atLeast" : ratingFilter.mode, stars: count });
+        // Keep the popup open for keyboard users selecting another star.
+        stars.querySelectorAll<HTMLButtonElement>("button")[count - 1]?.focus();
+      });
+      stars.appendChild(button);
+    }
+  }
+};
+const setRatingFilter = (next: RatingFilter) => {
+  ratingFilter = normalizeRatingFilter(next);
+  tandaSearchVersion += 1;
+  renderRatingFilter();
+  void Promise.all([refreshSearch(), renderClipboard()]).catch(() => {
+    setStatus(t("ratingFilterFailed"));
+  });
+};
 const searchInput = document.querySelector<HTMLInputElement>("#search-input");
 const styleOptions = document.querySelector<HTMLDivElement>("#style-options");
 const searchTracksEl = document.querySelector<HTMLDivElement>("#search-tracks");
@@ -1336,6 +1382,7 @@ const applyTranslations = () => {
       button.title = label;
       button.setAttribute("aria-label", label);
     });
+  renderRatingFilter();
   renderLanguageOptions();
   updateSortButtons();
   updateNowPlayingDisplay();
@@ -8028,15 +8075,19 @@ const loadTandaSearchResults = async () => {
   if (!window.tanda) {
     return;
   }
+  const version = ++tandaSearchVersion;
   const rows = await window.tanda.searchTandas({
+    rating: { ...ratingFilter },
     query: searchInput?.value?.trim() ?? "",
     styles: getExpandedStyleFilter(),
     size: getTandaSearchSizeFilter(),
   });
+  if (version !== tandaSearchVersion) return;
   tandaSearchResults = rows;
   const ids = rows.map((row) => row.id);
   if (ids.length > 0 && window.tanda.getTandasByIds) {
     const details = await window.tanda.getTandasByIds(ids);
+    if (version !== tandaSearchVersion) return;
     details.forEach(upsertTandaCache);
   }
   renderTandaSearchResults();
@@ -8209,6 +8260,21 @@ const renderClipboard = async () => {
   if (!clipTracksEl) {
     return;
   }
+  const version = ++clipboardRenderVersion;
+  const currentRatingFilter = { ...ratingFilter };
+  let ratings: RatingSnapshot = { tracks: [], tandas: [] };
+  if (currentRatingFilter.mode !== "any") {
+    try {
+      if (!window.tanda) throw new Error("Rating API unavailable");
+      ratings = await window.tanda.getRatingSnapshot();
+    } catch {
+      if (version === clipboardRenderVersion) setStatus(t("ratingFilterFailed"));
+      return;
+    }
+  }
+  if (version !== clipboardRenderVersion) return;
+  const trackRatings = new Map(ratings.tracks.map((row) => [row.id, row.rating]));
+  const tandaRatings = new Map(ratings.tandas.map((row) => [row.id, row.rating]));
   const visibleCollectionIds = getVisibleCollectionIds();
   const visibleTrackIds: string[] = [];
   const visibleTandaIds: string[] = [];
@@ -8227,6 +8293,7 @@ const renderClipboard = async () => {
   }
   await ensureClipboardTracksLoaded(visibleTrackIds);
   await ensureClipboardTandasLoaded(visibleTandaIds);
+  if (version !== clipboardRenderVersion) return;
   clipboardTracks = visibleTrackIds
     .map((id) => trackCache.get(id))
     .filter(Boolean) as TrackRow[];
@@ -8263,11 +8330,12 @@ const renderClipboard = async () => {
           styleMatchesFilter(track.genre ?? "", forcedStyles),
         )
       : clipboardTracks;
+  const ratedTracks = filteredTracks.filter((track) => matchesRating(trackRatings.get(track.id), currentRatingFilter));
   const matchedTracks = filterText
-    ? filteredTracks.filter((track) =>
+    ? ratedTracks.filter((track) =>
         getClipboardTrackFilterText(track).includes(filterText),
       )
-    : filteredTracks;
+    : ratedTracks;
   matchedTracks.forEach((track, index) => {
     const row = renderTrackRow(
       track,
@@ -8288,6 +8356,7 @@ const renderClipboard = async () => {
     const sizeFilter = getTandaSearchSizeFilter();
     const styleFilter = getActiveStyleFilter().map((style) => normalizeStyleName(style));
     const filteredTandas = clipboardTandas.filter((tanda) => {
+      if (!matchesRating(tandaRatings.get(tanda.id) ?? tanda.rating, currentRatingFilter)) return false;
       if (sizeFilter && tanda.trackSlots.filter(Boolean).length !== sizeFilter) {
         return false;
       }
@@ -13739,6 +13808,7 @@ const getSearchParams = () => {
     styles: getExpandedStyleFilter(),
     minScore: config.minScore,
     bpmRange: config.bpmRange,
+    rating: { ...ratingFilter },
   };
 };
 
@@ -15282,6 +15352,14 @@ const init = async () => {
     }
   });
 
+  document.querySelector<HTMLSelectElement>("#rating-filter-mode")?.addEventListener("change", (event) => {
+    setRatingFilter({ mode: (event.target as HTMLSelectElement).value as RatingFilter["mode"], stars: ratingFilter.stars });
+  });
+  document.querySelector("#rating-filter-clear")?.addEventListener("click", () => {
+    setRatingFilter({ mode: "any", stars: 1 });
+    const details = document.querySelector<HTMLDetailsElement>("#rating-filter");
+    if (details) details.open = false;
+  });
   if (clipboardFilterInput) {
     clipboardFilterInput.value = clipboardFilterText;
     clipboardFilterInput.addEventListener("input", () => {

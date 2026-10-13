@@ -1,3 +1,4 @@
+import type { RatingFilter, RatingSnapshot } from "./rating-filter";
 import type { PlaylistExportManifest } from "./library-transfer";
 import type { StoredPlaylistState } from "./playlist-storage";
 
@@ -185,6 +186,7 @@ export type JumpRequest = {
 };
 
 export type TrackSearchRequest = {
+  rating?: RatingFilter;
   query: string;
   styles: string[];
   limit?: number;
@@ -357,14 +359,17 @@ export type AppApi = {
   listTrackPage: (params: TrackPageRequest) => Promise<TrackRow[]>;
   jumpToPrefix: (params: JumpRequest) => Promise<{ offset: number }>;
   getJumpIndex: (params: { sortBy?: string }) => Promise<string[]>;
+  getRatingSnapshot: () => Promise<RatingSnapshot>;
   searchTracks: (params: TrackSearchRequest) => Promise<TrackRow[]>;
   searchTrackCount: (params: {
+    rating?: RatingFilter;
     query: string;
     styles: string[];
     minScore?: number;
     bpmRange?: number;
   }) => Promise<number>;
   searchJumpIndex: (params: {
+    rating?: RatingFilter;
     query: string;
     styles: string[];
     sortBy?: string;
@@ -372,6 +377,7 @@ export type AppApi = {
     bpmRange?: number;
   }) => Promise<string[]>;
   searchJumpToPrefix: (params: {
+    rating?: RatingFilter;
     query: string;
     styles: string[];
     prefix: string;
@@ -586,6 +592,7 @@ export type AppApi = {
   }) => Promise<TandaDetail>;
   deleteTanda: (id: string) => Promise<{ ok: boolean }>;
   searchTandas: (params: {
+    rating?: RatingFilter;
     query: string;
     styles: string[];
     size?: number | null;

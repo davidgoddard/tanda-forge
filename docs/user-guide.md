@@ -371,6 +371,14 @@ All non built-in collections including **General** can be cleard with a single c
 
 Tandas and tracks can be moved from one collection to another and to General by default using the **M** menu option and if there are multiple possible targets, it will offer a picklist otherwise if there is only one writable (i.e. not build-in rule based collection) then it will not prompt and will just move.
 
+### Filter by tanda rating
+
+Open **Rating** beside **Tanda size**, below the search styles, choose **At least**, **Exactly**, or **At most**, and click a star position from 1 to 5. The filter applies to tracks and tandas in **Search and Clipboard**, including collections. The Playlist stays unchanged.
+
+**At most 3** includes 1-, 2-, and 3-star ratings, excluding unrated entries. Choose **Unrated** to find those instead. A track inherits the highest rating of every saved tanda containing it: a track in both a 2-star and a 5-star tanda counts as 5 stars, even if only the 2-star tanda is in your current collection. Ratings are recalculated when a filtered collection is rendered.
+
+Close the Rating disclosure to save space; its summary still shows the active condition. The **Clear** button beside the summary stars or **Any rating** removes it while preserving other filters. Changing collections preserves the rating filter. The rating filter resets when the app restarts.
+
 ### Export and Backup
 
 There are three different import/export areas in the app and they serve different purposes:

@@ -50,7 +50,7 @@ export const createSearchController = <TTrack extends { id: string }>(
   ) => {
     const api = deps.getWindowApi();
     const state = deps.getState();
-    if (!api || state.isLoading) {
+    if (!api || (state.isLoading && mode !== "replace")) {
       return;
     }
     if (offset < 0) {
@@ -59,6 +59,7 @@ export const createSearchController = <TTrack extends { id: string }>(
     if (state.total && offset >= state.total) {
       return;
     }
+    const version = deps.getRefreshVersion();
     deps.patchState({ isLoading: true });
     deps.applySearchUiState("loading", deps.getRefreshVersion(), deps.getState().total);
     try {
@@ -71,6 +72,7 @@ export const createSearchController = <TTrack extends { id: string }>(
         sortBy: nextState.sortBy,
         sortDir: nextState.sortDir,
       });
+      if (version !== deps.getRefreshVersion()) return;
       rows.forEach((track) => deps.setTrackInCache(track));
       const current = deps.getState();
       if (mode === "replace") {
@@ -82,8 +84,10 @@ export const createSearchController = <TTrack extends { id: string }>(
       }
       deps.renderSearchResults();
     } finally {
-      deps.patchState({ isLoading: false });
-      deps.applySearchUiState("idle", deps.getRefreshVersion(), deps.getState().total);
+      if (version === deps.getRefreshVersion()) {
+        deps.patchState({ isLoading: false });
+        deps.applySearchUiState("idle", version, deps.getState().total);
+      }
     }
   };
 
@@ -105,11 +109,12 @@ export const createSearchController = <TTrack extends { id: string }>(
     if (!api) {
       return;
     }
-    deps.patchState({ total: await api.searchTrackCount(params) });
+    const total = await api.searchTrackCount(params);
     if (refreshVersion !== deps.getRefreshVersion()) {
       return;
     }
-    deps.updateTabCount(deps.getState().total);
+    deps.patchState({ total });
+    deps.updateTabCount(total);
     await deps.updateJumpIndex(params);
     if (refreshVersion !== deps.getRefreshVersion()) {
       return;
@@ -121,17 +126,8 @@ export const createSearchController = <TTrack extends { id: string }>(
         return;
       }
     }
-    if (deps.getActiveSearchTab() === "search-tandas") {
-      await deps.loadTandaSearchResults();
-      deps.applySearchUiState("idle", refreshVersion, deps.getState().total);
-      return;
-    }
-    window.setTimeout(() => {
-      if (refreshVersion !== deps.getRefreshVersion()) {
-        return;
-      }
-      void deps.loadTandaSearchResults();
-    }, 250);
+    await deps.loadTandaSearchResults();
+    if (refreshVersion !== deps.getRefreshVersion()) return;
     deps.applySearchUiState("idle", refreshVersion, deps.getState().total);
   };
 

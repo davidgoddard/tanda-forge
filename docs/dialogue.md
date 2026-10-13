@@ -5909,3 +5909,41 @@ The algorithms for audio levelling is different to the older Tanda Player approa
 - Assistant: Began bumping the package release version to 0.3.16 and initially added a track delete/Un-delete summary to the main README before the user clarified that its omission was intentional.
 - User prompt: "i was happy that it was not mentioned on the readme"
 - Assistant: Reverted the README addition, kept the detailed workflow in the user guide, and continued the requested 0.3.16 verification and push preparation.
+
+### 2026-10-13 — Rating filter planning
+- User: "I want to add a new feature so this will need a branch and a new bumped version."
+- User: "The app currently allows a dj to set a rating on tandas and the playlist shows the rating as a line of stars.  This is good.  However, there is no way to search or filter or find via collections any such tandas. Without screen clutter I want a way to optionally set a number of stars and pick whether I want tandas with fewer but at least one or more than the value etc.  Adding collections for all combinations is too many buttons on the page, so I think it is a search filter column that affects all columns and can be easily cleared as a filter including if a user clicks on non-starred tandas etc. Ideas?"
+- Assistant: Proposed a compact Rating control with At least, Exactly, At most, Unrated and Any rating; At most excludes unrated items. An active removable chip exposes the filter. Unrated selection replaces the previous rating condition; normal collection changes preserve it. Asked whether tracks should qualify through membership of a matching tanda.
+- User: "Yes I think tracks that are part of rated tandas get the highest rating of all tandas it appears in at the time the collection is rendered."
+- Assistant: "I’ll check the search and collection code, then add the rating filter on a new branch with a version bump. Tracks will use the highest rating of any tanda they belong to when results are rendered."
+- Assistant: Created branch `feature/rating-filter`. Confirmed the track rule means a track belonging to both 2-star and 5-star tandas has effective rating 5 and is excluded by At most 3. Clarification before implementation: should the filter apply to Search and Clipboard collections only, or also hide entries in the Playlist column? Recommended Search and Clipboard only. Repository AGENTS.md requires clarification when a change would introduce ambiguity. Version bump is pending implementation.
+
+- User: "I think you are right - leave the playlist column alone - just do the search and clipboard ones."
+- Assistant: "I’ll apply the filter to Search and Clipboard, leaving the Playlist unchanged, and bump the version to 0.3.17."
+- Assistant: Explained that maximum track ratings must be computed before filtering, pagination and jump navigation. Added localized compact controls, shared SQL rating predicates and fresh collection snapshots. Reported focused tests passing and addressed stale search responses before beginning Electron verification.
+- Assistant: Reported all 506 unit tests and the new Electron regression passing. Also verified six existing search workflows, reviewed the captured layout, and improved the star selector to use filled stars up to the chosen value and outlined stars above it.
+- Assistant final response: Implemented on `feature/rating-filter`, version `0.3.17`. Compact Rating controls filter Search and Clipboard, with At least / Exactly / At most / Unrated and a clear action. Tracks use their highest saved-tanda rating; Playlist stays unchanged. Documentation and all seven translations updated. Build, 506 unit tests and 7 targeted Electron scenarios passed.
+
+- User: "To preserve as much screen space for tracks, please put the rating filter and the tanda size filters on the same line." Included a screenshot of the vertically stacked controls.
+- Assistant: "I’ll put Rating and Tanda size on the same row, then verify the build and tests."
+- Assistant: Placed Rating and Tanda size on the same row. Verified collapsed and expanded layouts, successful build, all 506 unit tests, and the Electron regression.
+
+- User: "Layout changed when I selected exactly. It happens because the clear rating button appears forcing new lines. Please compact" (with screenshot).
+- Assistant: "I’ll make Clear rating a compact × button and adjust the layout so activating a rating doesn’t squeeze the controls onto extra lines."
+- Assistant: Compacted the controls with a reserved × clear button and full-width comparison/star row. Selecting Exactly no longer adds lines. Verified the layout screenshot, build, 506 unit tests and Electron regression.
+
+- User: "I think the close button as a simple cross all the way over to the right is too disconnected. Just add a 1rem or similar margin to the left of the button and then add it onto the stars and put 'clear' back as the button contents."
+- Assistant: "I’ll move the button beside the rating stars, add about 1rem of space, and restore the ‘Clear’ label."
+- Assistant: Restored the localized Clear label and positioned it 1rem after the summary stars. Build, all 506 unit tests and the Electron layout regression passed.
+
+- User: "Add a note about this feature to the readme list of features"
+- Assistant: "I’ll add rating filtering to the README’s feature list and update the handoff and dialogue notes."
+- Assistant: Added star-rating filtering to the README’s Clipboard & Collections Workflow feature list, covering comparison modes, highest tanda rating for tracks, and easy clearing. Documentation-only change; checked the diff for whitespace errors.
+
+- User: "Is this feature described in the user guide? If not, please add."
+- Assistant: "I’ll check the user guide and update anything missing or out of date."
+- Assistant: Confirmed the feature was documented; moved its section alongside Collections and updated the location and Clear button wording to match the latest UI. Documentation-only change; whitespace check passed.
+
+- User: "I have commited to the local branch, please push the branch to the main repo"
+- Assistant: "I’ll check the branch and remote, then push your local commits."
+- Assistant: Pushed `feature/rating-filter` at `87506ec` to `origin` (`davidgoddard/tanda-forge`) and configured upstream tracking. Required dialogue/handoff notes were recorded locally after the push and remain uncommitted.
