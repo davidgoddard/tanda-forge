@@ -3907,3 +3907,17 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
     min-width: 100%;
   }
 }
+
+/* The expanded controls span the whole row, independent of the clear action. */
+.search-filter-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 0; }
+.search-filter-row .tanda-size-control { grid-column: 3; grid-row: 1; margin-top: 0; margin-left: 0.5rem; }
+.rating-filter-row, .rating-filter { display: contents; }
+.rating-filter summary { grid-column: 1; grid-row: 1; cursor: pointer; font-size: 0.85rem; }
+.rating-filter-controls { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 0.35rem 0; }
+.rating-filter-controls p { flex-basis: 100%; margin: 0; font-size: 0.8rem; opacity: 0.8; }
+#rating-filter-clear { grid-column: 2; grid-row: 1; justify-self: start; margin-left: 1rem; padding: 0.25rem 0.65rem; font-size: 0.85rem; }
+/* Reserve its small slot so activating a filter cannot change the header width. */
+#rating-filter-clear.hidden { display: block !important; visibility: hidden; pointer-events: none; }
+#rating-filter-stars { display: flex; gap: 0.1rem; }
+#rating-filter-stars button { min-width: 1.65rem; padding: 0.2rem 0.35rem; }
+#rating-filter-stars button[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: -2px; }

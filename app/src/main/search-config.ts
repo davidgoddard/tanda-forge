@@ -1,15 +1,20 @@
+import type { RatingFilter } from "../shared/rating-filter";
+import { buildRatingWhere, trackRatingSql } from "./library/rating-filter";
 import type { SortColumn } from "./library/query";
 
-export const buildStyleWhere = (styles: string[]) => {
-  const base = "where r.kind = 'music' and t.deleted_at is null";
-  if (!styles || styles.length === 0) {
-    return { whereSql: base, values: [] as unknown[] };
+export const buildStyleWhere = (styles: string[], rating?: RatingFilter) => {
+  const condition = buildRatingWhere(trackRatingSql, rating);
+  let whereSql = "where r.kind = 'music' and t.deleted_at is null";
+  const values: unknown[] = [];
+  if (styles?.length) {
+    whereSql += ` and t.genre in (${styles.map(() => "?").join(", ")})`;
+    values.push(...styles);
   }
-  const placeholders = styles.map(() => "?").join(", ");
-  return {
-    whereSql: `${base} and t.genre in (${placeholders})`,
-    values: [...styles],
-  };
+  if (condition.sql) {
+    whereSql += ` and ${condition.sql}`;
+    values.push(...condition.values);
+  }
+  return { whereSql, values };
 };
 
 export const getSortKeyForTrack = (sortBy: string, track: { [key: string]: unknown }) => {

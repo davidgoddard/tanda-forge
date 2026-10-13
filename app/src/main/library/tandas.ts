@@ -1,3 +1,5 @@
+import type { RatingFilter } from "../../shared/rating-filter";
+import { buildRatingWhere } from "./rating-filter";
 import type Database from "better-sqlite3";
 import { effectiveDurationMs } from "../../shared/tanda-utils";
 import { ORCHESTRA_SEED_DATA } from "../../shared/orchestra-seed";
@@ -9,6 +11,7 @@ import {
 import { parseScopedSearchQuery } from "./fuzzy-search";
 
 type TandaSearchParams = {
+  rating?: RatingFilter;
   query: string;
   styles: string[];
   size: number | null;
@@ -159,6 +162,12 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
       )`,
     );
     values.push(...params.styles);
+  }
+
+  const ratingCondition = buildRatingWhere("coalesce(tandas.rating, 0)", params.rating);
+  if (ratingCondition.sql) {
+    where.push(ratingCondition.sql);
+    values.push(...ratingCondition.values);
   }
 
   where.push("coalesce(tandas.invalid, 0) = 0");

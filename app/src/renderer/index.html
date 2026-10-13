@@ -229,18 +229,38 @@
               <span data-i18n="styleLabel">Styles</span>
               <div id="style-options" class="style-options"></div>
             </div>
-            <div class="tanda-size-control">
-              <label for="search-tanda-size" data-i18n="searchTandaSizeLabel">
-                Tanda size
-              </label>
-              <input
-                id="search-tanda-size"
-                type="text"
-                inputmode="numeric"
-                data-i18n-attr="placeholder"
-                data-i18n="searchTandaSizeAny"
-                placeholder="-"
-              />
+            <div class="search-filter-row">
+              <div class="rating-filter-row">
+                <details id="rating-filter" class="rating-filter">
+                  <summary id="rating-filter-summary" data-i18n="ratingFilterLabel"></summary>
+                  <div class="rating-filter-controls">
+                    <label class="sr-only" for="rating-filter-mode" data-i18n="ratingFilterComparison"></label>
+                    <select id="rating-filter-mode">
+                      <option value="any" data-i18n="ratingFilterAny"></option>
+                      <option value="atLeast" data-i18n="ratingFilterAtLeast"></option>
+                      <option value="exactly" data-i18n="ratingFilterExactly"></option>
+                      <option value="atMost" data-i18n="ratingFilterAtMost"></option>
+                      <option value="unrated" data-i18n="ratingFilterUnrated"></option>
+                    </select>
+                    <div id="rating-filter-stars" role="group" data-i18n="ratingFilterStars" data-i18n-attr="aria-label"></div>
+                    <p data-i18n="ratingFilterScope"></p>
+                  </div>
+                </details>
+                <button id="rating-filter-clear" class="hidden" data-i18n="ratingFilterClear" data-i18n-attr="title,aria-label"><span data-i18n="ratingFilterClearShort"></span></button>
+              </div>
+              <div class="tanda-size-control">
+                <label for="search-tanda-size" data-i18n="searchTandaSizeLabel">
+                  Tanda size
+                </label>
+                <input
+                  id="search-tanda-size"
+                  type="text"
+                  inputmode="numeric"
+                  data-i18n-attr="placeholder"
+                  data-i18n="searchTandaSizeAny"
+                  placeholder="-"
+                />
+              </div>
             </div>
             <div class="tab-bar">
               <button data-tab="search-tracks" class="active" data-i18n="tabTracks">

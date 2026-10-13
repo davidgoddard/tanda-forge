@@ -75,3 +75,8 @@ identified as `IPC-<section>.R<n>` in order under each section. Sub-bullets use
 
 - IPC-004.R1: IPC contracts are defined in `app/src/shared/types.ts`.
 - IPC-004.R2: Breaking changes require updating all renderer and main-process handlers.
+
+## IPC-RATING-001 — Rating queries
+
+- IPC-RATING-001.R1: Track search, count, jump index, jump-to-prefix and tanda search accept optional `rating: { mode: "any" | "unrated" | "atLeast" | "exactly" | "atMost", stars: number }`. Missing/unknown modes mean no filter; stars are normalized to integer 1–5. SQL values are bound parameters.
+- IPC-RATING-001.R2: `ratings:snapshot` / `getRatingSnapshot()` returns `{ tracks: { id, rating }[], tandas: { id, rating }[] }`, with global maximum saved-tanda membership ratings for tracks. Clipboard requests a fresh snapshot for each render when the rating filter is active. No database schema change is required.

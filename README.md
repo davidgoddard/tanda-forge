@@ -51,18 +51,6 @@ Available for all major platforms:
 
 See [User Guide](docs/user-guide.md)
 
-## Developer Utilities
-
-For isolated macOS/Electron output-routing investigation, run:
-
-```bash
-npm run manual:audio-route-test
-```
-
-This launches a minimal standalone Electron window that enumerates output
-devices, can quick-select `DragonFly`, lets you choose a local audio file, and
-plays it through a single `HTMLAudioElement` using `setSinkId()`.
-
 ---
 
 ## Built for Tango DJing
@@ -151,6 +139,7 @@ Work fast without committing too early.
 * Use the clipboard to quickly gather candidate tracks or tandas
 * Build and compare ideas in collections
 * Integrated search for **similar tracks and tandas** to accelerate selection
+* Filter Search and Clipboard collections by **star rating**: at least, exactly, at most, or unrated. Tracks use their highest tanda rating, and the filter is easy to clear
 * Move seamlessly from exploration → staging → playlist
 * Ideal for real-time adaptation during a milonga
 
@@ -277,6 +266,7 @@ Active development. Built for real-world use, evolving with feedback.
 ```bash
 git clone https://github.com/davidgoddard/tanda-forge.git
 cd tanda-forge
+npm run start
 ```
 
 Or download a release build for your platform (see above).

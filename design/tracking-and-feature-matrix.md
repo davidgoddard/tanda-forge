@@ -90,3 +90,9 @@ The following items are still Partial or No in the matrix above:
 - UI-020: cortina keyboard shortcuts + audition workflow.
 - UI-030: similarity visualization.
 - UI-040: waveform generation retry policy.
+
+## Rating filter — 0.3.17
+
+| Requirement | Status | Behavior |
+|---|---|---|
+| SEARCH-RATING-001 / UI-RATING-001 / IPC-RATING-001 | Implemented | Compact shared Search/Clipboard rating filter, global maximum track rating, fresh collection snapshots, counts/paging/jumps, localized controls and clear action. Playlist excluded. |

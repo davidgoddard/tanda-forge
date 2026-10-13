@@ -883,3 +883,12 @@ The UI must:
 UI-090.R6: If a UI element behaves differently in different contexts,
 it must look different.
 
+
+## UI-RATING-001 — Compact shared rating control
+
+- UI-RATING-001.R1: Search contains a collapsed Rating disclosure with comparison selection and five accessible star buttons. An active condition is shown in the summary with an adjacent Clear rating action.
+- UI-RATING-001.R2: The disclosure explains its Search/Clipboard scope and that At most excludes unrated items. Choosing Unrated replaces any numeric condition; Playlist remains unchanged.
+
+- UI-RATING-001.R3: Rating and Tanda size share one horizontal row to preserve vertical space for results. Expanding Rating keeps Tanda size aligned with the disclosure header.
+
+- UI-RATING-001.R4: Clear rating uses a localized Clear button immediately after the rating summary stars, separated by a 1rem left margin; its accessible label remains Clear rating. The hidden button retains its space. Expanded comparison and star controls span the full filter row, with the comparison label visually hidden, so activating a condition does not add lines.

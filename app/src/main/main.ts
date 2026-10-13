@@ -1,3 +1,5 @@
+import type { RatingFilter } from "../shared/rating-filter";
+import { getRatingSnapshot } from "./library/rating-filter";
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, session, shell } from "electron";
 
 if (process.platform === "darwin" && process.arch === "x64") {
@@ -1498,6 +1500,7 @@ const registerIpc = () => {
     async (
       _event,
       params: {
+        rating?: RatingFilter;
         query: string;
         styles: string[];
         limit?: number;
@@ -1521,7 +1524,7 @@ const registerIpc = () => {
       const styles = params.styles ?? [];
       const { minScore, bpmRange } = normalizeSearchConfig(params);
       if (!query) {
-        const { whereSql, values } = buildStyleWhere(styles);
+        const { whereSql, values } = buildStyleWhere(styles, params.rating);
         const sortSql = getSortSql(normalizeSortColumn(sortBy));
         const extraSort =
           sortBy === "artist" ? `, t.artist ${sortDir}` : "";
@@ -1541,7 +1544,7 @@ const registerIpc = () => {
       }
       const result = fuzzySearchTracks(
         db,
-        { query, styles, minScore, bpmRange },
+        { query, styles, minScore, bpmRange, rating: params.rating },
         limit,
         offset,
         sortBy,
@@ -1555,13 +1558,13 @@ const registerIpc = () => {
     "tracks:searchCount",
     async (
       _event,
-      params: { query: string; styles: string[]; minScore?: number; bpmRange?: number },
+      params: { rating?: RatingFilter; query: string; styles: string[]; minScore?: number; bpmRange?: number },
     ) => {
       const db = getDb();
       const query = params.query?.trim() ?? "";
       const styles = params.styles ?? [];
       if (!query) {
-        const { whereSql, values } = buildStyleWhere(styles);
+        const { whereSql, values } = buildStyleWhere(styles, params.rating);
         const row = db
           .prepare(
             `select count(*) as count
@@ -1573,7 +1576,7 @@ const registerIpc = () => {
         return row.count;
       }
       const { minScore, bpmRange } = normalizeSearchConfig(params);
-      return countFuzzyTracks(db, { query, styles, minScore, bpmRange });
+      return countFuzzyTracks(db, { query, styles, minScore, bpmRange, rating: params.rating });
     },
   );
 
@@ -1582,6 +1585,7 @@ const registerIpc = () => {
     async (
       _event,
       params: {
+        rating?: RatingFilter;
         query: string;
         styles: string[];
         sortBy?: string;
@@ -1598,7 +1602,7 @@ const registerIpc = () => {
         : normalizeSortColumn(params.sortBy);
       if (query) {
         const { minScore, bpmRange } = normalizeSearchConfig(params);
-        const candidates = fetchSearchCandidates(db, params.styles ?? []);
+        const candidates = fetchSearchCandidates(db, params.styles ?? [], params.rating);
         const scored = filterAndScoreTracks(candidates, {
           query,
           minScore,
@@ -1615,7 +1619,7 @@ const registerIpc = () => {
         return buildJumpIndex(prefixes);
       }
       const keySql = getSortKeySql(normalizeSortColumn(sortBy));
-      const { whereSql, values } = buildStyleWhere(params.styles ?? []);
+      const { whereSql, values } = buildStyleWhere(params.styles ?? [], params.rating);
       const filterSql = `${whereSql} and ${keySql} != ''`;
       const prefixes = db
         .prepare(
@@ -1635,6 +1639,7 @@ const registerIpc = () => {
     async (
       _event,
       params: {
+        rating?: RatingFilter;
         query: string;
         styles: string[];
         prefix: string;
@@ -1654,7 +1659,7 @@ const registerIpc = () => {
       const sortDir = normalizeSortDirection(params.sortDir);
       if (query) {
         const { minScore, bpmRange } = normalizeSearchConfig(params);
-        const candidates = fetchSearchCandidates(db, params.styles ?? []);
+        const candidates = fetchSearchCandidates(db, params.styles ?? [], params.rating);
         const scored = filterAndScoreTracks(candidates, {
           query,
           minScore,
@@ -1676,7 +1681,7 @@ const registerIpc = () => {
       }
       const keySql = getSortKeySql(normalizeSortColumn(sortBy));
       const prefix = params.prefix.toUpperCase();
-      const { whereSql, values } = buildStyleWhere(params.styles ?? []);
+      const { whereSql, values } = buildStyleWhere(params.styles ?? [], params.rating);
       let whereClause = "key like ?";
       let matchValue = `${prefix}%`;
       if (prefix === "0-9") {
@@ -2498,6 +2503,8 @@ const registerIpc = () => {
     },
   );
 
+  ipcMain.handle("ratings:snapshot", () => getRatingSnapshot(getDb()));
+
   ipcMain.handle("tandas:delete", async (_event, id: string) => {
     const db = getDb();
     deleteTanda(db, id);
@@ -2508,10 +2515,11 @@ const registerIpc = () => {
     "tandas:search",
     async (
       _event,
-      params: { query: string; styles: string[]; size?: number | null },
+      params: { query: string; styles: string[]; size?: number | null; rating?: RatingFilter },
     ) => {
       const db = getDb();
       return searchTandas(db, {
+        rating: params.rating,
         query: params.query ?? "",
         styles: params.styles ?? [],
         size:

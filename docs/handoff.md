@@ -1,8 +1,21 @@
 ## Handoff
 
 ### Current branch / version
-- Branch: `main`
-- Version: `0.3.12` (from `package.json`)
+- Branch: `feature/rating-filter`
+- Version: `0.3.17` (from `package.json`)
+
+### Rating filter — 0.3.17
+- User guide rating instructions moved next to Collections and updated for the shared Tanda size row and adjacent Clear button.
+- README feature list now documents star-rating filtering under Clipboard & Collections Workflow, including comparison modes, inherited track ratings and easy clearing.
+- Clear action now reads “Clear” (localized) and sits 1rem after the rating summary stars, keeping the action visually connected to its filter. Build, 506 unit tests and the Electron regression passed, including label and 1rem spacing assertions.
+- Compact-layout follow-up: reserved clear-action space, full-width expanded rating controls and visually hidden comparison label prevent active-filter reflow. Build, 506 unit tests and the Electron regression passed, including an assertion that selecting Exactly leaves expanded-control width and height unchanged. Screenshot reviewed.
+- Layout refinement: Rating and Tanda size share a baseline-aligned row to preserve track-list space. Build, all 506 unit tests and the Electron rating regression passed; collapsed/expanded screenshots reviewed and same-row alignment asserted.
+- Implemented compact shared rating filter for Search and Clipboard only; Playlist remains unchanged.
+- Track ratings use the global maximum saved-tanda membership rating. Clipboard fetches current rating snapshots per filtered render; SQL filters track search before pagination, count and jump operations.
+- At least / Exactly / At most (1–5 stars), Unrated, Any rating and Clear rating; all seven languages supported. At most excludes unrated entries.
+- Search refresh and Clipboard render guards reject stale asynchronous responses.
+- No schema migration. Filter state is session-only. Existing unrelated README and .DS_Store edits were preserved.
+- Validation passed: `npm run build`; `npm test` (98 files, 506 tests); new rating-filter Electron regression plus six existing search workflows (7 scenarios). Final star-selector refinement also passed a fresh build, all unit tests and the rating-filter Electron regression. Captured layout reviewed; screenshots are outside the repository in `/private/tmp`. Full unrelated Electron suite was not run.
 
 ### Latest change
 - Added a startup update popup for newer GitHub releases/tags.

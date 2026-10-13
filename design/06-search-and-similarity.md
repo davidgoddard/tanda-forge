@@ -452,3 +452,12 @@ However:
 - FR-102.R1: Results must remain deterministic and stable under the same inputs.
 - FR-102.R2: The system must not depend on the public internet or cloud services.
 - FR-102.R3: All core features must work on a local network (Pi hotspot + connected clients).
+
+## SEARCH-RATING-001 — Shared rating filter
+
+- SEARCH-RATING-001.R1: A compact, expandable Rating control in Search filters both Search tabs and both Clipboard tabs, including smart and user collections. It must not filter or modify the Playlist.
+- SEARCH-RATING-001.R2: Modes are Any rating (default), At least, Exactly, At most, and Unrated. Numeric comparisons use 1–5 stars; At most excludes unrated entries. Unrated replaces the numeric condition.
+- SEARCH-RATING-001.R3: A saved tanda is evaluated by its own rating. A track uses the maximum rating across all saved tanda memberships, independent of the current collection, query, style, or tanda-size filter. No membership or only zero-rated memberships means unrated. The value is derived rather than stored on the track.
+- SEARCH-RATING-001.R4: Clipboard ratings are fetched afresh on each filtered render. Search applies the same aggregation before pagination, counting, fuzzy scoring, and jump-index generation. Saving/deleting a tanda refreshes results through the existing refresh workflow.
+- SEARCH-RATING-001.R5: The active condition remains visible in the collapsed control. Clear rating or Any rating removes only the rating filter. Ordinary collection changes preserve it. The condition is session-only and combines with existing text, style and size filters.
+- SEARCH-RATING-001.R6: Filter controls are keyboard accessible and localized in all supported languages. Failed refreshes report that results may be outdated and suggest clearing or retrying. Older asynchronous responses must not replace newer filter results.

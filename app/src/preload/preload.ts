@@ -65,6 +65,7 @@ const api: AppApi = {
     ipcRenderer.invoke("tracks:jumpToPrefix", params),
   getJumpIndex: async (params) =>
     ipcRenderer.invoke("tracks:getJumpIndex", params),
+  getRatingSnapshot: async () => ipcRenderer.invoke("ratings:snapshot"),
   searchTracks: async (params) => ipcRenderer.invoke("tracks:search", params),
   searchTrackCount: async (params) =>
     ipcRenderer.invoke("tracks:searchCount", params),
