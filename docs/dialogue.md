@@ -5947,3 +5947,15 @@ The algorithms for audio levelling is different to the older Tanda Player approa
 - User: "I have commited to the local branch, please push the branch to the main repo"
 - Assistant: "I’ll check the branch and remote, then push your local commits."
 - Assistant: Pushed `feature/rating-filter` at `87506ec` to `origin` (`davidgoddard/tanda-forge`) and configured upstream tracking. Required dialogue/handoff notes were recorded locally after the push and remain uncommitted.
+
+- User: "My git build failed?" Included a GitHub Actions screenshot showing application Build passed, then Stage bundled FFmpeg tools failed when extracting an 86-byte ffmpeg.zip.
+- Assistant: Explained that compilation succeeded but the external FFmpeg download was not a valid ZIP; inspected the release workflow and fetch script.
+- User: "ffmpeg stuff has not changed?"
+- Assistant: Confirmed the rating feature changed neither the fetch script nor release workflow. Reproduced HTTP 410 with the provider response: "API endpoint removed due to exorbitant abuse"; the provider website also confirms removal. Announced a direct-download update and HTTP-error handling.
+- User: "continue"
+- Assistant: Replaced removed macOS endpoints with pinned direct URLs and added retries, HTTP-error checks, ZIP validation and temporary-directory cleanup. Began regression tests and real-download verification in an isolated temporary directory.
+- Assistant: Reported successful build and 509 tests while real downloads completed. Both macOS archives then passed ZIP validation, extraction and staging using the revised script in an isolated directory. Fix remains local and uncommitted; GitHub release workflow has not been rerun.
+
+- User: "cmomit and push"
+- Assistant: "I’ll commit the FFmpeg download fix and push it to the current branch."
+- Delivery: Commit and push the validated fix on `feature/rating-filter` to `origin`; no release workflow rerun requested.
