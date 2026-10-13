@@ -3,14 +3,37 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FFMPEG_DIR="$ROOT_DIR/app/resources/ffmpeg"
-TMP_DIR="${TMPDIR:-/tmp}/tanda-ffmpeg"
+TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tanda-ffmpeg.XXXXXX")"
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+# Direct, versioned URLs: Evermeet retired its getrelease download API.
+MACOS_FFMPEG_VERSION="9.0.2"
 
 mkdir -p "$FFMPEG_DIR/darwin" "$FFMPEG_DIR/win32" "$FFMPEG_DIR/linux" "$TMP_DIR"
 
+download() {
+  local destination="$1"
+  local url="$2"
+  if ! curl --fail --show-error --location --retry 3 --retry-delay 2 \
+    --connect-timeout 20 --max-time 300 --output "$destination" "$url"; then
+    echo "FFmpeg download failed: $url. Packaging stopped; check the provider URL or retry a transient network failure." >&2
+    return 1
+  fi
+}
+
+validate_zip() {
+  if ! unzip -tq "$1"; then
+    echo "Invalid FFmpeg ZIP archive: $1. Packaging stopped before staging binaries." >&2
+    return 1
+  fi
+}
+
 fetch_macos() {
   mkdir -p "$TMP_DIR/ffmpeg" "$TMP_DIR/ffprobe"
-  curl -L -o "$TMP_DIR/ffmpeg.zip" https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip
-  curl -L -o "$TMP_DIR/ffprobe.zip" https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip
+  download "$TMP_DIR/ffmpeg.zip" "https://evermeet.cx/ffmpeg/ffmpeg-${MACOS_FFMPEG_VERSION}.zip"
+  download "$TMP_DIR/ffprobe.zip" "https://evermeet.cx/ffmpeg/ffprobe-${MACOS_FFMPEG_VERSION}.zip"
+  validate_zip "$TMP_DIR/ffmpeg.zip"
+  validate_zip "$TMP_DIR/ffprobe.zip"
   unzip -o "$TMP_DIR/ffmpeg.zip" -d "$TMP_DIR/ffmpeg"
   unzip -o "$TMP_DIR/ffprobe.zip" -d "$TMP_DIR/ffprobe"
   mv "$TMP_DIR/ffmpeg/ffmpeg" "$FFMPEG_DIR/darwin/ffmpeg"
@@ -20,7 +43,8 @@ fetch_macos() {
 
 fetch_windows() {
   mkdir -p "$TMP_DIR/ffmpeg-win"
-  curl -L -o "$TMP_DIR/ffmpeg-win.zip" https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+  download "$TMP_DIR/ffmpeg-win.zip" https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+  validate_zip "$TMP_DIR/ffmpeg-win.zip"
   unzip -o "$TMP_DIR/ffmpeg-win.zip" -d "$TMP_DIR/ffmpeg-win"
   local bin_dir
   bin_dir=$(find "$TMP_DIR/ffmpeg-win" -type d -name bin | head -n 1)
@@ -34,7 +58,7 @@ fetch_windows() {
 
 fetch_linux() {
   mkdir -p "$TMP_DIR/ffmpeg-linux"
-  curl -L -o "$TMP_DIR/ffmpeg-linux.tar.xz" https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+  download "$TMP_DIR/ffmpeg-linux.tar.xz" https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
   tar -xJf "$TMP_DIR/ffmpeg-linux.tar.xz" -C "$TMP_DIR/ffmpeg-linux"
   local bin_dir
   bin_dir=$(find "$TMP_DIR/ffmpeg-linux" -type d -name "ffmpeg-*-amd64-static" | head -n 1)

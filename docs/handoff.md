@@ -5,6 +5,11 @@
 - Branch: `feature/rating-filter`
 - Version: `0.3.17` (from `package.json`)
 
+### Release download fix
+- Reproduced the macOS release failure: Evermeet's removed `getrelease` endpoint returns HTTP 410 and an 86-byte JSON error response. This was an upstream change, not a rating-feature change; application compilation had succeeded.
+- Replaced macOS API downloads with direct FFmpeg/ffprobe 9.0.2 ZIP URLs. Added shared HTTP failure handling, bounded transient retries/timeouts, ZIP validation and unique temporary workspaces cleaned on exit.
+- Regression tests exercise HTTP errors, JSON masquerading as a successful archive response, successful staging and cleanup. Validation passed: shell syntax check, `npm run build`, all 509 unit tests, and real macOS FFmpeg/ffprobe downloads, ZIP validation, extraction and staging in an isolated temporary directory. User requested committing and pushing this validated fix to `origin/feature/rating-filter`. No GitHub workflow rerun or full installer packaging performed.
+
 ### Rating filter — 0.3.17
 - User guide rating instructions moved next to Collections and updated for the shared Tanda size row and adjacent Clear button.
 - README feature list now documents star-rating filtering under Clipboard & Collections Workflow, including comparison modes, inherited track ratings and easy clearing.

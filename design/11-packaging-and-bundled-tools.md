@@ -20,6 +20,10 @@
   directory before invoking archive tools so clean CI runners can stage the
   payload without relying on pre-existing temporary folders.
 
+- PKG-FFM-008: macOS staging uses versioned direct Evermeet ZIP URLs, pinned together to FFmpeg/ffprobe 9.0.2. The removed `getrelease` download API must not be used; update the shared version in the fetch script when intentionally upgrading the bundled tools.
+- PKG-FFM-009: Downloads must fail on HTTP errors, retry transient failures up to three times, and use connection/transfer timeouts. ZIP archives are validated before extraction; download/validation failures stop packaging with an actionable diagnostic.
+- PKG-FFM-010: Each fetch invocation uses a unique temporary directory and removes it on exit, preventing stale downloads or extracted files from contaminating subsequent runs.
+
 ## Release Delivery
 
 - PKG-REL-001: Releases publish manual-download installables only.
