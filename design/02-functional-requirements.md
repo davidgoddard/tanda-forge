@@ -226,6 +226,9 @@ intentionally deferred.
 - FR-030.3.R1: Cortinas play for a defined duration.
 - FR-030.3.R2: Cortinas are faded out by the system.
 - FR-030.3.R3: Cortinas play at a separate volume level from tanda tracks.
+- FR-030.3.R4: When cortina playback starts or finishes, the renderer must make
+  a best-effort lights-up or lights-down request to a locally running Lighting
+  controller. An absent or failing controller must not delay or interrupt audio.
 
 ---
 

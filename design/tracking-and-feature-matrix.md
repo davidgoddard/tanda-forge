@@ -14,7 +14,7 @@ and implementation status to prevent drift.
 | LF-012 | Playlist import/export | EVOLVE (later) | Emergency interoperability |
 | LF-014 | Print playlists | KEEP | CSS-only print layout |
 | LF-018 | Display boards | KEEP | Read-only remote endpoint |
-| LF-025 | Lighting integration | DROP | Separate project |
+| LF-025 | Lighting integration | Done | Cortina playback sends best-effort up/down requests to the optional local Lighting controller. |
 | LF-026 | Dancer preferences | DROP | Out of scope |
 | LF-028 | Database repair | EVOLVE | Reframed as resilience + snapshots |
 

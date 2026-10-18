@@ -1,5 +1,9 @@
 # Electron Architecture and Folder Structure
 
+- ARC-LGT-001: The sandboxed renderer may connect only to the optional local
+  Lighting controller at `http://127.0.0.1:8080`; the Content Security Policy
+  explicitly permits that endpoint without opening unrestricted networking.
+
 ## Overview
 
 Tanda Forge is delivered as a desktop Electron app. The app runs entirely

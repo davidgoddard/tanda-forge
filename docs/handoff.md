@@ -1,5 +1,17 @@
 ## Handoff
 
+### Optional lighting integration
+- Main-output cortina playback sends `POST http://127.0.0.1:8080/api/lights`
+  with `{ "up": true }` after playback starts and `{ "up": false }` when it
+  pauses, ends, or normal main playback takes over.
+- Requests are deduplicated and failures are ignored so a missing Lighting app
+  cannot affect audio playback.
+- Added focused notifier coverage and requirement `FR-030.3.R4`.
+- Verification passed: all 99 test files / 511 tests and `npm run build`.
+- Follow-up after a real cortina did not change the lights: changed the request
+  media type to `text/plain` while retaining its JSON body, avoiding Chromium's
+  cross-origin localhost preflight, and added a console warning for failures.
+
 ### Current branch / version
 - Published `feature/rating-filter` to `origin/feature/rating-filter` at `87506ec`; upstream tracking configured. Post-push dialogue/handoff notes remain local and uncommitted.
 - Branch: `feature/rating-filter`

@@ -5,6 +5,22 @@ Code diffs are omitted; only intent and outcomes are captured.
 
 ## Timeline Highlights
 
+- User: Requested lights-up/down support in the Lighting app, including
+  per-fixture calibrated up colours, an ESP relay, and Tanda Forge notification
+  when cortinas start and finish.
+  Assistant: Chose a small cross-origin HTTP POST integration suitable for the
+  Electron renderer and browser build. Tanda Forge now notifies the optional
+  local Lighting controller at the main-output playback boundary, deduplicates
+  state, and treats connection failure as non-fatal.
+  Assistant: Verified the completed integration with all 99 test files / 511
+  tests and a successful production build.
+- User: Reported that the Lighting toggle controlled both ESP and DMX lights,
+  but playing a cortina in Tanda Forge did not change them.
+  Assistant: Traced the built playback hook and identified the forced Chromium
+  CORS/private-network preflight as the likely transport failure. Changed the
+  request to a simple text/plain POST carrying the same JSON body and exposed
+  failures as console warnings without affecting playback.
+
 - User: Asked for an actual in-app popup on startup when the app can reach the GitHub releases page and a newer version is available.
   Assistant: Added a startup GitHub release/tag check in the main process, exposed it over IPC, and wired an in-app modal popup that offers to open the releases page in the default browser.
 

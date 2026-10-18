@@ -113,6 +113,7 @@ import {
   resolvePlaybackNormalization,
 } from "../shared/audio-normalization.js";
 import { computeFadeDurationMs } from "../shared/audio-fade.js";
+import { createLightingNotifier } from "../shared/lighting-notifier.js";
 import {
   clampNumber,
   computeDynamicsFrame,
@@ -3927,6 +3928,8 @@ type PlayOptions = {
   transitionFadeMs?: number;
 };
 
+const notifyLighting = createLightingNotifier((input, init) => fetch(input, init));
+
 const resolveNextLiveTrackForCompression = () => {
   if (playlistPlayback.status !== "playing") {
     return null;
@@ -4160,6 +4163,7 @@ const playOnChannel = async (
           return false;
         }
       }
+      if (channel === "main") notifyLighting(Boolean(options?.isCortinaPlayback));
       updateNowPlayingDisplay();
       return true;
     }
@@ -4402,6 +4406,9 @@ const playOnChannel = async (
   }
 
   next.addEventListener("ended", () => {
+    if (channel === "main" && options?.isCortinaPlayback && state.active === next) {
+      notifyLighting(false);
+    }
     if (state.active === next) {
       void releaseAudioDspRuntime(next);
       void stopCompressedCompanion(state);
@@ -4436,6 +4443,9 @@ const playOnChannel = async (
     updateNowPlayingDisplay();
   });
   next.addEventListener("pause", () => {
+    if (channel === "main" && options?.isCortinaPlayback && state.active === next) {
+      notifyLighting(false);
+    }
     if (state.compressedActive && !state.compressedActive.paused) {
       state.compressedActive.pause();
     }
@@ -4549,6 +4559,7 @@ const playOnChannel = async (
       }
       return false;
     }
+    if (channel === "main") notifyLighting(Boolean(options?.isCortinaPlayback));
     const transitionFadeMs =
       Number.isFinite(options?.transitionFadeMs) && (options?.transitionFadeMs ?? 0) > 0
         ? options?.transitionFadeMs ?? 0
