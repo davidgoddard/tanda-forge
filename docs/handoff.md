@@ -1,5 +1,10 @@
 ## Handoff
 
+### Lighting README link
+- Added the optional DMX Lighting controller beside the README's cortina
+  features, linking to `https://github.com/davidgoddard/lighting` and explaining
+  automatic lights up for cortinas and return to normal colours during tandas.
+
 ### Optional lighting integration
 - Main-output cortina playback sends `POST http://127.0.0.1:8080/api/lights`
   with `{ "up": true }` after playback starts and `{ "up": false }` when it

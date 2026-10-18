@@ -5,6 +5,11 @@ Code diffs are omitted; only intent and outcomes are captured.
 
 ## Timeline Highlights
 
+- User: Asked for a Tanda Forge README note near the cortina features describing
+  the optional simple DMX controller and linking to the Lighting repository.
+  Assistant: Added the GitHub link and described automatic lights up for
+  cortinas and return to normal wandering colours during tandas.
+
 - User: Requested lights-up/down support in the Lighting app, including
   per-fixture calibrated up colours, an ESP relay, and Tanda Forge notification
   when cortinas start and finish.

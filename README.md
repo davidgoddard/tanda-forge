@@ -119,6 +119,11 @@ Handle cortinas without breaking flow.
 * Built-in auto-fade-out behaviour
 * Manual override when needed to play entire track with option to fade out anyway later
 
+An optional companion [DMX Lighting controller](https://github.com/davidgoddard/lighting)
+is also available. When it is running locally, Tanda Forge automatically raises
+the room and ESP-NOW table lights for cortinas, then fades them back to normal
+wandering colours during tandas.
+
 ---
 
 ### 🗂 Playlist & Set Building
