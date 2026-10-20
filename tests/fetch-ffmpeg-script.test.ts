@@ -37,6 +37,7 @@ describe("FFmpeg fetch script", () => {
 // This verifies failures stop before extraction/staging rather than only matching source text.
 import os from "os";
 import { spawnSync } from "child_process";
+import { createHash } from "crypto";
 
 const runFetch = (mode: "http-error" | "invalid-zip" | "valid") => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tanda-fetch-test-"));
@@ -116,5 +117,74 @@ describe.skipIf(process.platform === "win32")("FFmpeg fetch execution", () => {
     expect(result.calls).toContain("https://evermeet.cx/ffmpeg/ffmpeg-9.0.2.zip");
     expect(result.calls).toContain("https://evermeet.cx/ffmpeg/ffprobe-9.0.2.zip");
     expect(result.temporaryDirectories).toEqual([]);
+  });
+});
+
+const runPinnedLinuxFetch = (validChecksum: boolean) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tanda-linux-fetch-test-"));
+  try {
+    const scripts = path.join(root, "scripts");
+    const bin = path.join(root, "bin");
+    const fixture = path.join(root, "fixture", "ffmpeg-test-linux64-gpl", "bin");
+    fs.mkdirSync(scripts);
+    fs.mkdirSync(bin);
+    fs.mkdirSync(fixture, { recursive: true });
+    fs.writeFileSync(path.join(fixture, "ffmpeg"), "linux ffmpeg");
+    fs.writeFileSync(path.join(fixture, "ffprobe"), "linux ffprobe");
+    const archive = path.join(root, "fixture.tar.xz");
+    const tar = spawnSync("tar", ["-cJf", archive, "ffmpeg-test-linux64-gpl"], {
+      cwd: path.join(root, "fixture"),
+    });
+    if (tar.status !== 0) throw new Error(`Could not create tar fixture: ${tar.stderr}`);
+    const fixtureChecksum = createHash("sha256").update(fs.readFileSync(archive)).digest("hex");
+    const script = fs.readFileSync(path.join(process.cwd(), "scripts/fetch-ffmpeg.sh"), "utf8")
+      .replace(/LINUX_FFMPEG_SHA256="[a-f0-9]+"/, `LINUX_FFMPEG_SHA256="${validChecksum ? fixtureChecksum : "0".repeat(64)}"`);
+    fs.writeFileSync(path.join(scripts, "fetch-ffmpeg.sh"), script);
+    fs.writeFileSync(path.join(bin, "curl"), `#!/usr/bin/env bash
+set -eu
+printf '%s\\n' "$*" >> "$TEST_FETCH_ROOT/calls"
+output=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --output) output="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+cp "$TEST_FETCH_ROOT/fixture.tar.xz" "$output"
+`, { mode: 0o755 });
+    const result = spawnSync("bash", [path.join(scripts, "fetch-ffmpeg.sh"), "linux"], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, TMPDIR: root, TEST_FETCH_ROOT: root },
+    });
+    return {
+      status: result.status,
+      output: result.stdout + result.stderr,
+      calls: fs.readFileSync(path.join(root, "calls"), "utf8"),
+      ffmpeg: fs.existsSync(path.join(root, "app/resources/ffmpeg/linux/ffmpeg"))
+        ? fs.readFileSync(path.join(root, "app/resources/ffmpeg/linux/ffmpeg"), "utf8") : null,
+      ffprobe: fs.existsSync(path.join(root, "app/resources/ffmpeg/linux/ffprobe"))
+        ? fs.readFileSync(path.join(root, "app/resources/ffmpeg/linux/ffprobe"), "utf8") : null,
+    };
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+};
+
+describe.skipIf(process.platform === "win32")("Pinned Linux FFmpeg download", () => {
+  it("verifies and stages both tools from the immutable release asset", () => {
+    const result = runPinnedLinuxFetch(true);
+    expect(result.status).toBe(0);
+    expect(result.calls).toContain("releases/download/autobuild-2026-09-30-13-08/");
+    expect(result.calls).not.toContain("/latest/");
+    expect(result.ffmpeg).toBe("linux ffmpeg");
+    expect(result.ffprobe).toBe("linux ffprobe");
+  });
+
+  it("rejects an archive whose checksum does not match", () => {
+    const result = runPinnedLinuxFetch(false);
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain("FFmpeg checksum mismatch");
+    expect(result.ffmpeg).toBeNull();
+    expect(result.ffprobe).toBeNull();
   });
 });

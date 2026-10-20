@@ -6004,3 +6004,36 @@ The algorithms for audio levelling is different to the older Tanda Player approa
 **User request:** Add the version bump.
 
 **Implementation response:** Bumped Tanda Forge to 0.3.19, aligned the package-lock metadata, verified the project, and committed and pushed the release metadata on `music-aware-lighting`.
+
+# 20 October 2026 — Linux release failure
+
+**User request:** Tanda Forge has been broken again, with the supplied GitHub
+Actions log for release v0.3.19.
+
+**Implementation response:** The log showed that the application had not
+broken: the Linux packaging job failed after its sole FFmpeg host timed out.
+Added a GitHub-hosted primary source, retained the old provider as a fallback,
+supported both archive layouts, and added regression coverage and release
+packaging requirements.
+
+# 20 October 2026 — Pin Linux FFmpeg
+
+**User request:** Pin the FFmpeg dependency.
+
+**Implementation response:** Selected a retained BtbN month-end release instead
+of a short-lived daily build, pinned its immutable tag and archive name, added
+SHA-256 verification using the digest published with that release, and added
+success and checksum-rejection regression tests.
+
+# 20 October 2026 — Persist FFmpeg pin checks
+
+**User request:** Continue pinning and add instructions to this repository's AI
+agent files to always verify that the pinned version is good.
+
+**Implementation response:** Continued the immutable, checksummed Linux FFmpeg
+pin and added a release-critical rule to `AGENTS.md` requiring future agents to
+verify asset availability, retention, upstream digest, tool compatibility,
+fetch tests, and the full build. Moving `latest` URLs and unverified fallbacks
+are explicitly prohibited. Live validation matched the upstream SHA-256 digest
+and confirmed both required binaries; all 515 tests and the production build
+passed.

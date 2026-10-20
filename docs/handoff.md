@@ -9002,3 +9002,28 @@
 
 - Bumped the Tanda Forge application version from 0.3.18 to 0.3.19 for the music-aware Lighting release.
 - Aligned the root package-lock metadata with the application version.
+
+# Linux release download resilience (20 October 2026)
+
+- Release run #100 failed only because `johnvansickle.com` timed out while the
+  Linux job staged FFmpeg; the application build itself was not implicated.
+- Linux staging now uses a retained BtbN GitHub release asset, pinned by tag,
+  archive name, and SHA-256 digest.
+- Archive discovery verifies that `ffprobe` is beside `ffmpeg` before either
+  binary is staged.
+- Requirements are recorded in `docs/release-packaging.md`.
+
+# Pinned Linux FFmpeg asset (20 October 2026)
+
+- Replaced the moving BtbN `latest` URL and unverified fallback with the
+  retained month-end release `autobuild-2026-09-30-13-08`.
+- The release script now verifies the published SHA-256 digest before extracting
+  or staging either binary.
+- `AGENTS.md` now requires future agents to recheck availability, retention,
+  upstream digest, binary compatibility, fetch tests, and the full build before
+  changing a pin or declaring a release ready.
+- Live validation downloaded the pinned 144 MB archive, matched SHA-256
+  `68ee646831adaae2495618346f3bba94ff207ff83bbd34d643e7004730d66269`,
+  and confirmed that it contains both `bin/ffmpeg` and `bin/ffprobe`.
+- Verification passed: six focused fetch tests, all 99 test files / 515 tests,
+  shell syntax, diff checks, and the production TypeScript build.
