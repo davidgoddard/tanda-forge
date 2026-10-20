@@ -4,15 +4,25 @@
 
 - **REL-PKG-001:** Each packaged desktop build must include compatible `ffmpeg`
   and `ffprobe` executables for its target platform.
-- **REL-PKG-002:** Linux FFmpeg staging must not depend on a single download
-  provider. It must try the GitHub-hosted BtbN release first and fall back to
-  the John Van Sickle static build when the primary source is unavailable.
+- **REL-PKG-002:** Linux FFmpeg staging must download an immutable, retained
+  BtbN GitHub release asset rather than a moving `latest` URL.
 - **REL-PKG-003:** A failed or malformed download must stop packaging before an
   incomplete tool is staged.
+- **REL-PKG-004:** Linux FFmpeg staging must verify the archive against its
+  pinned SHA-256 digest before extraction.
+- **REL-PKG-005:** Release preparation must verify that every pinned FFmpeg
+  asset remains available under its documented retention policy, matches its
+  upstream-published digest, contains compatible tools, and passes packaging
+  tests and the full application build.
 
 ## Current implementation
 
 `scripts/fetch-ffmpeg.sh` downloads tools into an isolated temporary directory,
 validates or extracts the provider archive, and stages only `ffmpeg` and
-`ffprobe` in `app/resources/ffmpeg/<platform>`. Linux archive discovery is based
-on the contained binaries so both supported providers' directory layouts work.
+`ffprobe` in `app/resources/ffmpeg/<platform>`. The Linux asset is pinned to the
+retained BtbN month-end release `autobuild-2026-09-30-13-08`; its archive name
+and SHA-256 digest are fixed in the script. Archive discovery is based on the
+contained binaries rather than a mutable directory name.
+
+The mandatory agent checklist for maintaining and releasing these pins is in
+`AGENTS.md`.

@@ -8,7 +8,9 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 # Direct, versioned URLs: Evermeet retired its getrelease download API.
 MACOS_FFMPEG_VERSION="9.0.2"
-LINUX_FFMPEG_VERSION="9.0"
+LINUX_FFMPEG_TAG="autobuild-2026-09-30-13-08"
+LINUX_FFMPEG_ARCHIVE="ffmpeg-n9.0.2-17-g2a571b6068-linux64-gpl-9.0.tar.xz"
+LINUX_FFMPEG_SHA256="68ee646831adaae2495618346f3bba94ff207ff83bbd34d643e7004730d66269"
 
 mkdir -p "$FFMPEG_DIR/darwin" "$FFMPEG_DIR/win32" "$FFMPEG_DIR/linux" "$TMP_DIR"
 
@@ -22,24 +24,24 @@ download() {
   fi
 }
 
-download_from_sources() {
-  local destination="$1"
-  shift
-  local url
-  for url in "$@"; do
-    rm -f "$destination"
-    if download "$destination" "$url"; then
-      return 0
-    fi
-    echo "Trying the next FFmpeg download source..." >&2
-  done
-  echo "All FFmpeg download sources failed. Packaging stopped." >&2
-  return 1
-}
-
 validate_zip() {
   if ! unzip -tq "$1"; then
     echo "Invalid FFmpeg ZIP archive: $1. Packaging stopped before staging binaries." >&2
+    return 1
+  fi
+}
+
+verify_sha256() {
+  local archive="$1"
+  local expected="$2"
+  local actual
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual=$(sha256sum "$archive" | awk '{print $1}')
+  else
+    actual=$(shasum -a 256 "$archive" | awk '{print $1}')
+  fi
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FFmpeg checksum mismatch for $archive. Packaging stopped before extraction." >&2
     return 1
   fi
 }
@@ -74,9 +76,9 @@ fetch_windows() {
 
 fetch_linux() {
   mkdir -p "$TMP_DIR/ffmpeg-linux"
-  download_from_sources "$TMP_DIR/ffmpeg-linux.tar.xz" \
-    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n${LINUX_FFMPEG_VERSION}-latest-linux64-gpl-${LINUX_FFMPEG_VERSION}.tar.xz" \
-    "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+  download "$TMP_DIR/ffmpeg-linux.tar.xz" \
+    "https://github.com/BtbN/FFmpeg-Builds/releases/download/${LINUX_FFMPEG_TAG}/${LINUX_FFMPEG_ARCHIVE}"
+  verify_sha256 "$TMP_DIR/ffmpeg-linux.tar.xz" "$LINUX_FFMPEG_SHA256"
   tar -xJf "$TMP_DIR/ffmpeg-linux.tar.xz" -C "$TMP_DIR/ffmpeg-linux"
   local bin_dir
   bin_dir=$(find "$TMP_DIR/ffmpeg-linux" -type f -name ffmpeg -exec dirname {} \; | head -n 1)

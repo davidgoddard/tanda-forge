@@ -15,6 +15,12 @@
 - All new requirements must include document-specific requirement identifiers
   in the relevant design docs.
 - After any code or doc change, update `docs/handoff.md` and `docs/dialogue.md`.
+- Treat the pinned FFmpeg binaries as release-critical dependencies. Before
+  changing an FFmpeg pin or declaring a release ready, verify that each pinned
+  asset still resolves, is covered by the upstream retention policy, matches
+  its upstream-published SHA-256 digest, contains compatible `ffmpeg` and
+  `ffprobe` executables, and passes the fetch-script tests plus the full build.
+  Never replace a pin with a moving `latest` URL or an unverified fallback.
 - If a change would introduce ambiguity, stop and ask for clarification.
 - Always record the users prompt and any generated responses or questions in the `docs/dialogue.md`.
 
