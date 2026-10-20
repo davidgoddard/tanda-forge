@@ -6004,3 +6004,14 @@ The algorithms for audio levelling is different to the older Tanda Player approa
 **User request:** Add the version bump.
 
 **Implementation response:** Bumped Tanda Forge to 0.3.19, aligned the package-lock metadata, verified the project, and committed and pushed the release metadata on `music-aware-lighting`.
+
+# 20 October 2026 — Linux release failure
+
+**User request:** Tanda Forge has been broken again, with the supplied GitHub
+Actions log for release v0.3.19.
+
+**Implementation response:** The log showed that the application had not
+broken: the Linux packaging job failed after its sole FFmpeg host timed out.
+Added a GitHub-hosted primary source, retained the old provider as a fallback,
+supported both archive layouts, and added regression coverage and release
+packaging requirements.

@@ -8,6 +8,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 # Direct, versioned URLs: Evermeet retired its getrelease download API.
 MACOS_FFMPEG_VERSION="9.0.2"
+LINUX_FFMPEG_VERSION="9.0"
 
 mkdir -p "$FFMPEG_DIR/darwin" "$FFMPEG_DIR/win32" "$FFMPEG_DIR/linux" "$TMP_DIR"
 
@@ -19,6 +20,21 @@ download() {
     echo "FFmpeg download failed: $url. Packaging stopped; check the provider URL or retry a transient network failure." >&2
     return 1
   fi
+}
+
+download_from_sources() {
+  local destination="$1"
+  shift
+  local url
+  for url in "$@"; do
+    rm -f "$destination"
+    if download "$destination" "$url"; then
+      return 0
+    fi
+    echo "Trying the next FFmpeg download source..." >&2
+  done
+  echo "All FFmpeg download sources failed. Packaging stopped." >&2
+  return 1
 }
 
 validate_zip() {
@@ -58,12 +74,18 @@ fetch_windows() {
 
 fetch_linux() {
   mkdir -p "$TMP_DIR/ffmpeg-linux"
-  download "$TMP_DIR/ffmpeg-linux.tar.xz" https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+  download_from_sources "$TMP_DIR/ffmpeg-linux.tar.xz" \
+    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n${LINUX_FFMPEG_VERSION}-latest-linux64-gpl-${LINUX_FFMPEG_VERSION}.tar.xz" \
+    "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
   tar -xJf "$TMP_DIR/ffmpeg-linux.tar.xz" -C "$TMP_DIR/ffmpeg-linux"
   local bin_dir
-  bin_dir=$(find "$TMP_DIR/ffmpeg-linux" -type d -name "ffmpeg-*-amd64-static" | head -n 1)
+  bin_dir=$(find "$TMP_DIR/ffmpeg-linux" -type f -name ffmpeg -exec dirname {} \; | head -n 1)
   if [[ -z "$bin_dir" ]]; then
-    echo "Linux ffmpeg directory not found" >&2
+    echo "Linux ffmpeg binary not found in downloaded archive" >&2
+    exit 1
+  fi
+  if [[ ! -f "$bin_dir/ffprobe" ]]; then
+    echo "Linux ffprobe binary not found beside ffmpeg" >&2
     exit 1
   fi
   mv "$bin_dir/ffmpeg" "$FFMPEG_DIR/linux/ffmpeg"

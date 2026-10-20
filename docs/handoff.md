@@ -9002,3 +9002,13 @@
 
 - Bumped the Tanda Forge application version from 0.3.18 to 0.3.19 for the music-aware Lighting release.
 - Aligned the root package-lock metadata with the application version.
+
+# Linux release download resilience (20 October 2026)
+
+- Release run #100 failed only because `johnvansickle.com` timed out while the
+  Linux job staged FFmpeg; the application build itself was not implicated.
+- Linux staging now uses the BtbN GitHub release as its primary source and the
+  previous static-build provider as a fallback.
+- Archive discovery supports both layouts and verifies that `ffprobe` is beside
+  `ffmpeg` before either binary is staged.
+- Requirements are recorded in `docs/release-packaging.md`.
