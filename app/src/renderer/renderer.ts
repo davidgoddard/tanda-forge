@@ -113,7 +113,7 @@ import {
   resolvePlaybackNormalization,
 } from "../shared/audio-normalization.js";
 import { computeFadeDurationMs } from "../shared/audio-fade.js";
-import { createLightingNotifier } from "../shared/lighting-notifier.js";
+import { createLightingNotifier, createLightingPlaybackNotifier } from "../shared/lighting-notifier.js";
 import {
   clampNumber,
   computeDynamicsFrame,
@@ -3929,6 +3929,7 @@ type PlayOptions = {
 };
 
 const notifyLighting = createLightingNotifier((input, init) => fetch(input, init));
+const notifyLightingPlayback = createLightingPlaybackNotifier((input, init) => fetch(input, init));
 
 const resolveNextLiveTrackForCompression = () => {
   if (playlistPlayback.status !== "playing") {
@@ -4164,6 +4165,11 @@ const playOnChannel = async (
         }
       }
       if (channel === "main") notifyLighting(Boolean(options?.isCortinaPlayback));
+      if (channel === "main") notifyLightingPlayback.start(
+        state.active,
+        state.originalSourcePath ?? filePath,
+        options?.isCortinaPlayback ? "cortina" : "tango",
+      );
       updateNowPlayingDisplay();
       return true;
     }
@@ -4181,6 +4187,7 @@ const playOnChannel = async (
     state.originalSourcePath = undefined;
     state.compressedSourcePath = undefined;
     state.compressionTailAutoResetApplied = undefined;
+    if (channel === "main") notifyLightingPlayback.stop();
     lastAppliedGainDbByChannel[channel] = null;
     updateNowPlayingDisplay();
     return false;
@@ -4560,6 +4567,11 @@ const playOnChannel = async (
       return false;
     }
     if (channel === "main") notifyLighting(Boolean(options?.isCortinaPlayback));
+    if (channel === "main") notifyLightingPlayback.start(
+      next,
+      state.originalSourcePath ?? filePath,
+      options?.isCortinaPlayback ? "cortina" : "tango",
+    );
     const transitionFadeMs =
       Number.isFinite(options?.transitionFadeMs) && (options?.transitionFadeMs ?? 0) > 0
         ? options?.transitionFadeMs ?? 0
@@ -4707,6 +4719,7 @@ const stopChannelPlayback = async (channel: OutputChannel, fadeMs: number) => {
     }
   }
   active.pause();
+  if (channel === "main") notifyLightingPlayback.stop();
   active.currentTime = 0;
   await releaseAudioDspRuntime(active);
   await stopCompressedCompanion(state);

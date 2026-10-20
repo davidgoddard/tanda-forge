@@ -5980,3 +5980,21 @@ The algorithms for audio levelling is different to the older Tanda Player approa
 - User: "cmomit and push"
 - Assistant: "I’ll commit the FFmpeg download fix and push it to the current branch."
 - Delivery: Commit and push the validated fix on `feature/rating-filter` to `origin`; no release workflow rerun requested.
+
+# 19 October 2026 — Music-aware Lighting
+
+**User request:** Fetch and pull the latest Lighting and Tanda Forge repositories, create feature branches in both, and implement `/Users/david/Projects/Lighting/music_aware_lighting_claude_v3.md`. The user subsequently supplied the V10 reference at `/Users/david/Downloads/tango-audio-poc-v10`.
+
+**Implementation response:** Pulled both repositories, created `music-aware-lighting` branches, inspected V10 and both production playback/lighting paths, then added main-output-only playback notices in Tanda Forge and the receiver, worker analysis, music intent, DMX integration, controls, tests, and documentation in Lighting. Verification results are recorded in the delivery response.
+
+# 20 October 2026 — First-draft completion audit
+
+**User request:** Ignore seek-specific issues, address as many remaining design gaps as safely possible, create a trackable task list, preserve the working first draft, and defer more dramatic pause/peak exploration.
+
+**Implementation response:** Added bounded/timeout playback delivery, preserved external-master ownership, corrected zero-influence behavior, expanded live diagnostics and regression coverage, and recorded completed, accepted, hardware-validation, and deferred tasks in `Lighting/docs/music-aware-task-list.md`.
+
+# 20 October 2026 — Commit and push
+
+**User request:** Commit and push the `music-aware-lighting` branches for both Lighting and Tanda Forge.
+
+**Implementation response:** Commit the validated feature work in each repository, excluding pre-existing `.DS_Store` metadata changes, and push both branches to their respective origins.

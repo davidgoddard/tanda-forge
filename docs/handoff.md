@@ -8983,3 +8983,17 @@
   - The Library tab ends with an Un-delete checklist showing deleted tracks by
     title and artist. Restoring selected rows clears their tombstones and only
     revalidates dependencies when every referenced item is usable.
+# Music-aware Lighting (19 October 2026)
+
+- Added schema-v1 main-output playback notices through the existing optional loopback Lighting integration.
+- Notices use the original library path, actual media time, per-occurrence session identity, ordered sequence numbers, and explicit transport states.
+- Headphone/cue playback is not attached to the notifier. Cortinas are identified separately so Lighting will not analyse them as tango tracks.
+- Unit coverage is in `tests/lighting-notifier.test.ts`; the full design contract and requirement IDs are in `docs/music-aware-lighting.md`.
+- Lighting must be local in v1. Delivery remains optional and cannot prevent playback.
+
+# Bounded Lighting playback delivery (20 October 2026)
+
+- Playback delivery now retains at most one in-flight HTTP request and one latest queued snapshot.
+- A 500 ms timeout prevents a slow or unavailable Lighting controller from accumulating requests.
+- Failure warnings are throttled to once per ten seconds; audio playback remains independent.
+- Seek-specific production behavior is intentionally out of scope for the first draft because normal operation plays complete songs.
