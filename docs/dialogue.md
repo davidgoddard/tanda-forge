@@ -5998,3 +5998,9 @@ The algorithms for audio levelling is different to the older Tanda Player approa
 **User request:** Commit and push the `music-aware-lighting` branches for both Lighting and Tanda Forge.
 
 **Implementation response:** Commit the validated feature work in each repository, excluding pre-existing `.DS_Store` metadata changes, and push both branches to their respective origins.
+
+# 20 October 2026 — Version bump
+
+**User request:** Add the version bump.
+
+**Implementation response:** Bumped Tanda Forge to 0.3.19, aligned the package-lock metadata, verified the project, and committed and pushed the release metadata on `music-aware-lighting`.

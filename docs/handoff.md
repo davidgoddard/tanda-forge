@@ -8997,3 +8997,8 @@
 - A 500 ms timeout prevents a slow or unavailable Lighting controller from accumulating requests.
 - Failure warnings are throttled to once per ten seconds; audio playback remains independent.
 - Seek-specific production behavior is intentionally out of scope for the first draft because normal operation plays complete songs.
+
+# Version 0.3.19 (20 October 2026)
+
+- Bumped the Tanda Forge application version from 0.3.18 to 0.3.19 for the music-aware Lighting release.
+- Aligned the root package-lock metadata with the application version.
