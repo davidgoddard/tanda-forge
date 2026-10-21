@@ -14,6 +14,16 @@
   asset remains available under its documented retention policy, matches its
   upstream-published digest, contains compatible tools, and passes packaging
   tests and the full application build.
+- **REL-PKG-006:** macOS packaging must not depend on a third-party prebuilt
+  binary host. Each Intel and Apple-Silicon release job must download the
+  versioned official FFmpeg source archive, verify its pinned SHA-256 digest,
+  and compile native `ffmpeg` and `ffprobe` executables without non-redistributable
+  configuration flags. The build must pin its macOS deployment target rather
+  than inheriting the newer CI runner's minimum OS version.
+- **REL-PKG-007:** The native macOS build must retain the audio analysis,
+  waveform PNG, and playable WAV capabilities required by Tanda Forge,
+  including `loudnorm`, `silencedetect`, `showwavespic`, PNG encoding, common
+  music decoders, and PCM WAV encoding.
 
 ## Current implementation
 
@@ -23,6 +33,15 @@ validates or extracts the provider archive, and stages only `ffmpeg` and
 retained BtbN month-end release `autobuild-2026-09-30-13-08`; its archive name
 and SHA-256 digest are fixed in the script. Archive discovery is based on the
 contained binaries rather than a mutable directory name.
+
+For macOS, the script downloads the official, versioned FFmpeg 9.0.2 source
+archive from `ffmpeg.org`, verifies the pinned SHA-256 digest, and builds
+`ffmpeg` and `ffprobe` natively on the release runner. The workflow passes the
+matrix architecture explicitly so the Intel job produces x86_64 tools and the
+Apple-Silicon job produces arm64 tools. Autodetected optional dependencies,
+network support, and non-redistributable build flags are excluded; zlib remains
+enabled because Tanda Forge requires FFmpeg's PNG encoder for waveform images.
+The deployment target is pinned to macOS 11.0 for both architectures.
 
 The mandatory agent checklist for maintaining and releasing these pins is in
 `AGENTS.md`.

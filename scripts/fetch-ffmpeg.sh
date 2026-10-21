@@ -6,8 +6,10 @@ FFMPEG_DIR="$ROOT_DIR/app/resources/ffmpeg"
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tanda-ffmpeg.XXXXXX")"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-# Direct, versioned URLs: Evermeet retired its getrelease download API.
 MACOS_FFMPEG_VERSION="9.0.2"
+MACOS_DEPLOYMENT_TARGET="11.0"
+MACOS_FFMPEG_SOURCE_ARCHIVE="ffmpeg-${MACOS_FFMPEG_VERSION}.tar.xz"
+MACOS_FFMPEG_SOURCE_SHA256="8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e"
 LINUX_FFMPEG_TAG="autobuild-2026-09-30-13-08"
 LINUX_FFMPEG_ARCHIVE="ffmpeg-n9.0.2-17-g2a571b6068-linux64-gpl-9.0.tar.xz"
 LINUX_FFMPEG_SHA256="68ee646831adaae2495618346f3bba94ff207ff83bbd34d643e7004730d66269"
@@ -47,16 +49,85 @@ verify_sha256() {
 }
 
 fetch_macos() {
-  mkdir -p "$TMP_DIR/ffmpeg" "$TMP_DIR/ffprobe"
-  download "$TMP_DIR/ffmpeg.zip" "https://evermeet.cx/ffmpeg/ffmpeg-${MACOS_FFMPEG_VERSION}.zip"
-  download "$TMP_DIR/ffprobe.zip" "https://evermeet.cx/ffmpeg/ffprobe-${MACOS_FFMPEG_VERSION}.zip"
-  validate_zip "$TMP_DIR/ffmpeg.zip"
-  validate_zip "$TMP_DIR/ffprobe.zip"
-  unzip -o "$TMP_DIR/ffmpeg.zip" -d "$TMP_DIR/ffmpeg"
-  unzip -o "$TMP_DIR/ffprobe.zip" -d "$TMP_DIR/ffprobe"
-  mv "$TMP_DIR/ffmpeg/ffmpeg" "$FFMPEG_DIR/darwin/ffmpeg"
-  mv "$TMP_DIR/ffprobe/ffprobe" "$FFMPEG_DIR/darwin/ffprobe"
+  local requested_arch="${1:-$(uname -m)}"
+  local expected_machine
+  case "$requested_arch" in
+    x64|x86_64|amd64) expected_machine="x86_64" ;;
+    arm64|aarch64) expected_machine="arm64" ;;
+    *)
+      echo "Unsupported macOS architecture: $requested_arch" >&2
+      return 1
+      ;;
+  esac
+  local host_machine
+  host_machine=$(uname -m)
+  if [[ "$host_machine" != "$expected_machine" ]]; then
+    echo "macOS FFmpeg build architecture mismatch: requested $expected_machine on $host_machine" >&2
+    return 1
+  fi
+  mkdir -p "$TMP_DIR/ffmpeg-macos-source"
+  download "$TMP_DIR/$MACOS_FFMPEG_SOURCE_ARCHIVE" \
+    "https://ffmpeg.org/releases/${MACOS_FFMPEG_SOURCE_ARCHIVE}"
+  verify_sha256 "$TMP_DIR/$MACOS_FFMPEG_SOURCE_ARCHIVE" "$MACOS_FFMPEG_SOURCE_SHA256"
+  tar -xJf "$TMP_DIR/$MACOS_FFMPEG_SOURCE_ARCHIVE" -C "$TMP_DIR/ffmpeg-macos-source"
+  local source_dir="$TMP_DIR/ffmpeg-macos-source/ffmpeg-${MACOS_FFMPEG_VERSION}"
+  if [[ ! -x "$source_dir/configure" ]]; then
+    echo "Official FFmpeg source archive does not contain its configure script" >&2
+    return 1
+  fi
+  (
+    cd "$source_dir"
+    MACOSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET" ./configure \
+      --disable-autodetect \
+      --disable-debug \
+      --disable-doc \
+      --disable-ffplay \
+      --disable-network \
+      --disable-shared \
+      --enable-static \
+      --enable-zlib \
+      --extra-cflags="-mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET" \
+      --extra-ldflags="-mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET"
+    local build_jobs=2
+    if command -v sysctl >/dev/null 2>&1; then
+      build_jobs=$(sysctl -n hw.ncpu 2>/dev/null || echo 2)
+    fi
+    make -j "$build_jobs" ffmpeg ffprobe
+  )
+  if [[ ! -x "$source_dir/ffmpeg" || ! -x "$source_dir/ffprobe" ]]; then
+    echo "macOS FFmpeg source build did not produce both ffmpeg and ffprobe" >&2
+    return 1
+  fi
+  cp "$source_dir/ffmpeg" "$FFMPEG_DIR/darwin/ffmpeg"
+  cp "$source_dir/ffprobe" "$FFMPEG_DIR/darwin/ffprobe"
   chmod +x "$FFMPEG_DIR/darwin/ffmpeg" "$FFMPEG_DIR/darwin/ffprobe"
+  local binary_info
+  binary_info=$(file "$FFMPEG_DIR/darwin/ffmpeg" "$FFMPEG_DIR/darwin/ffprobe")
+  if [[ "$binary_info" != *"$expected_machine"* ]]; then
+    echo "Built macOS FFmpeg tools do not match requested architecture $expected_machine" >&2
+    return 1
+  fi
+  local filters encoders license version_info
+  filters=$("$FFMPEG_DIR/darwin/ffmpeg" -filters 2>/dev/null)
+  encoders=$("$FFMPEG_DIR/darwin/ffmpeg" -encoders 2>/dev/null)
+  license=$("$FFMPEG_DIR/darwin/ffmpeg" -L 2>&1)
+  version_info=$("$FFMPEG_DIR/darwin/ffmpeg" -version 2>&1)
+  for required_filter in loudnorm silencedetect showwavespic; do
+    if [[ "$filters" != *"$required_filter"* ]]; then
+      echo "Built macOS FFmpeg is missing required filter: $required_filter" >&2
+      return 1
+    fi
+  done
+  for required_encoder in png pcm_s16le; do
+    if [[ "$encoders" != *"$required_encoder"* ]]; then
+      echo "Built macOS FFmpeg is missing required encoder: $required_encoder" >&2
+      return 1
+    fi
+  done
+  if [[ "$license" != *"GNU Lesser General Public"* || "$version_info" == *"--enable-nonfree"* ]]; then
+    echo "Built macOS FFmpeg does not report the expected redistributable LGPL license" >&2
+    return 1
+  fi
 }
 
 fetch_windows() {
@@ -97,7 +168,7 @@ fetch_linux() {
 
 case "${1:-all}" in
   macos)
-    fetch_macos
+    fetch_macos "${2:-}"
     ;;
   windows)
     fetch_windows

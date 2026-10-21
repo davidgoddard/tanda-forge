@@ -9,11 +9,9 @@ describe("FFmpeg fetch script", () => {
   );
 
   it("creates every extraction directory before using it", () => {
-    const macMkdir = script.indexOf(
-      'mkdir -p "$TMP_DIR/ffmpeg" "$TMP_DIR/ffprobe"',
-    );
+    const macMkdir = script.indexOf('mkdir -p "$TMP_DIR/ffmpeg-macos-source"');
     const macExtract = script.indexOf(
-      'unzip -o "$TMP_DIR/ffmpeg.zip" -d "$TMP_DIR/ffmpeg"',
+      'tar -xJf "$TMP_DIR/$MACOS_FFMPEG_SOURCE_ARCHIVE" -C "$TMP_DIR/ffmpeg-macos-source"',
     );
     const windowsMkdir = script.indexOf('mkdir -p "$TMP_DIR/ffmpeg-win"');
     const windowsExtract = script.indexOf(
@@ -31,6 +29,15 @@ describe("FFmpeg fetch script", () => {
     expect(linuxMkdir).toBeGreaterThan(-1);
     expect(linuxExtract).toBeGreaterThan(linuxMkdir);
   });
+
+  it("builds the official macOS source with the PNG dependency required for waveforms", () => {
+    expect(script).toContain("https://ffmpeg.org/releases/${MACOS_FFMPEG_SOURCE_ARCHIVE}");
+    expect(script).toContain("--enable-zlib");
+    expect(script).toContain('MACOS_DEPLOYMENT_TARGET="11.0"');
+    expect(script).toContain("-mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET");
+    expect(script).not.toContain("evermeet.cx");
+    expect(script).not.toMatch(/^\s+--enable-nonfree/m);
+  });
 });
 
 // Run the real shell script in an isolated project with a controlled downloader.
@@ -39,14 +46,23 @@ import os from "os";
 import { spawnSync } from "child_process";
 import { createHash } from "crypto";
 
-const runFetch = (mode: "http-error" | "invalid-zip" | "valid") => {
+const runFetch = (mode: "http-error" | "invalid-archive" | "valid" | "bad-checksum") => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tanda-fetch-test-"));
   try {
     const scripts = path.join(root, "scripts");
     const bin = path.join(root, "bin");
     fs.mkdirSync(scripts);
     fs.mkdirSync(bin);
-    fs.copyFileSync(path.join(process.cwd(), "scripts/fetch-ffmpeg.sh"), path.join(scripts, "fetch-ffmpeg.sh"));
+    const fixtureDir = path.join(root, "fixture", "ffmpeg-9.0.2");
+    fs.mkdirSync(fixtureDir, { recursive: true });
+    fs.writeFileSync(path.join(fixtureDir, "configure"), "#!/usr/bin/env bash\nexit 0\n", { mode: 0o755 });
+    const archive = path.join(root, "fixture.tar.xz");
+    const tar = spawnSync("tar", ["-cJf", archive, "ffmpeg-9.0.2"], { cwd: path.join(root, "fixture") });
+    if (tar.status !== 0) throw new Error(`Could not create tar fixture: ${tar.stderr}`);
+    const fixtureChecksum = createHash("sha256").update(fs.readFileSync(archive)).digest("hex");
+    const sourceScript = fs.readFileSync(path.join(process.cwd(), "scripts/fetch-ffmpeg.sh"), "utf8")
+      .replace(/MACOS_FFMPEG_SOURCE_SHA256="[a-f0-9]+"/, `MACOS_FFMPEG_SOURCE_SHA256="${mode === "bad-checksum" ? "0".repeat(64) : fixtureChecksum}"`);
+    fs.writeFileSync(path.join(scripts, "fetch-ffmpeg.sh"), sourceScript);
     fs.writeFileSync(path.join(bin, "curl"), `#!/usr/bin/env bash
 set -eu
 printf '%s\\n' "$*" >> "$TEST_FETCH_ROOT/calls"
@@ -61,19 +77,21 @@ if [ "$TEST_FETCH_MODE" = "http-error" ]; then
   echo 'curl: (22) HTTP 410' >&2
   exit 22
 fi
-if [ "$TEST_FETCH_MODE" = "invalid-zip" ]; then
-  printf '%s' '{"status":"error","message":"API endpoint removed due to exorbitant abuse","code":410}' > "$output"
+if [ "$TEST_FETCH_MODE" = "invalid-archive" ]; then
+  printf '%s' 'not a tar archive' > "$output"
 else
-  cp "$TEST_FETCH_ROOT/fixture.zip" "$output"
+  cp "$TEST_FETCH_ROOT/fixture.tar.xz" "$output"
 fi
 `, { mode: 0o755 });
-    if (mode === "valid") {
-      fs.writeFileSync(path.join(root, "ffmpeg"), "fixture ffmpeg");
-      fs.writeFileSync(path.join(root, "ffprobe"), "fixture ffprobe");
-      const zip = spawnSync("zip", ["-q", "fixture.zip", "ffmpeg", "ffprobe"], { cwd: root });
-      if (zip.status !== 0) throw new Error(`Could not create ZIP fixture: ${zip.stderr}`);
-    }
-    const result = spawnSync("bash", [path.join(scripts, "fetch-ffmpeg.sh"), "macos"], {
+    fs.writeFileSync(path.join(bin, "make"), `#!/usr/bin/env bash
+set -eu
+printf '%s\n' '#!/usr/bin/env bash' 'case "$1" in -filters) echo "loudnorm silencedetect showwavespic" ;; -encoders) echo "png pcm_s16le" ;; -L) echo "GNU Lesser General Public License" ;; esac' > ffmpeg
+printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > ffprobe
+chmod +x ffmpeg ffprobe
+`, { mode: 0o755 });
+    fs.writeFileSync(path.join(bin, "uname"), "#!/usr/bin/env bash\necho x86_64\n", { mode: 0o755 });
+    fs.writeFileSync(path.join(bin, "file"), "#!/usr/bin/env bash\necho 'Mach-O 64-bit executable x86_64'\n", { mode: 0o755 });
+    const result = spawnSync("bash", [path.join(scripts, "fetch-ffmpeg.sh"), "macos", "x64"], {
       encoding: "utf8",
       env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, TMPDIR: root, TEST_FETCH_ROOT: root, TEST_FETCH_MODE: mode },
     });
@@ -102,20 +120,27 @@ describe.skipIf(process.platform === "win32")("FFmpeg fetch execution", () => {
     expect(result.temporaryDirectories).toEqual([]);
   });
 
-  it("rejects a successful HTTP response containing JSON rather than a ZIP", () => {
-    const result = runFetch("invalid-zip");
+  it("rejects a successful HTTP response that is not the pinned archive", () => {
+    const result = runFetch("invalid-archive");
     expect(result.status).not.toBe(0);
-    expect(result.output).toContain("Invalid FFmpeg ZIP archive:");
+    expect(result.output).toContain("FFmpeg checksum mismatch");
     expect(result.staged).toBeNull();
     expect(result.temporaryDirectories).toEqual([]);
   });
 
-  it("stages valid direct-download archives and cleans its temporary workspace", () => {
+  it("rejects a macOS archive whose checksum does not match", () => {
+    const result = runFetch("bad-checksum");
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain("FFmpeg checksum mismatch");
+    expect(result.staged).toBeNull();
+  });
+
+  it("stages a valid pinned macOS archive and cleans its temporary workspace", () => {
     const result = runFetch("valid");
     expect(result.status).toBe(0);
-    expect(result.staged).toBe("fixture ffmpeg");
-    expect(result.calls).toContain("https://evermeet.cx/ffmpeg/ffmpeg-9.0.2.zip");
-    expect(result.calls).toContain("https://evermeet.cx/ffmpeg/ffprobe-9.0.2.zip");
+    expect(result.staged).toContain("loudnorm silencedetect showwavespic");
+    expect(result.calls).toContain("https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz");
+    expect(result.calls).not.toContain("evermeet.cx");
     expect(result.temporaryDirectories).toEqual([]);
   });
 });

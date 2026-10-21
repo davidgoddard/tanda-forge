@@ -89,7 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           case "${{ matrix.target }}" in
-            mac-*) ./scripts/fetch-ffmpeg.sh macos ;;
+            mac-*) ./scripts/fetch-ffmpeg.sh macos "${{ matrix.arch }}" ;;
             windows) ./scripts/fetch-ffmpeg.sh windows ;;
             linux) ./scripts/fetch-ffmpeg.sh linux ;;
           esac

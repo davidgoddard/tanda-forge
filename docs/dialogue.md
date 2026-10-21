@@ -6084,3 +6084,50 @@ guide, handoff, and dialogue records.
 **Verification:** The production build and all 99 unit-test files / 515 tests
 passed. The targeted Electron workflow passed when rerun with GUI/process
 permission after the sandbox blocked the initial Electron launch.
+
+# 21 October 2026 — Recurrent macOS FFmpeg release failure
+
+**User report:** GitHub packaging again failed while downloading
+`https://evermeet.cx/ffmpeg/ffprobe-9.0.2.zip`, despite the recent FFmpeg build
+changes intended to resolve download failures.
+
+**Assistant diagnosis:** Confirmed that the earlier macOS change only replaced
+Evermeet's retired API endpoint with versioned public URLs and added retries and
+ZIP validation. Those URLs still depend on Evermeet and redirect to a separate
+download host, which timed out during live verification and in the reported
+GitHub build. The subsequent immutable, checksummed, retention-backed pin was
+implemented only for Linux. The macOS `ffmpeg` and `ffprobe` assets have no
+pinned checksum, documented retention guarantee, or independent release host,
+so the recent work did not remove this macOS provider as a release single point
+of failure. No runtime or packaging change was made during this diagnostic turn.
+
+**User request:** "can you fix it"
+
+**Implementation response:** Removed the macOS Evermeet dependency. The fetch
+script now downloads the official pinned FFmpeg 9.0.2 source archive from
+`ffmpeg.org`, verifies its SHA-256 digest, and builds native `ffmpeg` and
+`ffprobe` binaries on each macOS release runner. Release CI supplies its matrix
+architecture explicitly. The build avoids dependency autodetection, network
+support, and non-redistributable flags while retaining zlib for waveform PNGs.
+Expanded fetch-script regressions and release packaging requirements accordingly.
+
+**Verification:** The official source archive matched the pinned SHA-256 and a
+real native Apple-Silicon build produced arm64 FFmpeg 9.0.2 tools reporting the
+LGPL. Required analysis/waveform capabilities were present, and smoke commands
+successfully generated the app's PNG waveform and normalized PCM WAV outputs.
+Shell syntax, eight focused fetch regressions, all 99 test files / 517 tests,
+and the production build passed.
+The final license check was exercised against the native binary and confirms
+LGPL output while explicitly rejecting `--enable-nonfree` configurations.
+Mach-O inspection found that the first native build inherited macOS 26 as its
+minimum OS; the final build configuration therefore pins compiler and linker
+deployment targets to macOS 11.0.
+The final fetch/build/capability/license pipeline passed, Mach-O reports
+`minos 11.0`, and the final production build plus all 99 test files / 517 tests
+passed.
+
+**User request:** "please push to main"
+
+**Assistant response:** Committed the verified macOS FFmpeg packaging fix,
+including its regression coverage and documentation, and pushed it to
+`origin/main`.

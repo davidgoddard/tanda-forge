@@ -9057,3 +9057,43 @@
 - Verification passed: production build, all 99 unit-test files / 515 tests,
   and the targeted Electron workflow. The first sandboxed Electron launch was
   blocked by the environment; the permitted rerun passed.
+
+# 21 October 2026 — Recurrent macOS FFmpeg release failure diagnosis
+
+- The reported `ffprobe-9.0.2.zip` failure is not covered by the later Linux
+  pinning work.
+- macOS still downloads separate versioned `ffmpeg` and `ffprobe` ZIPs from
+  Evermeet. The URLs redirect to another provider host, which timed out during
+  live verification and in the reported GitHub Actions job.
+- The prior macOS fix removed a retired API endpoint and added HTTP retries and
+  archive validation, but it did not provide an immutable checksummed mirror or
+  remove Evermeet as a release single point of failure.
+- Linux alone currently has an immutable month-end asset, upstream-published
+  SHA-256 verification, and a documented retention policy.
+- No packaging code was changed in this diagnostic pass.
+- Follow-up implementation removes Evermeet from macOS packaging entirely.
+  `fetch-ffmpeg.sh macos <arch>` now downloads the official versioned FFmpeg
+  9.0.2 source archive, verifies its pinned SHA-256, and compiles native
+  redistributable `ffmpeg` and `ffprobe` tools. Release CI passes `x64` or
+  `arm64` explicitly. The build disables dependency autodetection and network
+  support while retaining zlib for waveform PNG generation.
+- Fetch regressions now cover the official source URL, checksum rejection,
+  malformed downloads, extraction/build staging, absence of Evermeet, and
+  absence of `--enable-nonfree`.
+- Real Apple-Silicon validation passed: the official archive matched the pinned
+  SHA-256; native arm64 `ffmpeg`/`ffprobe` 9.0.2 compiled successfully under the
+  LGPL; required filters and codecs were present; and smoke commands produced
+  a 1200x240 PNG waveform plus a normalized 48 kHz stereo PCM WAV.
+- Verification passed: shell syntax, eight focused fetch tests, all 99 test
+  files / 517 tests, and the production build.
+- The final license gate was also exercised against the native binary after
+  accommodating FFmpeg's line-wrapped LGPL wording; it rejects any build whose
+  configuration contains `--enable-nonfree`.
+- Native-build inspection also found that an unqualified build inherited the
+  current runner's macOS 26 minimum. The script now pins both compiler and
+  linker deployment targets to macOS 11.0 so release binaries remain usable on
+  supported older Macs.
+- The final end-to-end fetch/build/gate run passed and Mach-O inspection reports
+  `minos 11.0`. The final production build and all 99 files / 517 tests passed.
+- At the user's request, this verified macOS FFmpeg packaging fix is being
+  committed and pushed directly to `origin/main`.
