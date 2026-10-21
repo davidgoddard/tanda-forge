@@ -1933,13 +1933,33 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
-  test("13 - search-track menu action adds track to tanda designer", async () => {
+  test("13 - consecutive search T actions open and fill the same tanda designer draft", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
-      await addTrackToTandaDesigner(page, "Tempo 72 Test");
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await runSearch(page, "Alberto Gomez Tango");
+
+      await clickRowAction(
+        searchTrackRow(page, "Alberto Gomez Tango Uno"),
+        "add-tanda",
+      );
       await expect(page.locator('#tanda-designer-tab')).toHaveClass(/active/);
-      await expect(page.locator("#tanda-list")).toContainText("Tempo 72 Test");
+      const selectedTanda = page.locator("#tanda-list .tanda-card.selected");
+      await expect(selectedTanda).toHaveCount(1);
+      await expect(selectedTanda).toContainText("Alberto Gomez Tango Uno");
+
+      const secondTrack = searchTrackRow(page, "Alberto Gomez Tango Dos");
+      await expect(secondTrack).toBeVisible();
+      await clickRowAction(secondTrack, "add-tanda");
+
+      await expect(selectedTanda.locator(".tanda-track-row").nth(0)).toContainText(
+        "Alberto Gomez Tango Uno",
+      );
+      await expect(selectedTanda.locator(".tanda-track-row").nth(1)).toContainText(
+        "Alberto Gomez Tango Dos",
+      );
+      await expect(page.locator("#tanda-list .tanda-card.selected")).toHaveCount(1);
     } finally {
       await launched.close();
     }

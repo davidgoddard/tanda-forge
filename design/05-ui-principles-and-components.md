@@ -452,6 +452,11 @@ Requirements:
 - UI-016.R5: Tandas are selectable; the selected tanda is the target for incoming tracks.
 - UI-016.R6: Tracks can be added from search/clipboard via the add action or drag/drop.
 - UI-016.R6.a: Adding a track to the active tanda brings the Tanda Designer tab into focus.
+- UI-016.R6.b: Sending a Search or Clipboard track with `T` appends it to the
+  currently open tanda in order. If no active tanda draft can be resolved, the
+  first `T` action creates and opens an empty default-sized designer draft
+  before inserting the track; subsequent `T` actions continue filling that
+  same draft. This does not change the separate `P` playlist behavior.
 - UI-016.R7: Tracks can be reordered via drag/drop and up/down controls.
 - UI-016.R8: Tracks can be sent back to the clipboard, leaving a placeholder.
 - UI-016.R9: A "+" control adds another placeholder to extend tanda length.

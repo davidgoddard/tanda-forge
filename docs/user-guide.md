@@ -496,6 +496,11 @@ Once a tanda is open in the **Tanda Designer** or the playlist-hosted tanda edit
 - change the tanda name and other tanda-level details
 - click **Save** to keep the tanda
 
+When no tanda draft is currently open, the first track sent with **T** opens a
+new empty tanda at the configured default size and occupies its first slot.
+Further tracks sent with **T** are added to the next slots of that same tanda in
+the order sent. The **P** action remains the separate playlist-building path.
+
 Deleting or removing a tanda depends on where you are looking at it:
 
 - **Delete a saved tanda itself**: open it in the Tanda Designer with **T**, then click **Delete**. This removes the tanda record, so it disappears from collections and can no longer be used in playlists.

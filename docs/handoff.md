@@ -9027,3 +9027,33 @@
   and confirmed that it contains both `bin/ffmpeg` and `bin/ffprobe`.
 - Verification passed: six focused fetch tests, all 99 test files / 515 tests,
   shell syntax, diff checks, and the production TypeScript build.
+
+# 21 October 2026 — Search-result append diagnosis
+
+- Synchronized the checkout to `origin/main` at `edc8883`; preserved the
+  pre-existing modified `.DS_Store`.
+- Diagnosed search-result tanda construction without changing runtime code:
+  - Search actions are single-track operations; there is no multi-select/batch
+    ordered append command.
+  - `T` appends to the selected Tanda Designer draft.
+  - `P` uses playlist destination priority: standalone-track target, tanda
+    target, open incomplete playlist tanda, then first empty slot.
+  - A retained playlist target can supersede open-tanda continuation; after a
+    marked tanda fills, the retained target can also cause `No empty slot`
+    instead of rolling over to a new tanda.
+- No build or test run was needed because this was a read-only code diagnosis;
+  only the required handoff/dialogue records changed.
+- Follow-up clarification narrowed the reported action to Search `T`, not `P`.
+  The `T` append path has no style validation and targets `selectedTandaId`
+  exclusively. Its only early failures are a missing selected draft or a
+  live-playback lock, so the likely issue is visible/open editor state becoming
+  inconsistent with the internally selected tanda.
+- Implemented the clarified Search `T` behavior: a missing active draft now
+  creates and opens a default-sized designer tanda, and consecutive `T` actions
+  append to that same draft. The `P` playlist path was not changed.
+- Expanded E2E workflow 13 to start from Search without explicitly opening a
+  tanda, send two Tango tracks via `T`, and assert their order in one selected
+  designer draft.
+- Verification passed: production build, all 99 unit-test files / 515 tests,
+  and the targeted Electron workflow. The first sandboxed Electron launch was
+  blocked by the environment; the permitted rerun passed.

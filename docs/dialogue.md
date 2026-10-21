@@ -6037,3 +6037,50 @@ fetch tests, and the full build. Moving `latest` URLs and unverified fallbacks
 are explicitly prohibited. Live validation matched the upstream SHA-256 digest
 and confirmed both required binaries; all 515 tests and the production build
 passed.
+
+# 21 October 2026 — Search-result track append diagnosis
+
+**User request:** Ensure the checkout is synchronized with the repository and on
+`main`, then explain why multiple songs from search results cannot be appended
+as consecutive tracks into a new tanda until its default size is reached.
+
+**Assistant response:** Fetched `origin`, switched from `music-aware-lighting`
+to `main`, and fast-forwarded `main` to `origin/main` at `edc8883`, preserving
+the user's existing `.DS_Store` modification. Code inspection found that Search
+does not implement multi-select or a batch ordered append: every `T` or `P`
+action handles one track. `T` fills the currently selected Tanda Designer draft;
+`P` fills a playlist-hosted tanda through transient open-tanda state. Playlist
+destination precedence is a marked standalone-track target, then a marked tanda
+target, then the open incomplete tanda, then the first empty playlist slot. A
+retained target can therefore override the expected open-tanda continuation,
+and a retained marked tanda remains the destination even after it becomes full,
+causing the next send to report no empty slot instead of starting another tanda.
+
+**User clarification:** The user used `T` on each individual Search track, had
+a tanda open, and all results were Tango, but the tracks still did not append.
+
+**Assistant follow-up:** Corrected the diagnosis to the Tanda Designer path.
+`T` does not validate style before insertion; it targets only the internal
+`selectedTandaId`. The append function can reject the request only when that ID
+does not resolve to a draft or when the tanda is locked during live playback.
+Therefore an open-looking or expanded tanda is not sufficient if it is not the
+internally selected editor draft. The likely defect is a visible-open versus
+selected-draft state mismatch, not a Tango style mismatch or playlist target
+precedence.
+
+**User request:** Modify the E2E coverage to search for and add multiple tracks
+to the open tanda. When no tanda is open, the first `T` must open an empty tanda
+and add the track, while the second `T` must append the second track; retain the
+existing `P` behavior.
+
+**Implementation response:** Added a defensive `T` fallback that creates and
+opens a default-sized designer draft when the active tanda cannot be resolved,
+then uses the existing ordered slot insertion for that and subsequent tracks.
+Expanded workflow 13 to send two Tango search results through `T` without first
+opening a tanda and assert that both appear, in order, in one selected draft.
+The `P` implementation was left unchanged. Updated the UI requirement, user
+guide, handoff, and dialogue records.
+
+**Verification:** The production build and all 99 unit-test files / 515 tests
+passed. The targeted Electron workflow passed when rerun with GUI/process
+permission after the sandbox blocked the initial Electron launch.

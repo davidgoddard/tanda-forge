@@ -12206,7 +12206,15 @@ const addTrackToTanda = (tandaId: string | null, track: TrackRow) => {
 };
 
 const addTrackToActiveTanda = (track: TrackRow) => {
-  const added = addTrackToTanda(selectedTandaId, track);
+  let activeTanda = getActiveTanda();
+  if (!activeTanda) {
+    activeTanda = createEmptyTanda();
+    ensureTandaDraft(activeTanda, "designer");
+    selectedTandaId = activeTanda.id;
+    tandaEditorReturnTab = null;
+    tandaEditorHostTab = "tanda-designer-tab";
+  }
+  const added = addTrackToTanda(activeTanda.id, track);
   if (added) {
     activateRightTab(
       tandaEditorHostTab === "playlist-tab" ? "playlist-tab" : "tanda-designer-tab",
