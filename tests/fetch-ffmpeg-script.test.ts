@@ -33,6 +33,7 @@ describe("FFmpeg fetch script", () => {
   it("builds the official macOS source with the PNG dependency required for waveforms", () => {
     expect(script).toContain("https://ffmpeg.org/releases/${MACOS_FFMPEG_SOURCE_ARCHIVE}");
     expect(script).toContain("--enable-zlib");
+    expect(script).toContain("--disable-x86asm");
     expect(script).toContain('MACOS_DEPLOYMENT_TARGET="11.0"');
     expect(script).toContain("-mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET");
     expect(script).not.toContain("evermeet.cx");

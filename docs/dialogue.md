@@ -6131,3 +6131,17 @@ passed.
 **Assistant response:** Committed the verified macOS FFmpeg packaging fix,
 including its regression coverage and documentation, and pushed it to
 `origin/main`.
+
+# 22 October 2026 — Intel macOS FFmpeg assembler failure
+
+**User report:** The Intel Mac release failed during FFmpeg configuration with
+`nasm not found or too old`, while Apple Silicon and Windows succeeded.
+
+**Assistant response:** Confirmed that the failure is specific to FFmpeg's
+default x86 assembly path: the Intel source build requires NASM, Apple Silicon
+does not use that path, and Windows consumes a pinned prebuilt archive. Updated
+the native macOS configuration to disable x86 assembly, eliminating the
+undeclared runner dependency while retaining the existing post-build checks for
+all FFmpeg capabilities required by Tanda Forge. Added regression and release
+documentation coverage. Shell syntax, all 8 focused fetch-script regressions,
+the full 99-file / 517-test suite, and the production build passed.

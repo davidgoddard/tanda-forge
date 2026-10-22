@@ -9097,3 +9097,17 @@
   `minos 11.0`. The final production build and all 99 files / 517 tests passed.
 - At the user's request, this verified macOS FFmpeg packaging fix is being
   committed and pushed directly to `origin/main`.
+
+# 22 October 2026 — Intel macOS FFmpeg assembler failure
+
+- The Intel macOS release job reached the official source build but FFmpeg's
+  configure step failed because its default x86 assembly path requires NASM,
+  which was not available on that GitHub-hosted runner.
+- Apple Silicon did not exercise the x86 assembly path, and Windows uses the
+  existing pinned prebuilt archive, explaining why those jobs succeeded.
+- The macOS source configuration now passes `--disable-x86asm`, removing the
+  undeclared runner dependency. Post-build checks continue to require the
+  filters and encoders used by Tanda Forge, so missing application capabilities
+  still stop packaging.
+- Verification passed: shell syntax, all 8 fetch-script regressions, the full
+  99-file / 517-test suite, and the production build.

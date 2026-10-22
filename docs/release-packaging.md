@@ -19,7 +19,8 @@
   versioned official FFmpeg source archive, verify its pinned SHA-256 digest,
   and compile native `ffmpeg` and `ffprobe` executables without non-redistributable
   configuration flags. The build must pin its macOS deployment target rather
-  than inheriting the newer CI runner's minimum OS version.
+  than inheriting the newer CI runner's minimum OS version, and must not depend
+  on optional assembler tooling that is absent from a supported release runner.
 - **REL-PKG-007:** The native macOS build must retain the audio analysis,
   waveform PNG, and playable WAV capabilities required by Tanda Forge,
   including `loudnorm`, `silencedetect`, `showwavespic`, PNG encoding, common
@@ -41,7 +42,10 @@ matrix architecture explicitly so the Intel job produces x86_64 tools and the
 Apple-Silicon job produces arm64 tools. Autodetected optional dependencies,
 network support, and non-redistributable build flags are excluded; zlib remains
 enabled because Tanda Forge requires FFmpeg's PNG encoder for waveform images.
-The deployment target is pinned to macOS 11.0 for both architectures.
+The deployment target is pinned to macOS 11.0 for both architectures. x86
+assembly is disabled so the Intel build does not depend on the runner providing
+a compatible NASM installation; the post-build capability checks still enforce
+all functionality required by the application.
 
 The mandatory agent checklist for maintaining and releasing these pins is in
 `AGENTS.md`.

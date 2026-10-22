@@ -84,6 +84,7 @@ fetch_macos() {
       --disable-ffplay \
       --disable-network \
       --disable-shared \
+      --disable-x86asm \
       --enable-static \
       --enable-zlib \
       --extra-cflags="-mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET" \
