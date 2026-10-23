@@ -1152,6 +1152,20 @@
               </p>
               <div id="refresh-stored-metadata-result" class="diagnostics-result"></div>
             </div>
+            <div class="settings-section setup-card">
+              <h3 data-i18n="audioSimilarityMaintenanceTitle">Audio Similarity</h3>
+              <p class="settings-note settings-note-compact" data-i18n="audioSimilarityMaintenanceSummary">
+                Find recordings and compositions that sound alike after library setup is complete.
+              </p>
+              <div class="settings-actions">
+                <button id="open-audio-similarity" data-i18n="audioSimilarityOpen">
+                  Open audio similarity report
+                </button>
+              </div>
+              <p class="settings-note" data-i18n="audioSimilarityMaintenanceHelp">
+                Generate or review local audio fingerprints, confirm genuine matches, compare metadata, and manage affected tandas.
+              </p>
+            </div>
             <div id="derived-caches-section" class="settings-section setup-card">
               <h3 data-i18n="derivedCacheTitle">Derived Caches</h3>
               <p class="settings-note settings-note-compact" data-i18n="derivedCacheSummary">
@@ -1722,6 +1736,24 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <section id="audio-similarity-page" class="audio-similarity-page" aria-hidden="true">
+        <header class="audio-similarity-header">
+          <div>
+            <div class="settings-eyebrow" data-i18n="audioSimilarityEyebrow">Library analysis</div>
+            <h2 data-i18n="audioSimilarityTitle">Audio similarity report</h2>
+          </div>
+          <button id="close-audio-similarity" data-i18n="audioSimilarityBack">Back to Library settings</button>
+        </header>
+        <div class="audio-similarity-toolbar">
+          <input id="audio-similarity-search" type="search" data-i18n-attr="placeholder" data-i18n="audioSimilaritySearch" placeholder="Search report" />
+          <button id="generate-audio-similarity" data-i18n="audioSimilarityGenerate">Generate report</button>
+          <button id="cancel-audio-similarity" data-i18n="audioSimilarityCancel">Cancel analysis</button>
+          <span id="audio-similarity-status" role="status" aria-live="polite"></span>
+        </div>
+        <div id="audio-similarity-summary" class="audio-similarity-summary"></div>
+        <div id="audio-similarity-groups" class="audio-similarity-groups"></div>
       </section>
 
       <section

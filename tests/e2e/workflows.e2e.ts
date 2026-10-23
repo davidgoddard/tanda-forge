@@ -16,10 +16,16 @@ const runSearch = async (page: Page, query: string) => {
   const beforeReadyToken = await searchTracks.getAttribute("data-ready-token");
   await page.locator("#search-input").fill(query);
   await page.locator("#search-button").click();
+  if (beforeReadyToken !== null) {
+    await expect.poll(async () => {
+      const token = await searchTracks.getAttribute("data-ready-token");
+      return token === null ? -1 : Number.parseInt(token, 10);
+    }).toBeGreaterThan(Number.parseInt(beforeReadyToken, 10));
+  }
   await expect(searchTracks).toHaveAttribute("data-state", "idle");
   const afterReadyToken = await searchTracks.getAttribute("data-ready-token");
   if (beforeReadyToken !== null && afterReadyToken !== null) {
-    expect(Number.parseInt(afterReadyToken, 10)).toBeGreaterThanOrEqual(
+    expect(Number.parseInt(afterReadyToken, 10)).toBeGreaterThan(
       Number.parseInt(beforeReadyToken, 10),
     );
   }
@@ -432,7 +438,7 @@ const resolveBundledFfmpegPath = () => {
   return path.join(process.cwd(), "app", "resources", "ffmpeg", platformDir, binaryName);
 };
 
-const writeTaggedMp3 = (
+const writeTaggedFlac = (
   filePath: string,
   metadata: {
     title: string;
@@ -457,11 +463,7 @@ const writeTaggedMp3 = (
       "-i",
       `sine=frequency=${Math.max(120, metadata.frequency ?? 440)}:duration=${Math.max(0.4, metadata.seconds ?? 0.8)}`,
       "-c:a",
-      "libmp3lame",
-      "-q:a",
-      "4",
-      "-id3v2_version",
-      "3",
+      "flac",
       "-metadata",
       `title=${metadata.title}`,
       "-metadata",
@@ -504,7 +506,7 @@ const createRescanFixtureTracks = (): RescanFixtureTrack[] =>
   Array.from({ length: 10 }, (_value, index) => {
     const number = index + 1;
     return {
-      fileName: `rescan-track-${String(number).padStart(2, "0")}.mp3`,
+      fileName: `rescan-track-${String(number).padStart(2, "0")}.flac`,
       title: `Imported Title ${number}`,
       artist: `Imported Artist ${number}`,
       album: `Imported Album ${number}`,
@@ -3062,6 +3064,7 @@ test.describe("Electron app end-to-end workflows", () => {
       );
 
       await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
       await expectClickStartsTrackSoon(
         page,
         await getExpandedTandaDetailLine(searchTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Dos"),
@@ -3122,6 +3125,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await closeTrackEditorIfOpen(page);
 
       await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
       await expectClickStartsTrackSoon(
         page,
         await getExpandedTandaDetailLine(searchTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Dos"),
@@ -4056,7 +4060,7 @@ test.describe("Electron app end-to-end workflows", () => {
     const appTandaNames = ["App Rescan Trio A", "App Rescan Trio B"];
     try {
       initialTracks.forEach((track, index) => {
-        writeTaggedMp3(path.join(musicRoot, track.fileName), {
+        writeTaggedFlac(path.join(musicRoot, track.fileName), {
           title: track.title,
           artist: track.artist,
           album: track.album,
@@ -4143,14 +4147,14 @@ test.describe("Electron app end-to-end workflows", () => {
       await expectTandaSnapshotsMatch(page, tandaSnapshots);
 
       const newTrack = {
-        fileName: "rescan-track-11.mp3",
+        fileName: "rescan-track-11.flac",
         title: "Imported Title 11",
         artist: "Imported Artist 11",
         album: "Imported Album 11",
         year: "1947",
         genre: "Tango",
       };
-      writeTaggedMp3(path.join(musicRoot, newTrack.fileName), {
+      writeTaggedFlac(path.join(musicRoot, newTrack.fileName), {
         title: newTrack.title,
         artist: newTrack.artist,
         album: newTrack.album,
@@ -4196,9 +4200,9 @@ test.describe("Electron app end-to-end workflows", () => {
     const { page, tempRoot } = launched;
     const musicRoot = path.join(tempRoot, "music-same-drive");
     const exportParent = path.join(tempRoot, "backup-target");
-    const trackFile = path.join(musicRoot, "same-drive-export.mp3");
+    const trackFile = path.join(musicRoot, "same-drive-export.flac");
     try {
-      writeTaggedMp3(trackFile, {
+      writeTaggedFlac(trackFile, {
         title: "Same Drive Export",
         artist: "Export Test",
         album: "System Export",
@@ -4246,6 +4250,142 @@ test.describe("Electron app end-to-end workflows", () => {
       expect(fs.existsSync(path.join(backupRoot, "tanda-forge-system-backup.json"))).toBe(true);
       expect(fs.existsSync(path.join(backupRoot, "tanda-player.db"))).toBe(true);
       expect(fs.existsSync(path.join(backupRoot, "waveforms"))).toBe(true);
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("41 - confirmed audio similarity extends duplicate indicators across tracks and tandas", async () => {
+    test.setTimeout(90_000);
+    const launched = await launchSeededApp("empty");
+    const { page, tempRoot } = launched;
+    const musicRoot = path.join(tempRoot, "similarity-music");
+    try {
+      writeTaggedFlac(path.join(musicRoot, "original.flac"), {
+        title: "Similarity Original",
+        artist: "Orchestra Original",
+        album: "Similarity E2E",
+        year: "1938",
+        genre: "Tango",
+        notes: "original transfer",
+        seconds: 4,
+        frequency: 440,
+      });
+      writeTaggedFlac(path.join(musicRoot, "alternate.flac"), {
+        title: "Completely Different Alternate Title",
+        artist: "Different Orchestra Credit",
+        album: "Different Transfer",
+        year: "1942",
+        genre: "Tango",
+        notes: "same audio with unrelated metadata",
+        seconds: 4,
+        frequency: 440,
+      });
+      writeTaggedFlac(path.join(musicRoot, "control.flac"), {
+        title: "Similarity Control Track One",
+        artist: "Control Orchestra",
+        album: "Similarity E2E",
+        year: "1940",
+        genre: "Tango",
+        notes: "unrelated short control",
+        seconds: 0.7,
+        frequency: 220,
+      });
+      writeTaggedFlac(path.join(musicRoot, "control-two.flac"), {
+        title: "Similarity Control Track Two",
+        artist: "Second Control Orchestra",
+        album: "Similarity E2E",
+        year: "1941",
+        genre: "Tango",
+        notes: "second unrelated control",
+        seconds: 1.4,
+        frequency: 330,
+      });
+      await addMusicRootViaSettings(page, musicRoot);
+      expect(await runMusicScan(page)).toMatchObject({ scanned: 4, added: 4 });
+      await waitForTrackCount(page, 4);
+
+      await page.locator("#open-audio-similarity").click();
+      await expect(page.locator("#audio-similarity-page")).toHaveClass(/open/);
+      await page.locator("#generate-audio-similarity").click();
+      await expect.poll(async () => {
+        const report = await page.evaluate(async () => await window.tanda?.getAudioSimilarityReport());
+        return report?.status.state;
+      }, { timeout: 45_000 }).toBe("completed");
+
+      const candidateCard = page.locator("#audio-similarity-groups .audio-similarity-card", {
+        hasText: "Similarity Original",
+      }).filter({ hasText: "Completely Different Alternate Title" }).first();
+      await expect(candidateCard).toBeVisible();
+      await candidateCard.getByRole("button", { name: "Link all as the same recording" }).click();
+      const confirmation = page.locator(".confirm-modal:not(.hidden)");
+      await expect(confirmation).toContainText("count as duplicates throughout the app");
+      await confirmation.getByRole("button", { name: "Apply" }).click();
+      await expect.poll(async () => {
+        const report = await page.evaluate(async () => await window.tanda?.getAudioSimilarityReport());
+        return report?.confirmedGroups.some((group) => group.trackIds.length === 2) ?? false;
+      }).toBe(true);
+
+      await page.locator("#close-audio-similarity").click();
+      await closeSettings(page);
+      await createSavedTandaFromTracks(page, {
+        name: "Similarity Linked Tanda",
+        style: "Tango",
+        trackTexts: [
+          "Completely Different Alternate Title",
+          "Similarity Control Track One",
+          "Similarity Control Track Two",
+        ],
+      });
+      const linkedState = await page.evaluate(async () => ({
+        report: await window.tanda?.getAudioSimilarityReport(),
+        tandas: await window.tanda?.listTandas(),
+        searchResults: await window.tanda?.searchTandas({
+          query: "Similarity Linked Tanda",
+          styles: [],
+          size: null,
+        }),
+      }));
+      const confirmedTrackIds = linkedState.report?.confirmedGroups[0]?.trackIds ?? [];
+      const savedTrackIds = linkedState.tandas
+        ?.find((tanda) => tanda.name === "Similarity Linked Tanda")
+        ?.track_slots.filter(Boolean) ?? [];
+      expect(confirmedTrackIds).toHaveLength(2);
+      expect(savedTrackIds.some((trackId) => confirmedTrackIds.includes(trackId!))).toBe(true);
+      expect(linkedState.searchResults?.some((tanda) => tanda.name === "Similarity Linked Tanda"))
+        .toBe(true);
+
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await runSearch(page, "Similarity Original");
+      await clickRowAction(searchTrackRow(page, "Similarity Original"), "add-playlist-track");
+      await confirmIfPrompted(page);
+
+      await runSearch(page, "Completely Different Alternate Title");
+      const alternateRow = searchTrackRow(page, "Completely Different Alternate Title");
+      await expect(alternateRow.locator("button.duplicate-menu.full .duplicate-icon.full")).toBeVisible();
+
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await page.locator("#style-options button").first().click();
+      await page.locator("#search-tanda-size").fill("-");
+      await runSearch(page, "Similarity Linked Tanda");
+      const linkedTanda = searchTandaRow(page, "Similarity Linked Tanda");
+      await expect(linkedTanda).toBeVisible();
+      await expect(linkedTanda.locator(".tanda-detail-line")).toHaveCount(3);
+      const candidateDuplicate = linkedTanda.locator("button.duplicate-menu");
+      await expect(candidateDuplicate).toBeVisible();
+      await expect(candidateDuplicate).toHaveClass(/partial/);
+      await expect(candidateDuplicate.locator(".duplicate-icon.partial")).toBeVisible();
+      await clickRowAction(linkedTanda, "add-playlist-tanda");
+      await confirmIfPrompted(page);
+
+      await ensurePlaylistTab(page);
+      const originalPlaylistTanda = playlistTandaRow(page, "Similarity Original");
+      await expect(originalPlaylistTanda).toBeVisible();
+      await expect(playlistTandaRow(page, "Similarity Linked Tanda")).toBeVisible();
+      await expect(originalPlaylistTanda.locator("button.duplicate-menu.partial"))
+        .toBeVisible();
+      await expect(playlistTandaRow(page, "Similarity Linked Tanda").locator("button.duplicate-menu.partial"))
+        .toBeVisible();
     } finally {
       await launched.close();
     }

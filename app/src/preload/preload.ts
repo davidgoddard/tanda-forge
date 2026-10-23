@@ -25,6 +25,31 @@ const api: AppApi = {
   refreshStoredMetadata: async () => ipcRenderer.invoke("library:refreshStoredMetadata"),
   runStartupFlow: async (params) => ipcRenderer.invoke("library:runStartupFlow", params),
   listTracks: async () => ipcRenderer.invoke("library:listTracks"),
+  getAudioSimilarityReport: async () => ipcRenderer.invoke("audio-similarity:report"),
+  generateAudioSimilarityReport: async (options) =>
+    ipcRenderer.invoke("audio-similarity:generate", options),
+  cancelAudioSimilarityAnalysis: async () =>
+    ipcRenderer.invoke("audio-similarity:cancel"),
+  confirmAudioSimilarityGroup: async (candidateTrackIds, acceptedTrackIds, relationshipType) =>
+    ipcRenderer.invoke(
+      "audio-similarity:confirm", candidateTrackIds, acceptedTrackIds, relationshipType,
+    ),
+  rejectAudioSimilarityPair: async (leftTrackId, rightTrackId) =>
+    ipcRenderer.invoke("audio-similarity:reject", leftTrackId, rightTrackId),
+  reconsiderAudioSimilarityPair: async (leftTrackId, rightTrackId) =>
+    ipcRenderer.invoke("audio-similarity:reconsider", leftTrackId, rightTrackId),
+  withdrawConfirmedAudioSimilarityGroup: async (groupId) =>
+    ipcRenderer.invoke("audio-similarity:withdraw", groupId),
+  setTrackHidden: async (trackId, hidden) =>
+    ipcRenderer.invoke("audio-similarity:set-hidden", trackId, hidden),
+  replicateAudioSimilarityMetadata: async (sourceTrackId, targetTrackIds, field) =>
+    ipcRenderer.invoke("audio-similarity:replicate-metadata", sourceTrackId, targetTrackIds, field),
+  undoAudioSimilarityMetadata: async (changes) =>
+    ipcRenderer.invoke("audio-similarity:undo-metadata", changes),
+  replaceAudioSimilarityTandaTrack: async (tandaId, position, replacementTrackId) =>
+    ipcRenderer.invoke("audio-similarity:replace-tanda-track", tandaId, position, replacementTrackId),
+  replaceAudioSimilarityTandaReferences: async (references, replacementTrackId) =>
+    ipcRenderer.invoke("audio-similarity:replace-tanda-references", references, replacementTrackId),
   onScanProgress: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, progress: unknown) => {
       handler(progress as never);

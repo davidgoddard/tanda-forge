@@ -741,6 +741,10 @@ In **Settings -> Library**, the controls are grouped by purpose and tied togethe
 - If you intentionally want to rebuild track text fields from stored tags after parser changes, use **Re-parse Stored Metadata** instead of a normal scan.
 - **Re-parse Stored Metadata** rebuilds title, artist, artist summary, and singer from already stored tag data.
   - Use this after parser changes or metadata cleanup when you want to refresh credits without rerunning ffmpeg analysis, waveform PNG generation, or compressed-cache work.
+- **Audio Similarity**, immediately after Re-parse Stored Metadata, is a
+  post-setup maintenance panel for opening or generating the similarity report.
+  It is separate from folder configuration because it operates on an already
+  scanned library.
 - **Derived Caches** manages the expensive on-disk cache files.
 - **Library Maintenance** contains database-only cleanup.
 - **System Export / Import** backs up or restores the complete application data folder (database, caches, logs, and persisted settings).
@@ -808,3 +812,33 @@ Check **Settings → Diagnostics** for:
 
 - Audio tool locations (ffmpeg/ffprobe)
 - Waveform paths and test button
+# Audio similarity and duplicate recordings
+
+Tanda Forge 0.4.0 adds a local audio-similarity report. Open **Settings →
+Library → Audio similarity report**, then choose **Generate report**. The first
+run decodes each active music track after its saved start/end trims; later runs
+reuse unchanged analysis data. You can leave the report open to see progress or
+cancel it. An unreadable track is reported without discarding successful work.
+
+The report presents flat, confidence-ranked candidate groups. A score is
+evidence, not proof: only tracks with the same source-file hash are labelled as
+exact file duplicates. Play any member to compare it; seeking changes the
+shared percentage used when the next member starts. Select the genuine members
+and confirm either the same recording or the same composition. Unselected
+members are retained as rejected relationships, and a rejection can be
+reconsidered. Confirmations can also be withdrawn.
+
+Confirmed groups participate in the normal duplicate icons and auto-fill
+exclusions even when their titles or orchestras differ. Manual playlist changes
+remain unblocked. Holding a duplicate icon temporarily shows only corresponding
+playlist entries; releasing it restores the playlist.
+
+The comparison table shows metadata and file provenance without ranking audio
+quality. Selecting an editable metadata value offers to copy it to the other
+members after confirmation. Technical identity, path, duration, trims, and
+analysis fields cannot be copied. Existing tanda uses are listed and a version
+can be replaced for one tanda position after confirmation.
+
+**Hide** removes a version from normal library/search and new tanda/playlist
+selection without deleting it or changing existing references. Hidden tracks
+remain visible in this report and can be restored there.

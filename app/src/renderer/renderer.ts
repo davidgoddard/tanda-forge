@@ -10,6 +10,12 @@ import {
   collectStylesFromTracks,
 } from "../shared/tanda-utils.js";
 import { applySearchSortDefaults } from "../shared/search-sort.js";
+import type {
+  AudioSimilarityReport,
+  AudioSimilarityMember,
+  AudioSimilarityMetadataChange,
+  AudioSimilarityAuditionTrack,
+} from "../shared/audio-similarity.js";
 import {
   appendQueryTokens,
   buildTrackSimilarityQuery,
@@ -374,6 +380,15 @@ const progressElSettings =
 const progressLabelSettings =
   document.querySelector<HTMLDivElement>("#progress-label-settings");
 const settingsPanel = document.querySelector<HTMLElement>("#settings-panel");
+const audioSimilarityPage = document.querySelector<HTMLElement>("#audio-similarity-page");
+const openAudioSimilarityBtn = document.querySelector<HTMLButtonElement>("#open-audio-similarity");
+const closeAudioSimilarityBtn = document.querySelector<HTMLButtonElement>("#close-audio-similarity");
+const generateAudioSimilarityBtn = document.querySelector<HTMLButtonElement>("#generate-audio-similarity");
+const cancelAudioSimilarityBtn = document.querySelector<HTMLButtonElement>("#cancel-audio-similarity");
+const audioSimilaritySearch = document.querySelector<HTMLInputElement>("#audio-similarity-search");
+const audioSimilarityStatus = document.querySelector<HTMLElement>("#audio-similarity-status");
+const audioSimilaritySummary = document.querySelector<HTMLElement>("#audio-similarity-summary");
+const audioSimilarityGroups = document.querySelector<HTMLElement>("#audio-similarity-groups");
 const settingsContent = document.querySelector<HTMLElement>(".settings-content");
 const closeSettingsBtn =
   document.querySelector<HTMLButtonElement>("#close-settings");
@@ -1872,6 +1887,7 @@ const updateRuntimeLift = (runtime: AudioDspRuntime) => {
   if (!runtime.isRunning) {
     return;
   }
+
   const context = runtime.inputGain.context;
   const config = resolveDynamicRuntimeConfig(getAudioDynamicsConfig());
   runtime.analyser.getFloatTimeDomainData(audioSampleBuffer);
@@ -6317,6 +6333,43 @@ const handleDuplicateJump = (target: HTMLElement) => {
   return true;
 };
 
+let duplicateFocusTimer: number | null = null;
+const clearPlaylistDuplicateFocus = () => {
+  if (duplicateFocusTimer !== null) window.clearTimeout(duplicateFocusTimer);
+  duplicateFocusTimer = null;
+  playlistListEl?.querySelectorAll(".playlist-duplicate-focus-hidden")
+    .forEach((row) => row.classList.remove("playlist-duplicate-focus-hidden"));
+};
+
+const startPlaylistDuplicateFocus = (trigger: HTMLElement, immediate = false) => {
+  clearPlaylistDuplicateFocus();
+  const rawIds = trigger.dataset.duplicateTrackId
+    ? [trigger.dataset.duplicateTrackId]
+    : (trigger.dataset.duplicateTandaTrackIds ?? "").split(",").filter(Boolean);
+  const targetIds = new Set<string>();
+  rawIds.forEach((trackId) =>
+    (similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))
+      .forEach((equivalent) => targetIds.add(equivalent)));
+  if (targetIds.size === 0) return;
+  const apply = () => {
+    playlistListEl?.querySelectorAll<HTMLElement>(".list-row[data-index]").forEach((row) => {
+      const index = Number.parseInt(row.dataset.index ?? "-1", 10);
+      const item = playlistItems[index];
+      const itemTrackIds = item?.kind === "track"
+        ? [item.track.id]
+        : item?.kind === "tanda"
+          ? resolveTandaDraft(item.tandaId)?.trackSlots.filter(Boolean) as string[] ?? []
+          : [];
+      const matches = itemTrackIds.some((trackId) =>
+        [...(similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))]
+          .some((equivalent) => targetIds.has(equivalent)));
+      row.classList.toggle("playlist-duplicate-focus-hidden", !matches);
+    });
+    duplicateFocusTimer = null;
+  };
+  duplicateFocusTimer = immediate ? window.setTimeout(apply, 0) : window.setTimeout(apply, 450);
+};
+
 const buildPlaylistDuplicateIndexFromState = (): PlaylistDuplicateIndex => {
   const sources: PlaylistDuplicateSource[] = [];
   playlistItems.forEach((item) => {
@@ -6337,7 +6390,7 @@ const buildPlaylistDuplicateIndexFromState = (): PlaylistDuplicateIndex => {
     }
     sources.push({ kind: "tanda", trackIds });
   });
-  return buildPlaylistDuplicateIndex(sources);
+  return buildPlaylistDuplicateIndex(sources, similarityEquivalentTrackIds);
 };
 
 type PlaylistDuplicateCounts = {
@@ -6346,7 +6399,9 @@ type PlaylistDuplicateCounts = {
 };
 
 const buildTandaDuplicateKey = (trackIds: string[]) =>
-  Array.from(new Set(trackIds.filter(Boolean))).sort().join("|");
+  Array.from(new Set(trackIds.filter(Boolean).map((trackId) =>
+    [...(similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))].sort()[0],
+  ))).sort().join("|");
 
 const buildPlaylistDuplicateCountsFromState = (): PlaylistDuplicateCounts => {
   const trackCounts = new Map<string, number>();
@@ -6356,7 +6411,9 @@ const buildPlaylistDuplicateCountsFromState = (): PlaylistDuplicateCounts => {
       return;
     }
     if (item.kind === "track") {
-      trackCounts.set(item.track.id, (trackCounts.get(item.track.id) ?? 0) + 1);
+      const equivalents = similarityEquivalentTrackIds.get(item.track.id) ?? new Set([item.track.id]);
+      equivalents.forEach((trackId) =>
+        trackCounts.set(trackId, (trackCounts.get(trackId) ?? 0) + 1));
       return;
     }
     const tanda = resolveTandaDraft(item.tandaId);
@@ -6365,7 +6422,9 @@ const buildPlaylistDuplicateCountsFromState = (): PlaylistDuplicateCounts => {
     }
     const trackIds = tanda.trackSlots.filter(Boolean) as string[];
     trackIds.forEach((trackId) => {
-      trackCounts.set(trackId, (trackCounts.get(trackId) ?? 0) + 1);
+      const equivalents = similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]);
+      equivalents.forEach((equivalent) =>
+        trackCounts.set(equivalent, (trackCounts.get(equivalent) ?? 0) + 1));
     });
     const key = buildTandaDuplicateKey(trackIds);
     if (!key) {
@@ -9990,22 +10049,32 @@ const singerKey = (track: TrackRow) => (track.singer ?? "").trim().toLowerCase()
 
 const collectUsedTrackTitles = () => {
   const used = new Set<string>();
+  const addTrack = (track: TrackRow) => {
+    used.add(normalizeTrackTitleForAutofill(track));
+    const equivalents = similarityEquivalentTrackIds.get(track.id) ?? new Set([track.id]);
+    equivalents.forEach((trackId) => used.add(`@similarity:${trackId}`));
+  };
   playlistItems.forEach((item) => {
     if (!item) {
       return;
     }
     if (item.kind === "track") {
-      used.add(normalizeTrackTitleForAutofill(item.track));
+      addTrack(item.track);
       return;
     }
     const tanda = resolveTandaDraft(item.tandaId);
     if (!tanda) {
       return;
     }
-    getTandaTracks(tanda).forEach((track) => used.add(normalizeTrackTitleForAutofill(track)));
+    getTandaTracks(tanda).forEach(addTrack);
   });
   return used;
 };
+
+const isAutofillTrackUsed = (track: TrackRow, used: Set<string>) =>
+  used.has(normalizeTrackTitleForAutofill(track))
+  || [...(similarityEquivalentTrackIds.get(track.id) ?? new Set([track.id]))]
+    .some((trackId) => used.has(`@similarity:${trackId}`));
 
 const collectSavedAutofillTandas = async () => {
   if (!window.tanda) {
@@ -10024,7 +10093,9 @@ const collectSavedAutofillTandas = async () => {
       combined.set(draft.id, draft);
     }
   });
-  return Array.from(combined.values());
+  return Array.from(combined.values()).filter((tanda) =>
+    !tanda.trackSlots.some((trackId) =>
+      Boolean(trackId && similarityHiddenTrackIds.has(trackId))));
 };
 
 const scoreAutofillTanda = (
@@ -10087,9 +10158,7 @@ const pickAutofillTandaForSlot = (
         return null;
       }
       if (
-        tracks.some((track) =>
-          usedTrackTitles.has(normalizeTrackTitleForAutofill(track)),
-        )
+        tracks.some((track) => isAutofillTrackUsed(track, usedTrackTitles))
       ) {
         return null;
       }
@@ -10137,7 +10206,7 @@ const pickGeneratedTandaForSlot = (
   const defaultStyles = getDefaultPlaylistStyles(slotIndex).map(canonicalizeStyleForMatching);
   const styleRequired = defaultStyles.length > 0;
   const pool = allTracks.filter((track) => {
-    if (usedTrackTitles.has(normalizeTrackTitleForAutofill(track))) {
+    if (isAutofillTrackUsed(track, usedTrackTitles)) {
       return false;
     }
     if (!styleRequired) {
@@ -10305,6 +10374,8 @@ const registerAutofillUsage = (
   const tracks = getTandaTracks(tanda);
   tracks.forEach((track) => {
     usedTrackTitles.add(normalizeTrackTitleForAutofill(track));
+    const equivalents = similarityEquivalentTrackIds.get(track.id) ?? new Set([track.id]);
+    equivalents.forEach((trackId) => usedTrackTitles.add(`@similarity:${trackId}`));
     const key = artistKey(track);
     if (key) {
       artistCounts.set(key, (artistCounts.get(key) ?? 0) + 1);
@@ -14491,11 +14562,577 @@ const updateLegacyImport = async (candidatePath?: string | null) => {
   renderLibraryWorkflow();
 };
 
+let similarityReport: AudioSimilarityReport | null = null;
+let similarityEquivalentTrackIds = new Map<string, ReadonlySet<string>>();
+let similarityHiddenTrackIds = new Set<string>();
+let similarityPreview: HTMLAudioElement | null = null;
+let similarityActiveGroupId: string | null = null;
+let similaritySharedPosition = 0;
+let similarityPollTimer: number | null = null;
+let similarityMetadataUndo: AudioSimilarityMetadataChange[] = [];
+
+const localAudioUrl = (filePath: string) => {
+  const normalized = filePath.replace(/\\/g, "/");
+  const prefix = normalized.startsWith("/") ? "file://" : "file:///";
+  return encodeURI(`${prefix}${normalized}`).replace(/#/g, "%23");
+};
+
+const stopSimilarityPreview = () => {
+  similarityPreview?.pause();
+  similarityPreview = null;
+};
+
+const openAudioSimilarityOverlay = (titleText: string) => {
+  const overlay = document.createElement("div");
+  overlay.className = "audio-similarity-lazy-modal";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  const dialog = document.createElement("section");
+  dialog.className = "audio-similarity-lazy-dialog";
+  const header = document.createElement("header");
+  const title = document.createElement("h3");
+  title.textContent = titleText;
+  const close = document.createElement("button");
+  close.textContent = t("close");
+  close.addEventListener("click", () => overlay.remove());
+  header.append(title, close);
+  const body = document.createElement("div");
+  dialog.append(header, body);
+  overlay.appendChild(dialog);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+  close.focus();
+  return body;
+};
+
+const renderAudioSimilarityReport = () => {
+  if (!audioSimilarityGroups || !audioSimilaritySummary || !similarityReport) return;
+  const report = similarityReport;
+  const query = audioSimilaritySearch?.value.trim().toLocaleLowerCase() ?? "";
+  const running = report.status.state === "running" || report.status.state === "cancelling";
+  if (audioSimilarityStatus) {
+    audioSimilarityStatus.textContent = running
+      ? t("audioSimilarityRunning", {
+          processed: report.status.processedTracks,
+          total: report.status.totalTracks,
+        })
+      : report.status.state === "failed"
+        ? t("audioSimilarityFailed", { message: report.status.error ?? "" })
+        : "";
+  }
+  if (generateAudioSimilarityBtn) {
+    generateAudioSimilarityBtn.disabled = running;
+    generateAudioSimilarityBtn.textContent = t(
+      report.status.completedAt ? "audioSimilarityRegenerate" : "audioSimilarityGenerate",
+    );
+  }
+  if (cancelAudioSimilarityBtn) cancelAudioSimilarityBtn.disabled = !running;
+  audioSimilaritySummary.textContent = report.status.completedAt
+    ? t("audioSimilarityComplete", {
+        groups: report.candidateGroups.length,
+        matches: report.status.matchingPairs,
+        failed: report.status.failedTracks,
+      })
+    : t("audioSimilarityEmpty");
+  if (report.status.staleTracks > 0) {
+    audioSimilaritySummary.textContent += ` · ${t("audioSimilarityStale", {
+      count: report.status.staleTracks,
+    })}`;
+  }
+  audioSimilaritySummary.textContent += ` · ${t("audioSimilarityIntegrity", {
+    version: report.integrity.algorithmVersion,
+    ready: report.integrity.readyTracks,
+    total: report.integrity.activeTracks,
+    orphaned: report.integrity.orphanedFeatures + report.integrity.orphanedConfirmedMembers,
+  })}`;
+  audioSimilarityGroups.innerHTML = "";
+  if (similarityMetadataUndo.length > 0) {
+    const undoCard = document.createElement("div");
+    undoCard.className = "audio-similarity-card audio-similarity-actions";
+    const undoLabel = document.createElement("span");
+    undoLabel.textContent = t("audioSimilarityUndoAvailable", {
+      count: similarityMetadataUndo.length,
+    });
+    const undo = document.createElement("button");
+    undo.textContent = t("audioSimilarityUndo");
+    undo.addEventListener("click", async () => {
+      const result = await window.tanda?.undoAudioSimilarityMetadata(similarityMetadataUndo);
+      const conflicts = new Set(result?.conflicts ?? []);
+      similarityMetadataUndo = similarityMetadataUndo.filter((change) => conflicts.has(change.trackId));
+      await loadAudioSimilarityReport();
+    });
+    undoCard.append(undoLabel, undo);
+    audioSimilarityGroups.appendChild(undoCard);
+  }
+  for (const confirmedGroup of report.confirmedGroups) {
+    const confirmedCard = document.createElement("article");
+    confirmedCard.className = "audio-similarity-card";
+    const label = document.createElement("strong");
+    label.textContent = t("audioSimilarityConfirmedGroup", {
+      type: confirmedGroup.relationshipType,
+      count: confirmedGroup.trackIds.length,
+    });
+    const ids = document.createElement("small");
+    ids.textContent = confirmedGroup.trackIds.join(" · ");
+    const withdraw = document.createElement("button");
+    withdraw.textContent = t("audioSimilarityWithdraw");
+    withdraw.addEventListener("click", async () => {
+      if (!(await showConfirmModal(
+        t("audioSimilarityWithdrawConfirm"), t("audioSimilarityWithdraw"),
+      ))) return;
+      await window.tanda?.withdrawConfirmedAudioSimilarityGroup(confirmedGroup.id);
+      await loadAudioSimilarityReport();
+      renderAllLists();
+    });
+    confirmedCard.append(label, ids, withdraw);
+    audioSimilarityGroups.appendChild(confirmedCard);
+  }
+  for (const failure of report.failures) {
+    const failureRow = document.createElement("div");
+    failureRow.className = "audio-similarity-card";
+    failureRow.textContent = t("audioSimilarityFailureItem", {
+      track: failure.title, message: failure.message,
+    });
+    audioSimilarityGroups.appendChild(failureRow);
+  }
+  if (report.hiddenTracks.length > 0) {
+    const hiddenCard = document.createElement("article");
+    hiddenCard.className = "audio-similarity-card";
+    const hiddenHeading = document.createElement("h3");
+    hiddenHeading.textContent = t("audioSimilarityHiddenTracks");
+    hiddenCard.appendChild(hiddenHeading);
+    for (const hiddenTrack of report.hiddenTracks) {
+      const row = document.createElement("div");
+      row.className = "audio-similarity-actions";
+      const label = document.createElement("span");
+      label.textContent = t("audioSimilarityHiddenTrack", {
+        title: hiddenTrack.title, artist: hiddenTrack.artist, path: hiddenTrack.fullPath,
+      });
+      const restore = document.createElement("button");
+      restore.textContent = t("audioSimilarityRestore");
+      restore.addEventListener("click", async () => {
+        await window.tanda?.setTrackHidden(hiddenTrack.trackId, false);
+        await loadAudioSimilarityReport();
+      });
+      row.append(label, restore);
+      hiddenCard.appendChild(row);
+    }
+    audioSimilarityGroups.appendChild(hiddenCard);
+  }
+  const visibleGroups = report.candidateGroups.filter((group) =>
+    !query || group.members.some((member) =>
+      `${member.title} ${member.artist} ${member.album} ${member.fullPath}`
+        .toLocaleLowerCase().includes(query)),
+  );
+  for (const group of visibleGroups) {
+    const card = document.createElement("article");
+    card.className = "audio-similarity-card";
+    const header = document.createElement("header");
+    const heading = document.createElement("h3");
+    heading.textContent = t("audioSimilarityTracks", { count: group.members.length });
+    const confidence = document.createElement("strong");
+    const exactFile = group.members.some((member, index) =>
+      group.members.slice(index + 1).some((other) => other.fileHash === member.fileHash));
+    confidence.textContent = `${exactFile
+      ? t("audioSimilarityExactFiles")
+      : t("audioSimilarityCandidateEvidence")} · ${group.confidence.toFixed(6)}`;
+    header.append(heading, confidence);
+    card.appendChild(header);
+    const position = document.createElement("div");
+    position.dataset.similarityPosition = group.id;
+    position.textContent = t("audioSimilaritySharedPosition", {
+      percent: similarityActiveGroupId === group.id ? Math.round(similaritySharedPosition * 100) : 0,
+    });
+    card.appendChild(position);
+    const members = document.createElement("div");
+    members.className = "audio-similarity-members";
+    for (const member of group.members) {
+      const row = document.createElement("div");
+      row.className = "audio-similarity-member";
+      const selected = document.createElement("input");
+      selected.type = "radio";
+      selected.name = `similarity-elected-${group.id}`;
+      selected.checked = member === group.members[0];
+      selected.value = member.trackId;
+      selected.setAttribute("aria-label", t("audioSimilarityElectVersion", {
+        title: member.title, artist: member.artist,
+      }));
+      const election = document.createElement("label");
+      election.className = "audio-similarity-election";
+      const electionText = document.createElement("span");
+      electionText.textContent = t("audioSimilarityElectedVersion");
+      election.append(selected, electionText);
+      const text = document.createElement("div");
+      const title = document.createElement("strong");
+      title.textContent = member.title || member.fullPath.split(/[\\/]/).pop() || member.trackId;
+      const detail = document.createElement("small");
+      detail.textContent = [member.artist, member.album, member.fullPath].filter(Boolean).join(" · ");
+      text.append(title, detail);
+      const format = document.createElement("span");
+      format.className = "audio-similarity-format";
+      format.textContent = member.fullPath.split(".").pop() || "audio";
+      const play = document.createElement("button");
+      play.textContent = t("audioSimilarityPlay");
+      play.addEventListener("click", () => {
+        void playSimilarityMember(group.id, member, position, play);
+      });
+      const hide = document.createElement("button");
+      hide.textContent = t(member.hidden ? "audioSimilarityRestore" : "audioSimilarityHide");
+      hide.addEventListener("click", async () => {
+        await window.tanda?.setTrackHidden(member.trackId, !member.hidden);
+        await loadAudioSimilarityReport();
+      });
+      const memberActions = document.createElement("div");
+      memberActions.className = "audio-similarity-member-actions";
+      memberActions.append(format, play, hide);
+      row.append(election, text, memberActions);
+      members.appendChild(row);
+    }
+    card.appendChild(members);
+    const metadataButton = document.createElement("button");
+    metadataButton.textContent = t("audioSimilarityShowMetadata");
+    metadataButton.addEventListener("click", () => {
+    const tableWrap = openAudioSimilarityOverlay(t("audioSimilarityMetadataTitle"));
+    const electedId = members.querySelector<HTMLInputElement>('input[type="radio"]:checked')?.value;
+    tableWrap.style.overflowX = "auto";
+    const table = document.createElement("table");
+    const metadataFields: Array<{
+      label: string;
+      field: keyof AudioSimilarityMember;
+      editable?: "title" | "artist" | "artist_summary" | "singer" | "album" | "year" | "genre" | "bpm" | "notes" | "instrumental";
+    }> = [
+      { label: t("audioSimilarityMetaTitle"), field: "title", editable: "title" },
+      { label: t("audioSimilarityMetaArtist"), field: "artist", editable: "artist" },
+      { label: t("audioSimilarityMetaArtistSummary"), field: "artistSummary", editable: "artist_summary" },
+      { label: t("audioSimilarityMetaSinger"), field: "singer", editable: "singer" },
+      { label: t("audioSimilarityMetaAlbum"), field: "album" },
+      { label: t("audioSimilarityMetaYear"), field: "year", editable: "year" },
+      { label: t("audioSimilarityMetaStyle"), field: "genre", editable: "genre" },
+      { label: t("audioSimilarityMetaBpm"), field: "bpm", editable: "bpm" },
+      { label: t("audioSimilarityMetaNotes"), field: "notes", editable: "notes" },
+      { label: t("audioSimilarityMetaInstrumental"), field: "instrumental", editable: "instrumental" },
+      { label: t("audioSimilarityMetaPath"), field: "fullPath" },
+    ];
+    const head = document.createElement("tr");
+    const attributeHeading = document.createElement("th");
+    attributeHeading.textContent = t("audioSimilarityAttribute");
+    head.appendChild(attributeHeading);
+    group.members.forEach((member) => {
+      const th = document.createElement("th");
+      th.textContent = `${member.title} · ${member.artist}`;
+      th.title = `${member.album}\n${member.fullPath}`;
+      head.appendChild(th);
+    });
+    table.appendChild(head);
+    for (const metadata of metadataFields) {
+      const row = document.createElement("tr");
+      const label = document.createElement("th");
+      label.textContent = metadata.label;
+      row.appendChild(label);
+      const comparisonValues = group.members.map((member) => String(member[metadata.field] ?? ""));
+      const differs = new Set(comparisonValues).size > 1;
+      for (const member of group.members) {
+        const cell = document.createElement("td");
+        const value = member[metadata.field];
+        cell.textContent = value === null || value === "" ? "—" : String(value);
+        cell.classList.add(differs ? "metadata-different" : "metadata-equal");
+        if (metadata.editable && member.trackId === electedId) {
+          cell.tabIndex = 0;
+          cell.role = "button";
+          const replicate = async () => {
+            const targets = group.members.filter((candidate) => candidate.trackId !== member.trackId);
+            const newValue = String(member[metadata.field] ?? "—");
+            const changes = targets.map((target) =>
+              `${target.title || target.trackId}: ${String(target[metadata.field] ?? "—")} → ${newValue}`,
+            ).join("\n");
+            const confirmed = await showConfirmModal(
+              `${t("audioSimilarityCopyConfirm", {
+                field: metadata.label, value: cell.textContent ?? "", count: targets.length,
+              })}\n\n${changes}`,
+              t("audioSimilarityApply"),
+            );
+            if (!confirmed) return;
+            const result = await window.tanda?.replicateAudioSimilarityMetadata(
+              member.trackId, targets.map((target) => target.trackId), metadata.editable!,
+            );
+            similarityMetadataUndo = result?.changes ?? [];
+            await loadAudioSimilarityReport();
+          };
+          cell.addEventListener("click", replicate);
+          cell.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              void replicate();
+            }
+          });
+        }
+        row.appendChild(cell);
+      }
+      table.appendChild(row);
+    }
+    tableWrap.appendChild(table);
+    });
+    card.appendChild(metadataButton);
+    const groupedUsages = new Map<string, {
+      tandaName: string;
+      playlistNames: string[];
+      contextTracks: AudioSimilarityAuditionTrack[];
+      matches: Array<{ member: AudioSimilarityMember; position: number }>;
+    }>();
+    for (const member of group.members) {
+      for (const usage of member.usages) {
+        const existing = groupedUsages.get(usage.tandaId) ?? {
+          tandaName: usage.tandaName,
+          playlistNames: usage.playlistNames,
+          contextTracks: usage.contextTracks,
+          matches: [],
+        };
+        existing.matches.push({ member, position: usage.position });
+        groupedUsages.set(usage.tandaId, existing);
+      }
+    }
+    const usageCount = groupedUsages.size;
+    const tandasButton = document.createElement("button");
+    tandasButton.textContent = t("audioSimilarityShowTandas", { count: usageCount });
+    tandasButton.disabled = usageCount === 0;
+    tandasButton.addEventListener("click", () => {
+    const usageBody = openAudioSimilarityOverlay(t("audioSimilarityTandasTitle", { count: usageCount }));
+    for (const [tandaId, usage] of groupedUsages) {
+        const usageRow = document.createElement("div");
+        usageRow.className = "audio-similarity-card";
+        const usageText = document.createElement("span");
+        usageText.textContent = t("audioSimilarityTandaUsage", {
+          tanda: usage.tandaName, count: usage.matches.length,
+          playlists: usage.playlistNames.length ? ` · ${usage.playlistNames.join(", ")}` : "",
+        });
+        usageRow.appendChild(usageText);
+        const contextActions = document.createElement("div");
+        contextActions.className = "audio-similarity-actions";
+        const matchedIds = new Set(usage.matches.map((match) => match.member.trackId));
+        for (const contextTrack of usage.contextTracks) {
+          const context = document.createElement("span");
+          if (matchedIds.has(contextTrack.trackId)) context.className = "audio-similarity-context-match";
+          const preview = document.createElement("button");
+          preview.textContent = t("audioSimilarityPreviewContextTrack", {
+            track: contextTrack.title,
+          });
+          preview.addEventListener("click", () => {
+            void playSimilarityMember(
+              `${group.id}:${tandaId}`,
+              contextTrack,
+              position,
+              preview,
+            );
+          });
+          context.appendChild(preview);
+          contextActions.appendChild(context);
+        }
+        usageRow.appendChild(contextActions);
+        for (const match of usage.matches) {
+          const replace = document.createElement("button");
+          replace.textContent = t("audioSimilarityUseElectedForTrack", {
+            track: match.member.title, position: match.position + 1,
+          });
+          replace.addEventListener("click", async () => {
+            const electedId = members.querySelector<HTMLInputElement>('input[type="radio"]:checked')?.value;
+            const replacement = group.members.find((item) => item.trackId === electedId);
+            if (!replacement || replacement.trackId === match.member.trackId) return;
+            const confirmed = await showConfirmModal(
+              t("audioSimilarityReplaceConfirm", {
+                tanda: usage.tandaName, oldTrack: match.member.title, newTrack: replacement.title,
+              }),
+              t("audioSimilarityApply"),
+            );
+            if (!confirmed) return;
+            await window.tanda?.replaceAudioSimilarityTandaTrack(
+              tandaId, match.position, replacement.trackId,
+            );
+            tandaCache.clear();
+            await loadTandaDrafts();
+            await loadAudioSimilarityReport();
+            renderAllLists();
+          });
+          usageRow.appendChild(replace);
+        }
+        usageBody.appendChild(usageRow);
+    }
+    });
+    card.appendChild(tandasButton);
+    const actions = document.createElement("div");
+    actions.className = "audio-similarity-actions";
+    const reviewHelp = document.createElement("p");
+    reviewHelp.textContent = t("audioSimilarityReviewHelp");
+    card.appendChild(reviewHelp);
+    const confirm = (relationshipType: "same-recording" | "same-composition") => async () => {
+      const accepted = group.members.map((member) => member.trackId);
+      if (!(await showConfirmModal(
+        t("audioSimilarityLinkConfirm", {
+          count: accepted.length,
+          type: relationshipType === "same-recording"
+            ? t("audioSimilaritySameRecording") : t("audioSimilaritySameComposition"),
+        }),
+        t("audioSimilarityApply"),
+      ))) return;
+      await window.tanda?.confirmAudioSimilarityGroup(
+        group.members.map((member) => member.trackId), accepted, relationshipType,
+      );
+      await loadAudioSimilarityReport();
+      renderAllLists();
+    };
+    const recording = document.createElement("button");
+    recording.textContent = t("audioSimilarityLinkAllRecording");
+    recording.addEventListener("click", confirm("same-recording"));
+    const composition = document.createElement("button");
+    composition.textContent = t("audioSimilarityLinkAllComposition");
+    composition.addEventListener("click", confirm("same-composition"));
+    actions.append(recording, composition);
+    for (const edge of group.edges) {
+      const reject = document.createElement("button");
+      const left = group.members.find((member) => member.trackId === edge.leftTrackId);
+      const right = group.members.find((member) => member.trackId === edge.rightTrackId);
+      reject.textContent = edge.decision === "rejected"
+        ? t("audioSimilarityRestorePair", { left: left?.title ?? "", right: right?.title ?? "" })
+        : t("audioSimilarityRejectNamedPair", { left: left?.title ?? "", right: right?.title ?? "" });
+      reject.addEventListener("click", async () => {
+        if (edge.decision === "rejected") {
+          await window.tanda?.reconsiderAudioSimilarityPair(edge.leftTrackId, edge.rightTrackId);
+        } else {
+          if (!(await showConfirmModal(
+            t("audioSimilarityRejectConfirm", {
+              left: left?.title ?? "", right: right?.title ?? "",
+            }),
+            t("audioSimilarityApply"),
+          ))) return;
+          await window.tanda?.rejectAudioSimilarityPair(edge.leftTrackId, edge.rightTrackId);
+        }
+        await loadAudioSimilarityReport();
+        renderAllLists();
+      });
+      actions.appendChild(reject);
+    }
+    card.appendChild(actions);
+    audioSimilarityGroups.appendChild(card);
+  }
+};
+
+const playSimilarityMember = async (
+  groupId: string,
+  member: AudioSimilarityMember | AudioSimilarityAuditionTrack,
+  position: HTMLElement,
+  button: HTMLButtonElement,
+) => {
+  if (similarityPreview && !similarityPreview.paused && similarityActiveGroupId === groupId
+      && similarityPreview.dataset.trackId === member.trackId) {
+    stopSimilarityPreview();
+    button.textContent = t("audioSimilarityPlay");
+    return;
+  }
+  stopSimilarityPreview();
+  if (similarityActiveGroupId !== groupId) similaritySharedPosition = 0;
+  similarityActiveGroupId = groupId;
+  const audio = new Audio(localAudioUrl(member.fullPath));
+  audio.dataset.trackId = member.trackId;
+  similarityPreview = audio;
+  audio.addEventListener("loadedmetadata", () => {
+    const effectiveMs = Math.max(0, member.durationMs - member.startOffsetMs - member.endTrimMs);
+    audio.currentTime = (member.startOffsetMs + effectiveMs * similaritySharedPosition) / 1000;
+    void audio.play();
+  }, { once: true });
+  audio.addEventListener("seeked", () => {
+    const effectiveMs = Math.max(1, member.durationMs - member.startOffsetMs - member.endTrimMs);
+    similaritySharedPosition = Math.max(0, Math.min(1,
+      (audio.currentTime * 1000 - member.startOffsetMs) / effectiveMs));
+    position.textContent = t("audioSimilaritySharedPosition", {
+      percent: Math.round(similaritySharedPosition * 100),
+    });
+  });
+  audio.addEventListener("ended", () => { button.textContent = t("audioSimilarityPlay"); });
+  button.textContent = t("audioSimilarityStop");
+};
+
+const loadAudioSimilarityReport = async () => {
+  if (!window.tanda) return;
+  similarityReport = await window.tanda.getAudioSimilarityReport();
+  similarityHiddenTrackIds = new Set(similarityReport.hiddenTrackIds);
+  similarityEquivalentTrackIds = new Map();
+  for (const group of similarityReport.confirmedGroups) {
+    const members = new Set(group.trackIds);
+    for (const trackId of members) similarityEquivalentTrackIds.set(trackId, members);
+  }
+  renderAudioSimilarityReport();
+  const running = similarityReport.status.state === "running"
+    || similarityReport.status.state === "cancelling";
+  if (similarityPollTimer !== null) window.clearTimeout(similarityPollTimer);
+  similarityPollTimer = running
+    ? window.setTimeout(() => { void loadAudioSimilarityReport(); }, 750)
+    : null;
+};
+
+const initAudioSimilarityInteractions = () => {
+  openAudioSimilarityBtn?.addEventListener("click", async () => {
+    audioSimilarityPage?.classList.add("open");
+    audioSimilarityPage?.setAttribute("aria-hidden", "false");
+    similarityActiveGroupId = null;
+    similaritySharedPosition = 0;
+    await loadAudioSimilarityReport();
+  });
+  closeAudioSimilarityBtn?.addEventListener("click", () => {
+    stopSimilarityPreview();
+    audioSimilarityPage?.classList.remove("open");
+    audioSimilarityPage?.setAttribute("aria-hidden", "true");
+    if (similarityPollTimer !== null) window.clearTimeout(similarityPollTimer);
+    similarityPollTimer = null;
+  });
+  audioSimilaritySearch?.addEventListener("input", renderAudioSimilarityReport);
+  generateAudioSimilarityBtn?.addEventListener("click", async () => {
+    const fullRebuild = Boolean(similarityReport?.status.completedAt);
+    if (fullRebuild && !(await showConfirmModal(
+      t("audioSimilarityRegenerateConfirm"), t("audioSimilarityTitle"),
+    ))) return;
+    void window.tanda!.generateAudioSimilarityReport({ fullRebuild })
+      .then(loadAudioSimilarityReport)
+      .catch((error) => {
+        if (audioSimilarityStatus) {
+          audioSimilarityStatus.textContent = t("audioSimilarityFailed", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      });
+    await loadAudioSimilarityReport();
+  });
+  cancelAudioSimilarityBtn?.addEventListener("click", async () => {
+    await window.tanda!.cancelAudioSimilarityAnalysis();
+    await loadAudioSimilarityReport();
+  });
+  document.addEventListener("pointerdown", (event) => {
+    const target = event.target as HTMLElement | null;
+    const trigger = target?.closest<HTMLElement>(".duplicate-jump")
+      ?? target?.closest<HTMLElement>("button")?.querySelector<HTMLElement>(".duplicate-jump");
+    if (trigger) startPlaylistDuplicateFocus(trigger);
+  });
+  document.addEventListener("pointerup", clearPlaylistDuplicateFocus);
+  document.addEventListener("pointercancel", clearPlaylistDuplicateFocus);
+  window.addEventListener("blur", clearPlaylistDuplicateFocus);
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== " " && event.key !== "Enter") return;
+    const target = event.target as HTMLElement | null;
+    const trigger = target?.closest<HTMLElement>(".duplicate-jump")
+      ?? target?.closest<HTMLElement>("button")?.querySelector<HTMLElement>(".duplicate-jump");
+    if (trigger && !event.repeat) startPlaylistDuplicateFocus(trigger, true);
+  });
+  document.addEventListener("keyup", (event) => {
+    if (event.key === " " || event.key === "Enter") clearPlaylistDuplicateFocus();
+  });
+};
+
 const init = async () => {
   if (!window.tanda) {
     setStatus(t("statusNoApi"));
     return;
   }
+  initAudioSimilarityInteractions();
 
   try {
     const version = await window.tanda.getAppVersion();
@@ -16232,6 +16869,7 @@ const init = async () => {
   });
 
   applyTranslations();
+  await loadAudioSimilarityReport();
   if (orchestraFilterInput) {
     orchestraFilterInput.value = orchestraFilterText;
   }

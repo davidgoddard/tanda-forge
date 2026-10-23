@@ -29,4 +29,16 @@ describe("playlist duplicates", () => {
     );
     expect(getDuplicateStatusForTanda(["track-y"], index)).toBeNull();
   });
+
+  it("treats every member of a confirmed similarity group as equivalent", () => {
+    const equivalents = new Map<string, ReadonlySet<string>>();
+    const group = new Set(["version-a", "version-b", "version-c"]);
+    group.forEach((trackId) => equivalents.set(trackId, group));
+    const index = buildPlaylistDuplicateIndex(
+      [{ kind: "track", trackId: "version-a" }],
+      equivalents,
+    );
+    expect(getDuplicateStatusForTrack("version-b", index)).toBe("full");
+    expect(getDuplicateStatusForTanda(["version-c", "unrelated"], index)).toBe("partial");
+  });
 });

@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { getDataRoot } from "./data-location";
 import path from "path";
 import fs from "fs";
+import { ensureAudioSimilaritySchema } from "./audio-similarity/store";
 
 let db: Database.Database | null = null;
 let dbPath: string | null = null;
@@ -122,6 +123,7 @@ export const initDb = () => {
   dbPath = path.join(getDataRoot(), "tanda-player.db");
   db = new Database(dbPath);
   createSchema(db);
+  ensureAudioSimilaritySchema(db);
   try {
     db.exec("alter table library_roots add column last_scan_started_at text");
   } catch {}

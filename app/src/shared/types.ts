@@ -1,6 +1,13 @@
 import type { RatingFilter, RatingSnapshot } from "./rating-filter";
 import type { PlaylistExportManifest } from "./library-transfer";
 import type { StoredPlaylistState } from "./playlist-storage";
+import type {
+  AudioSimilarityReport,
+  AudioSimilarityRelationshipType,
+  AudioSimilarityStatus,
+  GenerateAudioSimilarityOptions,
+  ReplicableAudioSimilarityField,
+} from "./audio-similarity";
 
 export type LibraryRoot = {
   id: string;
@@ -314,6 +321,43 @@ export type AppApi = {
       }
   >;
   listTracks: () => Promise<TrackRow[]>;
+  getAudioSimilarityReport: () => Promise<AudioSimilarityReport>;
+  generateAudioSimilarityReport: (
+    options?: GenerateAudioSimilarityOptions,
+  ) => Promise<AudioSimilarityStatus>;
+  cancelAudioSimilarityAnalysis: () => Promise<{ ok: boolean }>;
+  confirmAudioSimilarityGroup: (
+    candidateTrackIds: string[],
+    acceptedTrackIds: string[],
+    relationshipType: AudioSimilarityRelationshipType,
+  ) => Promise<{ ok: boolean; groupId: string }>;
+  rejectAudioSimilarityPair: (
+    leftTrackId: string,
+    rightTrackId: string,
+  ) => Promise<{ ok: boolean }>;
+  reconsiderAudioSimilarityPair: (
+    leftTrackId: string,
+    rightTrackId: string,
+  ) => Promise<{ ok: boolean }>;
+  withdrawConfirmedAudioSimilarityGroup: (groupId: string) => Promise<{ ok: boolean }>;
+  setTrackHidden: (trackId: string, hidden: boolean) => Promise<{ ok: boolean }>;
+  replicateAudioSimilarityMetadata: (
+    sourceTrackId: string,
+    targetTrackIds: string[],
+    field: ReplicableAudioSimilarityField,
+  ) => Promise<{ ok: boolean; updated: number; conflicts: string[]; changes: import("./audio-similarity").AudioSimilarityMetadataChange[] }>;
+  undoAudioSimilarityMetadata: (
+    changes: import("./audio-similarity").AudioSimilarityMetadataChange[],
+  ) => Promise<{ ok: boolean; updated: number; conflicts: string[]; changes: import("./audio-similarity").AudioSimilarityMetadataChange[] }>;
+  replaceAudioSimilarityTandaTrack: (
+    tandaId: string,
+    position: number,
+    replacementTrackId: string,
+  ) => Promise<{ ok: boolean }>;
+  replaceAudioSimilarityTandaReferences: (
+    references: import("./audio-similarity").AudioSimilarityTandaReference[],
+    replacementTrackId: string,
+  ) => Promise<{ ok: boolean; updated: number }>;
   onScanProgress: (handler: (progress: ScanProgress) => void) => () => void;
   onStartupFlowProgress: (handler: (progress: {
     phase: StartupFlowPhase;

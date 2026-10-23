@@ -176,6 +176,11 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
     join tracks deleted_t on deleted_t.id = deleted_tt.track_id
     where deleted_tt.tanda_id = tandas.id and deleted_t.deleted_at is not null
   )`);
+  where.push(`not exists (
+    select 1 from tanda_tracks hidden_tt
+    join hidden_tracks hidden_t on hidden_t.track_id = hidden_tt.track_id
+    where hidden_tt.tanda_id = tandas.id
+  )`);
 
   if (params.size && Number.isFinite(params.size) && params.size >= 1) {
     where.push(`(
