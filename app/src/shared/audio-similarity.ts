@@ -1,6 +1,10 @@
 export const AUDIO_SIMILARITY_ALGORITHM_VERSION = 1;
 
-export type AudioSimilarityRelationshipType = "same-recording" | "same-composition";
+export type AudioSimilarityRelationshipType =
+  | "identical"
+  | "same-recording"
+  | "same-orchestra"
+  | "same-composition";
 export type AudioSimilarityDecision = "pending" | "confirmed" | "rejected";
 export type AudioSimilarityRunStatus =
   | "running"
@@ -42,6 +46,7 @@ export type AudioSimilarityAuditionTrack = {
   trackId: string;
   title: string;
   artist: string;
+  album: string;
   fullPath: string;
   durationMs: number;
   startOffsetMs: number;

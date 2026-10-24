@@ -10,7 +10,7 @@ and implementation status to prevent drift.
 | Legacy ID | Feature | Decision | Notes |
 |---------|--------|----------|------|
 | LF-003 | Wi-Fi hotspot fallback | KEEP | Required for venue environments |
-| LF-007 | Duplicate song detection | EVOLVE (later) | Audio fingerprinting preferred |
+| LF-007 | Duplicate song detection | Done | Local spectral/envelope fingerprinting, DJ confirmation, global equivalence, report audition/replacement, and playlist protection are implemented in 0.4.0. |
 | LF-012 | Playlist import/export | EVOLVE (later) | Emergency interoperability |
 | LF-014 | Print playlists | KEEP | CSS-only print layout |
 | LF-018 | Display boards | KEEP | Read-only remote endpoint |
@@ -30,7 +30,7 @@ and implementation status to prevent drift.
 | FR-001.4 | Guided setup and recovery | Yes | Yes | Done: one Library-tab action now provides a resumable scan/build/compression recovery flow, destructive legacy migration is exposed as a separate explicit action, and a standalone DB repair utility can strip appended `instrumental` markers from title/artist while clearing singer and forcing instrumental tracks back into a consistent state. |
 | FR-001.5 | System backup and restore | Yes | Yes | Done: Library-tab export/import copies the full application data root with manifest validation and destructive-import confirmation. |
 | FR-002 | Loudness normalization | Yes | Yes | Done: store loudness/gain, apply on preview/main, derive gain from loudness when explicit gain is missing, use a fixed playback reference loudness, support capped runtime gain boost, apply dedicated cortina level scaling, add bounded drift-correction when gain+loudness disagree, and log playback normalization decisions for diagnostics. |
-| FR-011 | Tanda management | Yes | Yes | Done: tanda designer UI, save/delete to DB, search tab, legacy tandas import without full scan (library.dat + cortinas.dat), waveform PNG reuse, metadata overrides, and tandas-only JSON export with portable track references. |
+| FR-011 | Tanda management | Yes | Yes | Done: tanda designer UI, save/delete to DB, search tab, multi-source non-destructive legacy tanda import with visible provenance, waveform PNG reuse, metadata overrides, and tandas-only JSON export with portable track references. |
 | FR-020 | Playlist structure | Yes | Yes | Done: playlist UI, start/resume/stop, active tanda expansion, live-mode locking, auto-save/restore, cortina slots and playback integration, persisted playlist cortina slot assignments (auto-planned or manual, restored when the same cortina set is still active), in-playlist tanda editor for ad-hoc creation, target-mark replacement and cross-swap with warnings, clear-options modal (clear vs clear+autofill), expected end-time control (overnight-safe), auto-fill cortina pre-assignment for all required cortina rows when cortinas are enabled, and manual playlist save/import in Playlist settings for JSON and grouped M3U/M3U8 interchange. |
 | FR-021 | Rule-based playlists | Yes | Partial | Done: sequence/style-map guided auto-fill with fallback ad-hoc tanda synthesis, title de-duplication, grouped M3U/M3U8 import/export for best-effort tanda interchange, and contiguous `group-title` / `EXTGRP` M3U import into tanda snapshots. Missing: user-configurable generation weights/constraints and structured export of rule sets. |
 | FR-022 | Auto DJ / auto play | Deferred | No | No longer relevant for the current product scope; intentionally deferred. |

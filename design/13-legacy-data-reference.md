@@ -118,3 +118,19 @@ Global settings including:
   or a year range in notes (e.g., `1998-2002`) as year metadata when no year is set.
 - Legacy artist normalization logic in `similar.js` informs the
   `artist_summary` field used for sorting and tanda summaries.
+
+## Multiple-source import requirements
+
+- **LDI-001:** Every imported tanda stores a stable source identity derived from
+  the canonical absolute legacy root and retains the human-readable source path.
+- **LDI-002:** Importing another legacy source must not delete or overwrite
+  tandas belonging to an earlier source, even when names and filenames overlap.
+- **LDI-003:** Reimport uses deterministic per-source tanda identities, updating
+  the corresponding records without manufacturing duplicates. Tandas no longer
+  present in a reimport are retained rather than destructively removed.
+- **LDI-004:** Track resolution prefers music roots belonging to the selected
+  legacy collection before considering other configured roots.
+- **LDI-005:** Existing tandas with no source identity remain valid. Missing or
+  offline source locations do not invalidate already imported data.
+- **LDI-006:** Tanda summaries expose the retained source path so otherwise
+  overlapping imported collections remain distinguishable.

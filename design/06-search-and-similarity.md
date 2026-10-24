@@ -97,6 +97,7 @@ consider both query coverage and candidate-field purity so that partial
 multi-token matches (for example `1/2`) stay materially below exact full-field
 coverage (for example `2/2`).
 FR-091.1.R6: A configurable minimum score determines which matches are returned.
+The default minimum score is `0.19`; users can override it in Search settings.
 FR-091.1.R7: Fuzzy token similarity uses normalized trigram overlap and token-level
 edit-distance similarity to prefer close word matches (e.g., `francico` → `Francisco`).
 FR-091.1.R8: Weak fuzzy token pairs below a minimum similarity threshold must not

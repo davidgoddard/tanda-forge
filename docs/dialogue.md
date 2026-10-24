@@ -6621,3 +6621,251 @@ library. Added requirement `ASR-001A`, updated the user guide, and added a
 structural ordering regression test.
 The complete verification run passes 536 unit tests, the production build, and
 all 52 Electron workflows.
+
+## 2026-10-23 — Similarity completion and multi-source legacy imports
+
+**User requirement:** Complete the 0.4.0 similarity workflows by highlighting
+the exact located playlist track, making similarity preview buttons reflect the
+single real playback state, presenting affected tandas like normal ordered
+tandas, comparing/replacing confirmed recordings in context, and offering
+confirmed alternatives before a Search/Clipboard track is added to a tanda.
+Also make legacy imports preserve and identify multiple independent sources,
+with safe idempotent reimport and no destructive migration.
+
+**Engineering decision:** Confirmed track IDs remain the sole identity bridge;
+metadata is display-only. Add-to-tanda choice excludes hidden and unconfirmed
+members and cancels before mutation. Affected-tanda replacement remains a
+single-position persisted update. Legacy source identity is the SHA-256 of the
+canonical absolute legacy root, tanda IDs are deterministic per source/index,
+and reimport upserts those IDs without deleting older or pre-source tandas.
+Track resolution prefers roots within the selected source. Requirements are
+recorded as `ASR-078`–`ASR-082` and `LDI-001`–`LDI-006`.
+
+## 2026-10-24 — Similarity group review clarity
+
+**User feedback:** Reported that copied metadata did not redraw, reviewed
+groups could not be collapsed persistently, separate groups were hard to
+distinguish, and confirmed groups had no visible state. Clarified that group
+checkboxes select the recordings to confirm together (including partial
+selection and restoration of that selection on reopening), while affected
+tandas need a separate radio choice showing the current recording and allowing
+one replacement to be selected.
+
+**Assistant response:** Group headings now combine persistent collapse/expand,
+matched-versus-total counts, and a visible **Confirmed Match** tag. Distinct
+group colour treatments make long reports easier to scan. Confirmation operates
+only on checked members and persisted confirmed membership restores those
+checks; excluded candidates remain outside the link. Metadata overlays rebuild
+immediately after copying. Each affected tanda now presents every available
+matched recording as a radio list, identifies the current recording, and
+refreshes after a one-position replacement. Requirements `ASR-037A`,
+`ASR-039B`–`ASR-039D`, and `ASR-040A` record the finalized behavior.
+
+## 2026-10-24 — Proposed similarity relationship hierarchy
+
+**User feedback:** Requested compact, same-line metadata and affected-tanda
+buttons; a visible indication when title, artist, singer, BPM, notes, or date
+differ; and a more precise distinction among identical recordings, alternate
+quality/transfers of the same orchestra/version, different versions by the same
+orchestra, and the same composition performed by another orchestra. Exact-only
+alternatives should not cause an assignment prompt, while meaningful recording
+or performance alternatives should be offered separately and all confirmed
+same-composition relationships should continue to inform playlist warnings.
+
+**Assistant question:** Asked whether files containing the same captured
+performance but sourced from different transfers/masters or formats belong in
+the no-prompt interchangeable tier, or in the prompt-worthy alternate-recording
+tier. This boundary must be explicit before changing persisted relationship
+types and replacement behavior.
+
+**User clarification:** Different transfers, remasters, cleanup levels, or
+recording qualities must be offered for selection because the DJ may need to
+match the sonic character of the other recordings in a tanda.
+
+**Assistant response:** Implemented compact same-line detail controls and a
+metadata-difference label. Added a distinct same-orchestra/different-performance
+relationship while retaining same-composition relationships for cross-orchestra
+duplicate protection. Only alternatives with identical file content bypass the
+add-time chooser; confirmed alternatives with different file identities remain
+selectable.
+
+**User correction:** “Identical” is a DJ judgement and does not require
+byte-identical files. Once the DJ has declared versions identical, the app may
+silently use the better-quality member; versions not declared identical must
+still be offered for selection.
+
+**Assistant question:** Asked whether the silent preferred member should be
+explicitly elected by the DJ, or initially inferred from technical properties
+such as lossless encoding, bitrate, sample rate, and bit depth with a DJ
+override. This must be resolved because container/format alone does not prove
+audible quality and the earlier requirement explicitly avoided presenting FLAC
+as inherently better than MP3.
+
+**User decision:** The DJ shall elect the master version while reviewing the
+labelled tracks. The user also asked for confirmation that similarity remains
+optional and that a collection which is never analysed continues to work
+normally without silent behavior or errors.
+
+**Assistant response:** Added DJ-confirmed identical groups with an explicitly
+elected master. Only those groups silently resolve to their master; all other
+relationship classes retain their chooser behavior. An unanalysed library has
+empty similarity indexes and follows the existing normal paths. Requirement
+`ASR-087` makes this opt-in behavior explicit.
+
+**User question:** Asked whether an existing installation with an already
+scanned library and saved tandas can upgrade without rebuilding its setup.
+
+**Assistant response:** Confirmed that startup applies additive, idempotent
+schema creation/migrations. Existing track, tanda, tanda-track, playlist, and
+playlist-item rows are retained; similarity tables begin empty where absent.
+Earlier similarity confirmations using `same-recording` or `same-composition`
+remain readable, but they do not silently acquire a master: the DJ must
+explicitly reconfirm a set as identical and elect its master.
+
+**User request:** Reported that the shared audition percentage did not appear
+functional and requested a small waveform below every candidate path so visual
+similarity can be assessed and clicking the waveform sets the playback offset.
+
+**Assistant response:** Reused the existing cached waveform service to render
+compact canvases in candidate rows. Pointer clicks and accessible arrow-key
+adjustments now set the group’s relative position, update all playheads and the
+percentage label, seek an active preview, and control where subsequent track
+previews begin. Requirement `ASR-088` records the behavior.
+
+**User addition:** Requested the distinct candidate titles alongside the
+heading’s “2 of 2 matched” count.
+
+**Assistant response:** Added a case-insensitively deduplicated title summary to
+the persistent group heading so it remains visible when collapsed (`ASR-089`).
+
+**User defect report:** Clicking **Confirm identical versions** with no master
+selected appeared to do nothing: there was no popup and no confirmed badge.
+The user confirmed that the missing-master requirement must appear in a popup.
+
+**Assistant response:** Replaced the invisible status-only failure with an
+explanatory master-selection popup. It lists the included tracks, disables
+Apply until one is selected, updates the inline master election, and then
+continues to the normal identical-relationship confirmation (`ASR-090`).
+
+**User UI feedback:** The add-to-tanda confirmed-alternative window was visually
+poor and incorrectly used large Play and per-row Use buttons. Requested the
+normal headphone audition icon, a radio-selection column, and footer-level
+Apply/Cancel actions.
+
+**Assistant response:** Rebuilt the picker as a compact table. Each track now
+has one selection radio, the existing headphone button wired through normal
+headphone playback/routing, and its identity/path. The initially requested
+track is preselected; the footer contains only Cancel and Apply (`ASR-091`).
+
+**User defect report:** A real similarity run failed with
+`CHECK constraint failed: left_track_id < right_track_id`.
+
+**Assistant response:** Found that the comparison algorithm inherited arbitrary
+feature-query order while the database requires canonical pair order. Candidate
+IDs and the associated rejection lookup are now normalized immediately before
+edge insertion, with a regression test for reversed IDs (`ASR-092`).
+
+### 2026-10-24 — Similarity review UI, playback and localization polish
+
+**User requirement:** Move hidden tracks to the report bottom; stop main output
+before any similarity audition; shorten pair rejection to localized **No
+match**; provide the normal track editor from metadata comparison; and review
+all similarity overlays for language, theme and main-app visual compatibility.
+
+**Assistant response:** Implemented the requested ordering and playback rule,
+added per-column editor actions with report refresh, localized internal
+relationship labels and compact rejection actions, completed the Icelandic
+similarity vocabulary, validated interpolation parameters across all seven
+languages, and restyled lazy overlays through application theme variables
+(`ASR-093`–`ASR-097`).
+
+**User follow-up:** Requested more relaxed spacing in the affected-tanda view,
+asked that metadata comparison remain open behind the editor, and reported that
+an exact single-word title `Domino` was not the highest search result. Requested
+analysis and ranking alternatives before broader search changes.
+
+**Assistant response:** Increased spacing around comparison choices, track rows,
+play controls, headings and popup actions. Metadata comparison now stays mounted
+behind the editor and refreshes after save (`ASR-096`, `ASR-098`). Search
+diagnostics showed the exact title and a multi-field fuzzy result tying at
+`0.51`; proposed lexical match tiers plus coverage/purity tie-breaks, without
+changing search semantics pending user direction.
+
+**User follow-up:** Asked to preserve the search proposal for a new branch,
+reported that duplicate press-and-hold filtered the playlist without scrolling
+to the duplicate, requested more space around the exact-track highlight, and
+asked that many affected tandas not grow the popup indefinitely.
+
+**Assistant response:** Recorded the search work as a separate pending branch.
+Press-and-hold now expands and scrolls to the first exact matching playlist
+track; the arrival outline is offset from its row; and similarity overlays use
+a fixed header with an internally scrolling, viewport-bounded content area
+(`ASR-040A`, `ASR-069A`, `ASR-078`).
+
+**User defect report:** Search tandas displayed duplicate indicators, but
+clicking them did not scroll to the corresponding playlist tanda. Filled-circle
+icons also appeared to have inconsistent inner sizes.
+
+**Assistant response:** Found a split between relationship-aware duplicate
+detection and raw-ID tanda navigation. Full and partial tanda jumps now
+canonicalize both sides through confirmed similarity groups. Duplicate dot
+borders now participate in their declared dimensions, so equal statuses render
+at a consistent size (`ASR-078`).
+
+### 2026-10-24 — Lower default track-search rejection threshold
+
+**User decision:** After `with tea` failed to return the existing track
+`Tango with Tea`, requested lowering the rejection setting as an interim fix
+while noting that search still needs broader improvement.
+
+**Assistant response:** Lowered the default minimum track-search score from
+`0.25` to `0.19`, retained user configurability and added a regression for the
+reported exact two-token title-subset search (`FR-091.1.R6`).
+
+### 2026-10-24 — Persistent cross-tanda duplicate focus
+
+**User clarification:** A candidate tanda can overlap tracks distributed across
+multiple playlist tandas. Requested that press-and-hold hide unrelated playlist
+tandas, retain every matching tanda, and leave that focused view in place rather
+than restoring it immediately on release.
+
+**Assistant response:** Duplicate focus now uses union/any-track matching across
+the candidate's confirmed relationship groups, remains latched after release,
+and provides a localized themed **Show all** action plus Escape dismissal. A
+long press consumes its following click while a short click retains direct-jump
+behaviour (`ASR-069A`, `ASR-069B`).
+
+### 2026-10-24 — Tanda duplicate jump feedback
+
+**User requirement:** A single-track duplicate jump expanded its playlist tanda
+and highlighted the matching track, while a tanda duplicate jump only scrolled,
+leaving its destination unclear. Requested equivalent expansion and visual
+feedback for tanda jumps.
+
+**Assistant response:** Tanda duplicate navigation now returns every overlapping
+destination track, expands the destination tanda, flashes the tanda row, and
+applies the existing track highlight to each matching track, including matches
+resolved through confirmed similarity relationships (`ASR-069`).
+
+### 2026-10-24 — Outstanding-first similarity report
+
+**User requirement:** Move similarity matches and other dealt-with groups into
+a collapsible panel closed by default so candidates still requiring review are
+immediately obvious.
+
+**Assistant response:** Added a counted **To review** section for groups with
+pending relationships and a localized, themed **Matched or reviewed** disclosure
+that starts closed for confirmed and fully rejected groups. Groups with any
+pending edge remain outstanding, while hidden-track management stays at the
+bottom (`ASR-099`).
+
+### 2026-10-24 — Duplicate-focus Show all click isolation
+
+**User defect report:** Clicking **Show all** in the duplicate-focus banner
+opened the cortina editor beneath it instead of clearing the focused view.
+
+**Assistant response:** The newly inserted banner had inherited the playlist's
+old three-row grid allocation, allowing the scrolling playlist interaction
+layer to overlap it. The playlist grid now reserves a dedicated banner row; the
+banner has an explicit stacking context and its clear action consumes the event
+before restoring all rows (`ASR-069B`).

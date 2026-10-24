@@ -111,6 +111,9 @@ const addTrack = (
 };
 
 describe("audio similarity persistence", () => {
+  it("keeps equivalence inactive when no relationships have been confirmed", () => {
+    expect(buildConfirmedAudioSimilarityLookup([])).toEqual(new Map());
+  });
   it("defines every persistent lifecycle and decision table", () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), "app/src/main/audio-similarity/store.ts"),
@@ -162,12 +165,19 @@ describe("audio similarity persistence", () => {
         preferredTrackId: "d",
         trackIds: ["d", "e"],
       },
+      {
+        id: "group-three",
+        relationshipType: "same-orchestra",
+        preferredTrackId: null,
+        trackIds: ["f", "g"],
+      },
     ]);
 
     expect([...lookup.get("a")!]).toEqual(["a", "b", "c"]);
     expect([...lookup.get("c")!]).toEqual(["a", "b", "c"]);
     expect(lookup.get("a")!.has("d")).toBe(false);
     expect([...lookup.get("e")!]).toEqual(["d", "e"]);
+    expect([...lookup.get("g")!]).toEqual(["f", "g"]);
   });
 
   it("runs schema migration repeatedly and creates the required indexes", () => {
@@ -203,9 +213,13 @@ describe("audio similarity persistence", () => {
     expect(database.prepare("select count(*) as count from audio_similarity_rejections").get())
       .toEqual({ count: 1 });
 
-    const secondGroup = confirmAudioSimilarityGroup(database as never, ["a", "b", "c"], "same-recording");
+    const secondGroup = confirmAudioSimilarityGroup(
+      database as never, ["a", "b", "c"], "identical", "b",
+    );
     detachTrackFromConfirmedAudioSimilarityGroup(database as never, secondGroup, "c", true);
-    expect(listConfirmedAudioSimilarityGroups(database as never)[0].trackIds).toEqual(["a", "b"]);
+    expect(listConfirmedAudioSimilarityGroups(database as never)[0]).toMatchObject({
+      relationshipType: "identical", preferredTrackId: "b", trackIds: ["a", "b"],
+    });
     expect(database.prepare("select count(*) as count from audio_similarity_rejections").get())
       .toEqual({ count: 2 });
 

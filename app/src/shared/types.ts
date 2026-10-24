@@ -79,6 +79,8 @@ export type TandaDetail = {
   instrumental: boolean;
   total_duration_ms: number;
   slot_count: number;
+  legacy_source_id?: string | null;
+  legacy_source_path?: string | null;
   track_slots: (string | null)[];
   tracks: TrackRow[];
 };
@@ -330,6 +332,7 @@ export type AppApi = {
     candidateTrackIds: string[],
     acceptedTrackIds: string[],
     relationshipType: AudioSimilarityRelationshipType,
+    preferredTrackId?: string | null,
   ) => Promise<{ ok: boolean; groupId: string }>;
   rejectAudioSimilarityPair: (
     leftTrackId: string,

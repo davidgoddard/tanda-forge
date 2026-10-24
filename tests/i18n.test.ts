@@ -73,6 +73,25 @@ describe("renderer i18n", () => {
     }
   });
 
+  it("keeps similarity translations and interpolation parameters complete", () => {
+    const similarityKeys = Object.keys(translations.en)
+      .filter((key) => key.startsWith("audioSimilarity"));
+    const placeholders = (value: string) =>
+      [...value.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]).sort();
+    for (const language of SUPPORTED_LANGUAGES) {
+      for (const key of similarityKeys) {
+        expect(translations[language][key], `${language}.${key}`).toBeTruthy();
+        expect(
+          placeholders(translations[language][key]),
+          `${language}.${key} placeholders`,
+        ).toEqual(placeholders(translations.en[key]));
+      }
+    }
+    expect(translations.is.audioSimilarityTitle).not.toBe(translations.en.audioSimilarityTitle);
+    expect(translations.is.audioSimilarityRejectNamedPair)
+      .not.toBe(translations.en.audioSimilarityRejectNamedPair);
+  });
+
   it("interpolates parameters in translated strings", () => {
     const value = translate("en", "audioDynamicsPathOriginal", {
       path: "/tmp/example.wav",

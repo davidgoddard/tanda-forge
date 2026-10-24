@@ -30,6 +30,11 @@ type SourceTrack = {
 
 let activeAbortController: AbortController | null = null;
 
+export const orderAudioSimilarityTrackIds = (leftTrackId: string, rightTrackId: string) =>
+  leftTrackId < rightTrackId
+    ? [leftTrackId, rightTrackId] as const
+    : [rightTrackId, leftTrackId] as const;
+
 export const runBoundedAudioSimilarityJobs = async <T>(
   items: T[],
   concurrency: number,
@@ -274,12 +279,17 @@ export const generateAudioSimilarityReport = async (
           values (?, ?, ?, ?, ?, ?, ?, ?, ?,
             case when exists (select 1 from audio_similarity_rejections
               where left_track_id = ? and right_track_id = ?) then 'rejected' else 'pending' end, ?)`);
-        for (const match of groupMatches) addEdge.run(
-          groupId, match.leftTrackId, match.rightTrackId, match.score,
-          match.envelopeScore, match.chromaScore, match.transitionScore,
-          match.coarseScore, match.pitchShift, match.leftTrackId,
-          match.rightTrackId, now,
-        );
+        for (const match of groupMatches) {
+          const [leftTrackId, rightTrackId] = orderAudioSimilarityTrackIds(
+            match.leftTrackId, match.rightTrackId,
+          );
+          addEdge.run(
+            groupId, leftTrackId, rightTrackId, match.score,
+            match.envelopeScore, match.chromaScore, match.transitionScore,
+            match.coarseScore, match.pitchShift, leftTrackId,
+            rightTrackId, now,
+          );
+        }
       }
     })();
     database.prepare(`update audio_similarity_runs set status='completed', completed_at=?,

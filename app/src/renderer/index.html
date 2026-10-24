@@ -435,6 +435,20 @@
             <div class="list-body">
               <div id="playlist-tab" class="tab-panel active">
                 <div
+                  id="playlist-duplicate-focus-status"
+                  class="playlist-duplicate-focus-status hidden"
+                  role="status"
+                >
+                  <span data-i18n="playlistDuplicateFocusActive">
+                    Showing playlist tandas containing matching tracks.
+                  </span>
+                  <button
+                    id="playlist-duplicate-focus-clear"
+                    type="button"
+                    data-i18n="playlistDuplicateFocusClear"
+                  >Show all</button>
+                </div>
+                <div
                   id="playlist-list"
                   class="list-rows active"
                   data-state="visible"

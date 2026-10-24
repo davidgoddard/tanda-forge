@@ -51,7 +51,7 @@ export type LibraryListInteractionsControllerDeps = {
     addTrackToClipboard: (track: any) => void;
     addTandaToClipboard: (tandaId: string) => void;
     openTandaInDesigner: (tandaId: string, source: any | null, hostTab?: any) => void;
-    addTrackToActiveTanda: (track: any) => boolean;
+    addTrackToActiveTanda: (track: any) => Promise<boolean>;
     appendTrackToPlaylist: (track: any) => void;
     addTandaToPlaylist: (tandaId: string, source: any | null) => void;
     moveTrackBetweenClipboardCollections: (trackId: string, targetId: string) => void;
@@ -283,7 +283,7 @@ export const createLibraryListInteractionsController = (
         return;
       }
       if (action === "add-tanda") {
-        const added = deps.actions.addTrackToActiveTanda(track);
+        const added = await deps.actions.addTrackToActiveTanda(track);
         if (!added) {
           deps.actions.setStatusNoTandaSelected();
         }
@@ -454,7 +454,7 @@ export const createLibraryListInteractionsController = (
         return;
       }
       if (action === "add-tanda") {
-        const added = deps.actions.addTrackToActiveTanda(clipTrack);
+        const added = await deps.actions.addTrackToActiveTanda(clipTrack);
         if (!added) {
           deps.actions.setStatusNoTandaSelected();
         }

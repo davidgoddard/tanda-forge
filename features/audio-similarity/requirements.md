@@ -209,6 +209,9 @@ accepted into a group again after preview and confirmation.
   shall offer to replicate that value to all other tracks in the group. The
   confirmation shall name the attribute, source track/value, destination
   tracks, and every value that will change; the DJ may cancel without mutation.
+- **ASR-037A — Immediate comparison refresh:** After a metadata copy succeeds,
+  the open comparison table shall be rebuilt from the persisted report so every
+  changed value and equal/different highlight is immediately accurate.
 - **ASR-038 — Track provenance in headers:** Each track column/header shall show
   title and artist plus enough provenance to distinguish files: album when
   available and the source path through visible secondary text, expansion, or a
@@ -223,10 +226,17 @@ accepted into a group again after preview and confirmation.
   compact summary. Metadata comparison and affected-tanda contents shall be
   created only when requested and shown in closable overlays, so a large report
   does not render every detail table and tanda up front.
-- **ASR-039B — Elected version:** Each group shall use one clearly labelled
-  radio selection for the version used as the source of metadata copies and
-  per-tanda replacements. Play and hide/restore controls shall remain together
-  on the corresponding track row.
+- **ASR-039B — Matched-member selection:** Each candidate member shall use a
+  clearly labelled checkbox indicating whether it will be included when the DJ
+  confirms the same recording or composition. A partial confirmation shall
+  retain the excluded members as unmatched, and reopening the report shall
+  restore checked state from the persisted confirmed group.
+- **ASR-039C — Persistent group disclosure:** Every candidate heading shall
+  provide collapse/expand control, track or matched-member count, and confirmed
+  state. Collapsed group IDs shall persist across report and application reopen.
+- **ASR-039D — Group distinction:** Adjacent candidate groups shall use strong,
+  accessible border/header colour variation in addition to card spacing, while
+  confirmation shall be shown with a textual **Confirmed Match** tag.
 
 ### Recording quality and use in tandas
 
@@ -236,7 +246,12 @@ accepted into a group again after preview and confirmation.
 - **ASR-040A — Affected-tanda overlay:** The compact group shall show the number
   of distinct affected tandas. Opening it shall show each tanda once, its full
   track context with matched versions visually highlighted, preview controls,
-  and an explicit action to use the elected version for one matched position.
+  and an explicit radio list of available group recordings for each matched
+  position. The current recording shall be checked and visually highlighted;
+  selecting another shall confirm and persist that replacement. The overlay
+  header shall remain fixed and its content shall scroll within a viewport-
+  bounded body when many tandas are present; the window shall not grow without
+  bound.
 - **ASR-041 — Per-use replacement:** The DJ shall be able to replace one group
   member with another in a selected tanda without forcing replacement in every
   other tanda or playlist.
@@ -261,9 +276,9 @@ accepted into a group again after preview and confirmation.
   current live-playback position, mark tracks as played, or change playlist
   timing/state.
 
-The replacement UI uses the elected group version only as the proposed source;
-the DJ still applies it separately to each matching position in each tanda
-after listening to the complete context.
+The replacement UI is scoped to each matching tanda position. It identifies the
+current recording and lets the DJ select a confirmed alternative after
+listening to the complete context.
 
 ### Search visibility and library curation
 
@@ -342,17 +357,25 @@ after listening to the complete context.
   resolve confirmed relationship groups. For example, if searched track A is
   confirmed equivalent to track B already used by a tanda or playlist, A and
   its containing candidate tanda shall show the appropriate duplicate/partial-
-  overlap state based on B.
+  overlap state based on B. Activating a tanda duplicate indicator shall expand
+  the destination playlist tanda and temporarily highlight both the tanda and
+  every track responsible for the overlap, including confirmed equivalents.
 - **ASR-069A — Press-and-hold duplicate focus:** Pressing and holding a duplicate
-  icon within the playlist shall, after a deliberate hold threshold, temporarily
-  filter the playlist to the selected song/relationship group and every
-  corresponding containing tanda or standalone track. Releasing the pointer or
-  key shall immediately restore the prior filter and view.
+  icon shall, after a deliberate hold threshold, persistently filter the
+  playlist to every tanda or standalone track containing at least one selected
+  song/relationship-group match. Matches from one candidate tanda may therefore
+  retain several different playlist tandas. Applying the focus shall expand the
+  first matching tanda as needed and scroll its exact matching track into view.
+  Releasing the pointer or key shall retain the focused view until the DJ uses
+  the localized **Show all** action or dismisses it with Escape.
 - **ASR-069B — Focus interaction safety:** A short click shall retain the
   existing duplicate-icon behaviour. Press-and-hold shall preserve playlist
   order and state, shall not start playback or drag/reorder an item, and shall
-  have an equivalent keyboard-accessible interaction. Cancellation events and
-  focus loss shall always restore the prior filter.
+  have an equivalent keyboard-accessible interaction. Pointer cancellation or
+  focus loss before the hold threshold shall cancel the pending interaction
+  without unexpectedly changing an already active focused view. The focused-
+  view status and **Show all** control shall occupy their own interactive layout
+  row above the playlist and shall not pass input through to playlist items.
 
 ### Persistence, security, and compatibility
 
@@ -378,6 +401,102 @@ after listening to the complete context.
   controls, and replacement workflows shall be keyboard-operable and expose
   meaningful accessible names and state.
 
+### Release-completion workflows
+
+- **ASR-078 — Exact located-track feedback:** Navigating from a duplicate search
+  result shall expand and scroll to the containing playlist tanda and briefly
+  outline the actual stored track with visible space between the outline and
+  the row content. Confirmed equivalent IDs shall be resolved
+  without relying on title or artist text, and reduced-motion preferences shall
+  be respected. Tanda-level duplicate navigation shall canonicalize candidate
+  and playlist track IDs through confirmed relationship groups for both full
+  and partial overlap before locating the target row.
+- **ASR-079 — Single similarity audition state:** Similarity report playback
+  controls shall share one active preview state. Starting, ending, failing, or
+  leaving playback shall restore every inactive control to Play.
+- **ASR-080 — Familiar affected-tanda presentation:** Affected tandas shall use
+  the normal ordered tanda-track visual language without unrelated edit menus,
+  and shall expose a play control for every constituent track.
+- **ASR-081 — In-context recording comparison:** Each affected use shall show
+  compact artist/title/album summaries for confirmed alternatives, identify and
+  highlight the current recording, and safely persist an available alternative
+  into the same position with immediate refresh and failure feedback.
+- **ASR-082 — Choice before tanda insertion:** Adding a track from Search or a
+  Clipboard collection shall offer all available, non-hidden members of its
+  confirmed group for audition and selection before mutation. Cancellation
+  shall make no change; suspected candidates shall not be offered.
+
+### Relationship and assignment refinement
+
+- **ASR-083 — Compact detail actions:** Metadata and affected-tanda controls
+  shall be compact, content-width controls on one line when space permits.
+- **ASR-084 — Metadata difference summary:** Each group shall name differences
+  in artist, title, singer, BPM, notes, and year without requiring the metadata
+  table to be opened.
+- **ASR-085 — Relationship hierarchy:** The review model shall distinguish
+  byte-identical files, the same captured performance in a different transfer
+  or quality, a different performance by the same orchestra, and the same
+  composition performed by another orchestra.
+- **ASR-086 — Assignment choice:** Tracks the DJ explicitly confirms as
+  identical and interchangeable shall have one DJ-elected master version. The
+  app may silently resolve that identical group to its master. Alternate
+  recordings, remasters, cleaned transfers, different performances, and
+  same-composition alternatives not confirmed as identical shall remain an
+  explicit choice so that tanda sound character is preserved.
+- **ASR-087 — Optional activation:** A library that has never generated a
+  similarity report, or has no confirmed relationships, shall retain normal
+  search, tanda, playlist, auto-fill, and playback behavior without warnings,
+  substitutions, prompts, or errors from the similarity feature.
+- **ASR-088 — Visual shared audition:** Each candidate track shall show its
+  cached waveform beneath its identity/path. Clicking or keyboard-adjusting a
+  waveform shall set the group-wide relative audition position, update the
+  percentage and every group playhead, seek an active comparison preview, and
+  start subsequent previews at the corresponding relative point. Missing
+  waveforms shall fail visibly without blocking review.
+- **ASR-089 — Collapsed title summary:** The group heading shall list the
+  distinct candidate titles alongside its matched/total count. Titles shall be
+  deduplicated case-insensitively and remain visible while the group is
+  collapsed.
+- **ASR-090 — Required-master prompt:** If the DJ confirms identical versions
+  without first electing a master, the action shall open an explanatory master
+  chooser over the report. Apply shall remain disabled until one of the
+  included tracks is selected; selection shall then continue into the normal
+  confirmation rather than failing silently.
+- **ASR-091 — Assignment picker conventions:** The confirmed-alternative picker
+  shall present one row per track with a selection radio, the standard headphone
+  audition control using normal headphone routing/state, and track details.
+  It shall not show per-row Play or Use buttons. Cancel and Apply shall appear
+  together in the footer, with Apply resolving the selected radio choice.
+- **ASR-092 — Canonical candidate edges:** Analysis shall normalize every
+  candidate pair into canonical track-ID order at the persistence boundary,
+  including the rejection lookup, so arbitrary database row order cannot fail
+  the report with a pair-order CHECK constraint error.
+- **ASR-093 — Hidden-track placement:** The reversible hidden-track management
+  section shall appear after all visible candidate and confirmed-group content.
+- **ASR-094 — Audition stops main output:** Starting any similarity audition,
+  including report, affected-tanda, and confirmed-alternative picker playback,
+  shall first stop active main-output playback using the configured stop fade.
+- **ASR-095 — Compact rejection action:** An unreviewed candidate edge shall
+  use the localized short label **No match** without repeating track titles.
+  Confirmation may retain the two track identities.
+- **ASR-096 — Full metadata editing:** Every track column in metadata comparison
+  shall provide a localized Edit action that opens the normal track editor.
+  The comparison overlay shall remain mounted behind the editor, and a
+  successful save shall refresh that overlay from the updated report.
+- **ASR-097 — Localized, theme-compatible overlays:** Every integrated
+  similarity label shall exist in all seven supported language maps with
+  compatible interpolation parameters. Similarity overlays shall derive text,
+  panel, accent, selection, border, and focus colours from the active app theme.
+- **ASR-098 — Relaxed comparison spacing:** Metadata and affected-tanda
+  overlays shall provide clear vertical and horizontal separation around
+  headings, choices, playback controls, track rows, and footer actions.
+- **ASR-099 — Outstanding-first report:** The report shall show candidate
+  groups with pending relationships in a clearly counted **To review** section.
+  Confirmed groups and candidate groups whose relationships have all been
+  rejected shall move into a separately counted, localized disclosure panel
+  that is closed by default. Partially reviewed groups with any pending edge
+  shall remain in **To review**, and hidden-track management shall remain last.
+
 ## Validation requirements
 
 - **ASV-001 — Labelled corpus:** Thresholds and candidate indexing shall be
@@ -396,9 +515,10 @@ after listening to the complete context.
 - **ASV-005 — Performance evidence:** Release readiness shall include measured
   extraction, incremental-update, report-query, and playlist-check timings on a
   realistically sized library and supported low-spec hardware.
-- **ASV-006 — Playback safety:** Tests shall prove that analysis and report
-  auditioning do not interrupt or mutate live playback except through explicit
-  user playback controls.
+- **ASV-006 — Playback safety:** Tests shall prove that analysis does not
+  interrupt live playback, and that explicit similarity audition controls stop
+  main-output playback before starting their preview without advancing or
+  otherwise mutating playlist position.
 
 ## Product principle
 

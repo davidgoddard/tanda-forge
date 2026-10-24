@@ -54,7 +54,7 @@ describe("search-config", () => {
       bpmRange: 0,
     });
     expect(normalizeSearchConfig({})).toEqual({
-      minScore: 0.25,
+      minScore: 0.19,
       bpmRange: 5,
     });
   });

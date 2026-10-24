@@ -1,5 +1,73 @@
 ## Handoff
 
+### Audio-similarity review integration polish
+- The report is now outstanding-first: pending candidate groups remain under a
+  visible localized **To review** count, while confirmed and fully rejected
+  groups move into a themed **Matched or reviewed** disclosure closed by
+  default. Partially reviewed groups stay visible until no pending edge remains;
+  hidden-track management remains at the bottom.
+- Hidden-track management now renders after all visible similarity groups.
+- Every similarity audition path stops active main output with the configured
+  fade before preview playback starts.
+- Candidate rejection uses the localized short label `No match`; orphaned
+  confirmed-group relationship labels are translated instead of exposing
+  internal codes.
+- Metadata comparison has an Edit action per track column that opens the normal
+  editor above the report; successful saves refresh similarity data.
+- Similarity overlays use app theme variables, and all seven language maps now
+  have complete placeholder-compatible similarity vocabulary, including native
+  Icelandic strings.
+- Verification passes: `npm run preflight` (104 test files / 556 tests and the
+  production build) plus focused Electron similarity workflow 41.
+- Follow-up: relaxed spacing around affected-tanda choices, playback controls,
+  metadata headings and popup actions. Metadata comparison now remains open
+  behind the normal editor and refreshes after a successful save. Verification
+  passes: `npm run preflight` (104 test files / 557 tests and the production
+  build) plus focused Electron similarity workflow 41.
+
+### Search-ranking review: exact `Domino` title
+- Current scoring gives exact-title `Domino — Elvino Vardaro` and fuzzy
+  `Remolino — … Domingo Federico …` the same score (`0.51`). Weighted evidence
+  from several fuzzy fields can therefore tie or outrank one exact title token.
+- No search semantics changed yet. Recommended next change is a deterministic
+  lexical tier before the existing weighted score: exact normalized field,
+  exact whole-token coverage, prefix/substring, then fuzzy; within a tier sort
+  by query-token coverage, exact-token count, candidate-field purity/length,
+  field priority, similarity and stable title.
+- User intends to create a separate branch for this search-ranking work; retain
+  this proposal as the starting point and do not fold it into similarity UI
+  changes.
+
+### Duplicate focus and affected-tanda viewport follow-up
+- Press-and-hold duplicate focus now remains active after release, retains every
+  playlist tanda containing any matching track (including matches split across
+  several tandas), expands the first match and scrolls its exact stored track
+  into view. A localized, themed **Show all** control and Escape restore the
+  full playlist; ordinary short click remains the direct jump action.
+- The focus banner now occupies an explicit grid row above the scrolling list,
+  has its own stacking layer, and consumes the **Show all** click. This prevents
+  a visually underlying cortina/tanda row from opening when clearing focus.
+- Exact-track arrival highlighting uses an offset outline and horizontal margin
+  so it no longer hugs the row contents.
+- Similarity popup headers stay fixed while their content scrolls inside an
+  `88vh`-bounded dialog, so any number of affected tandas does not grow the
+  window downward.
+- Verification passes: `npm run preflight` (104 test files / 560 tests and the
+  production build) plus focused Electron similarity workflow 41.
+- Tanda duplicate icons were correctly computed from confirmed equivalents, but
+  click navigation still compared raw IDs. Full and partial tanda jumps now use
+  canonical relationship IDs and reach the matching playlist row. Duplicate
+  dots use `border-box`, keeping equal-status circles visually consistent.
+  Tanda jumps expand the destination and flash its row plus every overlapping
+  track, so the result remains obvious after scrolling.
+- Verification passes: `npm run preflight` (104 test files / 562 tests and the
+  production build) plus focused Electron similarity workflow 41.
+
+### Search minimum-score adjustment
+- Lowered the default track-search minimum score from `0.25` to `0.19`, so an
+  exact two-token title subset such as `with tea` finds `Tango with Tea`.
+- The setting remains user-configurable; explicitly saved values are preserved.
+
 ### Lighting README link
 - Added the optional DMX Lighting controller beside the README's cortina
   features, linking to `https://github.com/davidgoddard/lighting` and explaining
@@ -9608,3 +9676,119 @@
 - Post-move verification passes: **103 unit-test files / 536 tests**, the
   production build, and **52/52 Electron workflows**. Generated screenshots
   were removed and `git diff --check` remains clean.
+
+## 0.4.0 release-completion work (2026-10-23)
+
+- Duplicate navigation now resolves confirmed equivalent IDs, expands the
+  containing playlist tanda, and pulses the exact stored track with a reduced-
+  motion fallback (`ASR-078`).
+- Similarity audition has one active preview/button state and resets on switch,
+  end, error, overlay/report close, and replacement (`ASR-079`).
+- Affected tandas now show ordered playback rows plus compact current/alternate
+  artist-title-album comparisons; available alternatives replace one persisted
+  position and refresh immediately (`ASR-080`/`ASR-081`).
+- Search and Clipboard add-to-tanda actions now offer available non-hidden
+  members of confirmed groups before mutation, including cancellation and the
+  originally selected version (`ASR-082`).
+- Legacy tandas now store `legacy_source_id` and `legacy_source_path`. Canonical
+  source hashes and deterministic per-source IDs make reimport idempotent;
+  importing another source no longer globally deletes tandas. Existing rows
+  with null provenance remain compatible (`LDI-001`–`LDI-006`).
+- Final verification: `npm run preflight` passed (**104 unit files / 540
+  tests**, plus production build) and the complete Electron Playwright suite
+  passed **54/54** in 4.5 minutes, including the expanded similarity workflow
+  and multi-source legacy import/reimport workflow.
+
+## Similarity group review clarity (2026-10-24)
+
+- Candidate membership uses explicit checkboxes. Confirming a recording or
+  composition links only the checked tracks; reopening derives the checked
+  state from persisted confirmed membership and headings report partial groups
+  such as **3 of 4 matched**.
+- Each group has a persistent collapse/expand control, a visually distinct
+  colour treatment, and a **Confirmed Match** heading tag when applicable.
+- Successful metadata replication reloads the report and reopens a freshly
+  rendered metadata overlay, so copied values and difference highlighting are
+  immediately current.
+- Affected tanda positions show all matched recordings as a radio list. The
+  stored recording is selected and visually identified; choosing another
+  recording confirms and performs the single-position replacement, then
+  refreshes the report and overlay.
+- Final post-change verification passes: `npm run preflight` reports **104 unit
+  files / 543 tests** plus a successful production build, and the complete
+  Electron Playwright suite reports **54/54 workflows passed** in 4.5 minutes.
+
+## Similarity relationship refinement (2026-10-24)
+
+- Requested next: compact inline report-detail buttons, a metadata-differences
+  summary label, and a richer relationship hierarchy covering exact recordings,
+  alternate transfers/quality, same-orchestra alternate performances, and
+  same-composition performances by another orchestra.
+- Implementation is paused pending one semantic decision: whether alternate
+  transfers/masters/formats of the same captured performance are interchangeable
+  without prompting, or are prompt-worthy alternatives. No runtime code has
+  been changed for this request yet.
+
+The user resolved the boundary: different transfers/masters/quality remain
+prompt-worthy. The renderer now bypasses the chooser only when every confirmed
+alternative has the same file hash, adds a same-orchestra/different-performance
+confirmation class, labels the chooser by relationship type, places report
+detail buttons compactly on one line, and summarizes differences in artist,
+title, singer, BPM, notes, and year. Requirements `ASR-083`–`ASR-086` cover the
+behavior.
+
+Verification for this refinement: `npm run preflight` passes **104 unit files /
+545 tests** and the production build; the focused Electron similarity workflow
+also passes.
+
+Follow-up correction: exact identity must be a DJ-approved semantic relationship,
+not a file-hash relationship. The automatic preferred-member policy is pending
+clarification: either the DJ explicitly elects it, or the app ranks measurable
+technical properties and permits an override. The current file-hash shortcut
+must therefore be replaced before this refinement is considered final.
+
+Resolved: the report now supports an `identical` relationship with a required,
+DJ-elected master track. Add-to-tanda silently resolves only this class to its
+master; alternate recordings, same-orchestra performances, and cross-orchestra
+compositions still prompt. Similarity remains opt-in: with no generated report
+or confirmed groups, its indexes are empty and normal app behavior is unchanged
+(`ASR-087`).
+
+Post-resolution preflight passes **104 unit files / 546 tests** and the
+production build.
+
+Upgrade compatibility: database startup uses additive `create table if not
+exists` and guarded `alter table` migrations. Existing libraries, tandas,
+ordered tanda tracks, and playlists are preserved. A database predating audio
+similarity receives empty similarity tables, so behavior remains unchanged.
+Existing `same-recording`/`same-composition` decisions remain valid and are not
+silently converted to the new `identical` class or assigned a master.
+
+Similarity candidate rows now render the existing cached waveform PNG into a
+compact canvas. Clicking or arrow-key adjusting a canvas updates the shared
+relative audition percentage and all group playheads, seeks the active preview,
+and controls subsequent preview starts (`ASR-088`). Missing waveform data is
+shown without blocking report interaction.
+Group headings also list case-insensitively deduplicated candidate titles next
+to the match count, including while collapsed (`ASR-089`).
+Final verification passes `npm run preflight` (**104 unit files / 547 tests**
+and production build) plus the focused Electron similarity workflow, including
+a measured midpoint waveform click and 50% shared-position assertion.
+
+The identical-confirmation no-op is fixed: when no master was elected, an
+explanatory chooser now requires one of the included tracks before continuing
+to the standard confirmation (`ASR-090`). The clean preflight remains **104
+unit files / 547 tests** plus the production build; the focused Electron test
+now covers disabled Apply, master selection, and the following confirmation.
+
+The add-to-tanda alternative picker now uses a compact radio/headphone/details
+table and footer Cancel/Apply actions. Its headphone icon calls the normal
+headphone playback channel and shares the app-wide active-state indicators
+instead of using the private similarity preview player (`ASR-091`).
+
+Fixed production analysis failure `left_track_id < right_track_id`: candidate
+edge IDs and rejection lookup parameters are canonically ordered at the final
+database insertion boundary, independent of feature-query order (`ASR-092`).
+Final verification passes **104 unit files / 549 tests**, the production build,
+and the focused Electron workflow from analysis generation through confirmation,
+radio-based assignment, duplicate indicators, and tanda replacement.

@@ -30,9 +30,12 @@ const api: AppApi = {
     ipcRenderer.invoke("audio-similarity:generate", options),
   cancelAudioSimilarityAnalysis: async () =>
     ipcRenderer.invoke("audio-similarity:cancel"),
-  confirmAudioSimilarityGroup: async (candidateTrackIds, acceptedTrackIds, relationshipType) =>
+  confirmAudioSimilarityGroup: async (
+    candidateTrackIds, acceptedTrackIds, relationshipType, preferredTrackId = null,
+  ) =>
     ipcRenderer.invoke(
       "audio-similarity:confirm", candidateTrackIds, acceptedTrackIds, relationshipType,
+      preferredTrackId,
     ),
   rejectAudioSimilarityPair: async (leftTrackId, rightTrackId) =>
     ipcRenderer.invoke("audio-similarity:reject", leftTrackId, rightTrackId),

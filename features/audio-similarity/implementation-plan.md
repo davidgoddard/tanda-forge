@@ -108,3 +108,70 @@ not merely code written.
 - [x] Run all unit tests, production build, and relevant Electron E2E workflows.
 - [ ] Review the final diff for generated artifacts, large binaries, and local
   paths before declaring v0.4.0 complete.
+
+## Phase 10 — Release-completion interaction improvements
+
+- [x] Pulse the exact playlist track reached through direct or confirmed-
+  equivalent duplicate navigation.
+- [x] Centralise similarity-preview button state and reset it on stop, end,
+  error, replacement, and report navigation.
+- [x] Present affected tandas as ordered playback-oriented tanda cards with
+  compact current/alternative recording comparison and per-position replacement.
+- [x] Offer confirmed, available recording alternatives before adding from
+  Search or Clipboard to a new or existing tanda.
+- [x] Preserve stable, visible identities for tandas imported from multiple
+  legacy sources and make reimport non-destructive and idempotent.
+- [ ] Complete full regression and release-corpus verification.
+
+## Phase 11 — Group review clarity
+
+- [x] Replace the group-level elected radio with persisted confirmed-member
+  checkboxes and partial matched counts.
+- [x] Add persistent group collapse/expand state, strong group colour
+  distinction, and an in-heading Confirmed Match tag.
+- [x] Rebuild the open metadata comparison after a successful copy.
+- [x] Replace affected-tanda action buttons with a checked current-recording
+  radio list that refreshes after replacement.
+- [x] Complete post-change full regression verification.
+
+## Phase 12 — Relationship and compact-summary refinement
+
+- [x] Keep metadata and affected-tanda controls compact and inline.
+- [x] Summarize relevant metadata differences on the group card.
+- [x] Add same-orchestra/different-performance as a distinct persisted class.
+- [x] Add DJ-confirmed identical groups with an explicitly elected master and
+  silently resolve only that relationship class during tanda assignment.
+- [x] Keep other recordings and performances selectable and composition-linked
+  tracks active for duplicate protection.
+- [x] Run unit/build preflight and the focused Electron similarity workflow.
+
+## Phase 13 — Visual shared audition
+
+- [x] Reuse cached library waveform images in each candidate track row.
+- [x] Add pointer and keyboard controls for the shared relative offset.
+- [x] Synchronize group playheads, percentage text, active preview seeking, and
+  subsequent preview start positions.
+- [x] List distinct candidate titles in the persistent group heading.
+- [x] Prompt for the required master during identical confirmation when none
+  was elected inline.
+- [x] Replace the add-to-tanda alternative cards with a radio table, standard
+  headphone audition controls, and footer Apply/Cancel actions.
+- [x] Canonically order candidate edge IDs before database insertion.
+- [x] Complete post-change verification.
+
+## Phase 14 — Similarity review integration polish
+
+- [x] Move hidden-track management below visible report groups.
+- [x] Stop main output before every similarity audition path.
+- [x] Shorten candidate rejection actions to localized **No match** labels.
+- [x] Open the normal track editor from metadata comparison columns and refresh
+  the report after saving.
+- [x] Audit similarity vocabulary across all seven languages and complete the
+  Icelandic translations.
+- [x] Align lazy overlays and selection states with application theme variables.
+- [x] Relax metadata and affected-tanda spacing, and retain metadata comparison
+  behind the normal editor until explicitly closed.
+- [x] Bound affected-tanda overlays to the viewport with an internally scrolling
+  body, scroll press-and-hold duplicate focus to the first exact playlist use,
+  and loosen the exact-track highlight outline.
+- [x] Complete post-change full and focused Electron verification.

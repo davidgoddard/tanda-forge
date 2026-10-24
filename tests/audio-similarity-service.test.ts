@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { runBoundedAudioSimilarityJobs } from "../app/src/main/audio-similarity/service";
+import {
+  orderAudioSimilarityTrackIds,
+  runBoundedAudioSimilarityJobs,
+} from "../app/src/main/audio-similarity/service";
 
 describe("audio similarity analysis service", () => {
+  it("normalizes candidate edge IDs before persistence", () => {
+    expect(orderAudioSimilarityTrackIds("z-track", "a-track"))
+      .toEqual(["a-track", "z-track"]);
+    expect(orderAudioSimilarityTrackIds("a-track", "z-track"))
+      .toEqual(["a-track", "z-track"]);
+  });
   it("bounds concurrency and continues after individual track failures", async () => {
     let active = 0;
     let maximumActive = 0;

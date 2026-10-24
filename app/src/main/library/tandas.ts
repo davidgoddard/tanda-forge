@@ -63,6 +63,8 @@ export type TandaDetail = {
   instrumental: boolean;
   total_duration_ms: number;
   slot_count: number;
+  legacy_source_id: string | null;
+  legacy_source_path: string | null;
   track_slots: (string | null)[];
     tracks: {
       id: string;
@@ -200,7 +202,8 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
 export const listTandas = (db: Database.Database): TandaDetail[] => {
   const rows = db
     .prepare(
-      `select id, name, rating, instrumental, total_duration_ms, slot_count
+      `select id, name, rating, instrumental, total_duration_ms, slot_count,
+              legacy_source_id, legacy_source_path
        from tandas
        where coalesce(invalid, 0) = 0
        order by updated_at desc`,
@@ -212,6 +215,8 @@ export const listTandas = (db: Database.Database): TandaDetail[] => {
     instrumental: number | null;
     total_duration_ms: number | null;
     slot_count: number | null;
+    legacy_source_id: string | null;
+    legacy_source_path: string | null;
   }[];
   return rows
     .map((row) => loadTandaDetail(db, row.id))
@@ -380,7 +385,8 @@ const loadTandaDetail = (
 ): TandaDetail | null => {
   const row = db
     .prepare(
-      `select id, name, rating, instrumental, total_duration_ms, slot_count
+      `select id, name, rating, instrumental, total_duration_ms, slot_count,
+              legacy_source_id, legacy_source_path
        from tandas
        where id = ? and coalesce(invalid, 0) = 0
          and not exists (
@@ -396,6 +402,8 @@ const loadTandaDetail = (
     instrumental: number | null;
     total_duration_ms: number | null;
     slot_count: number | null;
+    legacy_source_id: string | null;
+    legacy_source_path: string | null;
   } | undefined;
   if (!row) {
     return null;
@@ -480,6 +488,8 @@ const loadTandaDetail = (
     instrumental: Boolean(row.instrumental),
     total_duration_ms: row.total_duration_ms ?? 0,
     slot_count: slotCount,
+    legacy_source_id: row.legacy_source_id,
+    legacy_source_path: row.legacy_source_path,
     track_slots: slots,
     tracks,
   };

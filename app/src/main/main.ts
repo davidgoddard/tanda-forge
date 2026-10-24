@@ -1494,15 +1494,19 @@ const registerIpc = () => {
       candidateTrackIds: string[],
       acceptedTrackIds: string[],
       relationshipType: AudioSimilarityRelationshipType,
+      preferredTrackId: string | null = null,
     ) => {
       if (!Array.isArray(candidateTrackIds) || !Array.isArray(acceptedTrackIds)) {
         throw new Error("Invalid audio similarity group selection.");
       }
-      if (relationshipType !== "same-recording" && relationshipType !== "same-composition") {
+      if (relationshipType !== "identical"
+        && relationshipType !== "same-recording"
+        && relationshipType !== "same-orchestra"
+        && relationshipType !== "same-composition") {
         throw new Error("Invalid audio similarity relationship type.");
       }
       const groupId = approveCandidateSubset(
-        getDb(), candidateTrackIds, acceptedTrackIds, relationshipType,
+        getDb(), candidateTrackIds, acceptedTrackIds, relationshipType, preferredTrackId,
       );
       return { ok: true, groupId };
     },

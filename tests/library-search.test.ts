@@ -84,6 +84,16 @@ describe("fuzzy search helpers", () => {
     expect(result.length).toBe(1);
   });
 
+  it("keeps an exact two-token title match at the default threshold", () => {
+    const track = buildTrack({ title: "Tango with Tea" });
+    const result = filterAndScoreTracks([track], {
+      query: "with tea",
+      minScore: 0.19,
+      bpmRange: 5,
+    });
+    expect(result).toHaveLength(1);
+  });
+
   it("keeps exact multi-token singer matches above the default threshold", () => {
     const singerMatch = buildTrack({
       singer: "Alberto Podesta",
