@@ -269,4 +269,13 @@ describe("findPlaylistPositionForTrack", () => {
     );
     expect(position).toBeNull();
   });
+
+  it("targets the actual playlist recording from a confirmed equivalent set", () => {
+    const position = findPlaylistPositionForTrack(
+      [{ kind: "tanda", trackIds: ["intro", "alternate-recording", "finale"] }],
+      "searched-recording",
+      new Set(["searched-recording", "alternate-recording"]),
+    );
+    expect(position).toEqual({ itemIndex: 0, trackIndex: 1 });
+  });
 });

@@ -134,6 +134,14 @@ Shape the night, not just the next tanda.
 * Reorder and adapt during play
 * Clear visual indicators of tanda style
 * See **start times for every tanda** at a glance
+* Detect the same recording or composition even when title, orchestra, file
+  format, or transfer metadata differs
+* Carry DJ-confirmed similarity into duplicate icons and playlist auto-fill, so
+  accidental repeats are visible during preparation and live adaptation
+* Deliberately add an overlap without interruption, then use the continuing
+  indicators to inspect exactly where both versions occur
+* Audition confirmed alternatives before adding to a tanda, or replace one
+  affected tanda position while preserving its musical context
 
 ---
 

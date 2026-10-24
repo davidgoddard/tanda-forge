@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { removeAudioSimilarityTrackState } from "../audio-similarity/store";
 
 export type RootRemovalPreview = {
   rootId: string;
@@ -75,6 +76,14 @@ export const removeLibraryRoot = (
   }
 
   const run = db.transaction(() => {
+    try {
+      const trackIds = (db.prepare("select id from tracks where root_id = ?").all(rootId) as Array<{ id: string }>).map((row) => row.id);
+      removeAudioSimilarityTrackState(db, trackIds);
+    } catch {
+      // Compatibility with a database that predates the optional similarity
+      // schema: root removal must still complete and the schema migration will
+      // discard unreachable analysis rows when it next opens.
+    }
     db.prepare("delete from tracks where root_id = ?").run(rootId);
 
     const invalidTandaIds = (

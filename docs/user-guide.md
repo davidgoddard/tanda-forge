@@ -741,6 +741,10 @@ In **Settings -> Library**, the controls are grouped by purpose and tied togethe
 - If you intentionally want to rebuild track text fields from stored tags after parser changes, use **Re-parse Stored Metadata** instead of a normal scan.
 - **Re-parse Stored Metadata** rebuilds title, artist, artist summary, and singer from already stored tag data.
   - Use this after parser changes or metadata cleanup when you want to refresh credits without rerunning ffmpeg analysis, waveform PNG generation, or compressed-cache work.
+- **Audio Similarity**, immediately after Re-parse Stored Metadata, is a
+  post-setup maintenance panel for opening or generating the similarity report.
+  It is separate from folder configuration because it operates on an already
+  scanned library.
 - **Derived Caches** manages the expensive on-disk cache files.
 - **Library Maintenance** contains database-only cleanup.
 - **System Export / Import** backs up or restores the complete application data folder (database, caches, logs, and persisted settings).
@@ -808,3 +812,112 @@ Check **Settings → Diagnostics** for:
 
 - Audio tool locations (ffmpeg/ffprobe)
 - Waveform paths and test button
+# Audio similarity and duplicate recordings
+
+Tanda Forge 0.4.0 adds a local audio-similarity report. Open **Settings →
+Library → Audio similarity report**, then choose **Generate report**. The first
+run decodes each active music track after its saved start/end trims; later runs
+reuse unchanged analysis data. You can leave the report open to see progress or
+cancel it. An unreadable track is reported without discarding successful work.
+
+![Audio-similarity candidate groups and matching controls](../images/user-guide/17-audio-similarity-matching.png)
+
+*Audio-similarity candidates show each recording's waveform and metadata,
+highlight differing fields, identify affected tandas, and provide the available
+match or **No match** decisions.*
+
+The report presents confidence-ranked candidate groups. Groups still needing a
+decision remain visible under **To review**. Confirmed matches and groups whose
+relationships have all been rejected move into **Matched or reviewed**, which
+is closed by default. A score is
+evidence, not proof: only tracks with the same source-file hash are labelled as
+exact file duplicates. Play any member to compare it; starting a similarity
+preview first stops anything playing on the main output, using the configured
+stop fade. Seeking changes the
+shared percentage used when the next member starts. Only the current preview
+shows **Stop**; starting another preview, reaching the end, encountering an
+error, or leaving the report resets the old control to **Play**. Confirm either
+the same recording or the same composition by checking the versions that truly
+match. Unchecked versions are left outside the confirmed relationship. Reopening
+the report restores those checkboxes from the saved decision, and the heading
+shows a result such as **3 of 4 matched** with a **Confirmed Match** tag.
+Individual bad pairings can be rejected with **No match** and reconsidered, and
+confirmations can be withdrawn.
+
+Each group has a strongly coloured edge/header and its own collapse control.
+Collapsed groups stay collapsed when the report or application is reopened, so
+reviewed groups can remain out of the way until deliberately expanded.
+
+Confirmed groups participate in the normal duplicate icons and auto-fill
+exclusions even when their titles or orchestras differ. Manual playlist changes
+remain unblocked. Holding a duplicate icon shows only corresponding playlist
+entries and leaves that focused view in place. Choose **Show all** or press
+Escape to restore the full playlist.
+
+A normal click on a duplicate indicator still opens and scrolls to the relevant
+playlist tanda. Tanda Forge expands it and briefly outlines the exact matching
+track. This also works when the playlist version has different title or artist
+metadata but belongs to the confirmed group.
+
+The comparison table shows metadata and file provenance without ranking audio
+quality. Selecting an editable metadata value offers to copy it to the other
+members after confirmation. Technical identity, path, duration, trims, and
+analysis fields cannot be copied. After applying a copy, the open table is
+rebuilt immediately so its values and difference colouring reflect the save.
+Each track-column heading also has **Edit track**, which opens the normal track
+editor when all compared values need correction rather than replication. The
+comparison remains open behind the editor and returns when the editor closes;
+successful saves refresh it with the updated values.
+
+**Show affected tandas** loads uses only when requested. Each tanda uses the
+familiar ordered track-row layout with a play button per track and highlights
+the matched position. Above it, a bordered list of artist/title/album summaries
+lets you audition the confirmed alternatives. The version currently in that
+tanda position has its radio button checked and is strongly outlined. Selecting
+another radio button replaces only that position after confirmation, preserves
+the rest of the tanda, and refreshes both the tanda and choice list after the
+save succeeds. With many affected tandas, the popup remains bounded to the app
+window and its content scrolls beneath the fixed heading rather than making the
+window continually taller.
+
+When adding a track from Search or a Clipboard collection to a tanda, confirmed
+available alternatives are offered before anything changes. The originally
+selected recording is included and preselected. Use the headphone icon to
+audition through the configured headphone output, select one radio button, then
+choose **Apply**, or cancel without changing the tanda. Merely suspected matches and
+hidden recordings are not offered. Byte-identical alternatives do not interrupt
+the add flow. Different transfers, remasters, or cleaned recordings remain a
+choice because their sound may fit a tanda differently. Different performances
+by the same orchestra and same-composition performances by another orchestra
+are labelled as separate relationship classes; all confirmed classes continue
+to protect playlist construction from accidental repetition. With no confirmed
+alternative, the normal one-click add continues unchanged.
+
+Each track in a similarity candidate displays a compact waveform below its
+path. Click a point on any waveform to set the shared percentage for that
+group; every waveform playhead moves to the same relative point. The currently
+playing comparison seeks immediately, and subsequent **Play** actions begin at
+that relative point. Focus a waveform and use the left/right arrow keys for
+five-percent adjustments. This is a relative comparison, so recordings with
+different durations may not land on precisely the same musical instant.
+The group heading lists its distinct candidate titles beside the match count,
+so collapsed groups remain identifiable without reopening them.
+When confirming **Identical versions**, elect a **Master** beside one included
+track. If none is elected, Tanda Forge opens a master chooser and explains that
+the selected version will be assigned silently; the confirmation continues
+only after a selection is made.
+
+**Hide** removes a version from normal library/search and new tanda/playlist
+selection without deleting it or changing existing references. Hidden tracks
+remain visible in a management section at the bottom of this report and can be
+restored there.
+
+## Importing more than one legacy collection
+
+Each legacy import retains a source identity and displays its source path on
+imported tanda summaries. You can import collection A and then collection B;
+their tandas remain separate even if filenames, metadata, or tanda names
+overlap. Reimporting the same source updates its deterministic records rather
+than adding another copy, and it does not delete older imported tandas. Existing
+imports made before source tracking remain valid. If an external source later
+becomes unavailable, already imported tandas are retained.

@@ -40,6 +40,34 @@ export type LegacyTrackOverride = {
   gainDb?: number | null;
 };
 
+export const getLegacySourceIdentity = (legacyRoot: string) => {
+  const resolvedPath = path.resolve(legacyRoot);
+  let sourcePath = resolvedPath;
+  try {
+    sourcePath = fs.realpathSync.native(resolvedPath);
+  } catch {
+    // Preserve a stable absolute identity even while an external source is offline.
+  }
+  return {
+    sourcePath,
+    sourceId: createHash("sha256").update(sourcePath).digest("hex"),
+  };
+};
+
+export const orderLegacyRootsForSource = (roots: LibraryRoot[], legacyRoot: string) => {
+  const sourcePath = path.resolve(legacyRoot);
+  return roots.slice().sort((left, right) => {
+    const score = (root: LibraryRoot) => {
+      const rootPath = path.resolve(root.path);
+      return rootPath.startsWith(sourcePath) || sourcePath.startsWith(rootPath) ? 0 : 1;
+    };
+    return score(left) - score(right);
+  });
+};
+
+export const getLegacyTandaId = (sourceId: string, index: number) =>
+  `legacy-${sourceId.slice(0, 20)}-${index}`;
+
 export type LegacyImportResult = {
   tandasImported: number;
   tracksAdded: number;
@@ -780,26 +808,26 @@ const applyLegacyOverrides = (
   return updated;
 };
 
-const importLegacyTandas = async (tandasPath: string, roots: LibraryRoot[]) => {
+const importLegacyTandas = async (
+  tandasPath: string,
+  roots: LibraryRoot[],
+  legacyRoot: string,
+) => {
   const db = getDb();
   const raw = readLegacyJson<LegacyTandaEntry[]>(tandasPath, []);
   const musicRoots = roots.filter((root) => root.kind === "music");
   if (musicRoots.length === 0) {
     return { imported: 0, missingTracks: 0 };
   }
-  const rootAudioIndexes = await buildRootAudioIndexes(musicRoots);
+  const { sourcePath, sourceId } = getLegacySourceIdentity(legacyRoot);
+  const preferredRoots = orderLegacyRootsForSource(musicRoots, legacyRoot);
+  const rootAudioIndexes = await buildRootAudioIndexes(preferredRoots);
   const trackIdStmt = db.prepare(
     "select id from tracks where root_id = ? and relative_path = ?",
   );
-  const deleteTxn = db.transaction(() => {
-    db.prepare("delete from tanda_tracks").run();
-    db.prepare("delete from tanda_styles").run();
-    db.prepare("delete from tandas").run();
-  });
-  deleteTxn();
   let imported = 0;
   let missingTracks = 0;
-  raw.forEach((entry, index) => {
+  const importTxn = db.transaction(() => raw.forEach((entry, index) => {
     const rawLabel = entry.label?.trim() ?? "";
     const rawDescription = entry.description?.trim() ?? "";
     const normalizedLabel = normalizeLegacyTandaName(rawLabel);
@@ -814,7 +842,7 @@ const importLegacyTandas = async (tandasPath: string, roots: LibraryRoot[]) => {
     const trackSlots: (string | null)[] = [];
     (entry.tracks ?? []).forEach((legacyTrackPath) => {
       let resolved: string | null = null;
-      for (const root of musicRoots) {
+      for (const root of preferredRoots) {
         const relativePath = resolveLegacyPathMatch(
           legacyTrackPath,
           root.path,
@@ -841,7 +869,7 @@ const importLegacyTandas = async (tandasPath: string, roots: LibraryRoot[]) => {
       return;
     }
     const payload: TandaSavePayload = {
-      id: randomUUID(),
+      id: getLegacyTandaId(sourceId, index),
       name: label,
       styles,
       rating: 0,
@@ -850,9 +878,13 @@ const importLegacyTandas = async (tandasPath: string, roots: LibraryRoot[]) => {
       track_slots: trackSlots,
     };
     saveTanda(db, payload);
+    db.prepare(
+      "update tandas set legacy_source_id = ?, legacy_source_path = ? where id = ?",
+    ).run(sourceId, sourcePath, payload.id);
     imported += 1;
-  });
-  return { imported, missingTracks };
+  }));
+  importTxn();
+  return { imported, missingTracks, sourceId, sourcePath };
 };
 
 export const importLegacyData = async (
@@ -892,7 +924,11 @@ export const importLegacyData = async (
   );
   const tracksUpdated = musicImport.updated + cortinaImport.updated;
   const tracksAdded = musicImport.added + cortinaImport.added;
-  const tandasResult = await importLegacyTandas(detected.tandasPath, roots);
+  const tandasResult = await importLegacyTandas(
+    detected.tandasPath,
+    roots,
+    detected.rootPath,
+  );
   const missingFiles = [...musicImport.missingFiles, ...cortinaImport.missingFiles];
   return {
     tandasImported: tandasResult.imported,

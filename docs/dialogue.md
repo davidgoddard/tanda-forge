@@ -6145,3 +6145,727 @@ undeclared runner dependency while retaining the existing post-build checks for
 all FFmpeg capabilities required by Tanda Forge. Added regression and release
 documentation coverage. Shell syntax, all 8 focused fetch-script regressions,
 the full 99-file / 517-test suite, and the production build passed.
+
+# 23 October 2026 — Multiple music folders and rescanning
+
+**User request:** "If I add more music folders to the app and re-scan do I end
+up with the combined track set? I.e. can I have as many folder sources of music
+as I want"
+
+**Assistant response:** Yes. Each added music folder is retained as a separate
+library root, and Scan Music scans all configured music roots into one combined
+track library. There is no application-level numeric limit on music roots;
+practical storage and scan-time limits still apply. Existing unchanged tracks
+are retained/reused, while tracks from newly added roots are added. Warned that
+overlapping roots or the same files exposed through multiple roots can create
+duplicate-looking tracks because identity is root plus relative path, not file
+content.
+
+## Playlist duplicate detection by title
+
+**User request:** "The app can show duplicate tandas or songs already in the
+playlist. Is there currently any way to find out whether a song by title alone
+is duplicated - i.e. have I included two versions of the same song?"
+
+**Assistant response:** The automatic duplicate indicators currently compare
+track IDs, and therefore detect reuse of the same library track or overlap by
+the same track IDs. They do not flag two distinct files/track records merely
+because their titles match. As a manual check, the playlist filter searches
+track metadata including titles, including tracks inside tandas, so entering a
+title narrows the playlist to matching standalone songs and tandas for visual
+review. Auto-fill separately avoids reusing a normalized title, but that does
+not add title-based warnings to a manually assembled playlist.
+
+## Feasibility of approximate spectral duplicate detection
+
+**User request:** Asked whether Tanda Forge could replicate the old Tanda
+Player's waveform-based duplicate-recording detection with approximate spectral
+fingerprinting that works across titles, formats such as MP3/WAV, differing
+sound quality, and modern dynamically compressed masters, and asked about
+preparation and lookup runtime.
+
+**Assistant response:** Confirmed that this is feasible and that a local
+Chromaprint-style fingerprint is a strong first implementation because it is
+designed for near-identical full-file identification and duplicate detection.
+Fingerprinting decoded PCM makes container/codec differences irrelevant, and
+spectral/chroma features are substantially less dependent on amplitude-envelope
+shape than the old waveform-image approach. Explained that this targets the
+same recording/performance rather than every recording of the same composition,
+and that severe edits, pitch/speed changes, noise, restoration, or radically
+different masters can still cause misses or require a more robust landmark
+fingerprint. Recommended persisted, versioned fingerprints; duration-bucketed
+candidate generation; fuzzy verification; confidence bands; incremental
+processing; and a corpus-based calibration step. Estimated a one-off serial
+preparation cost of roughly 1–5 seconds per typical track on a modern machine
+when analysing a bounded excerpt, with slower hardware potentially taking
+longer: approximately 20–90 minutes for 1,000 tracks and 3–14 hours for 10,000,
+before safe limited parallelism. Once indexed, a whole-library duplicate report
+for around 10,000 tracks should normally take seconds rather than hours, while
+checking one new or playlist track should feel effectively immediate. Noted
+that the current scan is sequential per file and Chromaprint is not presently a
+packaged dependency, so integration and cross-platform release verification are
+material parts of the work.
+
+## Speed-normalised and cross-orchestra musical-version matching
+
+**User request:** Clarified that legacy Tanda Player compared fixed-sample-count
+waveform images, which incidentally detected speed-altered copies and sometimes
+the same song played by different orchestras, and asked whether Tanda Forge
+could provide that broader functionality.
+
+**Assistant response:** Confirmed that the behaviour can be reproduced and
+improved, but that cross-orchestra matching is musical-version/cover-song
+identification rather than ordinary acoustic duplicate detection. Recommended
+a layered analysis: retain a fixed-length, loudness-normalised energy/onset
+envelope for cheap duration/speed-invariant structural similarity; use
+key-normalised chroma/HPCP features for harmonic progression; and apply
+tempo-tolerant dynamic-time-warping or local sequence alignment only to
+shortlisted candidates. Keep Chromaprint as a separate high-confidence layer
+for the same recording across encodings/masters. Results should distinguish
+"same recording," "probable alternate transfer," and "possible same
+composition/version" with confidence and user confirmation, because different
+arrangements, shared tango forms, poor transfers, and compressed modern masters
+can cause misses or false positives. Explained that preparation remains
+incremental and plausibly takes a few seconds per track, but cross-version
+whole-library matching is materially more expensive than exact-recording
+fingerprinting: candidate indexing is required to avoid all-pairs alignment,
+with interactive per-track lookup and a background whole-library analysis
+targeted at minutes rather than exhaustive hours/days after features exist.
+
+## Extensibility architecture for audio-analysis features
+
+**User request:** Suggested that Tanda Forge may need plug-in support so a
+duplicate-analysis feature could attach audio processing to the scan pipeline,
+maintain its own database, add track-menu commands and settings/report UI, and
+asked whether that was sensible or excessive.
+
+**Assistant response:** Assessed the underlying need as sensible but a general
+third-party plug-in runtime as premature and excessive for the first feature.
+The current scan, IPC, renderer menu, settings, and reporting wiring crosses
+large central files, so explicit extension seams would improve the application
+even for first-party features. Recommended a compile-time capability-module
+registry initially, with typed contracts for versioned track analysis,
+background/rebuild jobs, declarative track actions, settings/report panels,
+namespaced IPC, progress/cancellation, and enable/configuration state. CPU-heavy
+or native analysis should run in a supervised worker process with bounded
+concurrency so a failure cannot take down playback. Discouraged arbitrary DOM
+injection, unrestricted Electron/Node access, self-registering IPC, or
+uncontrolled database migrations. Recommended host-managed, namespaced tables
+or a registered sidecar store whose lifecycle, backup/restore, reset, deletion,
+and migration rules are owned by the host. Proposed building duplicate analysis
+as the first internal module and extracting a public/installable plug-in SDK
+only after a second independent module proves the contracts. This gains useful
+modularity without prematurely committing to compatibility, signing,
+permissions, dependency distribution, and sandboxing guarantees.
+
+## Standalone audio-similarity experiment requested
+
+**User request:** Decided that duplicate/version detection should eventually be
+a fully integrated Tanda Forge feature rather than a plug-in, and first asked
+for a standalone Node application under a new `features` folder. It should read
+configured audio tracks, use the silence-trimmed versions, build comparable
+data in memory, group same-song candidates, and measure preparation and
+grouping runtime.
+
+**Implementation response:** Added `features/audio-similarity`, a read-only Node
+CLI that auto-discovers the configured Tanda Forge database (or accepts
+`--db`), resolves FFmpeg (or accepts `--ffmpeg`), applies stored start/end
+silence trims during 8 kHz mono PCM decoding, and creates fixed-bin normalised
+envelope, chroma, chroma-transition, and coarse-index vectors in memory. It
+supports bounded concurrency, indexed or exhaustive candidate generation,
+configurable thresholds, per-track error continuation, console timing/count
+reports, and optional detailed JSON output. Because the repository's native
+SQLite module can target Electron's ABI, the CLI falls back defensively to the
+system `sqlite3` command in read-only JSON mode. Added an npm script, standalone
+usage documentation, design requirements `ASX-001` through `ASX-010`, and unit
+tests for amplitude invariance, discrimination, and grouping.
+
+**Measured result:** The complete configured library run analysed all 2,259
+tracks without failures in 3.1 minutes (82 ms/track average). Indexed grouping
+considered 975,633 candidate pairs and completed in 16.7 seconds, producing 34
+matching edges across 26 groups. High-confidence groups were predominantly
+credible duplicate transfers/metadata variants; a plausible cross-orchestra
+`Ventarrón` group scored 0.841. The lowest pair (`Chorra`/`Domino`, 0.798)
+appears suspicious, confirming that thresholds require labelled calibration.
+An earlier 100-track run exposed false same-orchestra clusters; weighting
+harmonic transitions removed those clusters in the repeated sample.
+
+**Verification:** The focused feature tests passed, the real 10-, 100-, and
+2,259-track runs completed, all 100 test files / 520 tests passed, the production
+TypeScript build passed, and `git diff --check` passed.
+
+## Static listening report requested
+
+**User request:** Asked for a static page showing the complete similarity
+results, with playable tracks for listening to candidate matches.
+
+**Implementation response:** Added a self-contained HTML report renderer and a
+`feature:audio-similarity-report` npm command. It converts an existing JSON
+result without repeating audio analysis, displays searchable confidence-ranked
+group cards, provides a minimum-confidence control, exposes detailed pair
+scores, and creates local audio controls for every track. Starting one player
+pauses all others for direct A/B listening. Track paths are encoded as `file:`
+URLs; user metadata is inserted through `textContent`, and embedded JSON escapes
+markup-significant characters. Extended the experimental design with
+requirement `ASX-011` and documented the local-file/privacy constraint.
+
+**Generated result:** Converted the completed 2,259-track result into
+`/tmp/tanda-forge-audio-similarity-full.html`, a 38 KB page containing all 26
+candidate groups. Audio remains in its original configured locations rather
+than being copied or embedded.
+
+**Verification:** Added report tests covering the view model, encoded local
+audio paths, malicious-metadata escaping, and mutually exclusive playback
+wiring. All 100 test files / 521 tests, the production build, JavaScript syntax
+checks, report generation, and `git diff --check` passed.
+
+## Meaning of a displayed 1.000 similarity score
+
+**User feedback/question:** Confirmed agreement with every produced match and
+asked whether every similarity displayed as `1` can be considered an exact
+duplicate.
+
+**Assistant response:** Clarified that `1.000` is a three-decimal display value,
+not proof of file identity. In the full report, some displayed `1.000` scores
+are underlying values such as approximately `0.99998` and `0.99985`. Even an
+underlying value of exactly 1 means the reduced envelope/chroma/transition
+features are indistinguishable; different encodings, metadata, or audio that
+collides under the fixed-bin representation may still produce that result.
+Recommended reserving "exact duplicate" for matching cryptographic hashes of
+the source bytes, or defining a separate decoded-audio identity category if
+format-independent identity is desired. The current score should be described
+as perceptual/audio similarity, with near-1 results reasonably treated as very
+high-confidence same-audio candidates after the user's listening validation.
+
+## Integrated audio-similarity functional requirements
+
+**User request:** Asked to capture functional requirements in the feature
+folder, document the successful starting algorithm, and cover integrated DJ
+workflows: Settings/Library report access and report generation; metadata
+comparison/transfer; per-tanda replacement with contextual listening and
+recording-character judgement; hiding unwanted versions from search; and
+same-song awareness in manual playlist construction and auto-generation across
+different titles and orchestras.
+
+**Documentation response:** Added
+`features/audio-similarity/requirements.md` with planned requirements `ASR-001`
+through `ASR-077` and validation requirements `ASV-001` through `ASV-006`.
+Documented the current envelope/chroma/transition/indexing algorithm and measured
+baseline, precise relationship terminology, background lifecycle, report and
+review states, non-destructive DJ decisions, side-by-side metadata and safe
+field transfer, usage discovery, per-tanda versus bulk replacement, tanda-
+context auditioning, reversible search visibility, preferred versions,
+playlist warnings and overrides, auto-fill exclusion policy, persistence,
+backup/security/accessibility, and validation evidence. Marked the integration
+as planned and recorded unresolved UI/product questions rather than inventing a
+specific metadata or tanda-replacement layout.
+
+## Confirmed relationships drive all duplicate indicators
+
+**User clarification:** Wanted approval of a genuine match to be sufficient on
+its own: even if the DJ does no metadata transfer, hiding, preference selection,
+or replacement, linked tracks A and B should be interchangeable whenever the
+app shows same/duplicate-track state on tracks or tandas.
+
+**Documentation response:** Added requirements `ASR-026` through `ASR-029` and
+`ASR-069`. Confirmation now explicitly activates a symmetric, group-wide
+duplicate-equivalence relationship. All existing duplicate indicators across
+search, library/clipboard results, tandas, and playlist rows must resolve those
+confirmed groups, including partial tanda overlap. Indicators caused by an
+alternate linked version must identify the actual existing track and containing
+tanda/playlist rather than implying that an identical track ID was reused.
+
+## Confirmed relationships can be withdrawn
+
+**User clarification:** A DJ who previously accepted a group must be able to
+cancel that acceptance, breaking its linked-track effect on playlist duplicate
+checks.
+
+**Documentation response:** Added `ASR-011` through `ASR-013`.
+Withdrawing confirmation now immediately removes the affected equivalence from
+duplicate indicators, playlist warnings, and auto-fill exclusions without
+rewriting existing tandas/playlists or changing files and metadata. For larger
+groups, the UI must distinguish removing one relationship from dissolving the
+whole group and preview any remaining confirmed path that would keep two tracks
+linked. Withdrawal returns the detected match to unconfirmed candidate state;
+explicit rejection remains a separate action.
+
+## Shared audition position within a candidate group
+
+**User clarification:** Group playback should initially start each track at
+offset zero, but seeking further into one track should cause every subsequently
+played group member to start from the corresponding area so the DJ can compare
+the same passage despite duration differences.
+
+**Documentation response:** Added `ASR-014` through `ASR-018`. A group-review
+session now has a shared normalised audition cursor: it starts at 0% of each
+track's effective silence-trimmed duration, seeking one member updates it, and
+subsequent members start at the same percentage of their own effective duration.
+The cursor is scoped to the active group-review session, is visibly resettable,
+and aligns starting areas without claiming continuous synchronisation between
+different performances.
+
+## Global hiding, non-blocking overlap, and report UI decisions
+
+**User decisions:** Hiding should apply system-wide so an unwanted retained file
+is never offered in search or playlist construction. Duplicate detection should
+not block or prompt during manual playlist addition; overlaps should be shown
+after insertion with existing icons. A delayed/held duplicate icon should
+temporarily filter the playlist to related songs and containing tandas until
+release. The integrated report should resemble the generated demo. Metadata
+should use a wide attribute-by-track table whose selected values can be
+replicated to all group members after confirmation. File format should appear
+as a neutral lozenge, title/artist should include album/path provenance, and
+quality must remain the DJ's listening judgement rather than a format-derived
+ranking.
+
+**Documentation response:** Firmed these choices in `ASR-036` through `ASR-039`,
+`ASR-044`, `ASR-050` through `ASR-059`, `ASR-061`, `ASR-062`, `ASR-068`, and
+`ASR-069A`/`ASR-069B`. Global hiding now applies to every new-selection and
+fallback path while preserving and surfacing existing references safely. Manual
+playlist insertion is uninterrupted; confirmed overlap is visually indicated
+afterward. Press-and-hold provides a temporary, release-to-restore playlist
+focus with pointer and keyboard safety. The report and metadata table design,
+neutral format labels, provenance, and no inferred quality hierarchy are now
+requirements rather than open questions.
+
+## Flat candidate groups and report navigation clarified
+
+**User clarification:** Open question 1 was unclear, and suspected similar
+tracks should be presented as one group rather than groups within groups, which
+the user understood open question 2 to be asking.
+
+**Documentation response:** Removed both open questions. Added `ASR-019` to
+require one flat group per suspected set, with no nested recording/composition
+subgroups; pair-level classification and evidence may remain in expandable
+details. Updated `ASR-039` so Settings → Library opens a full-page in-app report,
+not a modal, with a clear return action to Library Settings.
+
+## Removing mismatched members while retaining a group
+
+**User question:** Asked whether a DJ can mark particular tracks in a matched
+group as mismatches while retaining the valid matches among the other tracks.
+
+**Documentation response:** Clarified `ASR-022` and the flat-group semantics.
+The review UI must allow selection of the members that genuinely belong
+together, preview the result, detach mismatched members, and preserve the
+confirmation among retained members. Each retained set of two or more becomes a
+flat group; a detached singleton no longer participates in its duplicate
+equivalence. Rejected member-to-group relationships persist so unchanged
+analysis does not immediately recreate the bad grouping.
+
+## Full v0.4.0 implementation requested
+
+**User request:** Asked for a new repository branch, an implementation-plan task
+list, and complete delivery of the integrated audio-similarity feature, with the
+application version set to 4.0.
+
+**Implementation response (in progress):** Created branch
+`audio-similarity-v4` (the sandbox required explicit Git-ref write approval),
+added `features/audio-similarity/implementation-plan.md` with ten verified
+phases covering persistence through release validation, and set package and
+lockfile versions initially to `4.0.0`. The user then clarified that the package
+version must be `0.4.0`; that correction is now applied. The completed standalone
+experiment and generated report are being removed from the repository as their
+validated logic is integrated, leaving production code, tests, and durable
+requirements/design documentation.
+
+## Package version and experiment location corrected
+
+**User clarification:** The intended repository package version is `0.4.0`, not
+`4.0.0`. The exploratory application may be renamed or kept outside the
+repository; only usable code should remain in the repository.
+
+**Implementation response:** Corrected `package.json`, the root lockfile, and
+the implementation documentation to `0.4.0`. Removed the standalone CLI,
+static-report renderer, experiment-only test and generated report from the
+deliverable. Retained the production requirements, implementation plan, and
+measured design evidence needed to support and verify the integrated feature.
+
+## Persistent similarity domain implemented
+
+**Implementation update:** Added application-owned storage for analysis runs,
+versioned feature vectors, failures, candidate evidence, confirmed flat groups,
+rejected pairs, and global hidden state. Added transactional decision functions
+for approval (including a retained subset), rejection/reconsideration,
+detachment, withdrawal, and symmetric group-wide equivalence lookup. Database
+initialisation now creates this schema defensively. Added focused persistence-
+schema and equivalence tests; the remaining integrated work continues against
+the task list.
+
+## Integrated v0.4.0 feature delivered
+
+**Implementation update:** Integrated the measured algorithm into the Electron
+application with versioned incremental caching, two bounded FFmpeg decoders,
+silence-trim-aware processing, cancellation, progress, failure continuation,
+and persisted candidate evidence. Added typed application APIs and the full-page
+Library report for search, auditioning with a shared normalized cursor, partial
+confirmation, rejection/reconsideration, withdrawal, metadata comparison and
+replication, usage discovery, per-tanda replacement, and reversible global
+hiding. Confirmed groups now drive symmetric duplicate icons and auto-fill
+exclusion, including hold-to-focus behavior, while manual playlist insertion
+remains unblocked. Exact-file hashes are explicitly distinguished from rounded
+or near-perfect similarity. Updated the user guide and retained only production
+code/tests plus durable requirements and the implementation plan in the repo.
+
+## Final verification and branch correction
+
+**Implementation update:** Renamed the branch to
+`audio-similarity-v0.4.0` after the package-version clarification. The complete
+unit suite passed (101 files, 524 tests), as did the production build. The
+authorized Electron run passed 49/52 workflows. One existing timing-sensitive
+playback test timed out; two fixture-generation workflows failed before app
+interaction because the pinned FFmpeg has no `libmp3lame` encoder, confirmed by
+direct reproduction. The release-critical FFmpeg pin was left untouched. These
+three verification items are recorded transparently in the implementation plan
+and handoff rather than being marked as passing.
+
+## Interruption status requested
+
+**User question:** Asked whether the work had finished before interruption.
+
+**Assistant response:** Reported that implementation, 524 unit tests, and the
+production build had completed, but the Electron verification was still in
+progress. Resumed it: 49/52 workflows passed. Recorded the timing timeout and
+the two pinned-FFmpeg fixture failures, corrected the branch name, completed a
+further hidden-track lifecycle audit, and reran the full unit suite/build. The
+implementation plan deliberately remains open for the unchecked tests,
+replacement/audition refinements, readiness reporting, and final validation;
+the feature has not been falsely declared complete.
+
+## Provenance of the two FFmpeg-dependent E2E failures
+
+**User question:** Asked whether the two tests failing because of the missing
+library were new.
+
+**Assistant response:** Verified with Git history that they are not part of the
+audio-similarity work and are not new in this branch. The rescan-preservation
+test was added in commit `a538888` on 4 June 2026; the same-drive export test was
+added in `99a8b43` on 11 June 2026. Neither test nor the FFmpeg resources/scripts
+has a working-tree change from this feature. The current macOS FFmpeg source
+build was changed on 22 October 2026 and is configured without external
+`libmp3lame`; the old tests still request that encoder. The accurate diagnosis
+is a pre-existing test-fixture/FFmpeg-build mismatch, not two new feature tests.
+
+## Existing test baseline repair requested
+
+**User request:** Asked to fix the outstanding failures so all existing tests
+are passing before further feature work.
+
+**Assistant response:** Changed only the synthetic E2E audio fixtures from MP3
+to FLAC, using an encoder guaranteed by the existing minimal bundled FFmpeg and
+retaining the workflows' metadata and application behavior. The release FFmpeg
+pin was not changed. Investigation of the remaining prep-mode timeout exposed a
+test-state error: after searching tracks for `Alberto Gomez`, the workflow
+switched to tanda search without changing the shared query, leaving `Tango
+Trio` hidden. Both prep and edit workflows now explicitly search for the target
+tanda. Focused runs pass for all four repaired workflows; complete unit, build,
+and Electron verification was then completed: 101 unit-test files / 524 tests,
+the production build, and all 52 Electron workflows pass. This restores the
+requested green existing-test baseline before further feature work.
+
+## Audio Similarity implementation continued
+
+**User request:** Asked to continue working through the new feature's
+implementation tasks.
+
+**Assistant response:** Audited the unchecked plan against the implementation,
+then completed the persistence-transition test batch, metadata copy preview and
+conflict-safe session undo, selected-reference bulk tanda replacement, the
+missing comparison-table context fields, and isolated tanda-context audition
+controls. The native database tests deliberately use the installed SQLite CLI
+so the repository's `better-sqlite3` binary remains compatible with Electron.
+Focused domain and internationalisation tests pass, as does the production
+build. Remaining plan work continues with service/API/UI workflow coverage,
+hidden/equivalence interaction coverage, integrity reporting, and corpus/release
+validation.
+
+**Implementation update:** Added visible algorithm-version readiness and
+integrity counts, including stale coverage and orphaned records. Extracted the
+analysis worker queue and verified bounded concurrency, per-track failure
+continuation, and cancellation behavior. Focused algorithm, service, domain,
+and build verification passes. The final post-batch run also passes all 532
+unit tests, the production build, and all 52 Electron workflows.
+
+## Audio Similarity group UI feedback
+
+**User feedback:** Reported that the group checkboxes, separated Hide controls,
+duplicate replacement buttons, and review actions were unclear; metadata
+confirmations appeared behind the report and used “Audio similarity report” as
+the confirm label. Requested a single elected version, on-demand metadata and
+affected-tanda popups, full tanda context with matched tracks highlighted, and
+per-tanda elected-version replacement. Clarified that dialogs should use
+**Cancel** and **Apply**, and that album/path provenance should be visible but
+not clickable while measured trim/gain data should not be offered for copying.
+
+**Assistant response:** Redesigned the group summary around one labelled radio
+election and colocated Play/Hide controls. Metadata and distinct affected-tanda
+details are now lazily rendered in closable overlays. Metadata exposes only the
+appropriate editable copy sources while retaining read-only album/path; tanda
+detail renders each tanda once with highlighted matches, previews, and explicit
+per-position replacement. Review actions now explain and name their effects,
+and every similarity confirmation uses Apply/Cancel above the report layer.
+The full verification run passes 535 unit tests, the production build, and all
+52 Electron workflows.
+
+## Audio Similarity entry-point placement
+
+**User request:** Move the report button out of the first folder/setup step and
+place it in a similar post-setup panel immediately after Re-parse Stored
+Metadata.
+
+**Assistant response:** Moved the existing entry point into a dedicated Audio
+Similarity maintenance card after Re-parse Stored Metadata and before Derived
+Caches, with explanatory text clarifying that it operates on an already scanned
+library. Added requirement `ASR-001A`, updated the user guide, and added a
+structural ordering regression test.
+The complete verification run passes 536 unit tests, the production build, and
+all 52 Electron workflows.
+
+## 2026-10-23 — Similarity completion and multi-source legacy imports
+
+**User requirement:** Complete the 0.4.0 similarity workflows by highlighting
+the exact located playlist track, making similarity preview buttons reflect the
+single real playback state, presenting affected tandas like normal ordered
+tandas, comparing/replacing confirmed recordings in context, and offering
+confirmed alternatives before a Search/Clipboard track is added to a tanda.
+Also make legacy imports preserve and identify multiple independent sources,
+with safe idempotent reimport and no destructive migration.
+
+**Engineering decision:** Confirmed track IDs remain the sole identity bridge;
+metadata is display-only. Add-to-tanda choice excludes hidden and unconfirmed
+members and cancels before mutation. Affected-tanda replacement remains a
+single-position persisted update. Legacy source identity is the SHA-256 of the
+canonical absolute legacy root, tanda IDs are deterministic per source/index,
+and reimport upserts those IDs without deleting older or pre-source tandas.
+Track resolution prefers roots within the selected source. Requirements are
+recorded as `ASR-078`–`ASR-082` and `LDI-001`–`LDI-006`.
+
+## 2026-10-24 — Similarity group review clarity
+
+**User feedback:** Reported that copied metadata did not redraw, reviewed
+groups could not be collapsed persistently, separate groups were hard to
+distinguish, and confirmed groups had no visible state. Clarified that group
+checkboxes select the recordings to confirm together (including partial
+selection and restoration of that selection on reopening), while affected
+tandas need a separate radio choice showing the current recording and allowing
+one replacement to be selected.
+
+**Assistant response:** Group headings now combine persistent collapse/expand,
+matched-versus-total counts, and a visible **Confirmed Match** tag. Distinct
+group colour treatments make long reports easier to scan. Confirmation operates
+only on checked members and persisted confirmed membership restores those
+checks; excluded candidates remain outside the link. Metadata overlays rebuild
+immediately after copying. Each affected tanda now presents every available
+matched recording as a radio list, identifies the current recording, and
+refreshes after a one-position replacement. Requirements `ASR-037A`,
+`ASR-039B`–`ASR-039D`, and `ASR-040A` record the finalized behavior.
+
+## 2026-10-24 — Proposed similarity relationship hierarchy
+
+**User feedback:** Requested compact, same-line metadata and affected-tanda
+buttons; a visible indication when title, artist, singer, BPM, notes, or date
+differ; and a more precise distinction among identical recordings, alternate
+quality/transfers of the same orchestra/version, different versions by the same
+orchestra, and the same composition performed by another orchestra. Exact-only
+alternatives should not cause an assignment prompt, while meaningful recording
+or performance alternatives should be offered separately and all confirmed
+same-composition relationships should continue to inform playlist warnings.
+
+**Assistant question:** Asked whether files containing the same captured
+performance but sourced from different transfers/masters or formats belong in
+the no-prompt interchangeable tier, or in the prompt-worthy alternate-recording
+tier. This boundary must be explicit before changing persisted relationship
+types and replacement behavior.
+
+**User clarification:** Different transfers, remasters, cleanup levels, or
+recording qualities must be offered for selection because the DJ may need to
+match the sonic character of the other recordings in a tanda.
+
+**Assistant response:** Implemented compact same-line detail controls and a
+metadata-difference label. Added a distinct same-orchestra/different-performance
+relationship while retaining same-composition relationships for cross-orchestra
+duplicate protection. Only alternatives with identical file content bypass the
+add-time chooser; confirmed alternatives with different file identities remain
+selectable.
+
+**User correction:** “Identical” is a DJ judgement and does not require
+byte-identical files. Once the DJ has declared versions identical, the app may
+silently use the better-quality member; versions not declared identical must
+still be offered for selection.
+
+**Assistant question:** Asked whether the silent preferred member should be
+explicitly elected by the DJ, or initially inferred from technical properties
+such as lossless encoding, bitrate, sample rate, and bit depth with a DJ
+override. This must be resolved because container/format alone does not prove
+audible quality and the earlier requirement explicitly avoided presenting FLAC
+as inherently better than MP3.
+
+**User decision:** The DJ shall elect the master version while reviewing the
+labelled tracks. The user also asked for confirmation that similarity remains
+optional and that a collection which is never analysed continues to work
+normally without silent behavior or errors.
+
+**Assistant response:** Added DJ-confirmed identical groups with an explicitly
+elected master. Only those groups silently resolve to their master; all other
+relationship classes retain their chooser behavior. An unanalysed library has
+empty similarity indexes and follows the existing normal paths. Requirement
+`ASR-087` makes this opt-in behavior explicit.
+
+**User question:** Asked whether an existing installation with an already
+scanned library and saved tandas can upgrade without rebuilding its setup.
+
+**Assistant response:** Confirmed that startup applies additive, idempotent
+schema creation/migrations. Existing track, tanda, tanda-track, playlist, and
+playlist-item rows are retained; similarity tables begin empty where absent.
+Earlier similarity confirmations using `same-recording` or `same-composition`
+remain readable, but they do not silently acquire a master: the DJ must
+explicitly reconfirm a set as identical and elect its master.
+
+**User request:** Reported that the shared audition percentage did not appear
+functional and requested a small waveform below every candidate path so visual
+similarity can be assessed and clicking the waveform sets the playback offset.
+
+**Assistant response:** Reused the existing cached waveform service to render
+compact canvases in candidate rows. Pointer clicks and accessible arrow-key
+adjustments now set the group’s relative position, update all playheads and the
+percentage label, seek an active preview, and control where subsequent track
+previews begin. Requirement `ASR-088` records the behavior.
+
+**User addition:** Requested the distinct candidate titles alongside the
+heading’s “2 of 2 matched” count.
+
+**Assistant response:** Added a case-insensitively deduplicated title summary to
+the persistent group heading so it remains visible when collapsed (`ASR-089`).
+
+**User defect report:** Clicking **Confirm identical versions** with no master
+selected appeared to do nothing: there was no popup and no confirmed badge.
+The user confirmed that the missing-master requirement must appear in a popup.
+
+**Assistant response:** Replaced the invisible status-only failure with an
+explanatory master-selection popup. It lists the included tracks, disables
+Apply until one is selected, updates the inline master election, and then
+continues to the normal identical-relationship confirmation (`ASR-090`).
+
+**User UI feedback:** The add-to-tanda confirmed-alternative window was visually
+poor and incorrectly used large Play and per-row Use buttons. Requested the
+normal headphone audition icon, a radio-selection column, and footer-level
+Apply/Cancel actions.
+
+**Assistant response:** Rebuilt the picker as a compact table. Each track now
+has one selection radio, the existing headphone button wired through normal
+headphone playback/routing, and its identity/path. The initially requested
+track is preselected; the footer contains only Cancel and Apply (`ASR-091`).
+
+**User defect report:** A real similarity run failed with
+`CHECK constraint failed: left_track_id < right_track_id`.
+
+**Assistant response:** Found that the comparison algorithm inherited arbitrary
+feature-query order while the database requires canonical pair order. Candidate
+IDs and the associated rejection lookup are now normalized immediately before
+edge insertion, with a regression test for reversed IDs (`ASR-092`).
+
+### 2026-10-24 — Similarity review UI, playback and localization polish
+
+**User requirement:** Move hidden tracks to the report bottom; stop main output
+before any similarity audition; shorten pair rejection to localized **No
+match**; provide the normal track editor from metadata comparison; and review
+all similarity overlays for language, theme and main-app visual compatibility.
+
+**Assistant response:** Implemented the requested ordering and playback rule,
+added per-column editor actions with report refresh, localized internal
+relationship labels and compact rejection actions, completed the Icelandic
+similarity vocabulary, validated interpolation parameters across all seven
+languages, and restyled lazy overlays through application theme variables
+(`ASR-093`–`ASR-097`).
+
+**User follow-up:** Requested more relaxed spacing in the affected-tanda view,
+asked that metadata comparison remain open behind the editor, and reported that
+an exact single-word title `Domino` was not the highest search result. Requested
+analysis and ranking alternatives before broader search changes.
+
+**Assistant response:** Increased spacing around comparison choices, track rows,
+play controls, headings and popup actions. Metadata comparison now stays mounted
+behind the editor and refreshes after save (`ASR-096`, `ASR-098`). Search
+diagnostics showed the exact title and a multi-field fuzzy result tying at
+`0.51`; proposed lexical match tiers plus coverage/purity tie-breaks, without
+changing search semantics pending user direction.
+
+**User follow-up:** Asked to preserve the search proposal for a new branch,
+reported that duplicate press-and-hold filtered the playlist without scrolling
+to the duplicate, requested more space around the exact-track highlight, and
+asked that many affected tandas not grow the popup indefinitely.
+
+**Assistant response:** Recorded the search work as a separate pending branch.
+Press-and-hold now expands and scrolls to the first exact matching playlist
+track; the arrival outline is offset from its row; and similarity overlays use
+a fixed header with an internally scrolling, viewport-bounded content area
+(`ASR-040A`, `ASR-069A`, `ASR-078`).
+
+**User defect report:** Search tandas displayed duplicate indicators, but
+clicking them did not scroll to the corresponding playlist tanda. Filled-circle
+icons also appeared to have inconsistent inner sizes.
+
+**Assistant response:** Found a split between relationship-aware duplicate
+detection and raw-ID tanda navigation. Full and partial tanda jumps now
+canonicalize both sides through confirmed similarity groups. Duplicate dot
+borders now participate in their declared dimensions, so equal statuses render
+at a consistent size (`ASR-078`).
+
+### 2026-10-24 — Lower default track-search rejection threshold
+
+**User decision:** After `with tea` failed to return the existing track
+`Tango with Tea`, requested lowering the rejection setting as an interim fix
+while noting that search still needs broader improvement.
+
+**Assistant response:** Lowered the default minimum track-search score from
+`0.25` to `0.19`, retained user configurability and added a regression for the
+reported exact two-token title-subset search (`FR-091.1.R6`).
+
+### 2026-10-24 — Persistent cross-tanda duplicate focus
+
+**User clarification:** A candidate tanda can overlap tracks distributed across
+multiple playlist tandas. Requested that press-and-hold hide unrelated playlist
+tandas, retain every matching tanda, and leave that focused view in place rather
+than restoring it immediately on release.
+
+**Assistant response:** Duplicate focus now uses union/any-track matching across
+the candidate's confirmed relationship groups, remains latched after release,
+and provides a localized themed **Show all** action plus Escape dismissal. A
+long press consumes its following click while a short click retains direct-jump
+behaviour (`ASR-069A`, `ASR-069B`).
+
+### 2026-10-24 — Tanda duplicate jump feedback
+
+**User requirement:** A single-track duplicate jump expanded its playlist tanda
+and highlighted the matching track, while a tanda duplicate jump only scrolled,
+leaving its destination unclear. Requested equivalent expansion and visual
+feedback for tanda jumps.
+
+**Assistant response:** Tanda duplicate navigation now returns every overlapping
+destination track, expands the destination tanda, flashes the tanda row, and
+applies the existing track highlight to each matching track, including matches
+resolved through confirmed similarity relationships (`ASR-069`).
+
+### 2026-10-24 — Outstanding-first similarity report
+
+**User requirement:** Move similarity matches and other dealt-with groups into
+a collapsible panel closed by default so candidates still requiring review are
+immediately obvious.
+
+**Assistant response:** Added a counted **To review** section for groups with
+pending relationships and a localized, themed **Matched or reviewed** disclosure
+that starts closed for confirmed and fully rejected groups. Groups with any
+pending edge remain outstanding, while hidden-track management stays at the
+bottom (`ASR-099`).
+
+### 2026-10-24 — Duplicate-focus Show all click isolation
+
+**User defect report:** Clicking **Show all** in the duplicate-focus banner
+opened the cortina editor beneath it instead of clearing the focused view.
+
+**Assistant response:** The newly inserted banner had inherited the playlist's
+old three-row grid allocation, allowing the scrolling playlist interaction
+layer to overlap it. The playlist grid now reserves a dedicated banner row; the
+banner has an explicit stacking context and its clear action consumes the event
+before restoring all rows (`ASR-069B`).

@@ -54,7 +54,7 @@ export const normalizeSearchConfig = (params: {
 }) => {
   const minScore = Number.isFinite(params.minScore)
     ? Math.min(1, Math.max(0, params.minScore ?? 0))
-    : 0.25;
+    : 0.19;
   const bpmRange = Number.isFinite(params.bpmRange)
     ? Math.min(20, Math.max(0, params.bpmRange ?? 0))
     : 5;

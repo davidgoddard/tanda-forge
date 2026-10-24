@@ -160,6 +160,7 @@ export type PlaylistTrackSource =
 export const findPlaylistPositionForTrack = (
   items: PlaylistTrackSource[],
   wantedTrackId: string,
+  equivalentTrackIds: ReadonlySet<string> = new Set([wantedTrackId]),
 ) => {
   if (!wantedTrackId) {
     return null;
@@ -167,12 +168,12 @@ export const findPlaylistPositionForTrack = (
   for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
     const item = items[itemIndex];
     if (item.kind === "track") {
-      if (item.trackId === wantedTrackId) {
+      if (equivalentTrackIds.has(item.trackId)) {
         return { itemIndex, trackIndex: 0 };
       }
       continue;
     }
-    const trackIndex = item.trackIds.indexOf(wantedTrackId);
+    const trackIndex = item.trackIds.findIndex((trackId) => equivalentTrackIds.has(trackId));
     if (trackIndex >= 0) {
       return { itemIndex, trackIndex };
     }

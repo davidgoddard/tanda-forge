@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { getDataRoot } from "./data-location";
 import path from "path";
 import fs from "fs";
+import { ensureAudioSimilaritySchema } from "./audio-similarity/store";
 
 let db: Database.Database | null = null;
 let dbPath: string | null = null;
@@ -75,6 +76,8 @@ const createSchema = (database: Database.Database) => {
       total_duration_ms integer default 0,
       slot_count integer default 0,
       invalid integer default 0,
+      legacy_source_id text,
+      legacy_source_path text,
       updated_at text not null
     );
 
@@ -122,6 +125,7 @@ export const initDb = () => {
   dbPath = path.join(getDataRoot(), "tanda-player.db");
   db = new Database(dbPath);
   createSchema(db);
+  ensureAudioSimilaritySchema(db);
   try {
     db.exec("alter table library_roots add column last_scan_started_at text");
   } catch {}
@@ -194,6 +198,15 @@ export const initDb = () => {
   } catch {}
   try {
     db.exec("alter table tandas add column slot_count integer");
+  } catch {}
+  try {
+    db.exec("alter table tandas add column legacy_source_id text");
+  } catch {}
+  try {
+    db.exec("alter table tandas add column legacy_source_path text");
+  } catch {}
+  try {
+    db.exec("create index if not exists idx_tandas_legacy_source on tandas (legacy_source_id)");
   } catch {}
   try {
     db.exec("alter table tanda_tracks add column position integer");

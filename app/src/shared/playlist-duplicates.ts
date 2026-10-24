@@ -20,12 +20,14 @@ const buildTandaKey = (trackIds: string[]) => {
 
 export const buildPlaylistDuplicateIndex = (
   items: PlaylistDuplicateSource[],
+  equivalentTrackIds: ReadonlyMap<string, ReadonlySet<string>> = new Map(),
 ): PlaylistDuplicateIndex => {
   const trackIds = new Set<string>();
   const tandaKeys = new Set<string>();
   items.forEach((item) => {
     if (item.kind === "track") {
-      trackIds.add(item.trackId);
+      (equivalentTrackIds.get(item.trackId) ?? new Set([item.trackId]))
+        .forEach((trackId) => trackIds.add(trackId));
       return;
     }
     const key = buildTandaKey(item.trackIds);
@@ -35,6 +37,7 @@ export const buildPlaylistDuplicateIndex = (
     item.trackIds.forEach((trackId) => {
       if (trackId) {
         trackIds.add(trackId);
+        equivalentTrackIds.get(trackId)?.forEach((equivalent) => trackIds.add(equivalent));
       }
     });
     tandaKeys.add(key);

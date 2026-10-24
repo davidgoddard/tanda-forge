@@ -87,6 +87,24 @@ import {
 import { getRootRemovalPreview, removeLibraryRoot } from "./library/root-removal";
 import { listDeletedTracks, logicallyDeleteTrack, restoreDeletedTracks } from "./library/track-deletion";
 import {
+  cancelAudioSimilarityAnalysis,
+  generateAudioSimilarityReport,
+} from "./audio-similarity/service";
+import {
+  approveCandidateSubset,
+  getAudioSimilarityReport,
+  reconsiderAudioSimilarityPair,
+  rejectAudioSimilarityPair,
+  replicateAudioSimilarityMetadata,
+  undoAudioSimilarityMetadata,
+  replaceAudioSimilarityTandaTrack,
+  replaceAudioSimilarityTandaReferences,
+  setTrackHidden,
+  withdrawConfirmedAudioSimilarityGroup,
+} from "./audio-similarity/store";
+import type { AudioSimilarityRelationshipType } from "../shared/audio-similarity";
+import type { ReplicableAudioSimilarityField } from "../shared/audio-similarity";
+import {
   detectLegacyFromRoots,
   detectLegacyRoot,
   importLegacyData,
@@ -1454,10 +1472,94 @@ const registerIpc = () => {
          from tracks t
          join library_roots r on r.id = t.root_id
          where r.kind = 'music' and t.deleted_at is null
+           and not exists (select 1 from hidden_tracks h where h.track_id = t.id)
          order by t.artist, t.title`,
       )
       .all();
     return normalizeTrackRows(rows);
+  });
+
+  ipcMain.handle("audio-similarity:report", async () =>
+    getAudioSimilarityReport(getDb()));
+  ipcMain.handle("audio-similarity:generate", async (_event, options?: { fullRebuild?: boolean }) =>
+    generateAudioSimilarityReport(getDb(), { fullRebuild: Boolean(options?.fullRebuild) }));
+  ipcMain.handle("audio-similarity:cancel", async () => {
+    cancelAudioSimilarityAnalysis();
+    return { ok: true };
+  });
+  ipcMain.handle(
+    "audio-similarity:confirm",
+    async (
+      _event,
+      candidateTrackIds: string[],
+      acceptedTrackIds: string[],
+      relationshipType: AudioSimilarityRelationshipType,
+      preferredTrackId: string | null = null,
+    ) => {
+      if (!Array.isArray(candidateTrackIds) || !Array.isArray(acceptedTrackIds)) {
+        throw new Error("Invalid audio similarity group selection.");
+      }
+      if (relationshipType !== "identical"
+        && relationshipType !== "same-recording"
+        && relationshipType !== "same-orchestra"
+        && relationshipType !== "same-composition") {
+        throw new Error("Invalid audio similarity relationship type.");
+      }
+      const groupId = approveCandidateSubset(
+        getDb(), candidateTrackIds, acceptedTrackIds, relationshipType, preferredTrackId,
+      );
+      return { ok: true, groupId };
+    },
+  );
+  ipcMain.handle("audio-similarity:reject", async (_event, left: string, right: string) => {
+    rejectAudioSimilarityPair(getDb(), String(left ?? ""), String(right ?? ""));
+    return { ok: true };
+  });
+  ipcMain.handle("audio-similarity:reconsider", async (_event, left: string, right: string) => {
+    reconsiderAudioSimilarityPair(getDb(), String(left ?? ""), String(right ?? ""));
+    return { ok: true };
+  });
+  ipcMain.handle("audio-similarity:withdraw", async (_event, groupId: string) => {
+    if (!groupId) throw new Error("A confirmed group is required.");
+    withdrawConfirmedAudioSimilarityGroup(getDb(), groupId);
+    return { ok: true };
+  });
+  ipcMain.handle("audio-similarity:set-hidden", async (_event, trackId: string, hidden: boolean) => {
+    setTrackHidden(getDb(), String(trackId ?? ""), Boolean(hidden));
+    return { ok: true };
+  });
+  ipcMain.handle("audio-similarity:replicate-metadata", async (
+    _event, sourceTrackId: string, targetTrackIds: string[], field: ReplicableAudioSimilarityField,
+  ) => {
+    if (!Array.isArray(targetTrackIds)) throw new Error("Invalid metadata destinations.");
+    const result = replicateAudioSimilarityMetadata(
+      getDb(), String(sourceTrackId ?? ""), targetTrackIds.map(String), field,
+    );
+    return { ok: true, ...result };
+  });
+  ipcMain.handle("audio-similarity:undo-metadata", async (
+    _event, changes: import("../shared/audio-similarity").AudioSimilarityMetadataChange[],
+  ) => {
+    const result = undoAudioSimilarityMetadata(getDb(), changes);
+    return { ok: true, ...result };
+  });
+  ipcMain.handle("audio-similarity:replace-tanda-track", async (
+    _event, tandaId: string, position: number, replacementTrackId: string,
+  ) => {
+    replaceAudioSimilarityTandaTrack(
+      getDb(), String(tandaId ?? ""), Number(position), String(replacementTrackId ?? ""),
+    );
+    return { ok: true };
+  });
+  ipcMain.handle("audio-similarity:replace-tanda-references", async (
+    _event,
+    references: import("../shared/audio-similarity").AudioSimilarityTandaReference[],
+    replacementTrackId: string,
+  ) => {
+    const result = replaceAudioSimilarityTandaReferences(
+      getDb(), references, String(replacementTrackId ?? ""),
+    );
+    return { ok: true, ...result };
   });
 
   ipcMain.handle(
@@ -1487,6 +1589,7 @@ const registerIpc = () => {
            from tracks t
            join library_roots r on r.id = t.root_id
            where r.kind = 'music' and t.deleted_at is null
+             and not exists (select 1 from hidden_tracks h where h.track_id = t.id)
            order by ${sortSql} ${sortDir}${extraSort}, t.id ${sortDir}
            limit ? offset ?`,
         )
@@ -1987,6 +2090,7 @@ const registerIpc = () => {
             from tracks t
             join library_roots r on r.id = t.root_id
             where r.kind = 'music' and t.deleted_at is null
+              and not exists (select 1 from hidden_tracks h where h.track_id = t.id)
           ) where ${whereClause}
           limit 1`,
         )
@@ -2007,7 +2111,9 @@ const registerIpc = () => {
         `select distinct substr(${keySql}, 1, 1) as prefix
          from tracks t
          join library_roots r on r.id = t.root_id
-         where r.kind = 'music' and t.deleted_at is null and ${keySql} != ''`,
+         where r.kind = 'music' and t.deleted_at is null
+           and not exists (select 1 from hidden_tracks h where h.track_id = t.id)
+           and ${keySql} != ''`,
       )
       .all()
       .map((row) => (row as { prefix: string }).prefix);
@@ -2447,6 +2553,7 @@ const registerIpc = () => {
            from tracks t
            join library_roots r on r.id = t.root_id
            where r.kind = 'music' and t.deleted_at is null
+             and not exists (select 1 from hidden_tracks h where h.track_id = t.id)
            order by t.created_at desc
            limit ?`,
         )
