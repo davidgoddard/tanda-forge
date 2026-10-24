@@ -94,6 +94,78 @@ describe("fuzzy search helpers", () => {
     expect(result).toHaveLength(1);
   });
 
+  it("ranks an exact single-word title above longer title and fuzzy metadata matches", () => {
+    const exactTitle = buildTrack({
+      id: "exact-title",
+      title: "Domino",
+      artist: "Elvino Vardaro",
+    });
+    const longerTitle = buildTrack({
+      id: "longer-title",
+      title: "Domino a la noche",
+      artist: "Miguel Calo",
+    });
+    const fuzzyMetadata = buildTrack({
+      id: "fuzzy-metadata",
+      title: "Remolino",
+      artist: "Carlos Vidal, Oscar Larroca, Domingo Federico",
+      album: "Domingo Federico collection",
+    });
+    const result = filterAndScoreTracks([fuzzyMetadata, longerTitle, exactTitle], {
+      query: "Domino",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result.map((entry) => entry.track.id)).toEqual([
+      "exact-title",
+      "longer-title",
+      "fuzzy-metadata",
+    ]);
+  });
+
+  it("ranks complete exact-token coverage in any order above partial coverage", () => {
+    const compactReordered = buildTrack({ id: "compact", title: "Hotel Victoria" });
+    const longerReordered = buildTrack({ id: "longer", title: "Hotel Gran Victoria" });
+    const partial = buildTrack({ id: "partial", title: "Victoria" });
+    const result = filterAndScoreTracks([partial, longerReordered, compactReordered], {
+      query: "Victoria Hotel",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result.map((entry) => entry.track.id)).toEqual(["compact", "longer", "partial"]);
+  });
+
+  it("uses field compactness to order equally complete token matches", () => {
+    const short = buildTrack({ id: "short", title: "A B" });
+    const long = buildTrack({ id: "long", title: "B A C" });
+    const result = filterAndScoreTracks([long, short], {
+      query: "A",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result.map((entry) => entry.track.id)).toEqual(["short", "long"]);
+  });
+
+  it("orders partial token matches by closeness before fuzzy-only matches", () => {
+    const closer = buildTrack({ id: "closer", title: "Domino" });
+    const longer = buildTrack({ id: "longer", title: "Dominante" });
+    const fuzzy = buildTrack({ id: "fuzzy", title: "Domain" });
+    const result = filterAndScoreTracks([fuzzy, longer, closer], {
+      query: "domin",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result.map((entry) => entry.track.id)).toEqual(["closer", "longer", "fuzzy"]);
+  });
+
   it("keeps exact multi-token singer matches above the default threshold", () => {
     const singerMatch = buildTrack({
       singer: "Alberto Podesta",
@@ -546,6 +618,108 @@ describe("fuzzy search helpers", () => {
       sortDir: "desc",
     });
     expect(result[0].track.id).toBe("close");
+  });
+
+  it("keeps exact artist and instrumental text primary in Search Similar queries", () => {
+    const victorMatch = buildTrack({
+      id: "victor-match",
+      title: "La Cumparsita",
+      artist: "Orquesta Tipica Victor",
+      artist_summary: "Victor Orquesta Tipica",
+      instrumental: true,
+      year: "2011",
+      bpm: 59,
+    });
+    const unrelatedNumericMatch = buildTrack({
+      id: "unrelated-numeric",
+      title: "Dance Me to the End of Love",
+      artist: "Madeleine Peyroux",
+      instrumental: true,
+      year: "2011",
+      bpm: 59,
+    });
+    const victorDifferentYear = buildTrack({
+      id: "victor-different-year",
+      title: "Adios Muchachos",
+      artist: "Orquesta Tipica Victor",
+      artist_summary: "Victor Orquesta Tipica",
+      instrumental: true,
+      year: "1930",
+      bpm: 67,
+    });
+    const result = filterAndScoreTracks(
+      [unrelatedNumericMatch, victorDifferentYear, victorMatch],
+      {
+        query: "Víctor Orquesta Típica instrumental:true bpm:59 year:2011",
+        minScore: 0.19,
+        bpmRange: 5,
+        sortBy: "score",
+        sortDir: "desc",
+      },
+    );
+    expect(result.map((entry) => entry.track.id)).toEqual([
+      "victor-match",
+      "victor-different-year",
+      "unrelated-numeric",
+    ]);
+  });
+
+  it("keeps generated instrumental intent separate from ordinary text", () => {
+    const metadataMatch = buildTrack({
+      id: "metadata-match",
+      title: "Adios Bardi",
+      artist: "Anibal Troilo",
+      instrumental: true,
+      bpm: 59,
+    });
+    const titleOnly = buildTrack({
+      id: "title-only",
+      title: "Instrumental Study",
+      artist: "Anibal Troilo",
+      instrumental: false,
+      bpm: 59,
+    });
+    const scoped = filterAndScoreTracks([titleOnly, metadataMatch], {
+      query: "Anibal Troilo instrumental:true bpm:59",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    const ordinary = filterAndScoreTracks([metadataMatch, titleOnly], {
+      query: "instrumental",
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(scoped[0].track.id).toBe("metadata-match");
+    expect(ordinary[0].track.id).toBe("title-only");
+  });
+
+  it("keeps generated singer intent scoped to singer metadata", () => {
+    const singerMatch = buildTrack({
+      id: "singer-match",
+      title: "Adios Bardi",
+      artist: "Anibal Troilo",
+      singer: "Francisco Fiorentino",
+      bpm: 66,
+    });
+    const titleOnly = buildTrack({
+      id: "title-only",
+      title: "Francisco Fiorentino",
+      artist: "Anibal Troilo",
+      singer: "Raul Beron",
+      bpm: 66,
+    });
+    const result = filterAndScoreTracks([titleOnly, singerMatch], {
+      query: 'Anibal Troilo singer:"Francisco Fiorentino" bpm:66',
+      minScore: 0,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result[0].track.id).toBe("singer-match");
   });
 
   it("keeps exact numeric titles above the default threshold", () => {

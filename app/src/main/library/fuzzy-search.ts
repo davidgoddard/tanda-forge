@@ -251,6 +251,8 @@ type ParsedQuery = {
   hasQuotedPhrase: boolean;
   yearTokens: number[];
   tempoTokens: number[];
+  instrumentalIntent: boolean | null;
+  singerIntent: string | null;
 };
 
 const extractQuotedPhrases = (query: string) => {
@@ -280,21 +282,39 @@ export const parseScopedSearchQuery = (query: string): ScopedSearchQuery => {
 };
 
 const parseQuery = (query: string): ParsedQuery => {
-  const { phrases, stripped } = extractQuotedPhrases(query);
-  const normalized = normalizeSearchText(stripped);
-  if (!normalized) {
-    return {
-      mode: "lookup",
-      textTokens: [],
-      phraseTokens: phrases,
-      hasQuotedPhrase: phrases.length > 0,
-      yearTokens: [],
-      tempoTokens: [],
-    };
-  }
-  const tokens = normalized.split(" ").filter(Boolean);
+  let metadataText = query;
+  let singerIntent: string | null = null;
+  metadataText = metadataText.replace(
+    /\bsinger\s*:\s*(?:"([^"]+)"|([^\s]+))/gi,
+    (_match, quoted: string | undefined, unquoted: string | undefined) => {
+      singerIntent = normalizeSearchText(quoted ?? unquoted ?? "") || null;
+      return " ";
+    },
+  );
+  let instrumentalIntent: boolean | null = null;
+  metadataText = metadataText.replace(
+    /\binstrumental\s*:\s*(true|false)\b/gi,
+    (_match, value: string) => {
+      instrumentalIntent = value.toLowerCase() === "true";
+      return " ";
+    },
+  );
   const yearTokens: number[] = [];
+  metadataText = metadataText.replace(
+    /\byear\s*:\s*(\d{4})(?:\s*-\s*(\d{4}))?\b/gi,
+    (_match, first: string, second?: string) => {
+      yearTokens.push(Number.parseInt(first, 10));
+      if (second) yearTokens.push(Number.parseInt(second, 10));
+      return " ";
+    },
+  );
   const tempoTokens: number[] = [];
+  metadataText = metadataText.replace(/\bbpm\s*:\s*(\d{2,3})\b/gi, (_match, bpm: string) => {
+    tempoTokens.push(Number.parseInt(bpm, 10));
+    return " ";
+  });
+  const { phrases, stripped } = extractQuotedPhrases(metadataText);
+  const tokens = normalizeSearchText(stripped).split(" ").filter(Boolean);
   const textTokens: string[] = [];
   tokens.forEach((token) => {
     if (STOPWORDS.has(token)) {
@@ -313,7 +333,8 @@ const parseQuery = (query: string): ParsedQuery => {
     }
     textTokens.push(token);
   });
-  const hasSimilarityIntent = yearTokens.length > 0 || tempoTokens.length > 0;
+  const hasSimilarityIntent = yearTokens.length > 0 || tempoTokens.length > 0
+    || instrumentalIntent !== null || singerIntent !== null;
   const mode: SearchMode = hasSimilarityIntent ? "similarity" : "lookup";
   return {
     mode,
@@ -322,6 +343,8 @@ const parseQuery = (query: string): ParsedQuery => {
     hasQuotedPhrase: phrases.length > 0,
     yearTokens,
     tempoTokens,
+    instrumentalIntent,
+    singerIntent,
   };
 };
 
@@ -338,6 +361,7 @@ const scoreArtistScopedQuery = (query: string, track: TrackRow): ScoreBreakdown 
       notesScore: null,
       textMatchedTerms: 0,
       textUnmatchedFieldTokens: 0,
+      lexicalRank: EMPTY_LEXICAL_RANK,
     };
   }
   const artistField = [track.artist_summary || "", track.artist || ""]
@@ -372,6 +396,7 @@ const scoreArtistScopedQuery = (query: string, track: TrackRow): ScoreBreakdown 
       notesScore: null,
       textMatchedTerms: 0,
       textUnmatchedFieldTokens: 0,
+      lexicalRank: EMPTY_LEXICAL_RANK,
     };
   };
 
@@ -497,6 +522,113 @@ type TokenMatchMetrics = {
   score: number;
 };
 
+type LexicalRank = {
+  tier: number;
+  queryCoverage: number;
+  exactTokenCount: number;
+  fieldPurity: number;
+  fieldPriority: number;
+  tokenSimilarity: number;
+  fieldLength: number;
+};
+
+const EMPTY_LEXICAL_RANK: LexicalRank = {
+  tier: 0,
+  queryCoverage: 0,
+  exactTokenCount: 0,
+  fieldPurity: 0,
+  fieldPriority: 0,
+  tokenSimilarity: 0,
+  fieldLength: Number.MAX_SAFE_INTEGER,
+};
+
+const compareLexicalRank = (left: LexicalRank, right: LexicalRank) =>
+  right.tier - left.tier ||
+  right.queryCoverage - left.queryCoverage ||
+  right.exactTokenCount - left.exactTokenCount ||
+  right.fieldPurity - left.fieldPurity ||
+  right.fieldPriority - left.fieldPriority ||
+  right.tokenSimilarity - left.tokenSimilarity ||
+  left.fieldLength - right.fieldLength;
+
+const classifyLexicalTokenPair = (queryToken: string, fieldToken: string) => {
+  if (queryToken === fieldToken) return { kind: 3, similarity: 1 };
+  const shorter = Math.min(queryToken.length, fieldToken.length);
+  const longer = Math.max(queryToken.length, fieldToken.length);
+  if (
+    shorter >= 3 &&
+    (fieldToken.startsWith(queryToken) || queryToken.startsWith(fieldToken)
+      || fieldToken.includes(queryToken) || queryToken.includes(fieldToken))
+  ) {
+    return { kind: 2, similarity: shorter / Math.max(1, longer) };
+  }
+  const similarity = scoreTokenPair(queryToken, fieldToken);
+  return similarity > 0 ? { kind: 1, similarity } : { kind: 0, similarity: 0 };
+};
+
+const buildLexicalRankForField = (
+  queryText: string,
+  queryTokens: string[],
+  field: string,
+  fieldPriority: number,
+): LexicalRank => {
+  const normalizedField = normalizeSearchText(field);
+  const fieldTokens = Array.from(new Set(getTokens(normalizedField)));
+  if (!normalizedField || queryTokens.length === 0 || fieldTokens.length === 0) {
+    return EMPTY_LEXICAL_RANK;
+  }
+  const candidates: Array<{
+    queryIndex: number;
+    fieldIndex: number;
+    kind: number;
+    similarity: number;
+  }> = [];
+  queryTokens.forEach((queryToken, queryIndex) => {
+    fieldTokens.forEach((fieldToken, fieldIndex) => {
+      const match = classifyLexicalTokenPair(queryToken, fieldToken);
+      if (match.kind > 0) candidates.push({ queryIndex, fieldIndex, ...match });
+    });
+  });
+  candidates.sort((left, right) =>
+    right.kind - left.kind || right.similarity - left.similarity);
+  const usedQueries = new Set<number>();
+  const usedFields = new Set<number>();
+  let exactTokenCount = 0;
+  let partialTokenCount = 0;
+  let fuzzyTokenCount = 0;
+  let similarityTotal = 0;
+  for (const candidate of candidates) {
+    if (usedQueries.has(candidate.queryIndex) || usedFields.has(candidate.fieldIndex)) continue;
+    usedQueries.add(candidate.queryIndex);
+    usedFields.add(candidate.fieldIndex);
+    if (candidate.kind === 3) exactTokenCount += 1;
+    else if (candidate.kind === 2) partialTokenCount += 1;
+    else fuzzyTokenCount += 1;
+    similarityTotal += candidate.similarity;
+  }
+  const matchedCount = exactTokenCount + partialTokenCount + fuzzyTokenCount;
+  const exactField = normalizedField === queryText;
+  const tier = exactField ? 4 : exactTokenCount > 0 ? 3 : partialTokenCount > 0 ? 2
+    : fuzzyTokenCount > 0 ? 1 : 0;
+  return {
+    tier,
+    queryCoverage: matchedCount / queryTokens.length,
+    exactTokenCount,
+    fieldPurity: matchedCount / fieldTokens.length,
+    fieldPriority,
+    tokenSimilarity: matchedCount > 0 ? similarityTotal / matchedCount : 0,
+    fieldLength: normalizedField.length,
+  };
+};
+
+const buildBestLexicalRank = (
+  queryText: string,
+  queryTokens: string[],
+  fields: Array<{ value: string; priority: number }>,
+) => fields
+  .map((field) => buildLexicalRankForField(queryText, queryTokens, field.value, field.priority))
+  .sort(compareLexicalRank)[0] ?? EMPTY_LEXICAL_RANK;
+
 const buildTokenMatchMetrics = (
   queryTokens: string[],
   field: string,
@@ -588,6 +720,7 @@ type ScoreBreakdown = {
   notesScore: number | null;
   textMatchedTerms: number;
   textUnmatchedFieldTokens: number;
+  lexicalRank: LexicalRank;
 };
 
 type SearchTrackRow = TrackRow & {
@@ -644,6 +777,7 @@ const scoreTrackWithBreakdown = (
       notesScore: null,
       textMatchedTerms: 0,
       textUnmatchedFieldTokens: 0,
+      lexicalRank: EMPTY_LEXICAL_RANK,
     };
   }
   if (scoped.scope === "artist") {
@@ -664,6 +798,7 @@ const scoreTrackWithBreakdown = (
       notesScore: null,
       textMatchedTerms: 0,
       textUnmatchedFieldTokens: 0,
+      lexicalRank: EMPTY_LEXICAL_RANK,
     };
   }
   const parsed = parseQuery(trimmed);
@@ -696,7 +831,6 @@ const scoreTrackWithBreakdown = (
   const artistField = [
     track.artist_summary || "",
     track.artist || "",
-    track.singer || "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -748,7 +882,7 @@ const scoreTrackWithBreakdown = (
         applyFieldScore(titleCoverageScore, titleTermScore) +
           (parsed.mode === "lookup" ? 0.15 * phraseBoost : 0),
       );
-  const singerScore = singerTermScore === null
+  const singerTextScore = singerTermScore === null
     ? 0
     : Math.min(
         1,
@@ -759,10 +893,23 @@ const scoreTrackWithBreakdown = (
             : 0,
         ),
       );
+  const singerScore = singerTextScore;
   if (textTerms.length > 0) {
     components.push({ score: artistScore, weight: weights.artist });
     components.push({ score: singerScore, weight: weights.singer });
     components.push({ score: titleScore, weight: weights.title });
+  }
+  if (parsed.instrumentalIntent !== null) {
+    components.push({
+      score: track.instrumental === parsed.instrumentalIntent ? 1 : 0,
+      weight: weights.singer,
+    });
+  }
+  if (parsed.singerIntent !== null) {
+    components.push({
+      score: scoreFieldText(parsed.singerIntent, singerField),
+      weight: weights.singer,
+    });
   }
   const yearScore = scoreYearIntent(parsed.yearTokens, track.year ?? "");
   if (yearScore !== null) {
@@ -778,7 +925,24 @@ const scoreTrackWithBreakdown = (
     .join(" ");
   const notesScoreBase = scoreTermsAgainstField(textTerms, notesField);
   const supportingScoreBase = scoreTermsAgainstField(textTerms, supportingField);
-  const combinedTextField = [titleField, expandedArtistField, notesField, supportingField].filter(Boolean).join(" ");
+  const combinedTextField = [
+    titleField,
+    expandedArtistField,
+    singerField,
+    notesField,
+    supportingField,
+  ].filter(Boolean).join(" ");
+  const lexicalQuery = normalizeSearchText(textTerms.join(" "));
+  const lexicalRank = queryCoverageTokens.length > 0
+    ? buildBestLexicalRank(lexicalQuery, queryCoverageTokens, [
+        { value: titleField, priority: 6 },
+        { value: expandedArtistField, priority: 5 },
+        { value: singerField, priority: 4 },
+        { value: notesField, priority: 3 },
+        { value: supportingField, priority: 2 },
+        { value: combinedTextField, priority: 1 },
+      ])
+    : EMPTY_LEXICAL_RANK;
   const combinedTextMetrics = buildTokenMatchMetrics(queryCoverageTokens, combinedTextField);
   const notesCoverageScore = scoreQueryTokensAgainstField(queryCoverageTokens, notesField);
   const supportingCoverageScore = scoreQueryTokensAgainstField(
@@ -842,6 +1006,7 @@ const scoreTrackWithBreakdown = (
       notesScore,
       textMatchedTerms: combinedTextMetrics?.matchedCount ?? 0,
       textUnmatchedFieldTokens: combinedTextMetrics?.unmatchedFieldTokens ?? 0,
+      lexicalRank,
     };
   }
   const totalWeight = components.reduce((sum, component) => sum + component.weight, 0);
@@ -881,6 +1046,7 @@ const scoreTrackWithBreakdown = (
     notesScore,
     textMatchedTerms: combinedTextMetrics?.matchedCount ?? 0,
     textUnmatchedFieldTokens: combinedTextMetrics?.unmatchedFieldTokens ?? 0,
+    lexicalRank,
   };
 };
 
@@ -914,6 +1080,10 @@ export const filterAndScoreTracks = (
   };
   scored.sort((a, b) => {
     if (sortBy === "score") {
+      const lexicalComparison = compareLexicalRank(a.breakdown.lexicalRank, b.breakdown.lexicalRank);
+      if (lexicalComparison !== 0) {
+        return lexicalComparison;
+      }
       if (b.breakdown.textMatchedTerms !== a.breakdown.textMatchedTerms) {
         return b.breakdown.textMatchedTerms - a.breakdown.textMatchedTerms;
       }

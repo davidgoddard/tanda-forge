@@ -78,6 +78,12 @@ Numeric fields (e.g. BPM, year) may be searchable both:
 - FR-090.2.R11: Invoking "Search similar" from a track should set style via the
   style-pill filter (not as query text) and include artist/summary, singer, year,
   BPM, and notes in the query text (excluding title and album).
+- FR-090.2.R12: Machine-generated Search Similar metadata must use explicit
+  field intent for singer and non-free-text values: `singer:"<name>"`,
+  `instrumental:true`, `bpm:<value>` and `year:<value>`. These terms score only
+  their corresponding metadata fields and must not match the same characters
+  in titles, notes, artists or albums. An
+  ordinary user-entered word such as `instrumental` remains free text.
 
 ---
 
@@ -117,6 +123,17 @@ match `Carlos` merely because the edit distance is small.
 FR-091.1.R13: Lookup-profile final relevance must be scaled by whole-query token
 coverage across all searchable text fields, so one matched word in a multi-word
 query cannot pass the default threshold as if the full query matched.
+FR-091.1.R14: Text relevance ordering, including the text portion of a mixed
+text/year/tempo query, must apply deterministic lexical
+tiers before the weighted fuzzy score: exact normalized field, exact whole-token
+match, prefix/substring token match, then fuzzy-only match. This tiering does not
+replace the configurable minimum score; year/tempo similarity remains the
+primary fallback among results with otherwise equal lexical evidence.
+FR-091.1.R15: Within a lexical tier, ordering must prefer greater query-token
+coverage, more exact tokens, greater candidate-field purity, higher-priority
+fields, closer token similarity, and then shorter matching field text. Exact
+tokens may occur in any order; thus `Victoria Hotel` fully matches `Hotel
+Victoria`, while a one-token result represents only half of that two-token query.
 
 ### FR-091.4 Implicit Query Parsing and Profiles
 
@@ -223,6 +240,9 @@ hand-curated.
 
 ### FR-093.1 Relevance Rank
 FR-093.1.R1: Default ordering is by search score (descending).
+When query text is present, the lexical tiers in FR-091.1.R14-R15 precede the
+weighted score; score remains the first fallback inside otherwise equal lexical
+ranks. Pure numeric queries continue to rank by numeric similarity.
 FR-093.1.R2: When the search query is empty, default ordering is by title (ascending).
 FR-093.1.R3: Changing the search query resets sorting to relevance unless the user
   explicitly selects a column sort.
