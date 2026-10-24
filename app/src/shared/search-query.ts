@@ -21,6 +21,8 @@ const pushIf = (items: string[], value?: string | null) => {
   }
 };
 
+const quoteScopedValue = (value: string) => `"${value.replace(/"/g, "").trim()}"`;
+
 const stripDiacritics = (value: string) =>
   value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
@@ -82,13 +84,13 @@ export const buildTrackSimilarityQuery = (track: TrackSearchSource) => {
   pushIf(parts, track.artist_summary);
   pushIf(parts, track.artist);
   if (track.singer && track.singer.trim().length > 0) {
-    pushIf(parts, track.singer);
+    parts.push(`singer:${quoteScopedValue(track.singer)}`);
   } else if (track.instrumental === true) {
-    parts.push("instrumental");
+    parts.push("instrumental:true");
   }
   if (track.bpm !== null && track.bpm !== undefined && track.bpm > 0) {
-    parts.push(`${Math.round(track.bpm)}`);
+    parts.push(`bpm:${Math.round(track.bpm)}`);
   }
-  pushIf(parts, track.year);
+  if (track.year?.trim()) parts.push(`year:${track.year.trim()}`);
   return parts.join(" ").trim();
 };

@@ -195,6 +195,21 @@ The style names are shown as search filter buttons and all matching tracks and t
 
 Text search is token-aware: all meaningful words you type contribute to the relevance score across title, artist, singer, DJ notes, album, style/genre, year, and BPM. DJ notes are treated as important search text because they are intentionally written for recall; imported album and album-artist metadata are searchable but rank lower. Short tokens are matched conservatively, so a search such as `Caro` targets an actual `Caro` token rather than flooding results with loosely similar words such as `Carlos`; both `de caro` and `decaro` can match `De Caro`.
 
+For ordinary text searches, exact text is shown before whole-word matches,
+followed by prefix/substring matches and then spelling-tolerant fuzzy matches.
+All query words count regardless of order: a result matching two out of two
+words ranks above one matching only one, and cleaner, shorter fields rank first
+when coverage is otherwise equal. For example, `Domino` ranks above metadata
+containing `Domingo`, while `Victoria Hotel` fully matches `Hotel Victoria`.
+The same text priority applies when **S** adds year and BPM hints: exact artist,
+singer and instrumental matches are grouped first, then year and tempo rank the
+closest recordings within otherwise comparable text matches.
+Generated metadata is shown explicitly, for example
+`singer:"Francisco Fiorentino"`, `instrumental:true`, `bpm:59`, and
+`year:1941`. These terms match only the corresponding metadata;
+they do not accidentally match a title or note containing the same word or
+number. Typing plain `instrumental` yourself remains an ordinary text search.
+
 The **Tanda size** control in the Search column affects tanda results only. It
 lets the DJ limit the tanda search to tandas of a specific size such as `3` or
 `4`. Setting it to **Any** removes that size filter, so tandas of all lengths

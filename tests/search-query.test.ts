@@ -70,13 +70,32 @@ describe("buildTrackSimilarityQuery", () => {
       notes: "test note",
     });
     expect(query).toContain("Julio De Caro");
-    expect(query).toContain("Carlos Gardel");
-    expect(query).toContain("1932");
-    expect(query).toContain("99");
+    expect(query).toContain('singer:"Carlos Gardel"');
+    expect(query).toContain("year:1932");
+    expect(query).toContain("bpm:99");
     expect(query).not.toContain("test note");
     expect(query).not.toContain("Tango");
     expect(query).not.toContain("Todo Corazon");
     expect(query).not.toContain("Golden Years");
+  });
+
+  it("marks generated instrumental, BPM, and year values as metadata", () => {
+    const query = buildTrackSimilarityQuery({
+      artist: "Aníbal Troilo",
+      instrumental: true,
+      bpm: 59,
+      year: "1941",
+    });
+    expect(query).toBe("Aníbal Troilo instrumental:true bpm:59 year:1941");
+  });
+
+  it("marks a generated multi-word singer as scoped metadata", () => {
+    const query = buildTrackSimilarityQuery({
+      artist: "Aníbal Troilo",
+      singer: "Francisco Fiorentino",
+      bpm: 66,
+    });
+    expect(query).toBe('Aníbal Troilo singer:"Francisco Fiorentino" bpm:66');
   });
 });
 

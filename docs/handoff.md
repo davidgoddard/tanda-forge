@@ -26,17 +26,25 @@
   build) plus focused Electron similarity workflow 41.
 
 ### Search-ranking review: exact `Domino` title
-- Current scoring gives exact-title `Domino — Elvino Vardaro` and fuzzy
-  `Remolino — … Domingo Federico …` the same score (`0.51`). Weighted evidence
-  from several fuzzy fields can therefore tie or outrank one exact title token.
-- No search semantics changed yet. Recommended next change is a deterministic
-  lexical tier before the existing weighted score: exact normalized field,
-  exact whole-token coverage, prefix/substring, then fuzzy; within a tier sort
-  by query-token coverage, exact-token count, candidate-field purity/length,
-  field priority, similarity and stable title.
-- User intends to create a separate branch for this search-ranking work; retain
-  this proposal as the starting point and do not fold it into similarity UI
-  changes.
+- Implemented on branch `search-ranking-v0.4.1` as a lexical rank layered ahead
+  of the existing lookup score: exact normalized field, exact whole-token,
+  prefix/substring, then fuzzy-only.
+- Within each tier, results order by query coverage, exact-token count, field
+  purity, field priority, token closeness and shorter field length. Tokens may
+  appear in any order, so complete `2/2` coverage beats `1/2`, and compact full
+  matches beat longer fields with the same matched tokens.
+- Pure numeric year/tempo similarity, fuzzy scoring, orchestra aliases,
+  cross-field lookup, the configurable minimum score and explicit column
+  sorting remain in place. Mixed **S** queries now apply lexical ranking to
+  their text portion. Generated metadata is explicitly scoped as
+  `singer:"<name>"`, `instrumental:true`, `bpm:<value>` and `year:<value>`, so
+  it scores only the intended field and cannot gain relevance from the same text
+  in a title or note. This prevents exact Víctor results from falling below
+  unrelated matches.
+- Regressions cover exact `Domino`, reordered tokens, compactness,
+  partial-token closeness, fuzzy fallback and the reported Víctor **S** query.
+- Verification passes: `npm run preflight` (104 test files / 572 tests and the
+  production build); `git diff --check` is clean.
 
 ### Duplicate focus and affected-tanda viewport follow-up
 - Press-and-hold duplicate focus now remains active after release, retains every
