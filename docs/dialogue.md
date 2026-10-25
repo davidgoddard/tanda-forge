@@ -6945,3 +6945,19 @@ generated `blob:` WAV URL; media policy now permits only `'self'` and `blob:`,
 and calibration waits for audio readiness before starting. The guide now
 explains how amplifier/DSP buffering and AirPlay/Shairport can make the screen
 change before dancers hear the transition (`CFG-DSP-011.a`).
+
+# 25 October 2026 — FFmpeg source download connection reset
+
+**User report:** Release packaging failed again while staging bundled FFmpeg;
+the official 9.0.2 source download ended immediately with curl error 35
+(`Connection reset by peer`). Several earlier FFmpeg packaging approaches had
+already been attempted.
+
+**Implementation response:** Retained the official, checksummed source pin and
+hardened its transport path. The downloader now retries every curl transport
+error class with bounded delays and timeouts, including TLS and receive resets,
+and release CI retries the entire isolated staging operation up to three times.
+Each attempt continues to enforce checksum, archive, architecture, capability,
+and licence validation before packaging. Shell syntax, 9 focused regressions,
+live availability/digest/content checks for both pinned archives, and
+`npm run preflight` (106 test files / 581 tests plus production build) passed.

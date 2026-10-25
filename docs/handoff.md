@@ -1,5 +1,17 @@
 ## Handoff
 
+### FFmpeg staging transport resilience
+- FFmpeg downloads now use bounded `curl --retry-all-errors` retries, covering
+  TLS/receive failures such as exit 35 that the previous retry policy could
+  abandon immediately.
+- Release CI retries the complete isolated staging operation up to three times.
+  Checksums, archive validation, capability checks, and cleanup still apply to
+  every attempt.
+- Verification passed: shell syntax, 9 focused fetch-script regressions,
+  live downloads and pinned SHA-256 checks for the official macOS source and
+  retained Linux archive, archive-content checks for both required tools, and
+  `npm run preflight` (106 test files / 581 tests plus production build).
+
 ### Display-board audio/video lag
 - Settings > Display Board now starts with a persisted `0`–`4` second AV-lag
   slider in `0.001`-second steps (default `0`).

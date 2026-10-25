@@ -7,7 +7,8 @@
 - **REL-PKG-002:** Linux FFmpeg staging must download an immutable, retained
   BtbN GitHub release asset rather than a moving `latest` URL.
 - **REL-PKG-003:** A failed or malformed download must stop packaging before an
-  incomplete tool is staged.
+  incomplete tool is staged. Transient TLS, connection, and HTTP failures must
+  receive bounded retries before a release job is abandoned.
 - **REL-PKG-004:** Linux FFmpeg staging must verify the archive against its
   pinned SHA-256 digest before extraction.
 - **REL-PKG-005:** Release preparation must verify that every pinned FFmpeg
@@ -34,6 +35,11 @@ validates or extracts the provider archive, and stages only `ffmpeg` and
 retained BtbN month-end release `autobuild-2026-09-30-13-08`; its archive name
 and SHA-256 digest are fixed in the script. Archive discovery is based on the
 contained binaries rather than a mutable directory name.
+
+Downloads retry all curl transport-error classes (including TLS and connection
+resets) with bounded backoff and timeouts. Release CI also retries the complete,
+isolated staging operation up to three times; checksum and archive validation
+run afresh on every attempt and continue to stop packaging on invalid content.
 
 For macOS, the script downloads the official, versioned FFmpeg 9.0.2 source
 archive from `ffmpeg.org`, verifies the pinned SHA-256 digest, and builds

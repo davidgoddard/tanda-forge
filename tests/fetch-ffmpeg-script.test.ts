@@ -7,6 +7,10 @@ describe("FFmpeg fetch script", () => {
     path.join(process.cwd(), "scripts", "fetch-ffmpeg.sh"),
     "utf8",
   );
+  const releaseWorkflow = fs.readFileSync(
+    path.join(process.cwd(), ".github", "workflows", "release.yml"),
+    "utf8",
+  );
 
   it("creates every extraction directory before using it", () => {
     const macMkdir = script.indexOf('mkdir -p "$TMP_DIR/ffmpeg-macos-source"');
@@ -38,6 +42,13 @@ describe("FFmpeg fetch script", () => {
     expect(script).toContain("-mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET");
     expect(script).not.toContain("evermeet.cx");
     expect(script).not.toMatch(/^\s+--enable-nonfree/m);
+  });
+
+  it("retries TLS and other transient transport failures with bounded timeouts", () => {
+    expect(script).toContain("--retry 8 --retry-all-errors --retry-delay 5 --retry-max-time 600");
+    expect(script).toContain("--connect-timeout 30 --max-time 900");
+    expect(releaseWorkflow).toContain("for attempt in 1 2 3; do");
+    expect(releaseWorkflow).toContain("FFmpeg staging failed after 3 attempts.");
   });
 });
 
@@ -116,7 +127,7 @@ describe.skipIf(process.platform === "win32")("FFmpeg fetch execution", () => {
     expect(result.output).toContain("FFmpeg download failed:");
     expect(result.output).toContain("HTTP 410");
     expect(result.staged).toBeNull();
-    expect(result.calls).toContain("--fail --show-error --location --retry 3");
+    expect(result.calls).toContain("--retry 8 --retry-all-errors --retry-delay 5");
     expect(result.calls).not.toContain("getrelease/");
     expect(result.temporaryDirectories).toEqual([]);
   });

@@ -88,11 +88,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          case "${{ matrix.target }}" in
-            mac-*) ./scripts/fetch-ffmpeg.sh macos "${{ matrix.arch }}" ;;
-            windows) ./scripts/fetch-ffmpeg.sh windows ;;
-            linux) ./scripts/fetch-ffmpeg.sh linux ;;
-          esac
+          for attempt in 1 2 3; do
+            if case "${{ matrix.target }}" in
+              mac-*) ./scripts/fetch-ffmpeg.sh macos "${{ matrix.arch }}" ;;
+              windows) ./scripts/fetch-ffmpeg.sh windows ;;
+              linux) ./scripts/fetch-ffmpeg.sh linux ;;
+            esac; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "FFmpeg staging failed after 3 attempts."
+              exit 1
+            fi
+            echo "FFmpeg staging attempt $attempt failed; retrying after a transient download/build error..."
+            sleep 15
+          done
 
       - name: Package
         shell: bash

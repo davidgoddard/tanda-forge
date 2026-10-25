@@ -19,8 +19,9 @@ mkdir -p "$FFMPEG_DIR/darwin" "$FFMPEG_DIR/win32" "$FFMPEG_DIR/linux" "$TMP_DIR"
 download() {
   local destination="$1"
   local url="$2"
-  if ! curl --fail --show-error --location --retry 3 --retry-delay 2 \
-    --connect-timeout 20 --max-time 300 --output "$destination" "$url"; then
+  if ! curl --fail --show-error --location \
+    --retry 8 --retry-all-errors --retry-delay 5 --retry-max-time 600 \
+    --connect-timeout 30 --max-time 900 --output "$destination" "$url"; then
     echo "FFmpeg download failed: $url. Packaging stopped; check the provider URL or retry a transient network failure." >&2
     return 1
   fi
