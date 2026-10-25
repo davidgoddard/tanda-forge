@@ -132,6 +132,16 @@ Board, Diagnostics, System).
   it further and then truncate with an ellipsis.
 - CFG-DSP-009: Display-board edge padding is configurable in `vmin`, with a
   default of `8`.
+- CFG-DSP-010: Users can configure an audio/video lag from `0` to `4` seconds in
+  `0.001`-second steps. The persisted setting delays audience display-board
+  state changes, including track and cortina text, without delaying playback.
+- CFG-DSP-011: Display settings provide an AV-lag calibration popup. It emits a
+  short click to the selected main audio output every five seconds and flashes
+  an on-screen indicator after the configured lag. Adjustments in the popup are
+  persisted immediately and remain synchronized with the main lag control.
+- CFG-DSP-011.a: The AV-lag setting, explanation, value, and calibration action
+  are grouped in one visually distinct settings container, with the action
+  button sized to its localized label rather than stretched to the container.
 
 ## Playlist Configuration
 

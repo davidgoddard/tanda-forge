@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:8080;"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' http://127.0.0.1:8080;"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tanda Forge</title>
@@ -1581,6 +1581,21 @@
           <div class="settings-tab" data-tab="display-board">
             <h3 data-i18n="tabDisplayBoard">Display Board</h3>
             <div class="settings-grid">
+              <div class="settings-field av-lag-settings-card">
+                <label for="display-av-lag" data-i18n="displayAvLagLabel">
+                  Audio/video lag (seconds)
+                </label>
+                <div class="range-value-row">
+                  <input id="display-av-lag" type="range" min="0" max="4" step="0.001" />
+                  <output id="display-av-lag-value" for="display-av-lag">0.000</output>
+                </div>
+                <p data-i18n="displayAvLagHelp">
+                  Delays display-board changes to match delayed audio output.
+                </p>
+                <button id="display-av-lag-calibrate" type="button" data-i18n="displayAvLagCalibrate">
+                  Calibrate AV lag
+                </button>
+              </div>
               <div class="settings-field">
                 <label for="display-background-interval" data-i18n="displayBackgroundInterval">
                   Display background rotation (sec)
@@ -1749,6 +1764,33 @@
               ></pre>
             </div>
           </div>
+          <section
+            class="modal"
+            id="display-av-lag-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-hidden="true"
+          >
+            <div class="modal-card av-lag-calibration-card">
+              <header class="modal-header">
+                <h2 data-i18n="displayAvLagCalibrationTitle">Match the flash to the click</h2>
+                <button id="display-av-lag-modal-close" type="button" data-i18n="close">Close</button>
+              </header>
+              <div class="modal-body av-lag-calibration-body">
+                <p data-i18n="displayAvLagCalibrationHelp">
+                  Start the click track, then adjust the delay until the red flash matches the click you hear. Clicks are five seconds apart.
+                </p>
+                <div id="display-av-lag-flash" class="av-lag-calibration-flash" aria-hidden="true"></div>
+                <div class="range-value-row">
+                  <input id="display-av-lag-modal-input" type="range" min="0" max="4" step="0.001" />
+                  <output id="display-av-lag-modal-value" for="display-av-lag-modal-input">0.000</output>
+                </div>
+                <div class="av-lag-calibration-scale" aria-hidden="true"><span>0</span><span>2.000 s</span><span>4.000 s</span></div>
+                <button id="display-av-lag-toggle" type="button" data-i18n="displayAvLagStart">Start click track</button>
+                <p id="display-av-lag-status" role="status" data-i18n="displayAvLagStopped">Stopped</p>
+              </div>
+            </div>
+          </section>
         </div>
       </section>
 

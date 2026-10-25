@@ -73,6 +73,21 @@ describe("renderer i18n", () => {
     }
   });
 
+  it("fully translates the AV-lag settings and calibration component", () => {
+    const keys = Object.keys(translations.en).filter((key) => key.startsWith("displayAvLag"));
+    expect(keys.length).toBeGreaterThanOrEqual(10);
+    for (const language of SUPPORTED_LANGUAGES) {
+      for (const key of keys) {
+        expect(translations[language][key], `${language}.${key}`).toBeTruthy();
+      }
+    }
+    for (const language of SUPPORTED_LANGUAGES.filter((language) => language !== "en")) {
+      expect(translations[language].displayAvLagLabel).not.toBe(translations.en.displayAvLagLabel);
+      expect(translations[language].displayAvLagCalibrate).not.toBe(translations.en.displayAvLagCalibrate);
+      expect(translations[language].displayAvLagCalibrationHelp).not.toBe(translations.en.displayAvLagCalibrationHelp);
+    }
+  });
+
   it("keeps similarity translations and interpolation parameters complete", () => {
     const similarityKeys = Object.keys(translations.en)
       .filter((key) => key.startsWith("audioSimilarity"));

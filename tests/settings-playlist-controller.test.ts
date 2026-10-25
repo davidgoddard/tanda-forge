@@ -7,6 +7,37 @@ class FakeInput extends EventTarget {
 }
 
 describe("settings playlist controller", () => {
+  it("persists the display AV lag slider with millisecond precision", () => {
+    const input = new FakeInput() as unknown as HTMLInputElement;
+    const output = new FakeInput() as unknown as HTMLOutputElement;
+    const storage = new Map<string, string>();
+    const onDisplayLagChanged = vi.fn();
+    const updateExternalDisplay = vi.fn();
+
+    const controller = createSettingsPlaylistController({
+      storage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => void storage.set(key, value),
+      },
+      elements: { displayLagInput: input, displayLagValue: output },
+      keys: { displayLag: "lag" },
+      readers: { getDisplayLagSeconds: () => 1.25 },
+      actions: { onDisplayLagChanged, updateExternalDisplay },
+    } as unknown as Parameters<typeof createSettingsPlaylistController>[0]);
+
+    controller.initialize();
+    expect(input.value).toBe("1.25");
+    expect(output.value).toBe("1.250");
+
+    input.value = "2.345";
+    input.dispatchEvent(new Event("input"));
+
+    expect(storage.get("lag")).toBe("2.345");
+    expect(output.value).toBe("2.345");
+    expect(onDisplayLagChanged).toHaveBeenCalledWith(2.345);
+    expect(updateExternalDisplay).toHaveBeenCalled();
+  });
+
   it("resets and persists the last-tanda toggle", () => {
     const toggle = new FakeInput() as unknown as HTMLInputElement;
     const countInput = new FakeInput() as unknown as HTMLInputElement;

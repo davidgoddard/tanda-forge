@@ -7,6 +7,8 @@ type PlaylistSettingsElements = {
   playlistCortinaSetSelect?: HTMLSelectElement | null;
   playlistCortinaDurationInput?: HTMLInputElement | null;
   displayBackgroundIntervalInput?: HTMLInputElement | null;
+  displayLagInput?: HTMLInputElement | null;
+  displayLagValue?: HTMLOutputElement | null;
   displayUseImagesInput?: HTMLInputElement | null;
   displayImageDimInput?: HTMLInputElement | null;
   displayBaseFontSizeInput?: HTMLInputElement | null;
@@ -27,6 +29,7 @@ export type SettingsPlaylistControllerDeps = {
     cortinaSet: string;
     cortinaDuration: string;
     displayBackgroundInterval: string;
+    displayLag?: string;
     displayUseImages: string;
     displayImageDim: string;
     displayFontScale: string;
@@ -41,6 +44,7 @@ export type SettingsPlaylistControllerDeps = {
     getCortinaSet: () => string;
     getCortinaDuration: () => number;
     getDisplayBackgroundIntervalSec: () => number;
+    getDisplayLagSeconds?: () => number;
     getDisplayUseBackgroundImages: () => boolean;
     getDisplayImageDimOpacity: () => number;
     getDisplayFontScale: () => number;
@@ -55,6 +59,7 @@ export type SettingsPlaylistControllerDeps = {
     resetPlaylistPerformanceStopState: () => void;
     onPlaylistLastTandaChanged: () => void;
     updateExternalDisplay: () => void;
+    onDisplayLagChanged?: (seconds: number) => void;
     onCortinaSetChanged: (value: string) => Promise<void>;
     onCortinaDurationChanged: () => void;
     onPlaylistStartTimeChanged: () => void;
@@ -130,6 +135,8 @@ export const createSettingsPlaylistController = (deps: SettingsPlaylistControlle
       playlistCortinaSetSelect,
       playlistCortinaDurationInput,
       displayBackgroundIntervalInput,
+      displayLagInput,
+      displayLagValue,
       displayUseImagesInput,
       displayImageDimInput,
       displayBaseFontSizeInput,
@@ -215,6 +222,27 @@ export const createSettingsPlaylistController = (deps: SettingsPlaylistControlle
       parse: (raw) => Number.parseInt(raw, 10),
       afterWrite: deps.actions.updateExternalDisplay,
     });
+
+    bindNumberInput(displayLagInput, {
+      read: () => deps.readers.getDisplayLagSeconds?.() ?? 0,
+      write: (value) => {
+        deps.storage.setItem(deps.keys.displayLag ?? "tanda-display-av-lag", value.toFixed(3));
+        if (displayLagValue) {
+          displayLagValue.value = value.toFixed(3);
+          displayLagValue.textContent = value.toFixed(3);
+        }
+        deps.actions.onDisplayLagChanged?.(value);
+      },
+      min: 0,
+      max: 4,
+      afterWrite: deps.actions.updateExternalDisplay,
+      events: ["change", "input"],
+    });
+    if (displayLagValue) {
+      const value = (deps.readers.getDisplayLagSeconds?.() ?? 0).toFixed(3);
+      displayLagValue.value = value;
+      displayLagValue.textContent = value;
+    }
 
     if (displayUseImagesInput) {
       displayUseImagesInput.checked = deps.readers.getDisplayUseBackgroundImages();

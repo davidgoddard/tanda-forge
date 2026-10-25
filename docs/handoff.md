@@ -1,5 +1,27 @@
 ## Handoff
 
+### Display-board audio/video lag
+- Settings > Display Board now starts with a persisted `0`–`4` second AV-lag
+  slider in `0.001`-second steps (default `0`).
+- Main-output display payloads are queued in order by that delay, keeping track,
+  tanda, progress, idle, and cortina transitions aligned with externally delayed
+  audio without changing playback timing. Changing the lag clears stale queued
+  payloads and schedules the current display state using the new value.
+- A localized calibration popup plays a generated click through the selected
+  main output every five seconds and flashes a large circle red after the saved
+  delay. Its slider and the Display Board settings slider share and immediately
+  persist the same value; closing the popup or Settings stops calibration.
+- Follow-up: grouped the lag slider, explanation, and content-width calibration
+  button in a distinct settings card. Fixed calibration clicks being rejected
+  by CSP by allowing renderer `blob:` media and waiting for the generated WAV
+  to load before starting. All seven language maps explicitly cover the full
+  AV-lag component, and the user guide explains DSP and AirPlay/Shairport delay.
+- Corrected the settings-card class placement after visual review: the border
+  now surrounds the AV-lag slider and calibration button, not the unrelated
+  playlist track-gap field.
+- Verification passes: `npm run preflight` (106 test files / 580 tests and the
+  production build).
+
 ### Audio-similarity review integration polish
 - The report is now outstanding-first: pending candidate groups remain under a
   visible localized **To review** count, while confirmed and fully rejected

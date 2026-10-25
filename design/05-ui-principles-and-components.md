@@ -750,6 +750,13 @@ Features:
   preview must never replace or populate the audience-facing title or artist
   shown on the display board. If main output is idle, headphone-only preview
   must not appear there.
+- UI-060.R18: Display-board state changes are emitted in order after the
+  configured audio/video lag so audience text remains aligned with audio that
+  is delayed by an external DSP or streaming pipeline.
+- UI-060.R19: AV-lag calibration uses an in-app modal with a large normally
+  black circle that briefly flashes red for each five-second audio click. The
+  start/stop action, live lag slider, saved value, status, and selected-main-
+  output failure state must be explicit.
 - UI-060.R16.a: During normal track playback, the bottom-right "Next tanda"
   text includes both the next tanda style and a localized artist summary:
   `Next tanda: {style} from {artist}`. If the next tanda contains more than one

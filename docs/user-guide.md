@@ -181,6 +181,15 @@ To build tandas, the DJ can pick ready made tandas from one of the built-in coll
 In the top right the DJ can click the display board button and a pop-out window will appear which shows the current playing track information and tanda information from the main output only. Headphone preview is never shown on the audience-facing display board. This can
 be dragged to another window to show on a connected TV or Projector.  Background images for this can be configured using the background images folder set in the library tab.
 If no images are set up then a simple set of coloured dots will come and go on the screen in the background instead.  Images work better.
+Some amplifiers and DSP processors buffer audio before playing it, and network
+outputs such as AirPlay/Shairport can add several more seconds. Without
+compensation, the audience screen may announce the next track or cortina before
+dancers hear the transition. Use the **Audio/video lag** slider at the top of
+**Settings > Display Board** to delay track, tanda, and cortina display changes
+by 0 to 4 seconds without changing audio playback. Select **Calibrate AV lag** to open the calibration popup. Start
+the click track and move the slider until each red circle flash coincides with
+the click heard through the selected main output; clicks occur every five
+seconds and each adjustment is saved immediately.
 
 In the top right there is a graph button which opens a view that shows the diversity in the collection as a whole. It shows the tanda counts for each artist and style and how many tracks are available and whether more tandas could be made from this to increase the diversity.  There are also years covered by the collection and the tempo/bpm coverage by style.  Less useful but might help understand that a wider set of years should be turned into tandas for example.  From the tables it is possible to click a search button for an artist and it will immediately open the search results with that orchestra/artist ready to start making more tandas.
 

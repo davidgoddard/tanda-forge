@@ -6908,3 +6908,40 @@ visibly scoped rather than behaving like unqualified title/artist text.
 The singer value now scores only the singer metadata field; multi-word names
 remain a single scoped value, while ordinary unscoped singer-name searches keep
 their existing cross-field lookup behaviour (`FR-090.2.R12`).
+
+### 2026-10-25 — Configurable display-board AV lag
+
+**User request:** Add a `0`–`4` second Display Board settings slider with
+`0.001`-second steps so screen text and cortina changes can be synchronized with
+audio delayed by DSP, amplifier, or streaming pipelines.
+
+**Assistant response:** Added the persisted AV-lag control and an ordered
+display-payload scheduler. The delay applies only to audience display state,
+including normal track, progress, tanda, idle, and cortina payloads; playback is
+unchanged. Changing the lag discards stale queued payloads before scheduling the
+current state under the new delay (`CFG-DSP-010`, `UI-060.R18`).
+
+### 2026-10-25 — Display-board AV-lag calibration
+
+**User request:** Adapt the Lighting app's click-and-flash calibration concept
+into a Tanda Forge popup opened from Display Board settings. It should play a
+click every five seconds, flash a large red circle after the selected delay,
+and save the calibrated value for display-board timing.
+
+**Assistant response:** Added an in-app calibration popup with a generated
+click routed through the selected main output, a normally black circle that
+briefly flashes red on the delayed visual timeline, and a synchronized live
+slider. Start/stop, close, backdrop close, and closing Settings all stop the
+calibration safely; slider changes persist immediately (`CFG-DSP-011`,
+`UI-060.R19`).
+
+**User follow-up:** Requested a visually grouped AV-lag component with a
+content-width calibration button, complete language support, a clearer user-
+guide explanation, and reported that the calibration click could not play.
+
+**Assistant response:** Added the settings card styling and explicit all-locale
+coverage. The click failure was caused by the renderer CSP rejecting the
+generated `blob:` WAV URL; media policy now permits only `'self'` and `blob:`,
+and calibration waits for audio readiness before starting. The guide now
+explains how amplifier/DSP buffering and AirPlay/Shairport can make the screen
+change before dancers hear the transition (`CFG-DSP-011.a`).

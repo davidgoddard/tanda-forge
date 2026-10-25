@@ -74,6 +74,11 @@ import {
 } from "../shared/playlist-defaults.js";
 import { shouldAutoCenterPlaylist } from "../shared/playlist-autocenter.js";
 import type { DisplayUpdatePayload, LibraryRoot, SystemBackupStatus } from "../shared/types.js";
+import { createDisplayLagScheduler } from "./modules/display-lag.js";
+import {
+  createCalibrationClickWav,
+  createCalibrationPulseLoop,
+} from "./modules/av-lag-calibration.js";
 import {
   computeCortinaStartOffsetMs,
   computeElapsedMsForEntry,
@@ -729,6 +734,16 @@ const playlistCortinaDurationInput =
   document.querySelector<HTMLInputElement>("#playlist-cortina-duration");
 const displayBackgroundIntervalInput =
   document.querySelector<HTMLInputElement>("#display-background-interval");
+const displayLagInput = document.querySelector<HTMLInputElement>("#display-av-lag");
+const displayLagValue = document.querySelector<HTMLOutputElement>("#display-av-lag-value");
+const displayLagCalibrateBtn = document.querySelector<HTMLButtonElement>("#display-av-lag-calibrate");
+const displayLagModal = document.querySelector<HTMLElement>("#display-av-lag-modal");
+const displayLagModalClose = document.querySelector<HTMLButtonElement>("#display-av-lag-modal-close");
+const displayLagModalInput = document.querySelector<HTMLInputElement>("#display-av-lag-modal-input");
+const displayLagModalValue = document.querySelector<HTMLOutputElement>("#display-av-lag-modal-value");
+const displayLagToggle = document.querySelector<HTMLButtonElement>("#display-av-lag-toggle");
+const displayLagStatus = document.querySelector<HTMLElement>("#display-av-lag-status");
+const displayLagFlash = document.querySelector<HTMLElement>("#display-av-lag-flash");
 const displayUseImagesInput =
   document.querySelector<HTMLInputElement>("#display-use-images");
 const displayImageDimInput =
@@ -912,6 +927,7 @@ const DEFAULT_CORTINA_SET_ID = "__default__";
 const CORTINA_DURATION_KEY = "tanda-cortina-duration";
 const DEFAULT_CORTINA_DURATION = 40;
 const DISPLAY_BACKGROUND_INTERVAL_KEY = "tanda-display-background-interval";
+const DISPLAY_AV_LAG_KEY = "tanda-display-av-lag";
 const DEFAULT_DISPLAY_BACKGROUND_INTERVAL_SEC = 20;
 const DISPLAY_USE_IMAGES_KEY = "tanda-display-use-images";
 const DISPLAY_IMAGE_DIM_KEY = "tanda-display-image-dim";
@@ -3131,7 +3147,7 @@ const updateExternalDisplay = () => {
       return;
     }
     lastDisplayPayloadSignature = signature;
-    void window.tanda.updateDisplay(payload);
+    displayLagScheduler.schedule(payload);
     return;
   }
   const active = resolveDisplayBoardPlayingState();
@@ -3158,7 +3174,7 @@ const updateExternalDisplay = () => {
         return;
       }
       lastDisplayPayloadSignature = signature;
-      void window.tanda.updateDisplay(payload);
+      displayLagScheduler.schedule(payload);
       return;
     }
     const payload: DisplayUpdatePayload = {
@@ -3176,7 +3192,7 @@ const updateExternalDisplay = () => {
       return;
     }
     lastDisplayPayloadSignature = signature;
-    void window.tanda.updateDisplay(payload);
+    displayLagScheduler.schedule(payload);
     return;
   }
   const track = active?.state.track ?? null;
@@ -3208,7 +3224,7 @@ const updateExternalDisplay = () => {
     return;
   }
   lastDisplayPayloadSignature = signature;
-  void window.tanda.updateDisplay(payload);
+  displayLagScheduler.schedule(payload);
 };
 
 const updateNowPlayingDisplay = () => {
@@ -3765,6 +3781,123 @@ const resolveOutputDeviceIdForChannel = (
 
 const getOutputChannelLabel = (channel: OutputChannel) =>
   channel === "headphone" ? t("nowPlayingHeadphone") : t("nowPlayingMain");
+
+let calibrationAudio: HTMLAudioElement | null = null;
+let calibrationAudioUrl: string | null = null;
+const calibrationFlashTimers = new Set<number>();
+
+const clearCalibrationFlashTimers = () => {
+  calibrationFlashTimers.forEach((timer) => window.clearTimeout(timer));
+  calibrationFlashTimers.clear();
+  displayLagFlash?.classList.remove("active");
+};
+
+const pulseAvLagCalibration = () => {
+  if (!calibrationAudio || !displayLagFlash) {
+    return;
+  }
+  calibrationAudio.currentTime = 0;
+  void calibrationAudio.play().catch(() => {
+    if (displayLagStatus) {
+      displayLagStatus.textContent = t("displayAvLagPlaybackError");
+    }
+  });
+  const flashTimer = window.setTimeout(() => {
+    calibrationFlashTimers.delete(flashTimer);
+    displayLagFlash.classList.add("active");
+    const offTimer = window.setTimeout(() => {
+      calibrationFlashTimers.delete(offTimer);
+      displayLagFlash.classList.remove("active");
+    }, 140);
+    calibrationFlashTimers.add(offTimer);
+  }, getDisplayLagSeconds() * 1000);
+  calibrationFlashTimers.add(flashTimer);
+};
+
+const avLagCalibrationLoop = createCalibrationPulseLoop(pulseAvLagCalibration);
+
+const setAvLagCalibrationRunningUi = (running: boolean) => {
+  if (displayLagToggle) {
+    displayLagToggle.textContent = t(running ? "displayAvLagStop" : "displayAvLagStart");
+    displayLagToggle.dataset.running = running ? "true" : "false";
+  }
+  if (displayLagStatus) {
+    displayLagStatus.textContent = t(running ? "displayAvLagRunning" : "displayAvLagStopped");
+  }
+};
+
+const stopAvLagCalibration = () => {
+  avLagCalibrationLoop.stop();
+  calibrationAudio?.pause();
+  clearCalibrationFlashTimers();
+  setAvLagCalibrationRunningUi(false);
+};
+
+const closeAvLagCalibration = () => {
+  stopAvLagCalibration();
+  displayLagModal?.classList.remove("open");
+  displayLagModal?.setAttribute("aria-hidden", "true");
+};
+
+const openAvLagCalibration = () => {
+  const value = getDisplayLagSeconds().toFixed(3);
+  if (displayLagModalInput) {
+    displayLagModalInput.value = value;
+  }
+  if (displayLagModalValue) {
+    displayLagModalValue.value = value;
+    displayLagModalValue.textContent = value;
+  }
+  setAvLagCalibrationRunningUi(false);
+  displayLagModal?.classList.add("open");
+  displayLagModal?.setAttribute("aria-hidden", "false");
+};
+
+const startAvLagCalibration = async () => {
+  if (!calibrationAudio) {
+    calibrationAudioUrl = URL.createObjectURL(createCalibrationClickWav());
+    calibrationAudio = new Audio(calibrationAudioUrl);
+    calibrationAudio.preload = "auto";
+    calibrationAudio.load();
+  }
+  const requestedOutputDeviceId = resolveOutputDeviceIdForChannel("main");
+  const routing = await applyOutputDevice(calibrationAudio, requestedOutputDeviceId);
+  if (routing.method === "failed" || routing.method === "unsupported") {
+    if (displayLagStatus) {
+      displayLagStatus.textContent = t("displayAvLagRoutingError");
+    }
+    return;
+  }
+  if (calibrationAudio.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+    await new Promise<void>((resolve, reject) => {
+      let timeout = 0;
+      const ready = () => {
+        cleanup();
+        resolve();
+      };
+      const failed = () => {
+        cleanup();
+        reject(new Error("Calibration audio failed to load"));
+      };
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        calibrationAudio?.removeEventListener("loadeddata", ready);
+        calibrationAudio?.removeEventListener("error", failed);
+      };
+      calibrationAudio?.addEventListener("loadeddata", ready, { once: true });
+      calibrationAudio?.addEventListener("error", failed, { once: true });
+      timeout = window.setTimeout(failed, 2000);
+    }).catch(() => undefined);
+  }
+  if (calibrationAudio.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+    if (displayLagStatus) {
+      displayLagStatus.textContent = t("displayAvLagPlaybackError");
+    }
+    return;
+  }
+  avLagCalibrationLoop.start();
+  setAvLagCalibrationRunningUi(true);
+};
 
 const getOutputDeviceLabel = (deviceId: string | null) => {
   if (!deviceId || deviceId === DEFAULT_OUTPUT_ID) {
@@ -11817,6 +11950,16 @@ const getDisplayBackgroundIntervalSec = () => {
   return Math.min(600, Math.max(5, value));
 };
 
+const getDisplayLagSeconds = () => {
+  const value = Number.parseFloat(localStorage.getItem(DISPLAY_AV_LAG_KEY) ?? "0");
+  return Number.isFinite(value) ? Math.min(4, Math.max(0, value)) : 0;
+};
+
+const displayLagScheduler = createDisplayLagScheduler<DisplayUpdatePayload>(
+  (payload) => void window.tanda?.updateDisplay(payload),
+  getDisplayLagSeconds(),
+);
+
 const getDisplayUseBackgroundImages = () => {
   const raw = localStorage.getItem(DISPLAY_USE_IMAGES_KEY);
   if (raw === null) {
@@ -14372,6 +14515,9 @@ const getTrackDataFromRow = (row: HTMLElement) => {
 };
 
 const setSettingsOpen = async (open: boolean) => {
+  if (!open) {
+    closeAvLagCalibration();
+  }
   if (open && isTrackEditorOpen()) {
     if (!(await confirmTrackEditorDiscardIfDirty())) {
       return;
@@ -15965,6 +16111,8 @@ const init = async () => {
       playlistCortinaSetSelect,
       playlistCortinaDurationInput,
       displayBackgroundIntervalInput,
+      displayLagInput,
+      displayLagValue,
       displayUseImagesInput,
       displayImageDimInput,
       displayBaseFontSizeInput,
@@ -15981,6 +16129,7 @@ const init = async () => {
       cortinaSet: CORTINA_SET_KEY,
       cortinaDuration: CORTINA_DURATION_KEY,
       displayBackgroundInterval: DISPLAY_BACKGROUND_INTERVAL_KEY,
+      displayLag: DISPLAY_AV_LAG_KEY,
       displayUseImages: DISPLAY_USE_IMAGES_KEY,
       displayImageDim: DISPLAY_IMAGE_DIM_KEY,
       displayFontScale: DISPLAY_FONT_SCALE_KEY,
@@ -15995,6 +16144,7 @@ const init = async () => {
       getCortinaSet,
       getCortinaDuration,
       getDisplayBackgroundIntervalSec,
+      getDisplayLagSeconds,
       getDisplayUseBackgroundImages,
       getDisplayImageDimOpacity,
       getDisplayFontScale,
@@ -16014,6 +16164,18 @@ const init = async () => {
         renderPlaylist();
       },
       updateExternalDisplay,
+      onDisplayLagChanged: (seconds) => {
+        displayLagScheduler.setDelaySeconds(seconds);
+        lastDisplayPayloadSignature = "";
+        clearCalibrationFlashTimers();
+        if (displayLagModalInput) {
+          displayLagModalInput.value = seconds.toFixed(3);
+        }
+        if (displayLagModalValue) {
+          displayLagModalValue.value = seconds.toFixed(3);
+          displayLagModalValue.textContent = seconds.toFixed(3);
+        }
+      },
       onCortinaSetChanged: async (next) => {
         cortinaQueue = [];
         lastCortinaId = null;
@@ -16873,6 +17035,46 @@ const init = async () => {
     });
   }
   settingsPlaylistController.initialize();
+
+  displayLagCalibrateBtn?.addEventListener("click", openAvLagCalibration);
+  displayLagModalClose?.addEventListener("click", closeAvLagCalibration);
+  displayLagModal?.addEventListener("click", (event) => {
+    if (event.target === displayLagModal) {
+      closeAvLagCalibration();
+    }
+  });
+  displayLagToggle?.addEventListener("click", async () => {
+    displayLagToggle.disabled = true;
+    try {
+      if (avLagCalibrationLoop.isRunning()) {
+        stopAvLagCalibration();
+      } else {
+        await startAvLagCalibration();
+      }
+    } finally {
+      displayLagToggle.disabled = false;
+    }
+  });
+  displayLagModalInput?.addEventListener("input", () => {
+    const value = Math.min(4, Math.max(0, Number.parseFloat(displayLagModalInput.value) || 0));
+    const formatted = value.toFixed(3);
+    localStorage.setItem(DISPLAY_AV_LAG_KEY, formatted);
+    displayLagScheduler.setDelaySeconds(value);
+    lastDisplayPayloadSignature = "";
+    clearCalibrationFlashTimers();
+    if (displayLagModalValue) {
+      displayLagModalValue.value = formatted;
+      displayLagModalValue.textContent = formatted;
+    }
+    if (displayLagInput) {
+      displayLagInput.value = value.toString();
+    }
+    if (displayLagValue) {
+      displayLagValue.value = formatted;
+      displayLagValue.textContent = formatted;
+    }
+    updateExternalDisplay();
+  });
 
   clearPlayCountsBtn?.addEventListener("click", async () => {
     const confirmed = await showConfirmModal(t("confirmClearPlayCounts"));
