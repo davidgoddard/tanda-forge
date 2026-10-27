@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   SILENCE_DETECT_NOISE_DB,
   buildCommandLine,
+  buildCombinedAnalysisWaveformArgs,
   buildSilenceDetectFilter,
   deriveTrimOffsetsFromSilence,
   formatCommandAttemptErrors,
@@ -38,6 +39,18 @@ describe("buildCommandLine", () => {
   it("uses a conservative silence threshold for end-trim detection", () => {
     expect(SILENCE_DETECT_NOISE_DB).toBe(-40);
     expect(buildSilenceDetectFilter()).toBe("silencedetect=noise=-40dB:d=0.2");
+  });
+
+  it("builds one decode graph for analysis and the existing waveform output", () => {
+    const args = buildCombinedAnalysisWaveformArgs("/music/tango.flac", "/tmp/wave.png");
+    expect(args.filter((value) => value === "-i")).toHaveLength(1);
+    expect(args).toContain("/music/tango.flac");
+    expect(args).toContain("/tmp/wave.png");
+    expect(args.join(" ")).toContain("asplit=2");
+    expect(args.join(" ")).toContain(
+      "silencedetect=noise=-40dB:d=0.2,loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json",
+    );
+    expect(args.join(" ")).toContain("showwavespic=s=1200x240:colors=white");
   });
 
   it("parses multiple silence sections from ffmpeg output", () => {

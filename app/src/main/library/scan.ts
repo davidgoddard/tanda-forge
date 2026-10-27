@@ -4,6 +4,7 @@ import path from "path";
 import {
   ANALYSIS_PIPELINE_VERSION,
   analyzeTrack,
+  analyzeTrackAndRenderWaveform,
   hasUsableWaveformPng,
   readTrackMetadata,
   renderWaveformPng,
@@ -135,6 +136,8 @@ const audioExtensions = new Set([
   ".aif",
   ".aiff",
 ]);
+
+const LIBRARY_SCAN_CONCURRENCY = 2;
 
 const walkFiles = async (rootPath: string): Promise<string[]> => {
   const entries = await fs.promises.readdir(rootPath, { withFileTypes: true });
@@ -363,6 +366,9 @@ export const scanLibraryRoots = async (
   const touchStmt = db.prepare(
     "update tracks set last_scanned_at = ? where root_id = ? and relative_path = ?",
   );
+  const trimOverrideStmt = db.prepare(
+    "select start_offset_ms, end_trim_ms from track_trim_overrides where track_id = ?",
+  );
 
   let total = 0;
   const rootFiles: { root: LibraryRoot; files: string[] }[] = [];
@@ -382,8 +388,7 @@ export const scanLibraryRoots = async (
 
   for (const { root, files } of rootFiles) {
     const seen = new Set<string>();
-    for (const filePath of files) {
-      scanned += 1;
+    const processFile = async (filePath: string) => {
       const relativePath = path.relative(root.path, filePath);
       seen.add(relativePath);
       try {
@@ -456,15 +461,27 @@ export const scanLibraryRoots = async (
               error: existing?.tag_error ?? undefined,
             })
           : readTrackMetadata(filePath);
-        const analysisPromise: Promise<TrackAnalysis> = unchanged
-          ? Promise.resolve(existingAnalysis)
-          : tagPromise.then((metadata) => analyzeTrack(filePath, metadata.durationMs));
         const waveformPath = waveformsDir ? path.join(waveformsDir, `${trackId}.png`) : "";
         if (waveformsDir && waveformPath && !hasUsableWaveformPng(waveformPath)) {
           fs.rmSync(waveformPath, { force: true });
         }
-        const waveformPromise: Promise<void> =
-          waveformsDir && waveformPath && !hasUsableWaveformPng(waveformPath)
+        const needsWaveform = Boolean(
+          waveformsDir && waveformPath && !hasUsableWaveformPng(waveformPath),
+        );
+        const combinedPromise = !unchanged && needsWaveform
+          ? tagPromise.then((metadata) =>
+              analyzeTrackAndRenderWaveform(filePath, waveformPath, metadata.durationMs))
+          : null;
+        const analysisPromise: Promise<TrackAnalysis> = unchanged
+          ? Promise.resolve(existingAnalysis)
+          : combinedPromise
+            ? combinedPromise.then((result) => result.analysis)
+            : tagPromise.then((metadata) => analyzeTrack(filePath, metadata.durationMs));
+        const waveformPromise: Promise<void> = combinedPromise
+          ? combinedPromise.then((result) => {
+              if (result.waveformError) throw new Error(result.waveformError);
+            })
+          : needsWaveform
             ? renderWaveformPng(filePath, waveformPath)
             : Promise.resolve();
         const [tagSettled, analysisSettled, waveformSettled] =
@@ -548,6 +565,9 @@ export const scanLibraryRoots = async (
           const fileHash = unchanged
             ? existing?.file_hash ?? (await hashFile(filePath))
             : await hashFile(filePath);
+          const trimOverride = trimOverrideStmt.get(trackId) as
+            | { start_offset_ms: number; end_trim_ms: number }
+            | undefined;
           const row = {
             id: trackId,
             root_id: root.id,
@@ -568,8 +588,8 @@ export const scanLibraryRoots = async (
             instrumental:
               instrumental === null ? null : instrumental ? 1 : 0,
             duration_ms: analysis.durationMs,
-            start_offset_ms: analysis.startOffsetMs,
-            end_trim_ms: analysis.endTrimMs,
+            start_offset_ms: trimOverride?.start_offset_ms ?? analysis.startOffsetMs,
+            end_trim_ms: trimOverride?.end_trim_ms ?? analysis.endTrimMs,
             loudness_db: analysis.loudnessDb ?? null,
             gain_db: analysis.gainDb ?? null,
             tag_error: unchanged ? existing?.tag_error ?? "" : tagError,
@@ -606,6 +626,7 @@ export const scanLibraryRoots = async (
         });
       }
 
+      scanned += 1;
       if (onProgress) {
         onProgress({
           current: scanned,
@@ -615,7 +636,22 @@ export const scanLibraryRoots = async (
           errors: errors.length,
         });
       }
-    }
+    };
+    let nextFileIndex = 0;
+    const runNext = async (): Promise<void> => {
+      const index = nextFileIndex;
+      nextFileIndex += 1;
+      if (index >= files.length) return;
+      await processFile(files[index]);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      return runNext();
+    };
+    await Promise.all(
+      Array.from(
+        { length: Math.min(files.length, LIBRARY_SCAN_CONCURRENCY) },
+        runNext,
+      ),
+    );
 
     if (files.length > 0) {
       const existingRows = db

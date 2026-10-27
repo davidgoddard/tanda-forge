@@ -18,6 +18,12 @@ describe("normalizeOrchestraText", () => {
     expect(normalizeOrchestraText("Juan D'Arienzo")).toBe("juan darienzo");
     expect(normalizeOrchestraText("Juan D Arienzo")).toBe("juan d arienzo");
   });
+
+  it("ignores an imported instrumental credit suffix", () => {
+    expect(normalizeOrchestraText("Carlos Di Sarli Instrumental")).toBe(
+      "carlos di sarli",
+    );
+  });
 });
 
 describe("resolveOrchestraCanonical", () => {
@@ -41,6 +47,16 @@ describe("resolveOrchestraCanonical", () => {
     expect(
       resolveOrchestraCanonical({
         rawArtist: "Orquesta Típica Carlos Di Sarli",
+        entries,
+        aliasIndex,
+      }),
+    ).toBe("Carlos Di Sarli");
+  });
+
+  it("resolves an instrumental credit to the canonical orchestra", () => {
+    expect(
+      resolveOrchestraCanonical({
+        rawArtist: "Carlos Di Sarli Instrumental",
         entries,
         aliasIndex,
       }),

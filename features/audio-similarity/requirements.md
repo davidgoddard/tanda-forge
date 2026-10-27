@@ -83,6 +83,11 @@ evidence for that library, not a general accuracy guarantee.
 - **ASR-006 — Background execution:** Analysis shall be cancellable/resumable,
   display progress and an estimated remaining time when credible, and yield
   resources to live playback.
+- **ASR-006A — Phase and completion feedback:** While a requested report is
+  running, the report shall distinguish track fingerprinting from candidate
+  comparison and show pair-comparison percentage progress. When that request
+  completes, it shall display an explicit completion message rather than
+  relying on control-state changes alone.
 - **ASR-007 — Failure visibility:** Per-track failures shall not discard
   successful work. The report shall list failures, their knock-on effects, and
   retry actions.
@@ -439,10 +444,18 @@ listening to the complete context.
   composition performed by another orchestra.
 - **ASR-086 — Assignment choice:** Tracks the DJ explicitly confirms as
   identical and interchangeable shall have one DJ-elected master version. The
-  app may silently resolve that identical group to its master. Alternate
-  recordings, remasters, cleaned transfers, different performances, and
-  same-composition alternatives not confirmed as identical shall remain an
-  explicit choice so that tanda sound character is preserved.
+  app shall show only that master in normal track search results and may
+  silently resolve assignment of any identical group member to it. Confirmed
+  transfers, remasters, or cleaned versions of the same captured performance
+  shall likewise occupy one normal search result, but assignment shall open the
+  version picker. Different performances and same-composition alternatives
+  shall remain separate search results and an explicit assignment choice so
+  that tanda sound character is preserved.
+- **ASR-086A — Consistent version audition:** Activating the headphone action
+  on a collapsed same-recording search result shall show every available version
+  with its own headphone action. Versions shall use the same deterministic
+  number and order in this audition list and the tanda-assignment picker so the
+  DJ can immediately reselect an auditioned version.
 - **ASR-087 — Optional activation:** A library that has never generated a
   similarity report, or has no confirmed relationships, shall retain normal
   search, tanda, playlist, auto-fill, and playback behavior without warnings,
@@ -507,6 +520,11 @@ listening to the complete context.
 - **ASV-002 — Recall measurement:** Indexed results shall be compared with
   exhaustive comparison on a manageable labelled subset to quantify candidates
   lost during shortlisting.
+- **ASV-002A — Exact-recall production optimisation:** A production comparison
+  optimisation shall not use an approximate hash as an exclusive filter unless
+  zero loss against the previous exhaustive matcher has been established. The
+  duration-indexed matcher shall preserve the exhaustive match set, scores, and
+  ordering, including pairs on duration-ratio boundaries.
 - **ASV-003 — False-positive review:** Validation shall specifically include
   stylistically homogeneous albums/orchestras and common tango forms.
 - **ASV-004 — Workflow tests:** Automated tests shall cover report generation,

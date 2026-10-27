@@ -1,5 +1,137 @@
 ## Handoff
 
+### Recording-version search canonicalisation
+- Normal track search now returns one result for each confirmed captured
+  performance: the elected master for identical/interchangeable groups and one
+  deterministic representative for same-recording transfers/remasters. The
+  latter still opens the version picker when assigned. Different performances
+  remain separate results.
+- The visibility rule applies consistently to empty/browsing searches, text
+  search, result counts and alphabetical jump navigation (`ASR-086`).
+- A same-recording search row's headphone action opens every available version.
+  Both audition and assignment dialogs use the same deterministic `#1`, `#2`,
+  … ordering and expose a headphone action per version (`ASR-086A`).
+- Verification passed: `npm run preflight` (106 test files / 598 tests plus the
+  production build) and `git diff --check`.
+
+### Exact-recall audio-similarity comparison optimisation
+- Audio-similarity matching now uses a sorted duration-range index to skip
+  pairs that the established duration-ratio rule would reject, while retaining
+  the exact ratio check at range boundaries.
+- Chroma and transition rotations are compared in place rather than allocating
+  a rotated array for every frame and pitch shift. Match scoring and ordering
+  are unchanged.
+- Approximate perceptual hashes are deliberately not an exclusive candidate
+  gate: the production optimisation must not lose any relationship found by
+  the prior exhaustive matcher (`ASV-002A`). A regression compares both sync
+  and cooperative optimized paths with an exhaustive oracle.
+- Verification passed: `npm run preflight` (106 test files / 593 tests plus the
+  production build) and `git diff --check`.
+
+### Filtered playlist schedule context
+- Filtering playlist contents now inserts a localized scheduled-start divider
+  before every matching tanda. Predicted timing therefore remains visible when
+  the filter hides intervening tandas and the cortina rows that ordinarily carry
+  the timeline, making consecutive orchestra appearances easy to distinguish
+  from appearances hours apart (`UI-014.R29`).
+
+### Available collection base-style matching
+- `Available` now compares canonical orchestra plus base style family, so a
+  playlist D'Arienzo `Tango - Traditional` tanda excludes D'Arienzo tandas
+  labelled plain `Tango` (and vice versa), while D'Arienzo Waltz and Milonga
+  remain available.
+- Orchestra canonicalisation now ignores the imported `Instrumental` credit
+  suffix, so `Carlos Di Sarli Instrumental` matches `Carlos Di Sarli` rather
+  than appearing as a separate orchestra in `Available`.
+- The reported mismatch was confirmed against the live library metadata, which
+  contains both `Tango` and `Tango - Traditional` for D'Arienzo tandas.
+- Verification passed: focused orchestra-registry and playlist-diversity tests,
+  then full `npm run preflight` (106 test files / 589 tests plus the production
+  build).
+
+### Diagnostics trim-review workflow
+- Suspicious short/aggressively trimmed music tracks are now an interactive
+  table. Selection provides a full-source waveform, click-to-audition, original,
+  trimmed, opening, and ending previews, plus draggable proposed trim controls.
+- The selected-track editor is positioned above the issue list and remains in
+  view while the bounded track table scrolls independently.
+- Waveform clicks and start/ending actions now seek the current diagnostic audio
+  when it is already playing rather than stopping and recreating playback.
+- Saving creates a persistent manual override, updates the effective track
+  offsets and affected tanda durations, and survives later scans while measured
+  values remain available for reset. Source files are never rewritten.
+- OK persists an acknowledgement tied to the exact current issue signature;
+  changed duration or trim evidence automatically returns to the list. Delete
+  uses the existing logical/source-file deletion flow.
+- Acknowledged tracks remain in the same table with a clear OK status, while
+  pending tracks sort first. The reviewed track remains visible and playable in
+  the editor with a confirmation and disabled OK action, preventing accidental
+  acknowledgement of a silently selected next row.
+- Verification passed: focused diagnostics, deletion, scan-reuse, and i18n
+  regressions plus full preflight (106 test files / 584 tests and production
+  build).
+
+### Version 0.4.3: faster compatible library analysis
+- New or changed tracks that need both core analysis and a waveform now use one
+  FFmpeg decode with `asplit` branches for the unchanged silence/loudness filters
+  and unchanged `showwavespic` output. The scanner processes at most two tracks
+  concurrently.
+- `ANALYSIS_PIPELINE_VERSION` remains `2`: complete 0.4.2 analysis rows and
+  existing usable waveform PNGs remain valid, so installing 0.4.3 does not
+  require a rescan. Standalone analysis/waveform paths and a combined-graph
+  fallback preserve partial-cache and unusual-codec behavior.
+- A real-FFmpeg equivalence check produced identical silence boundaries,
+  integrated loudness and byte-identical waveform PNG output for the old and
+  combined commands. Full preflight passed (106 test files / 584 tests plus the
+  production build).
+
+### Multiple legacy collections: source selection
+- Automatic legacy detection now prefers the most recently configured detectable
+  collection. This keeps a newly added migration source selected after restart instead
+  of falling back to an older configured backup based on unspecified database row order.
+- The reported DTOTY migration failure was confirmed from the live database: the new
+  root had been scanned, but the prior FullBackup collection remained the imported
+  legacy source, so DTOTY metadata and tandas were never applied.
+
+### Tanda style variant selection freeze
+- Choosing a Tanda Designer style variant after a right-click or long-press now
+  closes the popup and lets the native pointer gesture finish before rebuilding
+  the designer and refreshing filtered results. This prevents the macOS event
+  loop from becoming stuck on controls detached during the selection event.
+- Electron workflow 28 now covers long-press selection of a tanda variant and
+  verifies that the menu closes, the variant appears, and the designer remains
+  responsive.
+
+### Settings header accessibility after workflow scrolling
+- Settings workflow navigation now scrolls only the internal content pane
+  instead of using `scrollIntoView()`, which could move the entire overlay above
+  the viewport after legacy setup activity.
+- The Settings overlay is viewport-fixed, clips overflow at its boundary, and
+  keeps its header and tabs outside the independently scrolling content pane.
+- Verification passed: focused Settings unit coverage, focused Electron
+  workflow 43, and `npm run preflight` (106 test files / 582 tests plus the
+  production build).
+
+### Legacy-import confirmation clarification
+- The confirmation now reassures users in all seven supported languages that
+  imported tandas are merged with existing tandas, while reimporting the same
+  source updates its earlier imported records without creating duplicates.
+- The configuration requirement now matches the established source-scoped,
+  non-destructive import behavior and retains the follow-up analysis-scan notice.
+- Verification passed: `npm run preflight` (106 test files / 581 tests plus the
+  production build).
+
+### GitHub Actions Node 24 runtime migration
+- The release workflow now uses the maintained Node 24 action majors:
+  `actions/checkout@v7`, `actions/setup-node@v7`,
+  `actions/upload-artifact@v7`, `actions/download-artifact@v8`, and
+  `softprops/action-gh-release@v3`.
+- Existing artifact names, archive behavior, merged download layout, release
+  asset patterns, and application Node.js 22 build target remain unchanged.
+- Verification passed: release workflow YAML parse, action-reference audit,
+  `git diff --check`, and `npm run preflight` (106 test files / 581 tests plus
+  production build).
+
 ### FFmpeg staging transport resilience
 - FFmpeg downloads now use bounded `curl --retry-all-errors` retries, covering
   TLS/receive failures such as exit 35 that the previous retry policy could
@@ -9834,3 +9966,52 @@ database insertion boundary, independent of feature-query order (`ASR-092`).
 Final verification passes **104 unit files / 549 tests**, the production build,
 and the focused Electron workflow from analysis generation through confirmation,
 radio-based assignment, duplicate indicators, and tanda replacement.
+
+The report-generation control now enters a pending state before invoking the
+main-process analysis and continues polling even if its first reload races with
+the new run record. Normal regeneration is incremental, so newly imported or
+changed tracks are analysed while unchanged feature data is reused (`ASR-005`/
+`ASR-006`). A run left `running` or `cancelling` by an application exit is now
+recovered as interrupted instead of permanently disabling generation, and a
+prior completed report retains the **Regenerate report** label after a later
+failed/interrupted attempt. Verification passed: `npm run preflight` (**106 test
+files / 591 tests** plus the production build).
+
+Large-library candidate comparison now yields to Electron at short bounded
+intervals instead of monopolising the main process after fingerprinting reaches
+100%. The report window, progress polling, and cancellation remain responsive
+during the millions of pair comparisons, with identical scoring and grouping
+results (`ASR-006`). Final verification passed: `npm run preflight` (**106 test
+files / 592 tests** plus the production build).
+
+Report status now changes from track-analysis counts to an explicit comparison
+phase once all fingerprints are ready. Comparison persists examined and total
+pair counts at throttled intervals and displays a percentage, then shows a
+persistent completion message when the regeneration request resolves
+successfully (`ASR-006A`).
+
+## Playlist footer layout (2026-10-26)
+
+- The Remaining Tandas and live-performance stop controls now share a dedicated
+  non-scrolling footer below the independently scrolling playlist. Improved
+  spacing, text contrast, checkbox sizing, and number-field sizing keep both
+  controls readable and reachable with long playlists (`UI-009.R6.a`).
+- Verification passed: focused footer structure/style regression and full
+  `npm run preflight` (106 test files / 590 tests plus production build).
+- The playlist-hosted tanda editor now shares the scrolling playlist's grid row
+  as a bottom-aligned overlay. It has an opaque surface and bounded internal
+  scrolling, leaving the footer anchored and unobscured (`UI-009.R6.b`).
+- Both the playlist and editor are explicitly pinned to the same sole grid
+  column, preventing CSS auto-placement from creating the side-by-side layout;
+  the editor spans the playlist width and overlays its lower rows.
+- Final verification passed: `npm run preflight` (106 test files / 594 tests
+  plus the production build).
+
+## Display-board tanda subtype labels (2026-10-26)
+
+- Display-board current/next tanda labels now derive style from the tanda's
+  track genres. A unanimous subtype remains visible; differing track styles
+  collapse to the ordered set of distinct base styles. Tanda metadata remains
+  the fallback when no track style is available (`UI-060.R16.b`).
+- Verification passed: `npm run preflight` (106 test files / 597 tests plus the
+  production build).

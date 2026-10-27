@@ -5,6 +5,8 @@ type MockTrack = {
   id: string;
   genre: string;
   rootKind: "music" | "cortina";
+  hidden?: boolean;
+  searchRepresentativeId?: string;
 };
 
 const makeMockDb = (tracks: MockTrack[]) => {
@@ -14,6 +16,13 @@ const makeMockDb = (tracks: MockTrack[]) => {
         const styleSet = new Set(values as string[]);
         return tracks.filter((track) => {
           if (track.rootKind !== "music") {
+            return false;
+          }
+          if (sql.includes("hidden_tracks") && track.hidden) {
+            return false;
+          }
+          if (sql.includes("'same-recording'")
+            && track.searchRepresentativeId && track.searchRepresentativeId !== track.id) {
             return false;
           }
           if (sql.includes("t.genre in (") && styleSet.size > 0) {
@@ -39,5 +48,22 @@ describe("search candidate source filtering", () => {
 
     const tangoOnly = fetchSearchCandidates(db as any, ["Tango"]);
     expect(tangoOnly.map((row: any) => row.id)).toEqual(["music-tango"]);
+  });
+
+  it("renders one representative for identical and same-recording groups", () => {
+    const db = makeMockDb([
+      { id: "master", rootKind: "music", genre: "Tango", searchRepresentativeId: "master" },
+      { id: "identical-copy", rootKind: "music", genre: "Tango", searchRepresentativeId: "master" },
+      { id: "recording-a", rootKind: "music", genre: "Tango", searchRepresentativeId: "recording-a" },
+      { id: "recording-b", rootKind: "music", genre: "Tango", searchRepresentativeId: "recording-a" },
+      { id: "different-performance", rootKind: "music", genre: "Tango" },
+      { id: "hidden", rootKind: "music", genre: "Tango", hidden: true },
+    ]);
+
+    const candidates = fetchSearchCandidates(db as any, []);
+
+    expect(candidates.map((row: any) => row.id)).toEqual([
+      "master", "recording-a", "different-performance",
+    ]);
   });
 });

@@ -96,20 +96,32 @@ describe("main diagnostics helpers", () => {
       {
         id: "track-short",
         title: "Short Song",
+        fullPath: path.join(root, "music", "short.mp3"),
         relativePath: "Tango/short.mp3",
         durationMs: 42000,
+        startOffsetMs: 0,
+        endTrimMs: 0,
         effectiveDurationMs: 42000,
         removedMs: 0,
+        issueSignature: "42000:0:0:short",
+        issueKinds: ["short"],
+        acknowledged: false,
       },
     ]);
     expect(summary.aggressivelyTrimmedTracks).toEqual([
       {
         id: "track-trimmed",
         title: "Trimmed Song",
+        fullPath: path.join(root, "music", "trimmed.mp3"),
         relativePath: "Tango/trimmed.mp3",
         durationMs: 180000,
+        startOffsetMs: 5000,
+        endTrimMs: 22000,
         effectiveDurationMs: 153000,
         removedMs: 27000,
+        issueSignature: "180000:5000:22000:aggressive-trim",
+        issueKinds: ["aggressive-trim"],
+        acknowledged: false,
       },
     ]);
     expect(summary.compressedEligible).toBe(2);

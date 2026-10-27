@@ -149,6 +149,12 @@ const api: AppApi = {
     ipcRenderer.invoke("diagnostics:clearLogs"),
   getDiagnosticsDataReadiness: async () =>
     ipcRenderer.invoke("diagnostics:getDataReadiness"),
+  acknowledgeDiagnosticsTrack: async (payload) =>
+    ipcRenderer.invoke("diagnostics:acknowledgeTrack", payload),
+  saveDiagnosticsTrackTrim: async (payload) =>
+    ipcRenderer.invoke("diagnostics:saveTrackTrim", payload),
+  resetDiagnosticsTrackTrim: async (id) =>
+    ipcRenderer.invoke("diagnostics:resetTrackTrim", id),
   logPlaybackDiagnostic: async (params) =>
     ipcRenderer.invoke("app:logPlaybackDiagnostic", params),
   listStyles: async () => ipcRenderer.invoke("styles:list"),

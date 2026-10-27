@@ -116,10 +116,16 @@ export type ScanProgress = {
 export type SuspiciousTrackLength = {
   id: string;
   title: string;
+  fullPath: string;
   relativePath: string;
   durationMs: number;
+  startOffsetMs: number;
+  endTrimMs: number;
   effectiveDurationMs: number;
   removedMs: number;
+  issueSignature: string;
+  issueKinds: Array<"short" | "aggressive-trim">;
+  acknowledged: boolean;
 };
 
 export type CompressionReadinessIssue = {
@@ -580,6 +586,9 @@ export type AppApi = {
     shortDurationTracks: SuspiciousTrackLength[];
     aggressivelyTrimmedTracks: SuspiciousTrackLength[];
   }>;
+  acknowledgeDiagnosticsTrack: (payload: { id: string; issueSignature: string }) => Promise<{ ok: boolean }>;
+  saveDiagnosticsTrackTrim: (payload: { id: string; startOffsetMs: number; endTrimMs: number }) => Promise<{ ok: boolean }>;
+  resetDiagnosticsTrackTrim: (id: string) => Promise<{ ok: boolean; startOffsetMs?: number; endTrimMs?: number }>;
   logPlaybackDiagnostic: (params: {
     channel: "main" | "headphone";
     mode: "prep" | "live" | "edit";

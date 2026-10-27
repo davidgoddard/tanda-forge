@@ -1,6 +1,14 @@
 export const normalizeArtistGroupKey = (value: string | null | undefined) =>
   (value ?? "").trim().toLowerCase();
 
+export const normalizeAvailabilityStyleGroup = (
+  value: string | null | undefined,
+) =>
+  (value ?? "")
+    .split(/\s*-\s*/, 1)[0]
+    ?.trim()
+    .toLowerCase() ?? "";
+
 export const isArtistGapSatisfied = (params: {
   artist: string;
   currentTotalMs: number;

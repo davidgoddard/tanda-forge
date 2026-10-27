@@ -9,6 +9,9 @@ identified as `DATA-<section>.R<n>` in order under each section. Sub-bullets use
 - DATA-001.R1: Local-only storage, no network dependency.
 - DATA-001.R2: Primary store: SQLite database in the configured data root.
 - DATA-001.R3: Large blobs (waveforms, cached previews) stored as files referenced by DB.
+- DATA-001.R4: User-approved trim overrides and diagnostic acknowledgements are
+  stored separately from measured analysis. An acknowledgement is keyed to the
+  current duration/trim issue signature so changed evidence returns for review.
 
 ## DATA-002 — Data Root Locations
 

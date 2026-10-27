@@ -192,6 +192,7 @@ import {
   buildAdaptiveStyleNumericDistribution,
   collectEligibleArtistStyleGroups,
   isTandaArtistStyleAvailable,
+  normalizeAvailabilityStyleGroup,
   normalizeArtistGroupKey,
 } from "../shared/playlist-diversity.js";
 import { ORCHESTRA_SEED_DATA } from "../shared/orchestra-seed.js";
@@ -225,6 +226,7 @@ import {
   resolveLastTandaCountdownText,
   resolveNextTandaLabel,
   resolveNextTandaStyle,
+  resolveTandaDisplayStyle,
 } from "./modules/display-view.js";
 import { shouldIgnoreNowPlayingSectionClick } from "./modules/now-playing-interactions.js";
 import { createSearchController } from "./controllers/search-controller.js";
@@ -261,6 +263,7 @@ import {
   activateSettingsTab,
   pulseSettingsSection,
   resolveOutputModeValue,
+  scrollSettingsContentTo,
 } from "./modules/settings-view.js";
 import {
   deriveLibraryWorkflow,
@@ -341,7 +344,7 @@ const diagnosticsWaveformResult =
 const diagnosticsDataReadinessEl =
   document.querySelector<HTMLDivElement>("#diagnostics-data-readiness");
 const diagnosticsTrackLengthIssuesEl =
-  document.querySelector<HTMLPreElement>("#diagnostics-track-length-issues");
+  document.querySelector<HTMLDivElement>("#diagnostics-track-length-issues");
 const diagnosticsPlaybackLogBtn =
   document.querySelector<HTMLButtonElement>("#diagnostics-playback-log");
 const diagnosticsClearLogsBtn =
@@ -2976,7 +2979,18 @@ const getNextTandaStyle = () =>
     resumeItemIndex: playlistPlayback.resume?.itemIndex ?? null,
     currentIndex: playlistPlayback.currentIndex,
     playlistItems: getDisplayPlaylistItems(),
-    resolveTandaStyle: (tandaId) => resolveTandaDraft(tandaId)?.styles?.[0] ?? null,
+    resolveTandaStyle: (tandaId) => {
+      const tanda = resolveTandaDraft(tandaId);
+      if (!tanda) {
+        return null;
+      }
+      return resolveTandaDisplayStyle({
+        trackStyles: tanda.trackSlots.map((trackId) =>
+          trackId ? trackCache.get(trackId)?.genre : null,
+        ),
+        tandaStyles: tanda.styles,
+      });
+    },
     shouldShowDisplayNextTanda: (status) => shouldShowDisplayNextTanda(status),
   });
 
@@ -6860,8 +6874,12 @@ const openTandaStyleVariantMenu = (
         return;
       }
       applied = true;
-      onSelectVariant(styleValue);
       closeStyleVariantMenu();
+      // Applying a tanda style rebuilds the designer (and therefore the button
+      // that opened this menu). Let the native pointer gesture finish before
+      // replacing that DOM; doing it from pointerdown can leave Electron/macOS
+      // stuck dispatching the remainder of the gesture to detached controls.
+      window.setTimeout(() => onSelectVariant(styleValue), 0);
     };
     item.addEventListener("pointerdown", (event) => {
       event.preventDefault();
@@ -8399,6 +8417,9 @@ const collectionArtistGroupKey = (track: TrackRow) =>
     resolveCanonicalArtistName(track.artist_summary || track.artist || ""),
   );
 
+const collectionStyleGroupKey = (style: string | null | undefined) =>
+  normalizeAvailabilityStyleGroup(normalizeStyleName(style ?? ""));
+
 const getPlaylistArtistStyleGroups = () => {
   const used = new Set<string>();
   playlistItems.forEach((item) => {
@@ -8413,14 +8434,14 @@ const getPlaylistArtistStyleGroups = () => {
               return "";
             }
             const normalized = tanda.styles
-              .map((style) => normalizeStyleName(style))
+              .map(collectionStyleGroupKey)
               .filter(Boolean);
             return normalized[0] ?? "";
           })()
         : "";
     resolvePlaylistTracks(item).forEach((track) => {
       const artist = collectionArtistGroupKey(track);
-      const style = normalizeStyleName(track.genre ?? "") || tandaStyleFallback;
+      const style = collectionStyleGroupKey(track.genre) || tandaStyleFallback;
       if (artist && style) {
         used.add(`${artist}|${style}`);
       }
@@ -8477,13 +8498,13 @@ const buildAvailableCollectionIds = async () => {
     usedGroups,
     requiredCount,
     getArtistGroupKey: collectionArtistGroupKey,
-    getStyleKey: (track) => normalizeStyleName(track.genre ?? ""),
+    getStyleKey: (track) => collectionStyleGroupKey(track.genre),
     getTitleKey: normalizeTrackTitleForAutofill,
   });
   const trackIds = tracks
     .filter((track) => {
       const artist = collectionArtistGroupKey(track);
-      const style = normalizeStyleName(track.genre ?? "");
+      const style = collectionStyleGroupKey(track.genre);
       const group = artist && style ? `${artist}|${style}` : "";
       return group.length > 0 && eligibleGroups.has(group);
     })
@@ -8509,13 +8530,13 @@ const buildAvailableCollectionIds = async () => {
       const styles = Array.from(
         new Set(
           tandaTracks
-            .map((track) => normalizeStyleName(track.genre ?? ""))
+            .map((track) => collectionStyleGroupKey(track.genre))
             .filter(Boolean),
         ),
       );
       const styleFromTracks = styles.length === 1 ? styles[0] ?? "" : "";
       const styleFromTanda = tanda.styles
-        .map((style) => normalizeStyleName(style))
+        .map(collectionStyleGroupKey)
         .find(Boolean) ?? "";
       const style = styleFromTracks || styleFromTanda;
       return isTandaArtistStyleAvailable({
@@ -9105,6 +9126,19 @@ const renderPlaylist = () => {
       const startTime = startTimes.get(index);
       const startLabel =
         startTime !== undefined ? formatClockTime(startTime) : null;
+      if (hasFilter && startLabel) {
+        const scheduleDivider = document.createElement("div");
+        scheduleDivider.className = "playlist-filter-schedule-divider";
+        scheduleDivider.setAttribute("aria-label", t("playlistFilterScheduledFor", {
+          time: startLabel,
+        }));
+        const scheduleLabel = document.createElement("span");
+        scheduleLabel.textContent = t("playlistFilterScheduledFor", {
+          time: startLabel,
+        });
+        scheduleDivider.appendChild(scheduleLabel);
+        fragment.appendChild(scheduleDivider);
+      }
       const durationLabel = formatTime(getTandaDurationMs(tanda) / 1000);
       const row = renderTandaRow(tanda, "playlist", tanda.name, {
         expanded: isActive,
@@ -12499,12 +12533,62 @@ const addTrackToTanda = (tandaId: string | null, track: TrackRow) => {
   return true;
 };
 
-const chooseConfirmedSimilarTrack = async (track: TrackRow): Promise<TrackRow | null> => {
+const getConfirmedSimilarCandidates = async (track: TrackRow) => {
   const equivalentIds = similarityEquivalentTrackIds.get(track.id);
-  if (!equivalentIds || equivalentIds.size < 2 || !window.tanda) return track;
+  if (!equivalentIds || equivalentIds.size < 2 || !window.tanda) return [];
   const allTracks = await window.tanda.listTracks();
-  const candidates = allTracks.filter((candidate) =>
-    equivalentIds.has(candidate.id) && !similarityHiddenTrackIds.has(candidate.id));
+  return allTracks
+    .filter((candidate) =>
+      equivalentIds.has(candidate.id) && !similarityHiddenTrackIds.has(candidate.id))
+    .sort((left, right) => left.id.localeCompare(right.id));
+};
+
+const appendSimilarityVersionNumber = (row: HTMLTableRowElement, index: number) => {
+  const number = document.createElement("td");
+  number.className = "audio-similarity-version-number";
+  number.textContent = `#${index + 1}`;
+  row.appendChild(number);
+};
+
+const previewSearchTrackOnHeadphones = async (track: TrackRow) => {
+  const candidates = await getConfirmedSimilarCandidates(track);
+  if (similarityRelationshipByTrackId.get(track.id) !== "same-recording"
+    || candidates.length < 2) {
+    await playOnChannel("headphone", track.full_path, track.id, track, track.gain_db);
+    updateHeadphoneButtonIndicators();
+    return;
+  }
+  const body = openAudioSimilarityOverlay(t("audioSimilarityConfirmedGroup", {
+    type: t("audioSimilaritySameRecording"),
+    count: candidates.length,
+  }));
+  const table = document.createElement("table");
+  table.className = "audio-similarity-version-table";
+  candidates.forEach((candidate, index) => {
+    const row = document.createElement("tr");
+    appendSimilarityVersionNumber(row, index);
+    const previewCell = document.createElement("td");
+    previewCell.className = "audio-similarity-version-preview";
+    const headphone = buildHeadphoneButton(candidate.id);
+    headphone.disabled = !headphoneAvailable;
+    headphone.addEventListener("click", async () => {
+      await playOnChannel(
+        "headphone", candidate.full_path, candidate.id, candidate, candidate.gain_db,
+      );
+      updateHeadphoneButtonIndicators();
+    });
+    previewCell.appendChild(headphone);
+    const identity = document.createElement("td");
+    identity.textContent = [candidate.artist, candidate.title, candidate.album, candidate.full_path]
+      .filter(Boolean).join(" · ");
+    row.append(previewCell, identity);
+    table.appendChild(row);
+  });
+  body.appendChild(table);
+};
+
+const chooseConfirmedSimilarTrack = async (track: TrackRow): Promise<TrackRow | null> => {
+  const candidates = await getConfirmedSimilarCandidates(track);
   if (candidates.length < 2) return track;
   if (similarityRelationshipByTrackId.get(track.id) === "identical") {
     const preferredId = similarityPreferredTrackIds.get(track.id);
@@ -12535,10 +12619,12 @@ const chooseConfirmedSimilarTrack = async (track: TrackRow): Promise<TrackRow | 
     }, { once: true });
     const table = document.createElement("table");
     table.className = "audio-similarity-version-table";
-    for (const candidate of candidates) {
+    candidates.forEach((candidate, index) => {
       const row = document.createElement("tr");
       if (candidate.id === track.id) row.classList.add("current");
+      appendSimilarityVersionNumber(row, index);
       const selectionCell = document.createElement("td");
+      selectionCell.className = "audio-similarity-version-selection";
       const selection = document.createElement("input");
       selection.type = "radio";
       selection.name = `similarity-version-${track.id}`;
@@ -12553,6 +12639,7 @@ const chooseConfirmedSimilarTrack = async (track: TrackRow): Promise<TrackRow | 
       });
       selectionCell.appendChild(selection);
       const previewCell = document.createElement("td");
+      previewCell.className = "audio-similarity-version-preview";
       const headphone = buildHeadphoneButton(candidate.id);
       headphone.disabled = !headphoneAvailable;
       headphone.addEventListener("click", async () => {
@@ -12569,7 +12656,7 @@ const chooseConfirmedSimilarTrack = async (track: TrackRow): Promise<TrackRow | 
         .filter(Boolean).join(" · ");
       row.append(selectionCell, previewCell, identity);
       table.appendChild(row);
-    }
+    });
     body.appendChild(table);
     const actions = document.createElement("div");
     actions.className = "audio-similarity-actions audio-similarity-picker-footer";
@@ -13883,6 +13970,273 @@ const runAudioOutputProbe = async () => {
   await controller.runAudioOutputProbe(diagnosticsOutputProbeResult);
 };
 
+let diagnosticsReviewAudio: HTMLAudioElement | null = null;
+let diagnosticsReviewStopAtSeconds: number | null = null;
+let diagnosticsReviewPlayhead: HTMLElement | null = null;
+let diagnosticsReviewState: HTMLElement | null = null;
+
+const stopDiagnosticsReviewAudio = () => {
+  diagnosticsReviewAudio?.pause();
+  if (diagnosticsReviewAudio) diagnosticsReviewAudio.src = "";
+  diagnosticsReviewAudio = null;
+  diagnosticsReviewStopAtSeconds = null;
+  if (diagnosticsReviewState) {
+    diagnosticsReviewState.textContent = t("diagnosticsTrackReviewStopped");
+    diagnosticsReviewState.dataset.state = "stopped";
+  }
+};
+
+const stopMainForDiagnosticsAudition = async () => {
+  if (!playback.main.active || playback.main.active.paused) return;
+  await stopChannelPlayback("main", getStopFadeSeconds() * 1000);
+};
+
+const renderDiagnosticsTrackReview = async (target: HTMLElement) => {
+  if (!window.tanda) return;
+  stopDiagnosticsReviewAudio();
+  const summary = await window.tanda.getDiagnosticsDataReadiness();
+  const deduplicatedTracks = new Map(
+    [...summary.shortDurationTracks, ...summary.aggressivelyTrimmedTracks]
+      .map((track) => [track.id, track] as const),
+  );
+  const tracks = new Map(
+    [...deduplicatedTracks.values()]
+      .sort((left, right) => Number(left.acknowledged) - Number(right.acknowledged))
+      .map((track) => [track.id, track] as const),
+  );
+  target.innerHTML = "";
+  if (tracks.size === 0) {
+    target.textContent = t("diagnosticsTrackLengthNone");
+    return;
+  }
+  const table = document.createElement("table");
+  const head = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  [t("trackEditorTitle"), t("diagnosticsTrackReviewIssue"), t("audioSimilarityMetaDuration"), t("diagnosticsTrackReviewStatus")]
+    .forEach((label) => {
+      const cell = document.createElement("th");
+      cell.textContent = label;
+      headerRow.appendChild(cell);
+    });
+  head.appendChild(headerRow);
+  table.appendChild(head);
+  const body = document.createElement("tbody");
+  const panel = document.createElement("div");
+  panel.className = "diagnostics-track-review-panel";
+  table.appendChild(body);
+  const tableScroller = document.createElement("div");
+  tableScroller.className = "diagnostics-track-review-table-scroller";
+  tableScroller.appendChild(table);
+  target.append(panel, tableScroller);
+
+  const selectTrack = async (track: typeof summary.shortDurationTracks[number], row: HTMLTableRowElement) => {
+    body.querySelectorAll("tr").forEach((candidate) => candidate.setAttribute("aria-selected", "false"));
+    row.setAttribute("aria-selected", "true");
+    stopDiagnosticsReviewAudio();
+    panel.innerHTML = "";
+    const heading = document.createElement("h4");
+    const formatDuration = (durationMs: number) => {
+      const seconds = Math.max(0, Math.round(durationMs / 1000));
+      return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    };
+    const issueLabel = track.issueKinds
+      .map((kind) => t(kind === "short" ? "diagnosticsTrackReviewShort" : "diagnosticsTrackReviewTrim"))
+      .join(", ");
+    heading.textContent = `${track.title} — ${t("diagnosticsTrackReviewTitleDetails", {
+      effective: formatDuration(track.effectiveDurationMs),
+      original: formatDuration(track.durationMs),
+      issue: issueLabel,
+    })}`;
+    const sourcePath = document.createElement("div");
+    sourcePath.className = "diagnostics-track-review-path";
+    sourcePath.textContent = track.relativePath;
+    const playbackState = document.createElement("span");
+    playbackState.className = "diagnostics-track-review-state";
+    playbackState.dataset.state = "stopped";
+    playbackState.textContent = t("diagnosticsTrackReviewStopped");
+    diagnosticsReviewState = playbackState;
+    const reviewNotice = document.createElement("div");
+    reviewNotice.className = "diagnostics-track-review-notice hidden";
+    if (track.acknowledged) {
+      reviewNotice.textContent = t("diagnosticsTrackReviewAcknowledged");
+      reviewNotice.classList.remove("hidden");
+    }
+    const waveform = document.createElement("div");
+    waveform.className = "diagnostics-trim-waveform";
+    const leftShade = document.createElement("div");
+    const rightShade = document.createElement("div");
+    const playhead = document.createElement("div");
+    leftShade.className = rightShade.className = "diagnostics-trim-shade";
+    playhead.className = "diagnostics-trim-playhead";
+    leftShade.style.left = "0";
+    rightShade.style.right = "0";
+    playhead.style.left = "0%";
+    waveform.append(leftShade, rightShade, playhead);
+    diagnosticsReviewPlayhead = playhead;
+    const start = document.createElement("input");
+    const end = document.createElement("input");
+    for (const input of [start, end]) {
+      input.type = "range";
+      input.min = "0";
+      input.max = String(track.durationMs);
+      input.step = "10";
+      input.className = "diagnostics-trim-handle";
+    }
+    start.value = String(track.startOffsetMs);
+    end.value = String(track.durationMs - track.endTrimMs);
+    const startLabel = document.createElement("label");
+    const endLabel = document.createElement("label");
+    const redraw = () => {
+      let startMs = Math.max(0, Number(start.value));
+      let endMs = Math.min(track.durationMs, Number(end.value));
+      if (startMs >= endMs) {
+        if (document.activeElement === start) startMs = Math.max(0, endMs - 10);
+        else endMs = Math.min(track.durationMs, startMs + 10);
+        start.value = String(startMs);
+        end.value = String(endMs);
+      }
+      leftShade.style.width = `${(startMs / track.durationMs) * 100}%`;
+      rightShade.style.width = `${((track.durationMs - endMs) / track.durationMs) * 100}%`;
+      startLabel.firstChild!.textContent = `${t("diagnosticsTrackReviewStartTrim")}: ${(startMs / 1000).toFixed(2)}s `;
+      endLabel.firstChild!.textContent = `${t("diagnosticsTrackReviewEndTrim")}: ${((track.durationMs - endMs) / 1000).toFixed(2)}s `;
+    };
+    startLabel.append(document.createTextNode(""), start);
+    endLabel.append(document.createTextNode(""), end);
+    start.addEventListener("input", redraw);
+    end.addEventListener("input", redraw);
+    redraw();
+    void window.tanda?.getWaveform(track.id).then((url) => {
+      if (url && waveform.isConnected) waveform.style.backgroundImage = `url("${url}")`;
+    });
+
+    const actions = document.createElement("div");
+    actions.className = "diagnostics-track-review-actions";
+    const addButton = (label: string, action: () => void | Promise<void>) => {
+      const button = document.createElement("button");
+      button.textContent = label;
+      button.addEventListener("click", () => void action());
+      actions.appendChild(button);
+      return button;
+    };
+    const play = async (fromMs: number, stopAtMs: number | null) => {
+      if (
+        diagnosticsReviewAudio
+        && !diagnosticsReviewAudio.paused
+        && diagnosticsReviewAudio.dataset.trackId === track.id
+      ) {
+        diagnosticsReviewStopAtSeconds = stopAtMs === null ? null : stopAtMs / 1000;
+        diagnosticsReviewAudio.currentTime = Math.max(0, fromMs / 1000);
+        return;
+      }
+      stopDiagnosticsReviewAudio();
+      await stopMainForDiagnosticsAudition();
+      const audio = new Audio(localAudioUrl(track.fullPath));
+      audio.dataset.trackId = track.id;
+      diagnosticsReviewAudio = audio;
+      diagnosticsReviewStopAtSeconds = stopAtMs === null ? null : stopAtMs / 1000;
+      audio.addEventListener("loadedmetadata", () => {
+        audio.currentTime = Math.max(0, fromMs / 1000);
+        void audio.play().catch(stopDiagnosticsReviewAudio);
+      }, { once: true });
+      audio.addEventListener("playing", () => {
+        if (diagnosticsReviewState === playbackState) {
+          playbackState.textContent = t("diagnosticsTrackReviewPlaying");
+          playbackState.dataset.state = "playing";
+        }
+      });
+      audio.addEventListener("pause", () => {
+        if (diagnosticsReviewState === playbackState) {
+          playbackState.textContent = t("diagnosticsTrackReviewStopped");
+          playbackState.dataset.state = "stopped";
+        }
+      });
+      audio.addEventListener("error", stopDiagnosticsReviewAudio, { once: true });
+      audio.addEventListener("timeupdate", () => {
+        if (diagnosticsReviewPlayhead === playhead) {
+          diagnosticsReviewPlayhead.style.left = `${Math.max(0, Math.min(100,
+            (audio.currentTime * 1000 / track.durationMs) * 100))}%`;
+        }
+        if (diagnosticsReviewStopAtSeconds !== null && audio.currentTime >= diagnosticsReviewStopAtSeconds) {
+          stopDiagnosticsReviewAudio();
+        }
+      });
+      audio.addEventListener("ended", stopDiagnosticsReviewAudio, { once: true });
+    };
+    waveform.addEventListener("click", (event) => {
+      const bounds = waveform.getBoundingClientRect();
+      if (bounds.width > 0) void play(((event.clientX - bounds.left) / bounds.width) * track.durationMs, null);
+    });
+    addButton(t("diagnosticsTrackReviewOriginal"), () => play(0, null));
+    addButton(t("diagnosticsTrackReviewTrimmed"), () => play(Number(start.value), Number(end.value)));
+    addButton(t("diagnosticsTrackReviewStart"), () => play(Number(start.value), null));
+    addButton(t("diagnosticsTrackReviewEnding"), () => play(Math.max(Number(start.value), Number(end.value) - 10_000), null));
+    addButton(t("diagnosticsTrackReviewStop"), stopDiagnosticsReviewAudio);
+    addButton(t("diagnosticsTrackReviewSave"), async () => {
+      const result = await window.tanda!.saveDiagnosticsTrackTrim({
+        id: track.id,
+        startOffsetMs: Number(start.value),
+        endTrimMs: track.durationMs - Number(end.value),
+      });
+      if (result.ok) {
+        setStatus(t("diagnosticsTrackReviewSaved"));
+        await renderDiagnosticsDataReadiness();
+      }
+    });
+    addButton(t("diagnosticsTrackReviewReset"), async () => {
+      await window.tanda!.resetDiagnosticsTrackTrim(track.id);
+      await renderDiagnosticsDataReadiness();
+    });
+    const okButton = addButton(t("diagnosticsTrackReviewOk"), async () => {
+      const result = await window.tanda!.acknowledgeDiagnosticsTrack({
+        id: track.id,
+        issueSignature: track.issueSignature,
+      });
+      if (!result.ok) return;
+      const message = t("diagnosticsTrackReviewAcknowledged");
+      reviewNotice.textContent = message;
+      reviewNotice.classList.remove("hidden");
+      okButton.disabled = true;
+      track.acknowledged = true;
+      const statusCell = row.querySelector<HTMLElement>("[data-review-status]");
+      if (statusCell) statusCell.textContent = t("diagnosticsTrackReviewApproved");
+      row.dataset.reviewStatus = "acknowledged";
+      setStatus(message);
+    });
+    okButton.disabled = track.acknowledged;
+    addButton(t("trackEditorDelete"), async () => {
+      const removeFile = await showDeleteTrackModal();
+      if (removeFile === null) return;
+      const result = await window.tanda!.deleteTrack({ id: track.id, removeFile });
+      if (result.ok) await renderDiagnosticsDataReadiness();
+    });
+    panel.append(heading, sourcePath, reviewNotice, playbackState, waveform, startLabel, endLabel, actions);
+  };
+
+  tracks.forEach((track) => {
+    const row = document.createElement("tr");
+    row.tabIndex = 0;
+    const issue = track.issueKinds.map((kind) => t(kind === "short" ? "diagnosticsTrackReviewShort" : "diagnosticsTrackReviewTrim")).join(", ");
+    [
+      track.title,
+      issue,
+      `${Math.round(track.durationMs / 1000)}s / ${Math.round(track.effectiveDurationMs / 1000)}s`,
+      t(track.acknowledged ? "diagnosticsTrackReviewApproved" : "diagnosticsTrackReviewPending"),
+    ].forEach((value, index) => {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        if (index === 3) cell.dataset.reviewStatus = "true";
+        row.appendChild(cell);
+      });
+    row.dataset.reviewStatus = track.acknowledged ? "acknowledged" : "pending";
+    row.addEventListener("click", () => void selectTrack(track, row));
+    row.addEventListener("keydown", (event) => { if (event.key === "Enter") void selectTrack(track, row); });
+    body.appendChild(row);
+  });
+  const firstRow = body.querySelector("tr");
+  const firstTrack = tracks.values().next().value;
+  if (firstRow && firstTrack) await selectTrack(firstTrack, firstRow);
+};
+
 const renderDiagnosticsDataReadiness = async () => {
   if (!diagnosticsDataReadinessEl) {
     return;
@@ -13893,7 +14247,7 @@ const renderDiagnosticsDataReadiness = async () => {
   }
   await controller.renderDiagnosticsDataReadiness(diagnosticsDataReadinessEl);
   if (diagnosticsTrackLengthIssuesEl) {
-    await controller.renderDiagnosticsTrackLengthIssues(diagnosticsTrackLengthIssuesEl);
+    await renderDiagnosticsTrackReview(diagnosticsTrackLengthIssuesEl);
   }
 };
 
@@ -14682,12 +15036,9 @@ const renderLibraryWorkflow = () => {
 };
 
 const scrollLibraryWorkflowToTop = () => {
-  if (!libraryWorkflowShell) {
-    return;
-  }
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
-      libraryWorkflowShell.scrollIntoView({ block: "start", behavior: "smooth" });
+      scrollSettingsContentTo(settingsContent, libraryWorkflowShell);
     });
   });
 };
@@ -14885,6 +15236,8 @@ const updateLegacyImport = async (candidatePath?: string | null) => {
 };
 
 let similarityReport: AudioSimilarityReport | null = null;
+let similarityGenerationPending = false;
+let similarityGenerationCompleted = false;
 let similarityEquivalentTrackIds = new Map<string, ReadonlySet<string>>();
 let similarityRelationshipByTrackId = new Map<string, AudioSimilarityRelationshipType>();
 let similarityPreferredTrackIds = new Map<string, string>();
@@ -15139,25 +15492,40 @@ const renderAudioSimilarityReport = () => {
   if (!audioSimilarityGroups || !audioSimilaritySummary || !similarityReport) return;
   const report = similarityReport;
   const query = audioSimilaritySearch?.value.trim().toLocaleLowerCase() ?? "";
-  const running = report.status.state === "running" || report.status.state === "cancelling";
+  const running = similarityGenerationPending
+    || report.status.state === "running"
+    || report.status.state === "cancelling";
   if (audioSimilarityStatus) {
     audioSimilarityStatus.textContent = running
-      ? t("audioSimilarityRunning", {
-          processed: report.status.processedTracks,
-          total: report.status.totalTracks,
-        })
+      ? report.status.totalTracks > 0
+        && report.status.processedTracks >= report.status.totalTracks
+        ? report.status.comparisonPairsTotal > 0
+          ? t("audioSimilarityComparingProgress", {
+              total: report.status.totalTracks,
+              percent: Math.min(100, Math.floor(
+                report.status.comparisonPairsProcessed
+                  / report.status.comparisonPairsTotal * 100,
+              )),
+            })
+          : t("audioSimilarityComparing", { total: report.status.totalTracks })
+        : t("audioSimilarityRunning", {
+            processed: report.status.processedTracks,
+            total: report.status.totalTracks,
+          })
       : report.status.state === "failed"
         ? t("audioSimilarityFailed", { message: report.status.error ?? "" })
-        : "";
+        : similarityGenerationCompleted
+          ? t("audioSimilarityGenerationComplete")
+          : "";
   }
   if (generateAudioSimilarityBtn) {
     generateAudioSimilarityBtn.disabled = running;
     generateAudioSimilarityBtn.textContent = t(
-      report.status.completedAt ? "audioSimilarityRegenerate" : "audioSimilarityGenerate",
+      report.hasCompletedReport ? "audioSimilarityRegenerate" : "audioSimilarityGenerate",
     );
   }
   if (cancelAudioSimilarityBtn) cancelAudioSimilarityBtn.disabled = !running;
-  audioSimilaritySummary.textContent = report.status.completedAt
+  audioSimilaritySummary.textContent = report.hasCompletedReport
     ? t("audioSimilarityComplete", {
         groups: report.candidateGroups.length,
         matches: report.status.matchingPairs,
@@ -15875,7 +16243,8 @@ const loadAudioSimilarityReport = async () => {
     }
   }
   renderAudioSimilarityReport();
-  const running = similarityReport.status.state === "running"
+  const running = similarityGenerationPending
+    || similarityReport.status.state === "running"
     || similarityReport.status.state === "cancelling";
   if (similarityPollTimer !== null) window.clearTimeout(similarityPollTimer);
   similarityPollTimer = running
@@ -15901,22 +16270,31 @@ const initAudioSimilarityInteractions = () => {
   });
   audioSimilaritySearch?.addEventListener("input", renderAudioSimilarityReport);
   generateAudioSimilarityBtn?.addEventListener("click", async () => {
-    const fullRebuild = Boolean(similarityReport?.status.completedAt);
-    if (fullRebuild && !(await showConfirmModal(
+    const regenerating = Boolean(similarityReport?.hasCompletedReport);
+    if (regenerating && !(await showConfirmModal(
       t("audioSimilarityRegenerateConfirm"), t("audioSimilarityTitle"),
     ))) return;
-    void window.tanda!.generateAudioSimilarityReport({ fullRebuild })
-      .then(loadAudioSimilarityReport)
-      .catch((error) => {
-        if (audioSimilarityStatus) {
-          audioSimilarityStatus.textContent = t("audioSimilarityFailed", {
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
-      });
+    similarityGenerationCompleted = false;
+    similarityGenerationPending = true;
+    renderAudioSimilarityReport();
+    const generation = window.tanda!.generateAudioSimilarityReport({ fullRebuild: false });
     await loadAudioSimilarityReport();
+    try {
+      const result = await generation;
+      similarityGenerationCompleted = result.state === "completed";
+    } catch (error) {
+      if (audioSimilarityStatus) {
+        audioSimilarityStatus.textContent = t("audioSimilarityFailed", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } finally {
+      similarityGenerationPending = false;
+      await loadAudioSimilarityReport();
+    }
   });
   cancelAudioSimilarityBtn?.addEventListener("click", async () => {
+    similarityGenerationCompleted = false;
     await window.tanda!.cancelAudioSimilarityAnalysis();
     await loadAudioSimilarityReport();
   });
@@ -16443,6 +16821,7 @@ const init = async () => {
       runSearchForTrack,
       runSearchForTanda,
       playOnChannel,
+      previewSearchTrackOnHeadphones,
       playTrackForMode,
       updateHeadphoneButtonIndicators,
       addTrackToClipboard,
@@ -16747,7 +17126,7 @@ const init = async () => {
     activateSettingsTab(tabButtons, tabPanels, "library");
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        libraryRootsSection?.scrollIntoView({ block: "start", behavior: "smooth" });
+        scrollSettingsContentTo(settingsContent, libraryRootsSection);
         pulseSettingsSection(libraryRootsSection);
       });
     });
@@ -17620,7 +17999,7 @@ const init = async () => {
     await new Promise<void>((resolve) => {
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          derivedCachesSection?.scrollIntoView({ block: "start", behavior: "auto" });
+          scrollSettingsContentTo(settingsContent, derivedCachesSection, "auto");
           pulseSettingsSection(derivedCachesSection);
           resolve();
         });

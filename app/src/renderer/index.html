@@ -432,7 +432,7 @@
                 Tanda Designer
               </button>
             </div>
-            <div class="list-body">
+            <div class="list-body playlist-panel-body">
               <div id="playlist-tab" class="tab-panel active">
                 <div
                   id="playlist-duplicate-focus-status"
@@ -459,28 +459,30 @@
                 class="tanda-list playlist-tanda-editor hidden"
                 data-state="hidden"
               ></div>
-                <div class="playlist-last-control">
-                  <label class="playlist-last-toggle" for="playlist-last-tanda">
-                    <input id="playlist-last-tanda" type="checkbox" />
-                    <span data-i18n="playlistRemainingTandas">
-                      Remaining Tandas
+                <div class="playlist-footer-controls">
+                  <div class="playlist-last-control">
+                    <label class="playlist-last-toggle" for="playlist-last-tanda">
+                      <input id="playlist-last-tanda" type="checkbox" />
+                      <span data-i18n="playlistRemainingTandas">
+                        Remaining Tandas
+                      </span>
+                      <input
+                        id="playlist-last-tanda-count"
+                        type="number"
+                        min="0"
+                        max="4"
+                        step="1"
+                        inputmode="numeric"
+                      />
+                    </label>
+                  </div>
+                  <label class="playlist-last-toggle" for="playlist-performance-stop">
+                    <input id="playlist-performance-stop" type="checkbox" />
+                    <span data-i18n="playlistCurrentPerformanceStop">
+                      Stop after this tanda for a live performance
                     </span>
-                    <input
-                      id="playlist-last-tanda-count"
-                      type="number"
-                      min="0"
-                      max="4"
-                      step="1"
-                      inputmode="numeric"
-                    />
                   </label>
                 </div>
-                <label class="playlist-last-toggle" for="playlist-performance-stop">
-                  <input id="playlist-performance-stop" type="checkbox" />
-                  <span data-i18n="playlistCurrentPerformanceStop">
-                    Stop after this tanda for a live performance
-                  </span>
-                </label>
               </div>
               <div id="tanda-designer-tab" class="tab-panel">
                 <div class="tanda-toolbar">
@@ -1729,14 +1731,16 @@
             <div class="settings-section">
               <h3 data-i18n="diagnosticsDataReadiness">Data readiness</h3>
               <div id="diagnostics-data-readiness" class="diagnostics-paths"></div>
-              <h4 data-i18n="diagnosticsTrackLengthIssues">Suspicious track lengths</h4>
-              <p data-i18n="diagnosticsTrackLengthIssuesHelp">
-                Lists tracks shorter than 1 minute and tracks where trims remove 20 seconds or more from the ffmpeg duration.
-              </p>
-              <pre
-                id="diagnostics-track-length-issues"
-                class="diagnostics-result diagnostics-log"
-              ></pre>
+              <fieldset class="diagnostics-track-review-group">
+                <legend data-i18n="diagnosticsTrackLengthIssues">Suspicious track lengths</legend>
+                <p data-i18n="diagnosticsTrackLengthIssuesHelp">
+                  Lists tracks shorter than 1 minute and tracks where trims remove 20 seconds or more from the ffmpeg duration.
+                </p>
+                <div
+                  id="diagnostics-track-length-issues"
+                  class="diagnostics-result diagnostics-track-review"
+                ></div>
+              </fieldset>
             </div>
             <div class="settings-section">
               <h3 data-i18n="diagnosticsPlaybackLog">Playback leveling log</h3>

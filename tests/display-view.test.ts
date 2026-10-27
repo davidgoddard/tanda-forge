@@ -4,9 +4,45 @@ import {
   resolveLastTandaCountdownText,
   resolveNextTandaLabel,
   resolveNextTandaStyle,
+  resolveTandaDisplayStyle,
 } from "../app/src/renderer/modules/display-view";
 
 describe("display view helpers", () => {
+  it("preserves a shared track subtype in the tanda display style", () => {
+    expect(
+      resolveTandaDisplayStyle({
+        trackStyles: [
+          "Tango - Contemporary",
+          "tango - contemporary",
+          "Tango - Contemporary",
+        ],
+        tandaStyles: ["Tango"],
+      }),
+    ).toBe("Tango - Contemporary");
+  });
+
+  it("collapses mixed track subtypes to their distinct base styles", () => {
+    expect(
+      resolveTandaDisplayStyle({
+        trackStyles: [
+          "Tango - Contemporary",
+          "Tango - Electronic",
+          "Waltz - Modern",
+        ],
+        tandaStyles: ["Tango"],
+      }),
+    ).toBe("Tango, Waltz");
+  });
+
+  it("falls back to the tanda style when track styles are unavailable", () => {
+    expect(
+      resolveTandaDisplayStyle({
+        trackStyles: [null, ""],
+        tandaStyles: ["Milonga - Alternative"],
+      }),
+    ).toBe("Milonga - Alternative");
+  });
+
   it("builds progress text for tanda playback", () => {
     const text = resolveCurrentProgressText({
       playbackStatus: "playing",

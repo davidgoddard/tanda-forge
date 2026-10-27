@@ -1,6 +1,32 @@
 import { toDisplayStyleLabel } from "../../shared/now-playing.js";
+import { splitStyleLabel } from "../../shared/style-families.js";
 
 export type PlaylistPlaybackStatus = "idle" | "playing" | "paused";
+
+export const resolveTandaDisplayStyle = (params: {
+  trackStyles: Array<string | null | undefined>;
+  tandaStyles?: Array<string | null | undefined>;
+}) => {
+  const trackStyles = params.trackStyles
+    .map((style) => splitStyleLabel(style ?? ""))
+    .filter(({ base }) => Boolean(base));
+  const sourceStyles = trackStyles.length > 0
+    ? trackStyles
+    : (params.tandaStyles ?? [])
+        .map((style) => splitStyleLabel(style ?? ""))
+        .filter(({ base }) => Boolean(base));
+  if (sourceStyles.length === 0) {
+    return null;
+  }
+  const fullStyles = Array.from(
+    new Set(sourceStyles.map(({ base, variant }) => variant ? `${base} - ${variant}` : base)),
+  );
+  if (fullStyles.length === 1) {
+    return fullStyles[0] ?? null;
+  }
+  const baseStyles = Array.from(new Set(sourceStyles.map(({ base }) => base)));
+  return baseStyles.join(", ");
+};
 
 export const resolveCurrentProgressText = (params: {
   playbackStatus: PlaylistPlaybackStatus;
