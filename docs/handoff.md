@@ -1,5 +1,13 @@
 ## Handoff
 
+### Provisional similarity master continuity — 0.4.5
+- An elected identical-version master now survives report redraws during the
+  current review session, including the reload after editing and saving track
+  metadata. Deselecting that member clears the election; leaving the report
+  clears unconfirmed review state; a confirmed preferred track remains
+  authoritative (`ASR-100`).
+- Branch: `fix/preserve-similarity-master-v0.4.5`; package version: `0.4.5`.
+
 ### Normalized audio-similarity auditioning
 - Similarity-report group, replacement, and affected-tanda context auditions now
   apply the imported playback gain with the normal loudness fallback and bounded
@@ -273,8 +281,8 @@
   cross-origin localhost preflight, and added a console warning for failures.
 
 ### Current branch / version
-- Branch: `fix/similarity-normalization-v0.4.4`
-- Version: `0.4.4` (from `package.json`)
+- Branch: `fix/preserve-similarity-master-v0.4.5`
+- Version: `0.4.5` (from `package.json`)
 
 ### Release download fix
 - Reproduced the macOS release failure: Evermeet's removed `getrelease` endpoint returns HTTP 410 and an 86-byte JSON error response. This was an upstream change, not a rating-feature change; application compilation had succeeded.

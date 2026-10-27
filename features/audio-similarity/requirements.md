@@ -509,6 +509,12 @@ listening to the complete context.
   rejected shall move into a separately counted, localized disclosure panel
   that is closed by default. Partially reviewed groups with any pending edge
   shall remain in **To review**, and hidden-track management shall remain last.
+- **ASR-100 — Provisional master continuity:** Electing an identical-version
+  master shall remain effective while the open similarity report is refreshed,
+  including after editing and saving member metadata. The provisional election
+  may be cleared when the DJ deselects that member or leaves the report; once
+  the identical relationship is confirmed, the persisted preferred track is
+  authoritative.
 
 ## Validation requirements
 

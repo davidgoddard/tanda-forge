@@ -7101,3 +7101,13 @@ live availability/digest/content checks for both pinned archives, and
   - User requested a new release branch and pull request. The package and
     lockfile versions are bumped from `0.4.3` to `0.4.4` on
     `fix/similarity-normalization-v0.4.4`.
+
+- 2026-10-27 — Preserve provisional similarity master through metadata edits
+  - User reported that electing a master and then editing member metadata
+    cleared the election. The election was held only in a render-local variable
+    while metadata save reloads the report.
+  - Provisional elections now persist across report redraws for the open review
+    session, clear when the elected member is excluded or the report is left,
+    and defer to the persisted preferred track after identical confirmation
+    (`ASR-100`). This begins version `0.4.5` on
+    `fix/preserve-similarity-master-v0.4.5`.

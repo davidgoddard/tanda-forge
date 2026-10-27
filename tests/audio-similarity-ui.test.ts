@@ -156,6 +156,14 @@ describe("audio similarity report UI", () => {
     expect(styles).toContain("body:has(.audio-similarity-page.open) #track-editor.open");
   });
 
+  it("preserves a provisional master election while metadata refreshes the report", () => {
+    expect(renderer).toContain("let similarityGroupMasterSelections = new Map<string, string>()");
+    expect(renderer).toContain("similarityGroupMasterSelections.get(group.id)");
+    expect(renderer).toContain("similarityGroupMasterSelections.set(group.id, member.trackId)");
+    expect(renderer).toContain("similarityGroupMasterSelections.delete(group.id)");
+    expect(renderer).toContain("similarityGroupMasterSelections = new Map()");
+  });
+
   it("uses relaxed spacing in affected-tanda and metadata controls", () => {
     expect(styles).toContain(".audio-similarity-tanda-comparison { display: grid; gap: 0.8rem");
     expect(styles).toContain(".audio-similarity-tanda-tracks { display: grid; gap: 0.55rem");

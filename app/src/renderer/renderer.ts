@@ -15339,6 +15339,7 @@ const createSimilarityWaveform = (
 };
 const AUDIO_SIMILARITY_COLLAPSED_KEY = "audio-similarity-collapsed-groups";
 let similarityGroupSelections = new Map<string, Set<string>>();
+let similarityGroupMasterSelections = new Map<string, string>();
 let similarityCollapsedGroupIds = new Set<string>();
 try {
   const stored = JSON.parse(localStorage.getItem(AUDIO_SIMILARITY_COLLAPSED_KEY) ?? "[]");
@@ -15664,8 +15665,16 @@ const renderAudioSimilarityReport = () => {
       );
       similarityGroupSelections.set(group.id, selectedIds);
     }
+    const rememberedMasterTrackId = similarityGroupMasterSelections.get(group.id) ?? null;
     let masterTrackId = confirmedGroup?.confirmed.relationshipType === "identical"
-      ? confirmedGroup.confirmed.preferredTrackId : null;
+      ? confirmedGroup.confirmed.preferredTrackId
+      : rememberedMasterTrackId
+          && memberIds.has(rememberedMasterTrackId)
+          && selectedIds.has(rememberedMasterTrackId)
+        ? rememberedMasterTrackId
+        : null;
+    if (masterTrackId) similarityGroupMasterSelections.set(group.id, masterTrackId);
+    else similarityGroupMasterSelections.delete(group.id);
     const card = document.createElement("article");
     card.className = `audio-similarity-card audio-similarity-group group-color-${groupIndex % 6}`;
     card.dataset.similarityGroupId = group.id;
@@ -15729,7 +15738,10 @@ const renderAudioSimilarityReport = () => {
         if (selected.checked) selectedIds!.add(member.trackId);
         else {
           selectedIds!.delete(member.trackId);
-          if (masterTrackId === member.trackId) masterTrackId = null;
+          if (masterTrackId === member.trackId) {
+            masterTrackId = null;
+            similarityGroupMasterSelections.delete(group.id);
+          }
         }
         updateHeading();
         card.querySelectorAll<HTMLButtonElement>("[data-similarity-confirm]")
@@ -15753,6 +15765,7 @@ const renderAudioSimilarityReport = () => {
       masterChoice.addEventListener("change", () => {
         if (!masterChoice.checked) return;
         masterTrackId = member.trackId;
+        similarityGroupMasterSelections.set(group.id, member.trackId);
         if (!selected.checked) {
           selected.checked = true;
           selected.dispatchEvent(new Event("change"));
@@ -16085,6 +16098,9 @@ const renderAudioSimilarityReport = () => {
         group.members.map((member) => member.trackId), accepted, relationshipType,
         relationshipType === "identical" ? masterTrackId : null,
       );
+      if (relationshipType !== "identical") {
+        similarityGroupMasterSelections.delete(group.id);
+      }
       await loadAudioSimilarityReport();
       renderAllLists();
     };
@@ -16120,6 +16136,7 @@ const renderAudioSimilarityReport = () => {
           confirmedGroup.confirmed.id,
         );
         similarityGroupSelections.delete(group.id);
+        similarityGroupMasterSelections.delete(group.id);
         await loadAudioSimilarityReport();
         renderAllLists();
       });
@@ -16286,6 +16303,7 @@ const initAudioSimilarityInteractions = () => {
     similarityActiveGroupId = null;
     similaritySharedPosition = 0;
     similarityGroupSelections = new Map();
+    similarityGroupMasterSelections = new Map();
     await loadAudioSimilarityReport();
   });
   closeAudioSimilarityBtn?.addEventListener("click", () => {
