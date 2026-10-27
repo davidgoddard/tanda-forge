@@ -79,6 +79,7 @@ import { mergeStyleAliases, parseStyleDefinition } from "../shared/style-definit
 import {
   deleteTanda,
   getTandasByIds,
+  getTrackTandaUsage,
   listRecentTandaIds,
   listTandas,
   saveTanda,
@@ -2678,6 +2679,9 @@ const registerIpc = () => {
     const db = getDb();
     return getTandasByIds(db, ids);
   });
+
+  ipcMain.handle("tandas:getTrackUsage", async (_event, trackIds: string[]) =>
+    getTrackTandaUsage(getDb(), Array.isArray(trackIds) ? trackIds : []));
 
   ipcMain.handle(
     "tandas:save",

@@ -96,6 +96,12 @@ export type TandaSearchRow = {
   track_count: number;
 };
 
+export type TrackTandaUsage = {
+  trackId: string;
+  recordingTrackIds: string[];
+  tandaIds: string[];
+};
+
 export type ScanSummary = {
   scanned: number;
   added: number;
@@ -637,6 +643,7 @@ export type AppApi = {
   }) => Promise<{ ok: boolean }>;
   listTandas: () => Promise<TandaDetail[]>;
   getTandasByIds: (ids: string[]) => Promise<TandaDetail[]>;
+  getTrackTandaUsage: (trackIds: string[]) => Promise<TrackTandaUsage[]>;
   saveTanda: (payload: {
     id: string;
     name: string;

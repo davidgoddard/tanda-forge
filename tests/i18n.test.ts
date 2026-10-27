@@ -11,6 +11,7 @@ describe("renderer i18n", () => {
     [
       "actionEditTrackShort",
       "actionSearchShort",
+      "actionFindTandasShort",
       "actionAddClipboardShort",
       "actionAddPlaylistShort",
       "actionAddTandaShort",
@@ -18,6 +19,7 @@ describe("renderer i18n", () => {
     [
       "actionEditTrackShort",
       "actionSearchShort",
+      "actionFindTandasShort",
       "actionAddPlaylistShort",
       "actionAddTandaShort",
       "actionMoveCollectionShort",
@@ -26,6 +28,7 @@ describe("renderer i18n", () => {
     [
       "actionEditTrackShort",
       "actionSearchShort",
+      "actionFindTandasShort",
       "actionSendClipboardShort",
       "actionMarkPlaylistTrackShort",
     ],
@@ -162,6 +165,21 @@ describe("renderer i18n", () => {
         expect(uniqueValues.size, `${language}: ${menu.join(",")}`).toBe(values.length);
       }
     }
+  });
+
+  it("uses localized initials for the Find tandas shortcut", () => {
+    expect(Object.fromEntries(SUPPORTED_LANGUAGES.map((language) => [
+      language,
+      translate(language, "actionFindTandasShort"),
+    ]))).toEqual({
+      en: "FT",
+      es: "BT",
+      fr: "TT",
+      de: "TF",
+      pt: "ET",
+      it: "TT",
+      is: "FT",
+    });
   });
 
   it("translates the late-added diversity and legacy labels in non-english maps", () => {

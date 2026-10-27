@@ -858,6 +858,7 @@ let audioOutputs: AudioOutputDevice[] = [];
 let audioOutputRouteCandidates = new Map<string, string[]>();
 
 type TrackRow = import("../shared/types").TrackRow;
+type TrackTandaUsage = import("../shared/types").TrackTandaUsage;
 
 type TandaDetail = {
   id: string;
@@ -3451,6 +3452,7 @@ const handleTandaAction = async (event: Event) => {
       total_duration_ms: totalDurationMs,
       track_slots: tanda.trackSlots,
     });
+    invalidateTrackTandaUsage();
     upsertTandaCache(saved);
     tandaDrafts = tandaDrafts.filter((item) => item.id !== tanda.id);
     const fresh = createEmptyTanda();
@@ -3482,6 +3484,7 @@ const handleTandaAction = async (event: Event) => {
     }
     if (window.tanda) {
       await window.tanda.deleteTanda(tandaId);
+      invalidateTrackTandaUsage();
     }
     const removedFromPlaylist = playlistItems.reduce((count, item, index) => {
       if (item?.kind !== "tanda" || item.tandaId !== tandaId) {
@@ -7249,6 +7252,90 @@ const updateHeadphoneButtonIndicators = () => {
     });
 };
 
+const trackTandaUsageCache = new Map<string, TrackTandaUsage>();
+const pendingTrackTandaUsageIds = new Set<string>();
+let trackTandaUsageTimer: number | null = null;
+
+const applyTrackTandaUsageToRows = (usage: TrackTandaUsage) => {
+  const escape = typeof CSS !== "undefined" && typeof CSS.escape === "function"
+    ? CSS.escape
+    : (value: string) => value.replace(/["\\]/g, "\\$&");
+  const count = usage.tandaIds.length;
+  document.querySelectorAll<HTMLElement>(
+    `.track-row[data-track-id="${escape(usage.trackId)}"]`,
+  ).forEach((row) => {
+    const primary = row.querySelector<HTMLElement>(".track-primary");
+    let badge = primary?.querySelector<HTMLElement>(".track-tanda-count") ?? null;
+    if (count > 0 && primary && !badge) {
+      badge = document.createElement("span");
+      badge.className = "track-tanda-count";
+      primary.appendChild(badge);
+    }
+    if (badge) {
+      if (count === 0) badge.remove();
+      else {
+        badge.textContent = `${count}`;
+        badge.title = t("trackTandaCount", { count });
+        badge.setAttribute("aria-label", badge.title);
+      }
+    }
+    const menu = row.querySelector<HTMLElement>(":scope > .row-actions > .row-menu");
+    let action = menu?.querySelector<HTMLButtonElement>('[data-action="find-track-tandas"]') ?? null;
+    if (count > 0 && menu && !action) {
+      action = buildActionButton("actionFindTandas", "actionFindTandasShort", "find-track-tandas");
+      const searchAction = menu.querySelector('[data-action="search-track"]');
+      searchAction?.after(action);
+    } else if (count === 0) action?.remove();
+  });
+  document.querySelectorAll<HTMLElement>(
+    `.tanda-detail-line[data-track-id="${escape(usage.trackId)}"]`,
+  ).forEach((line) => {
+    const menu = line.querySelector<HTMLElement>(".tanda-detail-menu");
+    let action = menu?.querySelector<HTMLButtonElement>('[data-action="find-track-tandas"]') ?? null;
+    if (count > 0 && menu && !action) {
+      action = buildActionButton("actionFindTandas", "actionFindTandasShort", "find-track-tandas");
+      action.classList.add("detail-search");
+      menu.querySelector('[data-action="search-track"]')?.after(action);
+    } else if (count === 0) action?.remove();
+  });
+};
+
+const queueTrackTandaUsage = (trackId: string) => {
+  const cached = trackTandaUsageCache.get(trackId);
+  if (cached) {
+    window.setTimeout(() => applyTrackTandaUsageToRows(cached), 0);
+    return;
+  }
+  pendingTrackTandaUsageIds.add(trackId);
+  if (trackTandaUsageTimer !== null) return;
+  trackTandaUsageTimer = window.setTimeout(async () => {
+    trackTandaUsageTimer = null;
+    const ids = [...pendingTrackTandaUsageIds];
+    pendingTrackTandaUsageIds.clear();
+    if (!window.tanda || ids.length === 0) return;
+    const chunks = Array.from(
+      { length: Math.ceil(ids.length / 250) },
+      (_, index) => ids.slice(index * 250, (index + 1) * 250),
+    );
+    const rows = (await Promise.all(
+      chunks.map((chunk) => window.tanda!.getTrackTandaUsage(chunk)),
+    )).flat();
+    rows.forEach((usage) => {
+      trackTandaUsageCache.set(usage.trackId, usage);
+      applyTrackTandaUsageToRows(usage);
+    });
+  }, 0);
+};
+
+const invalidateTrackTandaUsage = () => {
+  trackTandaUsageCache.clear();
+  document.querySelectorAll<HTMLElement>(".track-row[data-track-id], .tanda-detail-line[data-track-id]")
+    .forEach((row) => {
+      const trackId = row.dataset.trackId;
+      if (trackId) queueTrackTandaUsage(trackId);
+    });
+};
+
 const buildHeadphoneButton = (trackId?: string | null) => {
   const button = document.createElement("button");
   button.className = "headphone-button";
@@ -7310,8 +7397,10 @@ const renderTrackRow = (
       ? track.gain_db.toString()
       : "";
   row.dataset.context = context;
+  queueTrackTandaUsage(track.id);
   const actions = document.createElement("div");
   actions.className = "row-actions";
+  const tandaCount = trackTandaUsageCache.get(track.id)?.tandaIds.length ?? 0;
   if (headphoneAvailable) {
     actions.appendChild(buildHeadphoneButton(track.id));
   }
@@ -7331,6 +7420,15 @@ const renderTrackRow = (
       "search-track",
     ),
   );
+  if (tandaCount > 0) {
+    menu.appendChild(
+      buildActionButton(
+        "actionFindTandas",
+        "actionFindTandasShort",
+        "find-track-tandas",
+      ),
+    );
+  }
   if (context === "search") {
     menu.appendChild(
       buildActionButton(
@@ -7429,8 +7527,19 @@ const renderTrackRow = (
   const primary = document.createElement("div");
   primary.className = "track-primary";
   const artist = track.artist ? ` — ${track.artist}` : "";
-  primary.textContent = `${track.title}${artist}`;
-  primary.title = primary.textContent;
+  const primaryLabel = document.createElement("span");
+  primaryLabel.className = "track-primary-label";
+  primaryLabel.textContent = `${track.title}${artist}`;
+  primary.title = primaryLabel.textContent;
+  primary.appendChild(primaryLabel);
+  if (tandaCount > 0) {
+    const tandaCountBadge = document.createElement("span");
+    tandaCountBadge.className = "track-tanda-count";
+    tandaCountBadge.textContent = `${tandaCount}`;
+    tandaCountBadge.title = t("trackTandaCount", { count: tandaCount });
+    tandaCountBadge.setAttribute("aria-label", tandaCountBadge.title);
+    primary.appendChild(tandaCountBadge);
+  }
   const secondary = document.createElement("div");
   secondary.className = "track-secondary";
   const bpmLabel =
@@ -7800,6 +7909,47 @@ const runSearchForTrack = (track: TrackRow, preferredStyles?: string[]) => {
   runSearchQuery(buildSearchQueryForTrack(track), true, "search-tracks");
 };
 
+const runFindTandasForTrack = async (track: TrackRow) => {
+  if (!window.tanda || !searchInput) return;
+  const usage = trackTandaUsageCache.get(track.id)
+    ?? (await window.tanda.getTrackTandaUsage([track.id]))[0];
+  if (!usage) return;
+  trackTandaUsageCache.set(track.id, usage);
+  const ids = [track.id, ...usage.recordingTrackIds.filter((id) => id !== track.id)];
+  const tracks = await window.tanda.getTracksByIds(ids);
+  const order = new Map(ids.map((id, index) => [id, index]));
+  tracks.sort((left, right) => (order.get(left.id) ?? ids.length) - (order.get(right.id) ?? ids.length));
+  tracks.forEach((item) => trackCache.set(item.id, item));
+  const matchingTandas = await window.tanda.getTandasByIds(usage.tandaIds);
+  matchingTandas.forEach(upsertTandaCache);
+  tandaSearchResults = matchingTandas.map((tanda) => ({
+    id: tanda.id,
+    name: tanda.name,
+    styles: [...tanda.styles],
+    rating: tanda.rating,
+    instrumental: tanda.instrumental,
+    total_duration_ms: tanda.total_duration_ms,
+    slot_count: tanda.slot_count,
+    track_count: tanda.track_slots.filter(Boolean).length,
+  }));
+  searchInput.value = track.title;
+  selectedStyles = [];
+  loadStyles();
+  setSearchState({
+    ...searchState,
+    items: tracks,
+    total: tracks.length,
+    offsetStart: 0,
+    isLoading: false,
+    lastQuery: track.title,
+  });
+  renderSearchResults();
+  renderTandaSearchResults();
+  setActiveSearchTabState("search-tandas");
+  updateSearchTabVisibility();
+  activatePanelTab(getSearchPanel(), "search-tandas");
+};
+
 const resolveSearchStylesForPlaylistIndex = (index: number) => {
   const item = playlistItems[index] ?? null;
   if (item?.kind === "tanda") {
@@ -8161,6 +8311,7 @@ const renderTandaRow = (
     lineEl.className = "tanda-detail-line";
     if (line.trackId) {
       lineEl.dataset.trackId = line.trackId;
+      queueTrackTandaUsage(line.trackId);
     }
     if (line.slotIndex !== undefined) {
       lineEl.dataset.slotIndex = line.slotIndex.toString();
@@ -8217,6 +8368,15 @@ const renderTandaRow = (
       );
       searchButton.classList.add("detail-search");
       menuWrap.appendChild(searchButton);
+      if ((trackTandaUsageCache.get(line.trackId)?.tandaIds.length ?? 0) > 0) {
+        const findTandasButton = buildActionButton(
+          "actionFindTandas",
+          "actionFindTandasShort",
+          "find-track-tandas",
+        );
+        findTandasButton.classList.add("detail-search");
+        menuWrap.appendChild(findTandasButton);
+      }
       if (context === "search") {
         const clipButton = buildActionButton(
           "actionAddClipboard",
@@ -16336,6 +16496,7 @@ const loadAudioSimilarityReport = async () => {
       if (group.preferredTrackId) similarityPreferredTrackIds.set(trackId, group.preferredTrackId);
     }
   }
+  invalidateTrackTandaUsage();
   renderAudioSimilarityReport();
   const running = similarityGenerationPending
     || similarityReport.status.state === "running"
@@ -16915,6 +17076,7 @@ const init = async () => {
       toggleRowMenu,
       openTrackEditor,
       runSearchForTrack,
+      runFindTandasForTrack,
       runSearchForTanda,
       playOnChannel,
       previewSearchTrackOnHeadphones,
