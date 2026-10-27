@@ -15245,6 +15245,7 @@ let similarityHiddenTrackIds = new Set<string>();
 let similarityPreview: HTMLAudioElement | null = null;
 let similarityPreviewButton: HTMLButtonElement | null = null;
 let similarityPreviewBounds: { startMs: number; effectiveMs: number } | null = null;
+let similarityPreviewRequestVersion = 0;
 let similarityActiveGroupId: string | null = null;
 let similaritySharedPosition = 0;
 let similarityPollTimer: number | null = null;
@@ -15362,7 +15363,11 @@ const localAudioUrl = (filePath: string) => {
 };
 
 const stopSimilarityPreview = () => {
-  similarityPreview?.pause();
+  similarityPreviewRequestVersion += 1;
+  if (similarityPreview) {
+    similarityPreview.pause();
+    void releaseAudioDspRuntime(similarityPreview);
+  }
   similarityPreview = null;
   similarityPreviewBounds = null;
   if (similarityPreviewButton) {
@@ -16194,11 +16199,29 @@ const playSimilarityMember = async (
     return;
   }
   stopSimilarityPreview();
+  const requestVersion = similarityPreviewRequestVersion;
   await stopMainForSimilarityAudition();
+  if (requestVersion !== similarityPreviewRequestVersion) return;
   if (similarityActiveGroupId !== groupId) similaritySharedPosition = 0;
   similarityActiveGroupId = groupId;
-  const audio = new Audio(localAudioUrl(member.fullPath));
+  const audio = new Audio();
   audio.dataset.trackId = member.trackId;
+  const requestedOutputDeviceId = resolveOutputDeviceIdForChannel("headphone");
+  if (shouldUseAudioDspForOutput("headphone", requestedOutputDeviceId)) {
+    ensureAudioDspRuntime(audio);
+  }
+  const normalization = resolvePlaybackNormalization(member.gainDb, member.loudnessDb);
+  setAudioLevel(audio, gainForTrack(normalization.gainDb));
+  const outputRouting = await applyOutputDevice(audio, requestedOutputDeviceId);
+  if (requestVersion !== similarityPreviewRequestVersion) {
+    await releaseAudioDspRuntime(audio);
+    return;
+  }
+  if (requestedOutputDeviceId && !outputRouting.appliedDeviceId) {
+    await releaseAudioDspRuntime(audio);
+    return;
+  }
+  audio.src = localAudioUrl(member.fullPath);
   similarityPreview = audio;
   similarityPreviewButton = button;
   similarityPreviewBounds = {
@@ -16220,6 +16243,10 @@ const playSimilarityMember = async (
     position.closest(".audio-similarity-group")
       ?.querySelectorAll<HTMLCanvasElement>(".audio-similarity-waveform")
       .forEach((candidate) => candidate.dispatchEvent(new Event("similarity-position-change")));
+  });
+  audio.addEventListener("timeupdate", () => {
+    const endMs = Math.max(member.startOffsetMs, member.durationMs - member.endTrimMs);
+    if (audio.currentTime * 1000 >= endMs) stopSimilarityPreview();
   });
   audio.addEventListener("ended", stopSimilarityPreview, { once: true });
   audio.addEventListener("error", stopSimilarityPreview, { once: true });

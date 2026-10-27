@@ -51,6 +51,8 @@ export type AudioSimilarityAuditionTrack = {
   durationMs: number;
   startOffsetMs: number;
   endTrimMs: number;
+  loudnessDb: number | null;
+  gainDb: number | null;
 };
 
 export type ReplicableAudioSimilarityField =

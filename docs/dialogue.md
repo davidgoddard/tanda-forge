@@ -7089,3 +7089,15 @@ live availability/digest/content checks for both pinned archives, and
     versions from its headphone action. Each version now has its own headphone
     control and a stable number reused by the assignment picker, allowing an
     auditioned choice such as `#3` to be located immediately (`ASR-086A`).
+
+- 2026-10-27 — Normalized audio-similarity auditioning
+  - User reported inconsistent loudness when comparing songs in the similarity
+    report and expected the normalization calculated during import to apply.
+  - The report's dedicated audio element had bypassed playback normalization and
+    headphone-device routing. Similarity group, replacement, and tanda-context
+    auditions now apply stored gain/loudness through the normal normalization
+    policy, route to the configured preview output, and honor effective trims
+    (`ASR-010`, `ASR-043`).
+  - User requested a new release branch and pull request. The package and
+    lockfile versions are bumped from `0.4.3` to `0.4.4` on
+    `fix/similarity-normalization-v0.4.4`.

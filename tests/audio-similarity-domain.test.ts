@@ -9,6 +9,7 @@ import {
   confirmAudioSimilarityGroup,
   detachTrackFromConfirmedAudioSimilarityGroup,
   ensureAudioSimilaritySchema,
+  getAudioSimilarityReport,
   getAudioSimilarityIntegrity,
   listConfirmedAudioSimilarityGroups,
   reconsiderAudioSimilarityPair,
@@ -70,7 +71,8 @@ const createDatabase = () => {
       file_mtime_ms integer, title text, artist text, artist_summary text,
       singer text, album text, year text, genre text, bpm real, notes text,
       instrumental integer, duration_ms integer, start_offset_ms integer,
-      end_trim_ms integer, deleted_at text, updated_at text
+      end_trim_ms integer, loudness_db real, gain_db real,
+      deleted_at text, updated_at text
     );
     create table tandas (
       id text primary key, name text not null, slot_count integer default 0,
@@ -155,6 +157,27 @@ describe("audio similarity persistence", () => {
     expect(searchConfig).toContain("not exists (select 1 from hidden_tracks");
     expect(searchConfig).toContain("search_group.relationship_type in ('identical', 'same-recording')");
     expect(tandas).toContain("join hidden_tracks");
+  });
+
+  it("includes normalization metadata for affected-tanda context auditions", () => {
+    const database = createDatabase();
+    addTrack(database, "candidate");
+    addTrack(database, "context");
+    database.prepare("update tracks set loudness_db = ?, gain_db = ? where id = ?")
+      .run(-19.5, 3.5, "context");
+    database.prepare("insert into tandas (id, name) values (?, ?)").run("tanda", "Test tanda");
+    database.prepare("insert into tanda_tracks values (?, ?, ?)").run("tanda", "candidate", 0);
+    database.prepare("insert into tanda_tracks values (?, ?, ?)").run("tanda", "context", 1);
+    database.prepare(`insert into audio_similarity_candidate_groups
+      (id, run_id, confidence, created_at, updated_at) values (?, ?, ?, 'now', 'now')`)
+      .run("group", "run", 0.9);
+    database.prepare("insert into audio_similarity_candidate_members values (?, ?)")
+      .run("group", "candidate");
+
+    const report = getAudioSimilarityReport(database as never);
+    expect(report.candidateGroups[0].members[0].usages[0].contextTracks[1])
+      .toMatchObject({ trackId: "context", loudnessDb: -19.5, gainDb: 3.5 });
+    database.close();
   });
 
   it("builds symmetric, group-wide equivalence without linking other groups", () => {
