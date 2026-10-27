@@ -1,5 +1,18 @@
 ## Handoff
 
+### Normalized audio-similarity auditioning
+- Similarity-report group, replacement, and affected-tanda context auditions now
+  apply the imported playback gain with the normal loudness fallback and bounded
+  gain conversion, instead of playing the source element at unity volume.
+- These auditions use the configured headphone output, honor both effective
+  start and end trims, release preview DSP resources on stop, and discard stale
+  starts when output routing overlaps a newer audition request (`ASR-010`,
+  `ASR-043`).
+- Verification passed: `npm run preflight` (106 test files / 600 tests plus the
+  production build) and `git diff --check`.
+- Release branch: `fix/similarity-normalization-v0.4.4`; package version:
+  `0.4.4`.
+
 ### Recording-version search canonicalisation
 - Normal track search now returns one result for each confirmed captured
   performance: the elected master for identical/interchangeable groups and one
@@ -260,9 +273,8 @@
   cross-origin localhost preflight, and added a console warning for failures.
 
 ### Current branch / version
-- Published `feature/rating-filter` to `origin/feature/rating-filter` at `87506ec`; upstream tracking configured. Post-push dialogue/handoff notes remain local and uncommitted.
-- Branch: `feature/rating-filter`
-- Version: `0.3.17` (from `package.json`)
+- Branch: `fix/similarity-normalization-v0.4.4`
+- Version: `0.4.4` (from `package.json`)
 
 ### Release download fix
 - Reproduced the macOS release failure: Evermeet's removed `getrelease` endpoint returns HTTP 410 and an 86-byte JSON error response. This was an upstream change, not a rating-feature change; application compilation had succeeded.

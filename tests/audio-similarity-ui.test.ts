@@ -132,6 +132,16 @@ describe("audio similarity report UI", () => {
     expect(renderer.match(/await stopMainForSimilarityAudition\(\);/g)).toHaveLength(2);
   });
 
+  it("normalizes similarity auditions and uses the configured headphone output", () => {
+    expect(renderer).toContain(
+      "resolvePlaybackNormalization(member.gainDb, member.loudnessDb)",
+    );
+    expect(renderer).toContain('resolveOutputDeviceIdForChannel("headphone")');
+    expect(renderer).toContain("setAudioLevel(audio, gainForTrack(normalization.gainDb))");
+    expect(renderer).toContain("audio.currentTime * 1000 >= endMs");
+    expect(renderer).toContain("requestVersion !== similarityPreviewRequestVersion");
+  });
+
   it("uses compact localized rejection labels and translated relationships", () => {
     expect(renderer).toContain('t("audioSimilarityRejectNamedPair")');
     expect(renderer).not.toContain('t("audioSimilarityRejectNamedPair",');

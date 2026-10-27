@@ -470,7 +470,8 @@ export const getAudioSimilarityReport = (
         coalesce(t.album, '') as album,
         t.full_path as fullPath, coalesce(t.duration_ms, 0) as durationMs,
         coalesce(t.start_offset_ms, 0) as startOffsetMs,
-        coalesce(t.end_trim_ms, 0) as endTrimMs
+        coalesce(t.end_trim_ms, 0) as endTrimMs,
+        t.loudness_db as loudnessDb, t.gain_db as gainDb
         from tanda_tracks tt join tracks t on t.id = tt.track_id
         where tt.tanda_id = ? order by tt.position`)
         .all(usage.tandaId) as AudioSimilarityMember["usages"][number]["contextTracks"],
