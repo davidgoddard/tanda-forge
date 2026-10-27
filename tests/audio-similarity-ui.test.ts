@@ -84,6 +84,10 @@ describe("audio similarity report UI", () => {
     expect(renderer).toContain("similaritySharedPosition = Math.max(0, Math.min(1, ratio))");
     expect(renderer).toContain('event.key !== "ArrowLeft" && event.key !== "ArrowRight"');
     expect(styles).toContain(".audio-similarity-waveform");
+    expect(renderer).toContain('effectiveDuration.className = "audio-similarity-effective-duration"');
+    expect(renderer).toContain("member.durationMs - member.startOffsetMs - member.endTrimMs");
+    expect(renderer).toContain('`${t("colDuration")}: ${formatTime(');
+    expect(styles).toContain(".audio-similarity-effective-duration");
   });
 
   it("reopens metadata from the refreshed report after copying values", () => {

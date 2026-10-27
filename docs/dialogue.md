@@ -7111,3 +7111,7 @@ live availability/digest/content checks for both pinned archives, and
     and defer to the persisted preferred track after identical confirmation
     (`ASR-100`). This begins version `0.4.5` on
     `fix/preserve-similarity-master-v0.4.5`.
+  - User also requested visible duration when waveform lengths differ. Each
+    comparison waveform now shows its effective playback duration (source
+    duration minus both trim points) in localized minutes-and-seconds form
+    (`ASR-101`).

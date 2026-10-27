@@ -15780,7 +15780,12 @@ const renderAudioSimilarityReport = () => {
       const detail = document.createElement("small");
       detail.textContent = [member.artist, member.album, member.fullPath].filter(Boolean).join(" · ");
       const waveform = createSimilarityWaveform(group.id, member, position);
-      text.append(title, detail, waveform);
+      const effectiveDuration = document.createElement("small");
+      effectiveDuration.className = "audio-similarity-effective-duration";
+      effectiveDuration.textContent = `${t("colDuration")}: ${formatTime(
+        Math.max(0, member.durationMs - member.startOffsetMs - member.endTrimMs) / 1000,
+      )}`;
+      text.append(title, detail, waveform, effectiveDuration);
       const format = document.createElement("span");
       format.className = "audio-similarity-format";
       format.textContent = member.fullPath.split(".").pop() || "audio";

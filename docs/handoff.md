@@ -7,6 +7,9 @@
   clears unconfirmed review state; a confirmed preferred track remains
   authoritative (`ASR-100`).
 - Branch: `fix/preserve-similarity-master-v0.4.5`; package version: `0.4.5`.
+- Candidate waveforms now show the localized effective playback duration after
+  subtracting imported start and end trims, making remaster/tempo length
+  differences directly visible (`ASR-101`).
 
 ### Normalized audio-similarity auditioning
 - Similarity-report group, replacement, and affected-tanda context auditions now

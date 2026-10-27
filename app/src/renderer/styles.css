@@ -4106,6 +4106,7 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   border-radius: 0.35rem; cursor: crosshair; background: #111827;
 }
 .audio-similarity-waveform:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.audio-similarity-effective-duration { width: min(100%, 42rem); text-align: right; opacity: 0.78; }
 .audio-similarity-election { display: grid; justify-items: center; gap: 0.15rem; font-size: 0.72rem; }
 .audio-similarity-member-choices { display: flex; gap: 0.6rem; align-items: center; }
 .audio-similarity-master { display: grid; justify-items: center; gap: 0.15rem; font-size: 0.72rem; }

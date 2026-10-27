@@ -515,6 +515,10 @@ listening to the complete context.
   may be cleared when the DJ deselects that member or leaves the report; once
   the identical relationship is confirmed, the persisted preferred track is
   authoritative.
+- **ASR-101 — Effective waveform duration:** Every candidate waveform shall
+  display the track's effective playback duration between its imported start
+  and end trim points in localized minutes-and-seconds form, so the DJ can
+  distinguish duration and tempo differences while comparing versions.
 
 ## Validation requirements
 
