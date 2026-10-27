@@ -544,6 +544,16 @@ listening to the complete context.
   localized **No match** action, enabled only when exactly two members with a
   candidate edge are selected. Its confirmation shall identify that pair;
   rejected pairs shall remain reconsiderable through the same control.
+- **ASR-105 — Find tanda uses from a track:** Every normal track row with one or
+  more matches shall show, within the track display rather than its action bar,
+  the number of saved tandas containing that captured performance, counting
+  confirmed identical and same-recording versions as the same song. A **Find
+  tandas** track-menu action shall be present for those tracks and create an
+  exact Search result containing the
+  selected track and those versions, populate the Tandas result with every
+  tanda containing any of them, and open the Tandas tab. Returning to Tracks
+  shall preserve that exact version set. Same-orchestra and same-composition
+  relationships shall not be included.
 
 ## Validation requirements
 

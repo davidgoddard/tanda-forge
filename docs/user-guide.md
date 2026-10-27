@@ -948,6 +948,25 @@ same recording also occupy one search result; assigning it opens the version
 picker so the preferred recording can still be chosen. Different performances
 remain separate search results.
 
+When a track is used in a saved tanda, a number at the right of the track text
+shows the count. Tracks with no uses omit both the number and **Find tandas**
+menu action. This is a count of distinct saved tandas in the library database,
+not just tandas currently in the playlist, clipboard, or designer. A tanda is
+counted only once even if it happens to contain more than one matching file.
+
+The count includes tandas that use the selected track or any
+DJ-confirmed **Identical** or **Same recording** copy, transfer, remaster, or
+cleaned version. Those relationships may overlap: Tanda Forge follows the
+complete connected recording family before counting. Broader **Same orchestra**
+and **Same composition** relationships are deliberately excluded because they
+represent different performances rather than another version of this song.
+
+Open the track menu and choose **Find tandas** to replace the Search results
+with that exact family of recording versions and switch to the Tandas tab,
+where every saved tanda containing one of them is shown. Switch back to Tracks
+to inspect the versions included in the lookup. The number and the displayed
+tandas come from the same database lookup, so they remain consistent.
+
 Using the headphone button on a same-recording search result opens all available
 versions, each with its own headphone button and stable number. The assignment
 picker presents the same numbered order, so a version auditioned as, for

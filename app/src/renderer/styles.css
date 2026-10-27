@@ -1187,6 +1187,22 @@ body.theme-dark-classic .collection-tabs button.active {
   justify-self: end;
 }
 
+.track-tanda-count {
+  flex: 0 0 auto;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--panel-solid);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .list-row.track-row.cortina-result {
   grid-template-columns: minmax(0, 1fr) 44px;
   align-items: start;
@@ -1540,7 +1556,15 @@ body.theme-dark-classic .collection-tabs button.active {
 }
 
 .track-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-weight: 600;
+}
+
+.track-primary-label {
+  min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

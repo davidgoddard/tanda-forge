@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTandaSearchWhere } from "../app/src/main/library/tandas";
+import { buildTandaSearchWhere, getTrackTandaUsage } from "../app/src/main/library/tandas";
 
 describe("tanda search helpers", () => {
   it("returns the baseline valid-tanda filter when no filters", () => {
@@ -70,5 +70,38 @@ describe("tanda search helpers", () => {
     expect(result.whereSql).toContain("select count(*) from tanda_tracks tt");
     expect(result.whereSql).toContain("join tracks t on t.id = tt.track_id");
     expect(result.values).toEqual([4]);
+  });
+
+  it("counts persisted tandas across identical and same-recording versions", () => {
+    let query = "";
+    let values: unknown[] = [];
+    const db = {
+      prepare: (sql: string) => {
+        query = sql;
+        return {
+          all: (...params: unknown[]) => {
+            values = params;
+            return [
+              { requestedId: "a", recordingTrackId: "a", tandaId: "one" },
+              { requestedId: "a", recordingTrackId: "b", tandaId: null },
+              { requestedId: "a", recordingTrackId: "c", tandaId: "two" },
+              { requestedId: "d", recordingTrackId: "d", tandaId: null },
+            ];
+          },
+        };
+      },
+    };
+    expect(getTrackTandaUsage(db as never, ["a", "d"])).toEqual([
+      {
+        trackId: "a",
+        recordingTrackIds: ["a", "b", "c"],
+        tandaIds: ["one", "two"],
+      },
+      { trackId: "d", recordingTrackIds: ["d"], tandaIds: [] },
+    ]);
+    expect(query).toContain("with recursive");
+    expect(query).toContain("relationship_type in ('identical', 'same-recording')");
+    expect(query).toContain("coalesce(tandas.invalid, 0) = 0");
+    expect(values).toEqual(["a", "a", "d", "d"]);
   });
 });

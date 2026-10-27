@@ -1,6 +1,7 @@
 import type { RatingFilter } from "../../shared/rating-filter";
 import { buildRatingWhere } from "./rating-filter";
 import type Database from "better-sqlite3";
+import type { TrackTandaUsage } from "../../shared/types";
 import { effectiveDurationMs } from "../../shared/tanda-utils";
 import { ORCHESTRA_SEED_DATA } from "../../shared/orchestra-seed";
 import {
@@ -252,6 +253,66 @@ export const getTandasByIds = (
   return filteredIds
     .map((id) => loadTandaDetail(db, id))
     .filter((row): row is TandaDetail => row !== null);
+};
+
+export const getTrackTandaUsage = (
+  db: Database.Database,
+  requestedTrackIds: string[],
+): TrackTandaUsage[] => {
+  const trackIds = Array.from(new Set(requestedTrackIds
+    .filter((id): id is string => typeof id === "string" && id.trim().length > 0)))
+    .slice(0, 250);
+  if (trackIds.length === 0) return [];
+  const seeds = trackIds.map(() => "(?, ?)").join(", ");
+  const seedValues = trackIds.flatMap((trackId) => [trackId, trackId]);
+  const rows = db.prepare(`
+    with recursive
+    seed(requested_id, track_id) as (values ${seeds}),
+    connected(requested_id, track_id) as (
+      select requested_id, track_id from seed
+      union
+      select connected.requested_id, related.track_id
+      from connected
+      join audio_similarity_confirmed_members member
+        on member.track_id = connected.track_id
+      join audio_similarity_confirmed_groups similarity_group
+        on similarity_group.id = member.group_id
+       and similarity_group.relationship_type in ('identical', 'same-recording')
+      join audio_similarity_confirmed_members related
+        on related.group_id = similarity_group.id
+    )
+    select connected.requested_id as requestedId,
+           connected.track_id as recordingTrackId,
+           tandas.id as tandaId
+    from connected
+    left join tanda_tracks on tanda_tracks.track_id = connected.track_id
+    left join tandas on tandas.id = tanda_tracks.tanda_id
+    where tanda_tracks.tanda_id is null or coalesce(tandas.invalid, 0) = 0
+    order by connected.requested_id, connected.track_id, tandas.id
+  `).all(...seedValues) as Array<{
+    requestedId: string;
+    recordingTrackId: string;
+    tandaId: string | null;
+  }>;
+  const usage = new Map(trackIds.map((trackId) => [trackId, {
+    trackId,
+    recordingTrackIds: new Set<string>(),
+    tandaIds: new Set<string>(),
+  }]));
+  rows.forEach((row) => {
+    const item = usage.get(row.requestedId);
+    if (!item) return;
+    item.recordingTrackIds.add(row.recordingTrackId);
+    if (row.tandaId) item.tandaIds.add(row.tandaId);
+  });
+  return trackIds.map((trackId) => {
+    const item = usage.get(trackId)!;
+    return {
+      trackId,
+      recordingTrackIds: [...item.recordingTrackIds],
+      tandaIds: [...item.tandaIds],
+    };
+  });
 };
 
 export const searchTandas = (

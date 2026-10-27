@@ -7146,3 +7146,23 @@ live availability/digest/content checks for both pinned archives, and
     playlist-focus, playback-marker, documentation, and regression-test changes
     be committed and pushed together under a version bump. Package and lockfile
     versions advance from `0.4.5` to `0.4.6` on the existing branch.
+
+- 2026-10-27 — Find tandas containing a track or recording version
+  - User requested a visible tanda-use count on tracks and a **Find tandas**
+    menu workflow. The lookup treats confirmed identical and same-recording
+    members as one captured performance, builds an exact version result in the
+    Tracks tab, and opens the Tandas tab with every tanda containing any member
+    (`ASR-105`).
+  - User clarified that the count belongs in the track display, not among the
+    circular menu actions, and that zero-use tracks should show neither a zero
+    nor **Find tandas**. Localized one/two-letter actions use the initials of
+    each translated phrase: FT, BT, TT, TF, ET, TT, and FT.
+  - User then observed that counts were always one and matched playlist use.
+    Investigation confirmed the first implementation incorrectly counted the
+    renderer's designer/playlist drafts rather than persisted tandas. Counts
+    and **Find tandas** now use batched database membership over `tanda_tracks`,
+    including the transitive identical/same-recording family and excluding
+    invalid tandas and broader similarity classes.
+  - Delivery is version `0.4.7` on branch
+    `feature/find-track-tandas-v0.4.7`; the user guide and README search feature
+    summary describe the database-backed count and exact lookup workflow.

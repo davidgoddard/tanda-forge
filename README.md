@@ -183,6 +183,10 @@ Stay consistent with tango DJ best practices.
 Find, test, and assemble music quickly.
 
 * Search tracks or existing tandas
+* See when a track—or a confirmed identical/alternate recording—is already in
+  saved tandas, with a true database-backed tanda count beside the track
+* Use **Find tandas** to show every matching recording version under Tracks and
+  every saved tanda containing one of those versions under Tandas
 * Stage ideas in clipboard collections
 * Iterate before committing to the playlist
 

@@ -1,5 +1,20 @@
 ## Handoff
 
+### Version 0.4.7 — track-to-tanda lookup
+- Package and lockfile versions are `0.4.7`.
+- Used track rows now show a compact saved-tanda usage count inside the track
+  display, not the action bar. Zero counts and their **Find tandas** actions are
+  omitted. Confirmed identical and same-recording versions share the count;
+  broader orchestra/composition similarity does not (`ASR-105`).
+- **Find tandas** in track menus creates an exact Search result containing the
+  selected track and every confirmed recording version, then opens the Tandas
+  tab with all saved tandas containing any of them. Returning to Tracks keeps
+  the exact version set.
+- Counts and result IDs now come from persisted `tanda_tracks`, not the current
+  designer/playlist drafts. Visible-track requests are batched into one
+  recursive SQL query and cached until a tanda or similarity decision changes.
+- Focused helper/controller/i18n tests and the production build pass.
+
 ### Version 0.4.6
 - Package and lockfile versions are `0.4.6`. This patch release contains the
   hierarchical similarity workflow, selected-pair rejection, window-scoped

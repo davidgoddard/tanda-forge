@@ -38,6 +38,7 @@ export type LibraryListInteractionsControllerDeps = {
     toggleRowMenu: (row: HTMLElement) => void;
     openTrackEditor: (trackId: string) => void;
     runSearchForTrack: (track: any) => void;
+    runFindTandasForTrack: (track: any) => Promise<void>;
     runSearchForTanda: (tanda: any) => void;
     playOnChannel: (
       channel: "main" | "headphone",
@@ -128,6 +129,12 @@ export const createLibraryListInteractionsController = (
         if (track) {
           deps.actions.runSearchForTrack(track);
         }
+        deps.actions.closeRowMenus();
+        return;
+      }
+      if (editAction === "find-track-tandas" && editTrackId) {
+        const track = deps.readers.getTrackFromCache(editTrackId);
+        if (track) await deps.actions.runFindTandasForTrack(track);
         deps.actions.closeRowMenus();
         return;
       }
@@ -256,6 +263,11 @@ export const createLibraryListInteractionsController = (
         deps.actions.closeRowMenus();
         return;
       }
+      if (action === "find-track-tandas") {
+        await deps.actions.runFindTandasForTrack(track);
+        deps.actions.closeRowMenus();
+        return;
+      }
       if (action === "headphone" && deps.readers.isHeadphoneAvailable()) {
         if (deps.actions.previewSearchTrackOnHeadphones) {
           await deps.actions.previewSearchTrackOnHeadphones(track);
@@ -334,6 +346,12 @@ export const createLibraryListInteractionsController = (
         if (track) {
           deps.actions.runSearchForTrack(track);
         }
+        return;
+      }
+      if (editAction === "find-track-tandas" && editTrackId) {
+        const track = deps.readers.getTrackFromCache(editTrackId);
+        if (track) void deps.actions.runFindTandasForTrack(track);
+        deps.actions.closeRowMenus();
         return;
       }
       if (editAction === "add-clip-track-from-tanda" && editTrackId) {
@@ -440,6 +458,11 @@ export const createLibraryListInteractionsController = (
       }
       if (action === "search-track") {
         deps.actions.runSearchForTrack(clipTrack);
+        deps.actions.closeRowMenus();
+        return;
+      }
+      if (action === "find-track-tandas") {
+        await deps.actions.runFindTandasForTrack(clipTrack);
         deps.actions.closeRowMenus();
         return;
       }

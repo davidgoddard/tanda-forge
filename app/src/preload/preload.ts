@@ -165,6 +165,8 @@ const api: AppApi = {
     ipcRenderer.invoke("styles:replaceDefaults", payload),
   listTandas: async () => ipcRenderer.invoke("tandas:list"),
   getTandasByIds: async (ids) => ipcRenderer.invoke("tandas:getByIds", ids),
+  getTrackTandaUsage: async (trackIds) =>
+    ipcRenderer.invoke("tandas:getTrackUsage", trackIds),
   saveTanda: async (payload) => ipcRenderer.invoke("tandas:save", payload),
   deleteTanda: async (id) => ipcRenderer.invoke("tandas:delete", id),
   searchTandas: async (params) => ipcRenderer.invoke("tandas:search", params),
