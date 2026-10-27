@@ -114,6 +114,7 @@ describe("audio similarity report UI", () => {
 
   it("shows album and path read-only while omitting measured fields", () => {
     expect(renderer).toContain('{ label: t("audioSimilarityMetaAlbum"), field: "album" }');
+    expect(renderer).not.toContain('field: "album", editable: "album"');
     expect(renderer).toContain('{ label: t("audioSimilarityMetaPath"), field: "fullPath" }');
     expect(renderer).not.toContain('{ label: t("audioSimilarityMetaDuration"), field: "durationMs" }');
     expect(renderer).not.toContain('{ label: t("audioSimilarityMetaGain"), field: "gainDb" }');
@@ -150,6 +151,13 @@ describe("audio similarity report UI", () => {
     expect(renderer).toContain('t("audioSimilarityRejectNamedPair")');
     expect(renderer).not.toContain('t("audioSimilarityRejectNamedPair",');
     expect(renderer).toContain("translateAudioSimilarityRelationship(confirmedGroup.relationshipType)");
+    expect(renderer).toContain('reject.dataset.similarityReject = "selected"');
+  });
+
+  it("keeps metadata undo inside the comparison window as a session stack", () => {
+    expect(renderer).toContain("similarityMetadataUndoStacks");
+    expect(renderer).toContain("undoStack.push(result.changes)");
+    expect(renderer).not.toContain("audioSimilarityUndoAvailable");
   });
 
   it("opens the normal track editor from each metadata comparison column", () => {
@@ -180,10 +188,10 @@ describe("audio similarity report UI", () => {
     expect(styles).toContain(".audio-similarity-lazy-dialog > div { min-height: 0; overflow: auto;");
   });
 
-  it("keeps press-and-hold duplicate focus active and offers an explicit clear action", () => {
-    expect(renderer).toContain("const matchingRows: Array<{ row: HTMLElement; trackId: string | null }> = []");
-    expect(renderer).toContain('target.scrollIntoView({ block: "center", behavior: "smooth" })');
-    expect(renderer).toContain('if (trackId && !row.classList.contains("expanded")) toggleTandaRow(row)');
+  it("renders press-and-hold duplicate focus with the scheduled filter layout", () => {
+    expect(renderer).toContain("let playlistDuplicateFocusTrackIds: Set<string> | null = null");
+    expect(renderer).toContain("const hasFilteredLayout = hasFilter || hasDuplicateFocus");
+    expect(renderer).toContain('firstMatch.scrollIntoView({ block: "center", behavior: "smooth" })');
     expect(renderer).toContain('playlistDuplicateFocusStatus?.classList.remove("hidden")');
     expect(renderer).toContain('playlistDuplicateFocusClear?.addEventListener("click", (event) =>');
     expect(renderer).toContain("event.stopPropagation()");
@@ -192,6 +200,13 @@ describe("audio similarity report UI", () => {
     expect(styles).toContain(".playlist-duplicate-focus-status");
     expect(styles).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
     expect(styles).toMatch(/\.playlist-duplicate-focus-status \{[\s\S]*?z-index:\s*5/);
+  });
+
+  it("moves a vertical playhead across the playing playlist track", () => {
+    expect(renderer).toContain('row.classList.add("playlist-playback-position")');
+    expect(renderer).toContain('row.style.setProperty("--playlist-playback-position", `${position}%`)');
+    expect(styles).toContain(".tanda-detail-line.playlist-playback-position::before");
+    expect(styles).toContain("left: var(--playlist-playback-position, 0%)");
   });
 
   it("keeps playlist stop controls in a readable non-scrolling footer", () => {

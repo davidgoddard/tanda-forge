@@ -56,7 +56,7 @@ export type AudioSimilarityAuditionTrack = {
 };
 
 export type ReplicableAudioSimilarityField =
-  | "title" | "artist" | "artist_summary" | "singer" | "album"
+  | "title" | "artist" | "artist_summary" | "singer"
   | "year" | "genre" | "bpm" | "notes" | "instrumental";
 
 export type AudioSimilarityMetadataValue = string | number | boolean | null;

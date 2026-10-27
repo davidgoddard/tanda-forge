@@ -136,6 +136,34 @@ export const ensureAudioSimilaritySchema = (database: Database.Database) => {
   if (!runColumns.has("comparison_pairs_total")) {
     database.exec("alter table audio_similarity_runs add column comparison_pairs_total integer not null default 0");
   }
+  const memberIndexes = database.prepare(
+    "select name, [unique] as isUnique from pragma_index_list('audio_similarity_confirmed_members')",
+  ).all() as Array<{ name: string; isUnique: number }>;
+  const hasLegacyTrackUniqueness = memberIndexes.some((index) => index.isUnique === 1
+    && (database.prepare(`select name from pragma_index_info(?) order by seqno`)
+      .all(index.name) as Array<{ name: string }>).map((column) => column.name).join(",") === "track_id");
+  if (hasLegacyTrackUniqueness) {
+    database.transaction(() => {
+      database.exec(`
+        alter table audio_similarity_confirmed_members rename to audio_similarity_confirmed_members_legacy;
+        create table audio_similarity_confirmed_members (
+          group_id text not null,
+          track_id text not null,
+          primary key (group_id, track_id)
+        );
+        insert into audio_similarity_confirmed_members (group_id, track_id)
+          select group_id, track_id from audio_similarity_confirmed_members_legacy;
+        drop table audio_similarity_confirmed_members_legacy;
+        create index if not exists idx_audio_confirmed_members_group
+          on audio_similarity_confirmed_members (group_id);
+        create index if not exists idx_audio_confirmed_members_track
+          on audio_similarity_confirmed_members (track_id);
+      `);
+    })();
+  } else {
+    database.exec(`create index if not exists idx_audio_confirmed_members_track
+      on audio_similarity_confirmed_members (track_id)`);
+  }
 };
 
 export const recoverInterruptedAudioSimilarityRuns = (database: Database.Database) => {
@@ -155,36 +183,16 @@ const validateTrackIds = (trackIds: string[]) => {
   return unique;
 };
 
-const removeTracksFromConfirmedGroups = (
+const removeEquivalentConfirmedGroup = (
   database: Database.Database,
   trackIds: string[],
+  relationshipType: AudioSimilarityRelationshipType,
 ) => {
-  const placeholders = trackIds.map(() => "?").join(", ");
-  const groupRows = database.prepare(`
-    select distinct group_id as groupId
-    from audio_similarity_confirmed_members
-    where track_id in (${placeholders})
-  `).all(...trackIds) as { groupId: string }[];
-  database.prepare(`
-    delete from audio_similarity_confirmed_members
-    where track_id in (${placeholders})
-  `).run(...trackIds);
-  const countMembers = database.prepare(`
-    select count(*) as count
-    from audio_similarity_confirmed_members
-    where group_id = ?
-  `);
-  const deleteGroup = database.prepare(
-    "delete from audio_similarity_confirmed_groups where id = ?",
-  );
-  for (const row of groupRows) {
-    const count = (countMembers.get(row.groupId) as { count: number }).count;
-    if (count < 2) {
-      database.prepare(
-        "delete from audio_similarity_confirmed_members where group_id = ?",
-      ).run(row.groupId);
-      deleteGroup.run(row.groupId);
-    }
+  const wanted = [...trackIds].sort().join("\u0000");
+  for (const group of listConfirmedAudioSimilarityGroups(database)) {
+    if (group.relationshipType !== relationshipType
+      || [...group.trackIds].sort().join("\u0000") !== wanted) continue;
+    withdrawConfirmedAudioSimilarityGroup(database, group.id);
   }
 };
 
@@ -203,7 +211,14 @@ export const confirmAudioSimilarityGroup = (
   }
   const now = new Date().toISOString();
   const groupId = randomUUID();
-  removeTracksFromConfirmedGroups(database, members);
+  removeEquivalentConfirmedGroup(database, members, relationshipType);
+  if (relationshipType === "same-recording" && !preferredTrackId) {
+    preferredTrackId = listConfirmedAudioSimilarityGroups(database)
+      .filter((group) => group.relationshipType === "identical"
+        && group.preferredTrackId && group.trackIds.every((id) => members.includes(id)))
+      .sort((left, right) => right.trackIds.length - left.trackIds.length)[0]?.preferredTrackId
+      ?? [...members].sort()[0];
+  }
   database.prepare(`
     insert into audio_similarity_confirmed_groups
       (id, relationship_type, preferred_track_id, created_at, updated_at)
@@ -241,12 +256,6 @@ export const approveCandidateSubset = (
   const groupId = confirmAudioSimilarityGroup(
     database, accepted, relationshipType, preferredTrackId,
   );
-  const rejected = candidates.filter((id) => !accepted.includes(id));
-  for (const rejectedId of rejected) {
-    for (const acceptedId of accepted) {
-      rejectAudioSimilarityPair(database, rejectedId, acceptedId);
-    }
-  }
   return groupId;
 })();
 
@@ -362,7 +371,7 @@ export const buildConfirmedAudioSimilarityLookup = (
   groups: ConfirmedAudioSimilarityGroup[],
 ) => {
   const lookup = new Map<string, ReadonlySet<string>>();
-  for (const group of groups) {
+  for (const group of [...groups].sort((left, right) => left.trackIds.length - right.trackIds.length)) {
     const members = new Set(group.trackIds);
     for (const trackId of members) lookup.set(trackId, members);
   }
@@ -540,7 +549,7 @@ export const getAudioSimilarityIntegrity = (
 };
 
 const REPLICABLE_FIELDS = new Set<ReplicableAudioSimilarityField>([
-  "title", "artist", "artist_summary", "singer", "album", "year", "genre",
+  "title", "artist", "artist_summary", "singer", "year", "genre",
   "bpm", "notes", "instrumental",
 ]);
 
