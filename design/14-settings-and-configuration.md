@@ -31,8 +31,14 @@ Board, Diagnostics, System).
 - CFG-LIB-007: If legacy Tanda Player files (`config.js`, `tandas.dat`, `library.dat`,
   `cortinas.dat`) are detected when adding roots or changing the data location, the UI
   exposes a legacy import action.
-- CFG-LIB-008: Legacy import replaces existing tandas and applies any available
-  legacy track metadata in preference to tag/analysis data when fields are non-empty.
+- CFG-LIB-007.a: When several configured roots belong to detectable legacy collections,
+  automatic legacy-import selection uses the most recently configured collection so a
+  newly added migration source is not silently replaced by an older source after restart.
+- CFG-LIB-008: Legacy import merges source-scoped tandas with existing tandas,
+  updates the same source's previously imported tandas without creating duplicates,
+  and applies any available legacy track metadata in preference to tag/analysis data
+  when fields are non-empty. The confirmation must explain this non-destructive merge
+  and the need for a follow-up scan for final analysis.
 - CFG-LIB-008.a: During legacy tanda import, any legacy tanda name equal to
   `Auto Generated Tanda` or `Saved Auto-Generated Tanda` (case-insensitive, trimmed)
   is rewritten to a blank name so the app can use dynamic artist-summary rendering

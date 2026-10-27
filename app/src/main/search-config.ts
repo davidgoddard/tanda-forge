@@ -2,9 +2,26 @@ import type { RatingFilter } from "../shared/rating-filter";
 import { buildRatingWhere, trackRatingSql } from "./library/rating-filter";
 import type { SortColumn } from "./library/query";
 
+export const buildSearchVisibilityWhere = (trackAlias = "t") => `
+  and not exists (select 1 from hidden_tracks h where h.track_id = ${trackAlias}.id)
+  and not exists (
+    select 1
+    from audio_similarity_confirmed_members search_member
+    join audio_similarity_confirmed_groups search_group
+      on search_group.id = search_member.group_id
+    where search_member.track_id = ${trackAlias}.id
+      and search_group.relationship_type in ('identical', 'same-recording')
+      and coalesce(
+        search_group.preferred_track_id,
+        (select min(representative.track_id)
+         from audio_similarity_confirmed_members representative
+         where representative.group_id = search_group.id)
+      ) <> ${trackAlias}.id
+  )`;
+
 export const buildStyleWhere = (styles: string[], rating?: RatingFilter) => {
   const condition = buildRatingWhere(trackRatingSql, rating);
-  let whereSql = "where r.kind = 'music' and t.deleted_at is null";
+  let whereSql = `where r.kind = 'music' and t.deleted_at is null${buildSearchVisibilityWhere()}`;
   const values: unknown[] = [];
   if (styles?.length) {
     whereSql += ` and t.genre in (${styles.map(() => "?").join(", ")})`;

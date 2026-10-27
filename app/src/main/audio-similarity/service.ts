@@ -10,7 +10,7 @@ import {
 } from "../../shared/audio-similarity";
 import {
   extractComparableAudioFeatures,
-  findComparableAudioMatches,
+  findComparableAudioMatchesCooperatively,
   groupComparableAudioMatches,
   SIMILARITY_SAMPLE_RATE,
   type ComparableAudioFeatures,
@@ -137,10 +137,20 @@ const parseFeatureRow = (row: {
 });
 
 const currentStatus = (database: Database.Database): AudioSimilarityStatus => {
+  if (!activeAbortController) {
+    database.prepare(`
+      update audio_similarity_runs
+      set status = 'failed', completed_at = coalesce(completed_at, ?),
+        error = coalesce(error, 'Analysis was interrupted before it completed. Generate the report again.')
+      where status in ('running', 'cancelling')
+    `).run(new Date().toISOString());
+  }
   const row = database.prepare(`
     select id as runId, status as state, total_tracks as totalTracks,
       processed_tracks as processedTracks, failed_tracks as failedTracks,
       candidate_pairs as candidatePairs, matching_pairs as matchingPairs,
+      comparison_pairs_processed as comparisonPairsProcessed,
+      comparison_pairs_total as comparisonPairsTotal,
       started_at as startedAt, completed_at as completedAt, error
     from audio_similarity_runs order by started_at desc limit 1
   `).get() as Omit<AudioSimilarityStatus, "staleTracks"> | undefined;
@@ -159,6 +169,7 @@ const currentStatus = (database: Database.Database): AudioSimilarityStatus => {
     : {
         state: "idle", runId: null, totalTracks: 0, processedTracks: 0,
         failedTracks: 0, candidatePairs: 0, matchingPairs: 0,
+        comparisonPairsProcessed: 0, comparisonPairsTotal: 0,
         staleTracks: stale, startedAt: null, completedAt: null, error: null,
       };
 };
@@ -255,7 +266,26 @@ export const generateAudioSimilarityReport = async (
       where r.kind = 'music' and t.deleted_at is null and f.algorithm_version = ?
     `).all(AUDIO_SIMILARITY_ALGORITHM_VERSION) as Parameters<typeof parseFeatureRow>[0][];
     const records = featureRows.map(parseFeatureRow);
-    const result = findComparableAudioMatches(records);
+    const comparisonPairsTotal = records.length * (records.length - 1) / 2;
+    database.prepare(`update audio_similarity_runs
+      set comparison_pairs_processed = 0, comparison_pairs_total = ? where id = ?`)
+      .run(comparisonPairsTotal, runId);
+    const updateComparisonProgress = database.prepare(`update audio_similarity_runs
+      set comparison_pairs_processed = ? where id = ?`);
+    let lastComparisonProgressUpdate = 0;
+    const result = await findComparableAudioMatchesCooperatively(
+      records,
+      abortController.signal,
+      0.79,
+      12,
+      (pairsProcessed) => {
+        const now = Date.now();
+        if (pairsProcessed === comparisonPairsTotal || now - lastComparisonProgressUpdate >= 250) {
+          updateComparisonProgress.run(pairsProcessed, runId);
+          lastComparisonProgressUpdate = now;
+        }
+      },
+    );
     const groups = groupComparableAudioMatches(result.matches);
     database.transaction(() => {
       database.prepare("delete from audio_similarity_candidate_edges").run();

@@ -16,6 +16,21 @@ describe("audio similarity report UI", () => {
     expect(caches).toBeGreaterThan(similarity);
   });
 
+  it("starts incremental regeneration immediately and keeps polling past a stale report snapshot", () => {
+    expect(renderer).toContain("let similarityGenerationPending = false");
+    expect(renderer).toContain("const running = similarityGenerationPending");
+    expect(renderer).toContain("similarityGenerationPending = true");
+    expect(renderer).toContain("generateAudioSimilarityReport({ fullRebuild: false })");
+    expect(renderer).toContain("similarityGenerationPending = false");
+    expect(renderer).toContain('report.hasCompletedReport ? "audioSimilarityRegenerate"');
+    expect(renderer).toContain("Boolean(similarityReport?.hasCompletedReport)");
+    expect(renderer).toContain('t("audioSimilarityComparing", { total: report.status.totalTracks })');
+    expect(renderer).toContain('t("audioSimilarityComparingProgress"');
+    expect(renderer).toContain("report.status.comparisonPairsProcessed");
+    expect(renderer).toContain('t("audioSimilarityGenerationComplete")');
+    expect(renderer).toContain('similarityGenerationCompleted = result.state === "completed"');
+  });
+
   it("uses member match checkboxes and lazy metadata/tanda overlays", () => {
     expect(renderer).toContain('selected.type = "checkbox"');
     expect(renderer).toContain("audioSimilarityIncludeMatch");
@@ -53,6 +68,9 @@ describe("audio similarity report UI", () => {
 
   it("uses the normal headphone path and an Apply/Cancel radio table for tanda assignment", () => {
     expect(renderer).toContain("audio-similarity-version-table");
+    expect(renderer).toContain("appendSimilarityVersionNumber(row, index)");
+    expect(renderer).toContain("previewSearchTrackOnHeadphones");
+    expect(renderer).toContain('similarityRelationshipByTrackId.get(track.id) !== "same-recording"');
     expect(renderer).toContain("const headphone = buildHeadphoneButton(candidate.id)");
     expect(renderer).toContain('"headphone", candidate.full_path, candidate.id');
     expect(renderer).toContain("selection.type = \"radio\"");
@@ -150,8 +168,30 @@ describe("audio similarity report UI", () => {
     expect(renderer).toContain('document.addEventListener("pointerup", cancelPlaylistDuplicateFocusTimer)');
     expect(html).toContain('data-i18n="playlistDuplicateFocusClear"');
     expect(styles).toContain(".playlist-duplicate-focus-status");
-    expect(styles).toContain("grid-template-rows: auto minmax(0, 1fr) auto auto auto");
+    expect(styles).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
     expect(styles).toMatch(/\.playlist-duplicate-focus-status \{[\s\S]*?z-index:\s*5/);
+  });
+
+  it("keeps playlist stop controls in a readable non-scrolling footer", () => {
+    expect(html).toContain('<div class="list-body playlist-panel-body">');
+    expect(html).toMatch(
+      /<div class="playlist-footer-controls">[\s\S]*?id="playlist-last-tanda"[\s\S]*?id="playlist-performance-stop"/,
+    );
+    expect(styles).toMatch(/\.playlist-panel-body \{[\s\S]*?overflow:\s*hidden/);
+    expect(styles).toMatch(/\.playlist-footer-controls \{[\s\S]*?flex:\s*0 0 auto/);
+    expect(styles).toMatch(/\.playlist-last-toggle \{[\s\S]*?color:\s*var\(--text\)/);
+  });
+
+  it("floats the opaque tanda editor above the playlist footer", () => {
+    expect(styles).toMatch(
+      /#playlist-tab\.tab-panel\.active \{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*?grid-template-rows:\s*auto minmax\(0, 1fr\) auto/,
+    );
+    expect(styles).toMatch(
+      /\.playlist-tanda-editor \{[\s\S]*?grid-column:\s*1[\s\S]*?grid-row:\s*2[\s\S]*?align-self:\s*end[\s\S]*?max-height:\s*100%[\s\S]*?overflow-y:\s*auto[\s\S]*?background:\s*var\(--panel-solid\)/,
+    );
+    expect(styles).toMatch(
+      /\.playlist-footer-controls \{[\s\S]*?grid-row:\s*3[\s\S]*?background:\s*var\(--panel-solid\)/,
+    );
   });
 
   it("resolves confirmed equivalents when a tanda duplicate jumps to the playlist", () => {

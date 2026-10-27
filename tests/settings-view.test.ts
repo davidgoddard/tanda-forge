@@ -3,6 +3,7 @@ import {
   activateSettingsTab,
   pulseSettingsSection,
   resolveOutputModeValue,
+  scrollSettingsContentTo,
 } from "../app/src/renderer/modules/settings-view";
 
 class FakeClassList {
@@ -85,5 +86,21 @@ describe("settings view helpers", () => {
     vi.advanceTimersByTime(100);
     expect(section.classList.contains("section-pulse")).toBe(false);
     vi.useRealTimers();
+  });
+
+  it("scrolls only the settings content to an internal target", () => {
+    const scrollTo = vi.fn();
+    const container = {
+      scrollTop: 240,
+      getBoundingClientRect: () => ({ top: 100 }),
+      scrollTo,
+    } as unknown as HTMLElement;
+    const target = {
+      getBoundingClientRect: () => ({ top: 460 }),
+    } as unknown as HTMLElement;
+
+    scrollSettingsContentTo(container, target);
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 600, behavior: "smooth" });
   });
 });

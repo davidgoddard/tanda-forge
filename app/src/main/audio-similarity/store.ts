@@ -126,6 +126,25 @@ export const ensureAudioSimilaritySchema = (database: Database.Database) => {
     create index if not exists idx_audio_failures_run
       on audio_similarity_failures (run_id);
   `);
+  const runColumnRows = database.prepare(
+    "select name from pragma_table_info('audio_similarity_runs')",
+  ).all() as Array<{ name: string }>;
+  const runColumns = new Set(runColumnRows.map((column) => column.name));
+  if (!runColumns.has("comparison_pairs_processed")) {
+    database.exec("alter table audio_similarity_runs add column comparison_pairs_processed integer not null default 0");
+  }
+  if (!runColumns.has("comparison_pairs_total")) {
+    database.exec("alter table audio_similarity_runs add column comparison_pairs_total integer not null default 0");
+  }
+};
+
+export const recoverInterruptedAudioSimilarityRuns = (database: Database.Database) => {
+  database.prepare(`
+    update audio_similarity_runs
+    set status = 'failed', completed_at = coalesce(completed_at, ?),
+      error = coalesce(error, 'Analysis was interrupted before it completed. Generate the report again.')
+    where status in ('running', 'cancelling')
+  `).run(new Date().toISOString());
 };
 
 const validateTrackIds = (trackIds: string[]) => {
@@ -466,6 +485,9 @@ export const getAudioSimilarityReport = (
       `).all(latestRun) as AudioSimilarityReport["failures"]
     : [];
   return {
+    hasCompletedReport: Boolean(database.prepare(`
+      select 1 as found from audio_similarity_runs where status = 'completed' limit 1
+    `).get()),
     status: getAudioSimilarityStatus(database),
     integrity: getAudioSimilarityIntegrity(database),
     candidateGroups: [...groups.values()],

@@ -23,6 +23,22 @@ export const activateSettingsTab = (
   });
 };
 
+export const scrollSettingsContentTo = (
+  container: HTMLElement | null | undefined,
+  target: HTMLElement | null | undefined,
+  behavior: ScrollBehavior = "smooth",
+) => {
+  if (!container || !target) {
+    return;
+  }
+  const containerRect = container.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  container.scrollTo({
+    top: Math.max(0, container.scrollTop + targetRect.top - containerRect.top),
+    behavior,
+  });
+};
+
 export const pulseSettingsSection = (
   section: HTMLElement | null | undefined,
   timeoutMs = 5200,

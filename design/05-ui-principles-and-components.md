@@ -148,6 +148,21 @@ Rules:
   errors, waveforms, and compressed-cache eligible/ready/missing totals). A
   valid zero-trim result must not block readiness, while a missing required
   compressed companion must be visible whenever it blocks readiness.
+- UI-009.R3.c: Diagnostics presents suspicious short-duration and aggressive-trim
+  tracks as an actionable review table. Selecting a track shows its full-source
+  waveform, current trim boundaries, original/trimmed/start/ending auditions,
+  draggable proposed boundaries, explicit save/reset, acknowledgement, and the
+  standard safe track-deletion flow. The selected-track editor remains above the
+  independently scrolling issue table so it stays visible while tracks are
+  reviewed. A vertical playhead overlays the full waveform and follows the
+  current diagnostic audition position. During active playback, waveform clicks
+  and the start/ending actions seek the existing audition without restarting or
+  stopping it. Playback stops only at the active original/trimmed endpoint or by
+  explicit user action. Acknowledgement applies only to the
+  current issue signature. Reviewed rows remain visible with an OK status while
+  pending rows sort first; the reviewed track remains in the editor with an
+  explicit confirmation, requiring deliberate selection of the next track.
+  Manual trim edits survive later library scans.
 - UI-009.R3.c: The Library settings tab includes a visual setup flow that shows
   the normal root -> analysis -> verify path plus the optional legacy-migration
   branch rejoining before analysis.
@@ -169,7 +184,9 @@ Rules:
   completion action so the workflow can advance before legacy import.
 - UI-009.R3.e.a: Activating that completion action scrolls the Settings view
   back to the top of the Library workflow so the user can immediately see the
-  updated step state and next actions after reviewing a long style list.
+  updated step state and next actions after reviewing a long style list. Such
+  navigation must scroll only the Settings content area; the Settings header,
+  tabs, and Close action must remain anchored and reachable at all times.
 - UI-009.R3.f: In the Library setup flow, single-purpose review actions such as
   `Show legacy styles` remain compact content-width controls rather than
   full-width bars so they read as buttons and are easy to spot.
@@ -184,6 +201,15 @@ Rules:
 - UI-009.R6: The playlist `Remaining Tandas` number field remains editable while
   the stop-after-N-tandas toggle is off, so DJs can set the count before
   enabling the feature and avoid transient display-board countdown flashes.
+- UI-009.R6.a: The playlist stop controls occupy a dedicated, non-scrolling
+  footer anchored below the scrolling playlist. They remain visible regardless
+  of playlist length and use readable text, control sizing, and spacing.
+- UI-009.R6.b: The playlist-hosted tanda editor floats over the bottom of the
+  scrolling playlist at the full width of the playlist column, directly above
+  the stop-controls footer. It overlays rather than reflows or divides the
+  playlist contents. Its surface is opaque and independently scrolls when its
+  contents exceed the available playlist height, so it cannot displace or
+  visually collide with the footer.
 - UI-009.R7: The Library tab includes a dedicated manual `Re-parse Stored Metadata`
   card that rebuilds title, artist, artist-summary, and singer fields from
   stored scan tags without rerunning audio analysis, waveform generation, or
@@ -380,6 +406,9 @@ Interactions:
   reports a newer version/tag than the packaged app version, the renderer shows
   an in-app modal popup with the new version number and an action to open the
   repository releases page in the user's default browser.
+- UI-014.R29: While the playlist contents filter is active, each matching tanda
+  is preceded by a divider showing its predicted scheduled start time, including
+  when cortina rows are hidden by the filter.
 
 ## UI-015 — Now Playing Strip
 
@@ -763,6 +792,13 @@ Features:
   distinct normalized artist, the artist portion uses the localized equivalent
   of `Various artists`. The next-tanda area should prefer staying on one line by
   using a smaller font and near-full available width while remaining right-aligned.
+- UI-060.R16.b: Display-board tanda style labels preserve the full style and
+  subtype when all styled tracks in that tanda agree (for example,
+  `Tango - Contemporary`). When track styles differ, the label shows every
+  distinct base style once (for example, Contemporary and Electronic Tango
+  tracks display as `Tango`; mixed Tango and Waltz tracks display as
+  `Tango, Waltz`). Tanda-level styles are the fallback when track style metadata
+  is unavailable.
 - UI-060.R17: When the playlist is paused at the live-performance stop point,
   the marked tanda's track phase and its final cortina must suppress the
   bottom-right tanda text entirely instead of showing either "Next tanda" or
@@ -837,12 +873,16 @@ Behavior:
 - UI-082.R13: The New collection is read-only and cannot be removed or reordered.
 - UI-082.R14: The size of the New collection is configurable in System settings.
 - UI-082.R15: The system provides an `Available` smart collection keyed by
-  canonical `artist + style` groups:
+  canonical `artist + base style family` groups. Concrete variants such as
+  `Tango - Traditional` and `Tango` belong to the same Tango availability
+  group:
   - UI-082.R15.a: Once a playlist uses a canonical artist in a specific style,
     only that same artist+style group is excluded from `Available`.
   - UI-082.R15.b: Other styles for the same canonical artist remain eligible.
   - UI-082.R15.c: Canonical artist matching must use orchestra alias/variant
-    resolution (e.g., D'Arienzo variants resolve to the same canonical artist).
+    resolution (e.g., D'Arienzo variants resolve to the same canonical artist),
+    and imported vocal-status suffixes such as `Instrumental` must not create a
+    separate orchestra identity.
   - UI-082.R15.d: Tanda availability must be evaluated from tanda-level style
     metadata when track-level style tags are missing or inconsistent, provided
     tanda size and artist+style usage constraints are satisfied.
@@ -876,6 +916,9 @@ Behavior:
 - UI-083.R4: Track editor style picker presents grouped base/sub-style options and stores the selected concrete style string.
 - UI-083.R5: Legacy style table supports per-row mapping to an existing style or creating a new family/style.
 - UI-083.R6: Base style pills support variant selection via right-click or long-press.
+- UI-083.R6.a: A tanda variant menu must close and finish its pointer gesture
+  before the designer is rebuilt to apply the selection, avoiding re-entrant
+  interaction with detached menu and style controls.
 - UI-083.R7: Selecting a variant relabels the pill (e.g. `T - Nuevo`) and applies
   exact filtering for that variant.
 - UI-083.R8: Clicking an active variant pill toggles it off and restores base-style

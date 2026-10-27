@@ -98,6 +98,7 @@ export type AudioSimilarityCandidateGroup = {
 };
 
 export type AudioSimilarityReport = {
+  hasCompletedReport: boolean;
   status: AudioSimilarityStatus;
   integrity: AudioSimilarityIntegrity;
   candidateGroups: AudioSimilarityCandidateGroup[];
@@ -132,6 +133,8 @@ export type AudioSimilarityStatus = {
   failedTracks: number;
   candidatePairs: number;
   matchingPairs: number;
+  comparisonPairsProcessed: number;
+  comparisonPairsTotal: number;
   staleTracks: number;
   startedAt: string | null;
   completedAt: string | null;

@@ -6961,3 +6961,131 @@ Each attempt continues to enforce checksum, archive, architecture, capability,
 and licence validation before packaging. Shell syntax, 9 focused regressions,
 live availability/digest/content checks for both pinned archives, and
 `npm run preflight` (106 test files / 581 tests plus production build) passed.
+
+- 2026-10-25 — GitHub Actions Node 24 runtime migration
+  - User reported release-build warnings that `actions/upload-artifact@v5`
+    still declared the deprecated Node.js 20 action runtime.
+  - Updated `.github/workflows/release.yml` to the maintained Node 24 majors:
+    `actions/checkout@v7`, `actions/setup-node@v7`,
+    `actions/upload-artifact@v7`, `actions/download-artifact@v8`, and
+    `softprops/action-gh-release@v3`. Existing workflow inputs and artifact
+    layout were retained. Workflow YAML parsing, action-reference audit,
+    `git diff --check`, and `npm run preflight` (106 test files / 581 tests plus
+    production build) passed.
+
+- 2026-10-25 — Settings header remained reachable after workflow scrolling
+  - User reported that after a legacy import and scan, scrolling upward in the
+    Library setup page stopped before the Settings header and top buttons could
+    be reached.
+  - Root cause was internal workflow navigation using `scrollIntoView()`, which
+    could scroll the hidden outer document as well as the Settings content.
+    Navigation is now confined to the Settings content pane, while the overlay,
+    header, tabs, and Close action remain viewport-anchored (`UI-009.R3.e.a`).
+    Focused unit and Electron regressions plus full preflight passed.
+
+- 2026-10-26 — Tanda style variant selection freeze
+  - User reported that after adding styles to the three tracks of an existing
+    manual tanda, long-pressing its style button and choosing the wanted variant
+    immediately produced the macOS busy spinner and required a force quit.
+  - Tanda variant selection now dismisses the popup and completes the native
+    pointer gesture before rebuilding the designer and refreshing style-filtered
+    results. This avoids re-entrant event dispatch against controls removed by
+    the rebuild (`UI-083.R6.a`). Electron workflow 28 now exercises long-press
+    variant selection inside the Tanda Designer.
+- 2026-10-26 — Prefer the newly configured legacy collection
+  - User reported that after pointing Tanda Forge at a new music folder and
+    completing setup, legacy track metadata was absent and the expected tandas
+    had not been imported.
+  - Investigation showed that automatic detection reverted after restart to an
+    older configured legacy backup because roots were inspected in unspecified
+    database order. Automatic detection now prefers the most recently configured
+    detectable collection; explicit candidate-path detection during root addition
+    remains unchanged (`CFG-LIB-007.a`).
+
+- 2026-10-26 — Playlist tanda editor containment
+  - User reported that opening a tanda editor could extend below the playlist
+    and collide with the fixed Remaining Tandas and live-performance controls.
+  - The playlist editor now floats at the bottom of the scrolling playlist row,
+    uses an opaque surface, and scrolls internally when space is constrained,
+    while the stop-controls footer stays anchored below it (`UI-009.R6.b`).
+
+- 2026-10-27 — Playlist editor must overlay at full column width
+  - User reported that the initial floating-editor layout instead created a
+    second grid column, squeezing the playlist and rendering the editor beside
+    it. The editor and playlist are now explicitly placed in the same sole grid
+    column and row, so the editor anchors across the full playlist width and
+    overlays the lower playlist contents until closed (`UI-009.R6.b`).
+
+- 2026-10-26 — Version 0.4.3 compatible FFmpeg scan optimization
+  - User requested faster bulk processing for Tanda Forge's core jobs while
+    explicitly leaving Lighting and audio-similarity analysis unchanged.
+  - New/changed tracks needing analysis and waveform generation now share one
+    FFmpeg decode via `asplit`, retaining the established `silencedetect`,
+    `loudnorm`, and `showwavespic` parameters and a fallback to the independent
+    commands. Library work is bounded to two concurrent tracks (`ARCH-002.R3`).
+  - The persisted analysis pipeline version deliberately remains unchanged so
+    complete existing libraries are reused after installing 0.4.3 and no
+    upgrade-triggered rescan is required.
+
+- 2026-10-26 — Interactive diagnostics trim review
+  - User requested an actionable table for suspiciously short and excessively
+    trimmed tracks, including source/trimmed audition, full waveform seeking,
+    movable measured trim points, acknowledgement, and deletion.
+  - Added the review workflow under Diagnostics (`UI-009.R3.c`): proposed trims
+    require an explicit save, persist independently of measured analysis and
+    survive scans; reset restores the latest measurement; OK acknowledges only
+    the current issue signature; deletion reuses the established safe flow.
+- 2026-10-26 — User reported that `Available` still offered D'Arienzo tango
+  tandas while a D'Arienzo tango was already in the playlist. Live library
+  inspection showed `Tango` versus `Tango - Traditional` metadata. Availability
+  grouping now uses canonical orchestra plus base style family, treating those
+  as the same Tango group while retaining distinct Tango/Waltz/Milonga groups
+  (`UI-082.R15`).
+- 2026-10-26 — User reported the equivalent `Available` mismatch for Carlos Di
+  Sarli. The candidate tandas use the imported orchestra credit `Carlos Di
+  Sarli Instrumental`, which did not match the playlist's `Carlos Di Sarli`.
+  Orchestra canonicalisation now ignores the vocal-status suffix
+  `Instrumental` for all orchestra identities (`UI-082.R15.c`).
+- 2026-10-26 — User requested schedule context when filtering playlist contents
+  by orchestra, because matching tandas are only concerning when close together.
+  Filtered playlist results now place a localized predicted-start divider before
+  each matching tanda, including when enabled cortinas hide their normal timeline
+  rows (`UI-014.R29`).
+- 2026-10-26 — User requested that the Remaining Tandas and live-performance
+  stop controls stay anchored at the bottom of the screen rather than following
+  playlist content, with readable spacing. They now occupy a dedicated fixed
+  playlist-panel footer while only the playlist rows scroll (`UI-009.R6.a`).
+- 2026-10-26 — Exact-recall audio-similarity comparison optimisation
+  - User requested faster audio-similarity comparison while requiring that no
+    currently detected similarities be missed. Approximate hashes were rejected
+    as the sole exclusion gate because they cannot provide that guarantee.
+  - The matcher now uses exact duration-range indexing and allocation-free
+    rotated chroma comparison. Exhaustive-oracle regression coverage requires
+    identical candidates, scores, ordering, and cooperative results at duration
+    boundaries (`ASV-002A`).
+
+- 2026-10-26 — Display-board tanda subtype labels
+  - User reported that the display board showed only `Tango` for a tanda whose
+    tracks were all marked `Tango - Contemporary`.
+  - Display labels now preserve a unanimous full subtype. If track styles vary,
+    they show each distinct base style once, so Contemporary plus Electronic
+    Tango displays as `Tango`, while mixed Tango and Waltz displays as
+    `Tango, Waltz` (`UI-060.R16.b`).
+
+- 2026-10-27 — Identical groups use one search result
+  - User clarified that normal track search should render only the elected
+    master from a DJ-confirmed identical group. Other confirmed similarity
+    classes remain individual results and retain their assignment chooser
+    (`ASR-086`).
+
+- 2026-10-27 — Same-recording versions also use one search result
+  - User extended search canonicalisation to confirmed alternate transfers,
+    remasters, and cleaned versions of the same captured performance. Search
+    renders one representative, while assignment still opens the version
+    picker. Truly different performances remain separate (`ASR-086`).
+
+- 2026-10-27 — Reusable version numbers for audition and assignment
+  - User requested that a collapsed same-recording search result reveal all
+    versions from its headphone action. Each version now has its own headphone
+    control and a stable number reused by the assignment picker, allowing an
+    auditioned choice such as `#3` to be located immediately (`ASR-086A`).

@@ -2,7 +2,10 @@ import Database from "better-sqlite3";
 import { getDataRoot } from "./data-location";
 import path from "path";
 import fs from "fs";
-import { ensureAudioSimilaritySchema } from "./audio-similarity/store";
+import {
+  ensureAudioSimilaritySchema,
+  recoverInterruptedAudioSimilarityRuns,
+} from "./audio-similarity/store";
 
 let db: Database.Database | null = null;
 let dbPath: string | null = null;
@@ -110,6 +113,19 @@ const createSchema = (database: Database.Database) => {
       updated_at text not null
     );
 
+    create table if not exists track_trim_overrides (
+      track_id text primary key,
+      start_offset_ms integer not null,
+      end_trim_ms integer not null,
+      updated_at text not null
+    );
+
+    create table if not exists diagnostic_track_acknowledgements (
+      track_id text primary key,
+      issue_signature text not null,
+      reviewed_at text not null
+    );
+
     create index if not exists idx_tanda_tracks_tanda on tanda_tracks (tanda_id);
     create index if not exists idx_tanda_tracks_track on tanda_tracks (track_id);
     create index if not exists idx_tanda_styles_tanda on tanda_styles (tanda_id);
@@ -126,6 +142,7 @@ export const initDb = () => {
   db = new Database(dbPath);
   createSchema(db);
   ensureAudioSimilaritySchema(db);
+  recoverInterruptedAudioSimilarityRuns(db);
   try {
     db.exec("alter table library_roots add column last_scan_started_at text");
   } catch {}

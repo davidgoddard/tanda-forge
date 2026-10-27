@@ -189,15 +189,17 @@ export const verifyCachedFiles = (db: DbLike, getDataPaths: () => DataPaths) => 
 export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => DataPaths) => {
   const rows = db
     .prepare(
-      `select t.id, t.title, t.relative_path, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.loudness_db, t.gain_db,
-          t.tag_error, t.analysis_error
+      `select t.id, t.title, t.full_path, t.relative_path, t.duration_ms, t.start_offset_ms, t.end_trim_ms, t.loudness_db, t.gain_db,
+          t.tag_error, t.analysis_error, a.issue_signature as acknowledged_signature
        from tracks t
        join library_roots r on r.id = t.root_id
-       where r.kind = 'music'`,
+       left join diagnostic_track_acknowledgements a on a.track_id = t.id
+       where r.kind = 'music' and t.deleted_at is null`,
     )
     .all() as {
     id: string;
     title?: string | null;
+    full_path?: string | null;
     relative_path?: string | null;
     duration_ms?: number | null;
     start_offset_ms?: number | null;
@@ -206,6 +208,7 @@ export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => Data
     gain_db?: number | null;
     tag_error?: string | null;
     analysis_error?: string | null;
+    acknowledged_signature?: string | null;
   }[];
   const { waveformsDir } = getDataPaths();
   const waveformTrackIds = new Set<string>();
@@ -268,18 +271,29 @@ export const getDiagnosticsDataReadiness = (db: DbLike, getDataPaths: () => Data
     if (!waveformTrackIds.has(row.id)) {
       missingWaveforms += 1;
     }
+    const issueKinds: Array<"short" | "aggressive-trim"> = [];
+    if (durationMs > 0 && durationMs < SHORT_TRACK_DURATION_MS) issueKinds.push("short");
+    if (removedMs >= AGGRESSIVE_TRIM_REMOVED_MS) issueKinds.push("aggressive-trim");
+    const issueSignature = [durationMs, startOffsetMs, endTrimMs, ...issueKinds].join(":");
+    const acknowledged = row.acknowledged_signature === issueSignature;
     const suspiciousTrack = {
       id: row.id,
       title: row.title?.trim() || "(untitled)",
+      fullPath: row.full_path?.trim() || "",
       relativePath: row.relative_path?.trim() || row.id,
       durationMs,
+      startOffsetMs,
+      endTrimMs,
       effectiveDurationMs,
       removedMs,
+      issueSignature,
+      issueKinds,
+      acknowledged,
     };
-    if (durationMs > 0 && durationMs < SHORT_TRACK_DURATION_MS) {
+    if (issueKinds.includes("short")) {
       shortDurationTracks.push(suspiciousTrack);
     }
-    if (removedMs >= AGGRESSIVE_TRIM_REMOVED_MS) {
+    if (issueKinds.includes("aggressive-trim")) {
       aggressivelyTrimmedTracks.push(suspiciousTrack);
     }
   });

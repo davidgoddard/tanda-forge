@@ -2403,6 +2403,10 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect(page.locator("#playlist-stats-modal")).toHaveAttribute("aria-hidden", "true");
       await expect(page.locator('button[data-tab="playlist-tab"]')).toHaveClass(/active/);
       await expect(page.locator("#playlist-filter")).toHaveValue(/Canaro/i);
+      await expect(page.locator("#playlist-list .playlist-filter-schedule-divider")).toHaveCount(2);
+      await expect(
+        page.locator("#playlist-list .playlist-filter-schedule-divider").first(),
+      ).toContainText("Scheduled for");
 
       const milongaRow = playlistTandaRow(page, "Canaro Milonga Pack A");
       await clickRowAction(milongaRow, "send-playlist-tanda");
@@ -2595,6 +2599,19 @@ test.describe("Electron app end-to-end workflows", () => {
       await clickRowAction(searchTandaRow(page, "Tango Trio"), "tanda-edit");
       const selectedCard = page.locator("#tanda-list .tanda-card.selected").first();
       await expect(selectedCard).toBeVisible();
+      const tandaTangoPill = selectedCard
+        .locator(".tanda-style-options button", { hasText: "Tango" })
+        .first();
+      await tandaTangoPill.dispatchEvent("mousedown", { button: 0 });
+      await page.waitForTimeout(1100);
+      await tandaTangoPill.dispatchEvent("mouseup", { button: 0 });
+      await expect(page.locator(".style-variant-menu")).toBeVisible();
+      await page.locator(".style-variant-menu-item", { hasText: "Nuevo" }).click();
+      await expect(
+        selectedCard.locator(".tanda-style-options button", { hasText: "T - Nuevo" }),
+      ).toBeVisible();
+      await expect(page.locator(".style-variant-menu")).toHaveCount(0);
+      await expect(page.locator("#tanda-list .tanda-card.selected")).toBeVisible();
       let appliedSecondaryStyle = false;
       for (const label of ["Milonga", "Waltz", "Other"]) {
         const styleButton = selectedCard
@@ -3800,7 +3817,18 @@ test.describe("Electron app end-to-end workflows", () => {
       const playlistRow = playlistTandaRow(page, "Tango Trio");
       await expect(playlistRow).toBeVisible();
       await clickRowAction(playlistRow, "tanda-edit");
-      await expect(page.locator('#playlist-tanda-editor[data-state="visible"]')).toBeVisible();
+      const playlistEditor = page.locator('#playlist-tanda-editor[data-state="visible"]');
+      await expect(playlistEditor).toBeVisible();
+      const editorBox = await playlistEditor.boundingBox();
+      const playlistBox = await page.locator("#playlist-list").boundingBox();
+      const footerBox = await page.locator(".playlist-footer-controls").boundingBox();
+      expect(editorBox).not.toBeNull();
+      expect(playlistBox).not.toBeNull();
+      expect(footerBox).not.toBeNull();
+      expect(editorBox!.x).toBeCloseTo(playlistBox!.x, 0);
+      expect(editorBox!.width).toBeCloseTo(playlistBox!.width, 0);
+      expect(editorBox!.y + editorBox!.height).toBeLessThanOrEqual(footerBox!.y + 1);
+      await expect(playlistEditor).toHaveCSS("background-color", /^rgb\(/);
 
       await playlistRow.locator(".tanda-summary").click();
       const detailLine = playlistRow.locator('.tanda-detail-line[data-track-id="t1"]').first();
@@ -4550,6 +4578,30 @@ test.describe("Electron app end-to-end workflows", () => {
         .filter((tanda) => tanda.name === "Overlapping Legacy Tanda");
       expect(imported).toHaveLength(2);
       expect(new Set(imported.map((tanda) => tanda.legacy_source_id)).size).toBe(2);
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("43 - settings header remains reachable after deep workflow scrolling", async () => {
+    const launched = await launchSeededApp("empty");
+    const { page } = launched;
+    try {
+      await openSettings(page);
+      await page.locator('.settings-tabs button[data-tab="library"]').click();
+      await page.locator(".settings-content").evaluate((content) => {
+        content.scrollTop = content.scrollHeight;
+      });
+      await page.locator("#settings-panel .settings-section").last().evaluate((section) => {
+        section.scrollIntoView({ block: "start" });
+      });
+
+      const panelBox = await page.locator("#settings-panel").boundingBox();
+      const closeBox = await page.locator("#close-settings").boundingBox();
+      expect(panelBox?.y).toBeGreaterThanOrEqual(0);
+      expect(closeBox?.y).toBeGreaterThanOrEqual(panelBox?.y ?? 0);
+      await expect(page.locator("#close-settings")).toBeInViewport();
+      await closeSettings(page);
     } finally {
       await launched.close();
     }

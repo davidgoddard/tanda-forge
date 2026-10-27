@@ -29,6 +29,11 @@ identified as `ARCH-<section>.R<n>` in order under each section. Sub-bullets use
   process.
 - ARCH-002.R2: The main process resolves the correct binary for the platform at
   runtime.
+- ARCH-002.R3: When a library track requires both core audio analysis and a
+  waveform, the scanner uses one FFmpeg decode with separate filter branches
+  for silence/loudness and waveform generation. Scans use bounded cross-track
+  concurrency. Existing complete analysis remains reusable across application
+  upgrades unless its analysis pipeline version changes.
 
 ## Local Storage
 

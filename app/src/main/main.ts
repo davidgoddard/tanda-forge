@@ -1192,8 +1192,8 @@ const registerIpc = () => {
     }
     const db = getDb();
     const roots = db
-      .prepare("select id, kind, path, label from library_roots")
-      .all() as LibraryRoot[];
+      .prepare("select id, kind, path, label, created_at as createdAt from library_roots")
+      .all() as Array<LibraryRoot & { createdAt: string }>;
     const detected = detectLegacyFromRoots(roots);
     return detected
       ? { available: true, rootPath: detected.rootPath }
@@ -2466,6 +2466,94 @@ const registerIpc = () => {
 
   ipcMain.handle("diagnostics:getDataReadiness", async () => {
     return getDiagnosticsDataReadiness(getDb(), getDataPaths);
+  });
+
+  ipcMain.handle(
+    "diagnostics:acknowledgeTrack",
+    async (_event, payload: { id?: string; issueSignature?: string }) => {
+      if (!payload?.id || !payload.issueSignature) return { ok: false };
+      getDb().prepare(`
+        insert into diagnostic_track_acknowledgements (track_id, issue_signature, reviewed_at)
+        values (?, ?, ?)
+        on conflict(track_id) do update set
+          issue_signature=excluded.issue_signature, reviewed_at=excluded.reviewed_at
+      `).run(payload.id, payload.issueSignature, new Date().toISOString());
+      return { ok: true };
+    },
+  );
+
+  ipcMain.handle(
+    "diagnostics:saveTrackTrim",
+    async (_event, payload: { id?: string; startOffsetMs?: number; endTrimMs?: number }) => {
+      const row = payload?.id
+        ? getDb().prepare("select duration_ms from tracks where id = ? and deleted_at is null")
+            .get(payload.id) as { duration_ms?: number } | undefined
+        : undefined;
+      const durationMs = row?.duration_ms ?? 0;
+      const startOffsetMs = Math.round(payload?.startOffsetMs ?? -1);
+      const endTrimMs = Math.round(payload?.endTrimMs ?? -1);
+      if (!row || !Number.isFinite(durationMs) || durationMs <= 0
+        || !Number.isFinite(startOffsetMs) || !Number.isFinite(endTrimMs)
+        || startOffsetMs < 0 || endTrimMs < 0 || startOffsetMs + endTrimMs >= durationMs) {
+        return { ok: false };
+      }
+      const database = getDb();
+      database.transaction(() => {
+        database.prepare(`
+          insert into track_trim_overrides (track_id, start_offset_ms, end_trim_ms, updated_at)
+          values (?, ?, ?, ?)
+          on conflict(track_id) do update set start_offset_ms=excluded.start_offset_ms,
+            end_trim_ms=excluded.end_trim_ms, updated_at=excluded.updated_at
+        `).run(payload.id, startOffsetMs, endTrimMs, new Date().toISOString());
+        database.prepare(`update tracks set start_offset_ms = ?, end_trim_ms = ?, updated_at = ? where id = ?`)
+          .run(startOffsetMs, endTrimMs, new Date().toISOString(), payload.id);
+        database.prepare(`
+          update tandas set total_duration_ms = (
+            select coalesce(sum(max(0, tr.duration_ms - coalesce(tr.start_offset_ms, 0) - coalesce(tr.end_trim_ms, 0))), 0)
+            from tanda_tracks tt join tracks tr on tr.id = tt.track_id where tt.tanda_id = tandas.id
+          ) where id in (select tanda_id from tanda_tracks where track_id = ?)
+        `).run(payload.id);
+        database.prepare("delete from diagnostic_track_acknowledgements where track_id = ?").run(payload.id);
+      })();
+      return { ok: true };
+    },
+  );
+
+  ipcMain.handle("diagnostics:resetTrackTrim", async (_event, id: string) => {
+    const row = getDb().prepare(`
+      select analysis_json, start_offset_ms, end_trim_ms
+      from tracks where id = ? and deleted_at is null
+    `).get(id) as {
+      analysis_json?: string;
+      start_offset_ms?: number;
+      end_trim_ms?: number;
+    } | undefined;
+    if (!row) return { ok: false };
+    let measured = {
+      startOffsetMs: Math.max(0, Math.round(row.start_offset_ms ?? 0)),
+      endTrimMs: Math.max(0, Math.round(row.end_trim_ms ?? 0)),
+    };
+    try {
+      const parsed = JSON.parse(row.analysis_json ?? "{}") as Partial<typeof measured>;
+      measured = {
+        startOffsetMs: Math.max(0, Math.round(parsed.startOffsetMs ?? measured.startOffsetMs)),
+        endTrimMs: Math.max(0, Math.round(parsed.endTrimMs ?? measured.endTrimMs)),
+      };
+    } catch {}
+    const database = getDb();
+    database.transaction(() => {
+      database.prepare("delete from track_trim_overrides where track_id = ?").run(id);
+      database.prepare(`update tracks set start_offset_ms = ?, end_trim_ms = ?, updated_at = ? where id = ?`)
+        .run(measured.startOffsetMs, measured.endTrimMs, new Date().toISOString(), id);
+      database.prepare(`
+        update tandas set total_duration_ms = (
+          select coalesce(sum(max(0, tr.duration_ms - coalesce(tr.start_offset_ms, 0) - coalesce(tr.end_trim_ms, 0))), 0)
+          from tanda_tracks tt join tracks tr on tr.id = tt.track_id where tt.tanda_id = tandas.id
+        ) where id in (select tanda_id from tanda_tracks where track_id = ?)
+      `).run(id);
+      database.prepare("delete from diagnostic_track_acknowledgements where track_id = ?").run(id);
+    })();
+    return { ok: true, ...measured };
   });
 
   ipcMain.handle(

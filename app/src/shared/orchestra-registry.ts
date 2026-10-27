@@ -18,6 +18,7 @@ const ORCHESTRA_STOP_WORDS = [
   "tipica",
   "tipica",
   "tango",
+  "instrumental",
   "de",
   "del",
   "la",

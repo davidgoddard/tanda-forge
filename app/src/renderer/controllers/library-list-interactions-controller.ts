@@ -46,6 +46,7 @@ export type LibraryListInteractionsControllerDeps = {
       track: any,
       gainDb: number | null,
     ) => Promise<any>;
+    previewSearchTrackOnHeadphones?: (track: any) => Promise<void>;
     playTrackForMode: (track: any, data: TrackData) => Promise<any>;
     updateHeadphoneButtonIndicators: () => void;
     addTrackToClipboard: (track: any) => void;
@@ -256,6 +257,11 @@ export const createLibraryListInteractionsController = (
         return;
       }
       if (action === "headphone" && deps.readers.isHeadphoneAvailable()) {
+        if (deps.actions.previewSearchTrackOnHeadphones) {
+          await deps.actions.previewSearchTrackOnHeadphones(track);
+          deps.actions.closeRowMenus();
+          return;
+        }
         await deps.actions.playOnChannel(
           "headphone",
           data.filePath,

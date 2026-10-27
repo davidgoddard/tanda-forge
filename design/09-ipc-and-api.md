@@ -68,6 +68,9 @@ identified as `IPC-<section>.R<n>` in order under each section. Sub-bullets use
 - IPC-003.R5.g: `app:close(): void`
 - IPC-003.R5.h: `app:logClientError(payload): void`
 - IPC-003.R5.i: `diagnostics:getDataReadiness(): { totalTracks, missingDuration, missingLoudness, missingTrimSignals, analysisErrors, missingWaveforms }`
+- IPC-003.R5.j: Diagnostics may acknowledge a current track-length issue, save
+  validated manual trim offsets, or reset offsets to the latest measured
+  analysis. These operations do not rewrite the source audio.
 - IPC-003.R5.j: `app:getReleaseUpdateInfo(): { currentVersion, latestVersion, releasesUrl } | null`
 - IPC-003.R5.k: `app:openReleasePage(url?): { ok, error? }`
 

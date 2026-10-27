@@ -123,6 +123,22 @@ const extractChroma = (samples: Int16Array) => {
 const rotate = (values: number[], shift: number) =>
   values.map((_, index) => values[(index + shift) % values.length]);
 
+const cosineRotated = (left: number[], right: number[], shift: number) => {
+  let dot = 0;
+  let leftMagnitude = 0;
+  let rightMagnitude = 0;
+  const length = Math.min(left.length, right.length);
+  for (let index = 0; index < length; index += 1) {
+    const leftValue = left[index];
+    const rightValue = right[(index + shift) % right.length];
+    dot += leftValue * rightValue;
+    leftMagnitude += leftValue * leftValue;
+    rightMagnitude += rightValue * rightValue;
+  }
+  const denominator = Math.sqrt(leftMagnitude * rightMagnitude);
+  return denominator > 0 ? Math.max(-1, Math.min(1, dot / denominator)) : 0;
+};
+
 const averageChroma = (frames: number[][]) =>
   normalise(Array.from({ length: 12 }, (_, note) =>
     frames.reduce((sum, frame) => sum + frame[note], 0),
@@ -151,7 +167,7 @@ const bestRotatedSequenceScore = (left: number[][], right: number[][]) => {
   let bestShift = 0;
   for (let shift = 0; shift < 12; shift += 1) {
     const score = left.reduce(
-      (sum, frame, index) => sum + cosine(frame, rotate(right[index] ?? [], shift)),
+      (sum, frame, index) => sum + cosineRotated(frame, right[index] ?? [], shift),
       0,
     ) / Math.max(1, left.length);
     if (score > bestScore) {
@@ -170,7 +186,7 @@ export const compareComparableAudioFeatures = (
   const chroma = bestRotatedSequenceScore(left.chroma, right.chroma);
   const transitionScore = Math.max(0, left.transition.reduce(
     (sum, frame, index) =>
-      sum + cosine(frame, rotate(right.transition[index] ?? [], chroma.shift)),
+      sum + cosineRotated(frame, right.transition[index] ?? [], chroma.shift),
     0,
   ) / Math.max(1, left.transition.length));
   const coarseScore = Math.max(0, cosine(left.coarse, right.coarse));
@@ -191,16 +207,67 @@ export type AudioSimilarityMatch = AudioSimilarityComparison & {
   rightTrackId: string;
 };
 
+const lowerBoundDuration = (
+  durations: Array<{ duration: number; index: number }>,
+  target: number,
+) => {
+  let low = 0;
+  let high = durations.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (durations[middle].duration < target) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+};
+
+const upperBoundDuration = (
+  durations: Array<{ duration: number; index: number }>,
+  target: number,
+) => {
+  let low = 0;
+  let high = durations.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (durations[middle].duration <= target) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+};
+
+const buildDurationIndex = (records: ComparableAudioRecord[]) => records
+  .map((record, index) => ({ duration: record.effectiveDurationMs, index }))
+  .sort((left, right) => left.duration - right.duration || left.index - right.index);
+
+const durationCompatibleRightIndices = (
+  records: ComparableAudioRecord[],
+  durations: ReturnType<typeof buildDurationIndex>,
+  leftIndex: number,
+) => {
+  const duration = records[leftIndex].effectiveDurationMs;
+  const boundaryMargin = Math.max(1, Math.abs(duration)) * 1e-12;
+  const first = lowerBoundDuration(durations, duration / 1.39 - boundaryMargin);
+  const last = upperBoundDuration(durations, duration / 0.72 + boundaryMargin);
+  const result: number[] = [];
+  for (let position = first; position < last; position += 1) {
+    const rightIndex = durations[position].index;
+    if (rightIndex <= leftIndex) continue;
+    const durationRatio = duration / records[rightIndex].effectiveDurationMs;
+    if (durationRatio < 0.72 || durationRatio > 1.39) continue;
+    result.push(rightIndex);
+  }
+  return result.sort((left, right) => left - right);
+};
+
 export const findComparableAudioMatches = (
   records: ComparableAudioRecord[],
   threshold = 0.79,
 ) => {
   const matches: AudioSimilarityMatch[] = [];
   let candidatePairs = 0;
+  const durations = buildDurationIndex(records);
   for (let left = 0; left < records.length; left += 1) {
-    for (let right = left + 1; right < records.length; right += 1) {
-      const durationRatio = records[left].effectiveDurationMs / records[right].effectiveDurationMs;
-      if (durationRatio < 0.72 || durationRatio > 1.39) continue;
+    for (const right of durationCompatibleRightIndices(records, durations, left)) {
       if (cosine(records[left].features.coarse, records[right].features.coarse) < 0.35) continue;
       candidatePairs += 1;
       const comparison = compareComparableAudioFeatures(
@@ -216,6 +283,50 @@ export const findComparableAudioMatches = (
       }
     }
   }
+  return { candidatePairs, matches };
+};
+
+export const findComparableAudioMatchesCooperatively = async (
+  records: ComparableAudioRecord[],
+  signal: AbortSignal,
+  threshold = 0.79,
+  maximumBlockingMs = 12,
+  progress?: (pairsProcessed: number, totalPairs: number) => void,
+) => {
+  const matches: AudioSimilarityMatch[] = [];
+  let candidatePairs = 0;
+  let pairsProcessed = 0;
+  const totalPairs = records.length * (records.length - 1) / 2;
+  const durations = buildDurationIndex(records);
+  let yieldAt = Date.now() + maximumBlockingMs;
+  for (let left = 0; left < records.length; left += 1) {
+    const rowStart = pairsProcessed;
+    for (const right of durationCompatibleRightIndices(records, durations, left)) {
+      if (signal.aborted) throw new Error("Analysis was cancelled.");
+      if (cosine(records[left].features.coarse, records[right].features.coarse) >= 0.35) {
+        candidatePairs += 1;
+        const comparison = compareComparableAudioFeatures(
+          records[left].features,
+          records[right].features,
+        );
+        if (comparison.score >= threshold) {
+          matches.push({
+            leftTrackId: records[left].trackId,
+            rightTrackId: records[right].trackId,
+            ...comparison,
+          });
+        }
+      }
+      if (Date.now() >= yieldAt) {
+        progress?.(Math.min(totalPairs, rowStart + right - left), totalPairs);
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        if (signal.aborted) throw new Error("Analysis was cancelled.");
+        yieldAt = Date.now() + maximumBlockingMs;
+      }
+    }
+    pairsProcessed = rowStart + records.length - left - 1;
+  }
+  progress?.(pairsProcessed, totalPairs);
   return { candidatePairs, matches };
 };
 

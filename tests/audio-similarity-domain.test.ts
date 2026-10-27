@@ -16,6 +16,7 @@ import {
   replicateAudioSimilarityMetadata,
   replaceAudioSimilarityTandaTrack,
   replaceAudioSimilarityTandaReferences,
+  recoverInterruptedAudioSimilarityRuns,
   setTrackHidden,
   undoAudioSimilarityMetadata,
   withdrawConfirmedAudioSimilarityGroup,
@@ -142,12 +143,17 @@ describe("audio similarity persistence", () => {
     const search = fs.readFileSync(
       path.join(process.cwd(), "app/src/main/library/search.ts"), "utf8",
     );
+    const searchConfig = fs.readFileSync(
+      path.join(process.cwd(), "app/src/main/search-config.ts"), "utf8",
+    );
     const tandas = fs.readFileSync(
       path.join(process.cwd(), "app/src/main/library/tandas.ts"), "utf8",
     );
     expect(html).toContain('id="open-audio-similarity"');
     expect(html).toContain('id="audio-similarity-page"');
-    expect(search).toContain("not exists (select 1 from hidden_tracks");
+    expect(search).toContain("buildSearchVisibilityWhere()");
+    expect(searchConfig).toContain("not exists (select 1 from hidden_tracks");
+    expect(searchConfig).toContain("search_group.relationship_type in ('identical', 'same-recording')");
     expect(tandas).toContain("join hidden_tracks");
   });
 
@@ -342,6 +348,24 @@ describe("audio similarity persistence", () => {
       orphanedFeatures: 1,
       orphanedConfirmedMembers: 1,
       healthy: false,
+    });
+    database.close();
+  });
+
+  it("recovers an interrupted run instead of leaving report generation disabled", () => {
+    const database = createDatabase();
+    database.prepare(`insert into audio_similarity_runs
+      (id, algorithm_version, status, started_at, total_tracks, processed_tracks)
+      values ('interrupted', ?, 'running', '2026-10-26T07:59:20.383Z', 3658, 3658)`)
+      .run(AUDIO_SIMILARITY_ALGORITHM_VERSION);
+
+    recoverInterruptedAudioSimilarityRuns(database as never);
+    expect(getAudioSimilarityStatus(database as never)).toMatchObject({
+      runId: "interrupted",
+      state: "failed",
+      totalTracks: 3658,
+      processedTracks: 3658,
+      error: "Analysis was interrupted before it completed. Generate the report again.",
     });
     database.close();
   });

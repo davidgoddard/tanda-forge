@@ -579,6 +579,43 @@ export const hasUsableWaveformPng = (outputPath: string) => {
   }
 };
 
+export type TrackAnalysisWithWaveform = {
+  analysis: TrackAnalysis;
+  waveformError?: string;
+};
+
+export const buildCombinedAnalysisWaveformArgs = (
+  filePath: string,
+  outputPath: string,
+) => [
+  "-v",
+  "info",
+  "-nostats",
+  "-y",
+  "-i",
+  filePath,
+  "-filter_complex",
+  [
+    "[0:a:0]asplit=2[analysis][waveform]",
+    `[analysis]${buildSilenceDetectFilter()},loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json[analysis_out]`,
+    "[waveform]showwavespic=s=1200x240:colors=white[waveform_out]",
+  ].join(";"),
+  "-map",
+  "[analysis_out]",
+  "-f",
+  "null",
+  "-",
+  "-map",
+  "[waveform_out]",
+  "-frames:v",
+  "1",
+  "-f",
+  "image2",
+  "-c:v",
+  "png",
+  outputPath,
+];
+
 type OfflineCompressionRequest = {
   loudnessDb?: number | null;
   depthPercent: number;
@@ -925,5 +962,85 @@ export const analyzeTrack = async (
     gainDb: analysisResult.gainDb,
     error: analysisError,
     pipelineVersion: ANALYSIS_PIPELINE_VERSION,
+  };
+};
+
+export const analyzeTrackAndRenderWaveform = async (
+  filePath: string,
+  outputPath: string,
+  prefetchedDurationMs?: number,
+): Promise<TrackAnalysisWithWaveform> => {
+  const tempOutputPath = `${outputPath}.${process.pid}.tmp`;
+  const { binary, fallback } = resolveFfmpeg();
+  const args = buildCombinedAnalysisWaveformArgs(filePath, tempOutputPath);
+  const commands = binary === fallback ? [binary] : [binary, fallback];
+  const failures: unknown[] = [];
+
+  try {
+    fs.rmSync(tempOutputPath, { force: true });
+    for (const command of commands) {
+      const result = await runCommandAllowFailure(command, args).catch((error) => {
+        failures.push(error);
+        return null;
+      });
+      if (!result) continue;
+      if (result.code !== 0) {
+        failures.push(new Error(result.stderr || `FFmpeg exited with code ${result.code}`));
+        continue;
+      }
+
+      const parsedSilence = parseSilenceDetectOutput(result.stderr);
+      const parsedLoudness = parseLoudnessJson(result.stderr);
+      const durationMs = typeof prefetchedDurationMs === "number"
+        ? prefetchedDurationMs
+        : (await readTrackMetadata(filePath)).durationMs;
+      const { startOffsetMs, endTrimMs } = deriveTrimOffsetsFromSilence(
+        durationMs,
+        parsedSilence.silenceStarts,
+        parsedSilence.silenceEnds,
+      );
+      fs.renameSync(tempOutputPath, outputPath);
+      return {
+        analysis: {
+          durationMs,
+          startOffsetMs,
+          endTrimMs,
+          loudnessDb: parsedLoudness.loudnessDb,
+          gainDb: parsedLoudness.gainDb,
+          pipelineVersion: ANALYSIS_PIPELINE_VERSION,
+        },
+      };
+    }
+  } finally {
+    try {
+      fs.rmSync(tempOutputPath, { force: true });
+    } catch {
+      // Ignore best-effort temp cleanup failures.
+    }
+  }
+
+  // Preserve the former independent failure behaviour for unusual codecs or
+  // FFmpeg builds that cannot run the combined graph.
+  const [analysisSettled, waveformSettled] = await Promise.allSettled([
+    analyzeTrack(filePath, prefetchedDurationMs),
+    renderWaveformPng(filePath, outputPath),
+  ]);
+  const analysis = analysisSettled.status === "fulfilled"
+    ? analysisSettled.value
+    : {
+        durationMs: prefetchedDurationMs ?? 0,
+        startOffsetMs: 0,
+        endTrimMs: 0,
+        error: formatCommandAttemptErrors(
+          failures[0] ?? new Error("Combined analysis failed"),
+          analysisSettled.reason,
+        ),
+        pipelineVersion: ANALYSIS_PIPELINE_VERSION,
+      };
+  return {
+    analysis,
+    waveformError: waveformSettled.status === "rejected"
+      ? commandErrorMessage(waveformSettled.reason)
+      : undefined,
   };
 };

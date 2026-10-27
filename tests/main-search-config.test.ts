@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSearchVisibilityWhere,
   buildStyleWhere,
   getPrefixForTrack,
   getSortKeyForTrack,
@@ -10,14 +11,14 @@ import {
 describe("search-config", () => {
   it("buildStyleWhere defaults to music root constraint", () => {
     expect(buildStyleWhere([])).toEqual({
-      whereSql: "where r.kind = 'music' and t.deleted_at is null",
+      whereSql: `where r.kind = 'music' and t.deleted_at is null${buildSearchVisibilityWhere()}`,
       values: [],
     });
   });
 
   it("buildStyleWhere appends genre placeholders for style filters", () => {
     expect(buildStyleWhere(["Tango", "Milonga"])).toEqual({
-      whereSql: "where r.kind = 'music' and t.deleted_at is null and t.genre in (?, ?)",
+      whereSql: `where r.kind = 'music' and t.deleted_at is null${buildSearchVisibilityWhere()} and t.genre in (?, ?)`,
       values: ["Tango", "Milonga"],
     });
   });

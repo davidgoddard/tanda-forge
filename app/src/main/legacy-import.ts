@@ -14,6 +14,41 @@ import type { LibraryRoot } from "./library/scan";
 import type { TandaSavePayload } from "./library/tandas";
 import { saveTanda } from "./library/tandas";
 import { getDb } from "./db";
+import { ANALYSIS_PIPELINE_VERSION } from "./library/analysis";
+
+type ExistingLegacyImportTrack = {
+  file_hash?: string;
+  file_size?: number;
+  file_mtime_ms?: number;
+  duration_ms?: number;
+  start_offset_ms?: number;
+  end_trim_ms?: number;
+  loudness_db?: number | null;
+  gain_db?: number | null;
+  tag_error?: string;
+  analysis_error?: string;
+  tag_json?: string;
+  analysis_json?: string;
+};
+
+export const shouldPreserveCurrentAnalysisOnLegacyImport = (
+  existing: ExistingLegacyImportTrack | undefined,
+  stat: { size: number; mtimeMs: number },
+) => {
+  if (!existing || existing.file_size !== stat.size
+    || existing.file_mtime_ms !== Math.floor(stat.mtimeMs)
+    || existing.tag_error || existing.analysis_error
+    || !Number.isFinite(existing.duration_ms) || (existing.duration_ms ?? 0) <= 0
+    || !Number.isFinite(existing.loudness_db) || !Number.isFinite(existing.gain_db)) {
+    return false;
+  }
+  try {
+    const analysis = JSON.parse(existing.analysis_json ?? "{}") as { pipelineVersion?: unknown };
+    return analysis.pipelineVersion === ANALYSIS_PIPELINE_VERSION;
+  } catch {
+    return false;
+  }
+};
 
 export type LegacyDetection = {
   rootPath: string;
@@ -153,8 +188,18 @@ export const detectLegacyRoot = (candidatePath: string): LegacyDetection | null 
   };
 };
 
-export const detectLegacyFromRoots = (roots: LibraryRoot[]) => {
-  for (const root of roots) {
+type LegacyDetectionRoot = LibraryRoot & { createdAt?: string };
+
+export const detectLegacyFromRoots = (roots: LegacyDetectionRoot[]) => {
+  const newestFirst = roots
+    .map((root, index) => ({ root, index }))
+    .sort((left, right) => {
+      const byCreatedAt = (right.root.createdAt ?? "").localeCompare(
+        left.root.createdAt ?? "",
+      );
+      return byCreatedAt || left.index - right.index;
+    });
+  for (const { root } of newestFirst) {
     const detected = detectLegacyRoot(root.path);
     if (detected) {
       return detected;
@@ -519,7 +564,8 @@ const importLegacyTracks = async (
   });
   const selectStmt = db.prepare(
     `select id, title, artist, album, year, genre, bpm, notes, singer, instrumental, created_at,
-        duration_ms, start_offset_ms, end_trim_ms, loudness_db, gain_db
+        file_hash, file_size, file_mtime_ms, duration_ms, start_offset_ms, end_trim_ms,
+        loudness_db, gain_db, tag_error, analysis_error, tag_json, analysis_json
      from tracks where root_id = ? and relative_path = ?`,
   );
   const insertStmt = db.prepare(
@@ -593,11 +639,18 @@ const importLegacyTracks = async (
             singer?: string;
             instrumental?: number | null;
             created_at?: string;
+            file_hash?: string;
+            file_size?: number;
+            file_mtime_ms?: number;
             duration_ms?: number;
             start_offset_ms?: number;
             end_trim_ms?: number;
             loudness_db?: number | null;
             gain_db?: number | null;
+            tag_error?: string;
+            analysis_error?: string;
+            tag_json?: string;
+            analysis_json?: string;
           }
         | undefined;
       const title =
@@ -645,12 +698,15 @@ const importLegacyTracks = async (
       const maxDuration = Math.max(0, durationMs);
       const safeStartOffset = Math.min(Math.max(0, startOffsetMs), maxDuration);
       const safeEndTrim = Math.min(Math.max(0, endTrimMs), maxDuration);
+      const preserveCurrentAnalysis = shouldPreserveCurrentAnalysisOnLegacyImport(existing, stat);
       const nowRow = {
         id: existing?.id ?? randomUUID(),
         root_id: root.id,
         relative_path: relativePath,
         full_path: fullPath,
-        file_hash: buildLegacyFileHash(stat),
+        file_hash: preserveCurrentAnalysis && existing?.file_hash
+          ? existing.file_hash
+          : buildLegacyFileHash(stat),
         file_size: stat.size,
         file_mtime_ms: Math.floor(stat.mtimeMs),
         title,
@@ -664,23 +720,27 @@ const importLegacyTracks = async (
         notes,
         instrumental:
           instrumental === null ? null : instrumental ? 1 : 0,
-        duration_ms: maxDuration,
-        start_offset_ms: safeStartOffset,
-        end_trim_ms: safeEndTrim,
-        loudness_db: loudnessDb,
-        gain_db: gainDb,
-        tag_error: "",
-        analysis_error: "legacy_import_pending_scan",
-        tag_json: "{}",
-        analysis_json: JSON.stringify({
-          durationMs: maxDuration,
-          startOffsetMs: safeStartOffset,
-          endTrimMs: safeEndTrim,
-          loudnessDb,
-          gainDb,
-          source: "legacy-import",
-          error: "",
-        }),
+        duration_ms: preserveCurrentAnalysis ? existing?.duration_ms : maxDuration,
+        start_offset_ms: preserveCurrentAnalysis ? existing?.start_offset_ms : safeStartOffset,
+        end_trim_ms: preserveCurrentAnalysis ? existing?.end_trim_ms : safeEndTrim,
+        loudness_db: preserveCurrentAnalysis ? existing?.loudness_db : loudnessDb,
+        gain_db: preserveCurrentAnalysis ? existing?.gain_db : gainDb,
+        tag_error: preserveCurrentAnalysis ? existing?.tag_error ?? "" : "",
+        analysis_error: preserveCurrentAnalysis
+          ? existing?.analysis_error ?? ""
+          : "legacy_import_pending_scan",
+        tag_json: preserveCurrentAnalysis ? existing?.tag_json ?? "{}" : "{}",
+        analysis_json: preserveCurrentAnalysis
+          ? existing?.analysis_json ?? "{}"
+          : JSON.stringify({
+              durationMs: maxDuration,
+              startOffsetMs: safeStartOffset,
+              endTrimMs: safeEndTrim,
+              loudnessDb,
+              gainDb,
+              source: "legacy-import",
+              error: "",
+            }),
         created_at: existing?.created_at ?? now,
         updated_at: now,
         last_scanned_at: now,

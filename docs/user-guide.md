@@ -166,6 +166,11 @@ Across the top are:
 - Contents filter - to help see all tandas by one orchestra for example
 - Clear button - clear only or clear and auto-fill
 
+While the contents filter is active, a **Scheduled for** divider before each
+matching tanda keeps its predicted start time visible. This makes it easy to see
+whether repeated orchestras are consecutive or separated across the evening,
+even though the intervening tandas and cortinas are hidden.
+
 Cortinas if used will be displayed between tandas and if clicked on will open the cortina picker to allow manual selection.
 
 Tandas show their overall style letter and then the name of the tanda if specified followed by a summary of the artist composition, whether sung, the years of the tracks in the tanda, the range of tempos in the tanda and the duration of the tanda.
@@ -753,6 +758,13 @@ In **Settings -> Library**, the controls are grouped by purpose and tied togethe
   - If the database is empty, it will now tell you to import legacy data or run a scan first.
   - A zero-trim result is informational: it means no qualifying leading or
     trailing silence was detected, and it does not prevent readiness.
+  - Diagnostics lists unusually short or heavily trimmed tracks for review.
+    Select a track to see its full waveform, audition the original or proposed
+    trimmed playback, or preview its opening and ending. Drag the start/end
+    controls and choose **Save trims** to override the measured points without
+    modifying the audio file. **Reset to measured** restores the last scan result;
+    **OK** hides only the current warning, while **Delete track** uses the normal
+    recoverable track-removal workflow.
   - The result includes compressed-audio eligible, ready, and missing counts so
     a missing compressed companion cannot be hidden behind a generic failure.
   - If loudness or gain is incomplete for an otherwise unchanged track, the next
@@ -841,8 +853,13 @@ Check **Settings → Diagnostics** for:
 Tanda Forge 0.4.0 adds a local audio-similarity report. Open **Settings →
 Library → Audio similarity report**, then choose **Generate report**. The first
 run decodes each active music track after its saved start/end trims; later runs
-reuse unchanged analysis data. You can leave the report open to see progress or
-cancel it. An unreadable track is reported without discarding successful work.
+reuse unchanged analysis data while analysing newly imported or changed tracks.
+The report enters its progress state as soon as generation starts, and you can
+leave it open to see progress or cancel it. Large-library comparison runs in
+short cooperative batches so the application remains usable while it works.
+The status changes from track analysis to a pair-comparison percentage, then
+explicitly confirms when report generation is complete. An unreadable track is
+reported without discarding successful work.
 
 ![Audio-similarity candidate groups and matching controls](../images/user-guide/17-audio-similarity-matching.png)
 
@@ -877,6 +894,17 @@ exclusions even when their titles or orchestras differ. Manual playlist changes
 remain unblocked. Holding a duplicate icon shows only corresponding playlist
 entries and leaves that focused view in place. Choose **Show all** or press
 Escape to restore the full playlist.
+
+Normal track search shows only the elected master from a confirmed **Identical
+versions** group. Confirmed transfers, remasters, or cleaned versions of the
+same recording also occupy one search result; assigning it opens the version
+picker so the preferred recording can still be chosen. Different performances
+remain separate search results.
+
+Using the headphone button on a same-recording search result opens all available
+versions, each with its own headphone button and stable number. The assignment
+picker presents the same numbered order, so a version auditioned as, for
+example, **#3** can be selected immediately when adding the track to a tanda.
 
 A normal click on a duplicate indicator still opens and scrolls to the relevant
 playlist tanda. Tanda Forge expands it and briefly outlines the exact matching

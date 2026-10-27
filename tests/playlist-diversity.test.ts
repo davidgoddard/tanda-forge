@@ -9,6 +9,7 @@ import {
   collectEligibleArtistStyleGroups,
   isTandaArtistStyleAvailable,
   isArtistGapSatisfied,
+  normalizeAvailabilityStyleGroup,
   normalizeArtistGroupKey,
 } from "../app/src/shared/playlist-diversity.js";
 
@@ -20,6 +21,18 @@ describe("normalizeArtistGroupKey", () => {
   it("handles nullish values", () => {
     expect(normalizeArtistGroupKey(undefined)).toBe("");
     expect(normalizeArtistGroupKey(null)).toBe("");
+  });
+});
+
+describe("normalizeAvailabilityStyleGroup", () => {
+  it("groups a concrete style variant with its base style", () => {
+    expect(normalizeAvailabilityStyleGroup("Tango - Traditional")).toBe("tango");
+    expect(normalizeAvailabilityStyleGroup("Tango")).toBe("tango");
+  });
+
+  it("keeps different base styles distinct", () => {
+    expect(normalizeAvailabilityStyleGroup("Milonga - Traditional")).toBe("milonga");
+    expect(normalizeAvailabilityStyleGroup("Waltz")).toBe("waltz");
   });
 });
 
