@@ -225,7 +225,31 @@ describe("audio similarity persistence", () => {
     database.close();
   });
 
-  it("supports approval, partial rejection, detachment, reconsideration, and withdrawal", () => {
+  it("migrates released single-group membership without losing confirmations", () => {
+    const database = createDatabase();
+    database.exec(`
+      drop table audio_similarity_confirmed_members;
+      create table audio_similarity_confirmed_members (
+        group_id text not null, track_id text not null unique,
+        primary key (group_id, track_id)
+      );
+      insert into audio_similarity_confirmed_groups values
+        ('legacy', 'identical', 'a', 'now', 'now');
+      insert into audio_similarity_confirmed_members values ('legacy', 'a'), ('legacy', 'b');
+    `);
+    ensureAudioSimilaritySchema(database as never);
+    database.prepare("insert into audio_similarity_confirmed_members values (?, ?)")
+      .run("nested", "a");
+    expect(database.prepare(`select group_id as groupId, track_id as trackId
+      from audio_similarity_confirmed_members order by group_id, track_id`).all()).toEqual([
+      { groupId: "legacy", trackId: "a" },
+      { groupId: "legacy", trackId: "b" },
+      { groupId: "nested", trackId: "a" },
+    ]);
+    database.close();
+  });
+
+  it("supports hierarchical approval, explicit rejection, detachment, reconsideration, and withdrawal", () => {
     const database = createDatabase();
     ["a", "b", "c", "d"].forEach((id) => addTrack(database, id));
 
@@ -236,17 +260,19 @@ describe("audio similarity persistence", () => {
       { id: firstGroup, relationshipType: "same-composition", preferredTrackId: null, trackIds: ["a", "b"] },
     ]);
     expect(database.prepare("select left_track_id, right_track_id from audio_similarity_rejections order by 1, 2").all())
-      .toEqual([{ left_track_id: "a", right_track_id: "c" }, { left_track_id: "b", right_track_id: "c" }]);
+      .toEqual([]);
 
+    rejectAudioSimilarityPair(database as never, "a", "c");
     reconsiderAudioSimilarityPair(database as never, "c", "a");
     expect(database.prepare("select count(*) as count from audio_similarity_rejections").get())
-      .toEqual({ count: 1 });
+      .toEqual({ count: 0 });
 
     const secondGroup = confirmAudioSimilarityGroup(
       database as never, ["a", "b", "c"], "identical", "b",
     );
     detachTrackFromConfirmedAudioSimilarityGroup(database as never, secondGroup, "c", true);
-    expect(listConfirmedAudioSimilarityGroups(database as never)[0]).toMatchObject({
+    expect(listConfirmedAudioSimilarityGroups(database as never)
+      .find((group) => group.id === secondGroup)).toMatchObject({
       relationshipType: "identical", preferredTrackId: "b", trackIds: ["a", "b"],
     });
     expect(database.prepare("select count(*) as count from audio_similarity_rejections").get())
@@ -256,7 +282,27 @@ describe("audio similarity persistence", () => {
     expect(database.prepare("select count(*) as count from audio_similarity_rejections").get())
       .toEqual({ count: 3 });
     withdrawConfirmedAudioSimilarityGroup(database as never, secondGroup);
-    expect(listConfirmedAudioSimilarityGroups(database as never)).toEqual([]);
+    expect(listConfirmedAudioSimilarityGroups(database as never)).toEqual([
+      { id: firstGroup, relationshipType: "same-composition", preferredTrackId: null, trackIds: ["a", "b"] },
+    ]);
+    database.close();
+  });
+
+  it("preserves an identical subset inside a same-recording group of three or more tracks", () => {
+    const database = createDatabase();
+    ["a", "b", "c", "d"].forEach((id) => addTrack(database, id));
+    const identical = confirmAudioSimilarityGroup(database as never, ["a", "b"], "identical", "b");
+    const recording = confirmAudioSimilarityGroup(
+      database as never, ["a", "b", "c", "d"], "same-recording",
+    );
+
+    expect(listConfirmedAudioSimilarityGroups(database as never)).toEqual([
+      { id: identical, relationshipType: "identical", preferredTrackId: "b", trackIds: ["a", "b"] },
+      { id: recording, relationshipType: "same-recording", preferredTrackId: "b", trackIds: ["a", "b", "c", "d"] },
+    ]);
+    expect([...buildConfirmedAudioSimilarityLookup(
+      listConfirmedAudioSimilarityGroups(database as never),
+    ).get("a")!]).toEqual(["a", "b", "c", "d"]);
     database.close();
   });
 
@@ -289,6 +335,9 @@ describe("audio similarity persistence", () => {
       .toEqual({ title: "Old title" });
     expect(() => replicateAudioSimilarityMetadata(
       database as never, "source", ["target"], "full_path" as never,
+    )).toThrow("cannot be replicated");
+    expect(() => replicateAudioSimilarityMetadata(
+      database as never, "source", ["target"], "album" as never,
     )).toThrow("cannot be replicated");
     database.close();
   });

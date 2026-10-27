@@ -197,23 +197,27 @@ accepted into a group again after preview and confirmation.
 - **ASR-032 — Field-level transfer:** The DJ shall be able to copy selected
   editable metadata fields from one track to one or more other members without
   replacing audio or track identity.
-- **ASR-033 — Transfer preview:** Before applying metadata, the app shall show
-  source, destination, fields changing, old values, and new values.
+- **ASR-033 — Direct metadata transfer:** Selecting an editable metadata value
+  shall immediately assign it to every other member of the comparison group;
+  per-field confirmation is not required because the comparison window provides
+  session undo under ASR-035.
 - **ASR-034 — Protected technical fields:** File identity, analysis results,
   paths, duration, trims, loudness, and other source-derived fields shall not be
   overwritten through ordinary metadata transfer unless a dedicated workflow
   explicitly supports that field.
-- **ASR-035 — Undoability:** Metadata transfers shall be undoable within the
-  session or otherwise require an explicit confirmation that describes how to
-  recover the prior values.
+- **ASR-035 — Window-scoped undo stack:** Every metadata transfer made from an
+  open comparison window shall be pushed onto a last-in-first-out undo stack in
+  that window. Undo shall restore one transfer at a time. Closing the comparison
+  window shall discard its undo history; it shall not persist between sessions,
+  and no global report-level metadata undo control shall be shown.
 - **ASR-036 — Track-column comparison table:** Metadata comparison shall use a
   wide table with attribute names in a fixed left column and one subsequent
   column per matched track/file. Track headers shall remain identifiable while
   scrolling horizontally.
 - **ASR-037 — Replicate-cell action:** Selecting an editable value in the table
-  shall offer to replicate that value to all other tracks in the group. The
-  confirmation shall name the attribute, source track/value, destination
-  tracks, and every value that will change; the DJ may cancel without mutation.
+  shall replicate that value to all other tracks in the group. Album shall
+  remain visible for provenance comparison but shall not be assignable because
+  copying metadata must not move a track into another album.
 - **ASR-037A — Immediate comparison refresh:** After a metadata copy succeeds,
   the open comparison table shall be rebuilt from the persisted report so every
   changed value and equal/different highlight is immediately accurate.
@@ -369,8 +373,11 @@ listening to the complete context.
   icon shall, after a deliberate hold threshold, persistently filter the
   playlist to every tanda or standalone track containing at least one selected
   song/relationship-group match. Matches from one candidate tanda may therefore
-  retain several different playlist tandas. Applying the focus shall expand the
-  first matching tanda as needed and scroll its exact matching track into view.
+  retain several different playlist tandas. The focused view shall use the same
+  collapsed tanda-summary layout as the playlist contents filter and shall show
+  a **Scheduled for** divider with the unchanged predicted start time before
+  every matching tanda. Applying the focus shall scroll the first matching row
+  into view without expanding it.
   Releasing the pointer or key shall retain the focused view until the DJ uses
   the localized **Show all** action or dismisses it with Escape.
 - **ASR-069B — Focus interaction safety:** A short click shall retain the
@@ -381,6 +388,11 @@ listening to the complete context.
   without unexpectedly changing an already active focused view. The focused-
   view status and **Show all** control shall occupy their own interactive layout
   row above the playlist and shall not pass input through to playlist items.
+- **ASR-069C — Playlist-track playhead:** While a playlist track is playing on
+  main output, its visible standalone row or expanded tanda detail shall show a
+  moving vertical line at the current position within its effective audio range
+  after start and end trims. The marker shall not intercept interaction and
+  shall clear when that track stops or another track becomes active.
 
 ### Persistence, security, and compatibility
 
@@ -509,6 +521,29 @@ listening to the complete context.
   rejected shall move into a separately counted, localized disclosure panel
   that is closed by default. Partially reviewed groups with any pending edge
   shall remain in **To review**, and hidden-track management shall remain last.
+- **ASR-100 — Provisional master continuity:** Electing an identical-version
+  master shall remain effective while the open similarity report is refreshed,
+  including after editing and saving member metadata. The provisional election
+  may be cleared when the DJ deselects that member or leaves the report; once
+  the identical relationship is confirmed, the persisted preferred track is
+  authoritative.
+- **ASR-101 — Effective waveform duration:** Every candidate waveform shall
+  display the track's effective playback duration between its imported start
+  and end trim points in localized minutes-and-seconds form, so the DJ can
+  distinguish duration and tempo differences while comparing versions.
+- **ASR-102 — Hierarchical confirmed relationships:** A track may belong to
+  overlapping confirmed groups when those groups describe nested levels of the
+  relationship hierarchy. Confirming a broader group shall preserve a more
+  specific confirmed subset, including its elected identical-version master.
+  Existing single-level confirmed groups shall migrate without data loss.
+- **ASR-103 — Hierarchical search and assignment:** Normal search shall use the
+  broadest applicable same-recording group as one result while preserving an
+  identical subset's elected master as its representative. Audition and tanda
+  assignment shall offer every member of that broader recording group.
+- **ASR-104 — Selected-pair rejection:** A candidate group shall show one
+  localized **No match** action, enabled only when exactly two members with a
+  candidate edge are selected. Its confirmation shall identify that pair;
+  rejected pairs shall remain reconsiderable through the same control.
 
 ## Validation requirements
 

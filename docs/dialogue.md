@@ -7101,3 +7101,48 @@ live availability/digest/content checks for both pinned archives, and
   - User requested a new release branch and pull request. The package and
     lockfile versions are bumped from `0.4.3` to `0.4.4` on
     `fix/similarity-normalization-v0.4.4`.
+
+- 2026-10-27 — Preserve provisional similarity master through metadata edits
+  - User reported that electing a master and then editing member metadata
+    cleared the election. The election was held only in a render-local variable
+    while metadata save reloads the report.
+  - Provisional elections now persist across report redraws for the open review
+    session, clear when the elected member is excluded or the report is left,
+    and defer to the persisted preferred track after identical confirmation
+    (`ASR-100`). This begins version `0.4.5` on
+    `fix/preserve-similarity-master-v0.4.5`.
+  - User also requested visible duration when waveform lengths differ. Each
+    comparison waveform now shows its effective playback duration (source
+    duration minus both trim points) in localized minutes-and-seconds form
+    (`ASR-101`).
+
+- 2026-10-27 — Nested similarity relationships and local metadata undo
+  - User required two or more identical files to remain an identifiable subset
+    of a broader same-performance/alternate-recording group of three or more
+    tracks. Confirmed memberships may now overlap hierarchically; existing
+    released confirmations migrate without loss, and canonical search plus
+    assignment use the broader group while retaining the subset master
+    (`ASR-102`, `ASR-103`).
+  - The ambiguous per-edge row of repeated **No match** controls is replaced by
+    one action for the exactly selected pair (`ASR-104`).
+  - Metadata comparison no longer confirms each field copy. A selected value is
+    assigned to all other members immediately, and each open comparison window
+    owns a non-persistent LIFO undo stack. The report-level undo control is
+    removed. Album remains visible but read-only because assignment must not
+    move tracks between albums (`ASR-033`, `ASR-035`, `ASR-037`).
+
+- 2026-10-27 — Playlist playback marker and scheduled duplicate focus
+  - User requested a moving vertical position line over the playing playlist
+    track. Main playback now updates that marker within the track's effective
+    trimmed audio range (`ASR-069C`).
+  - User preferred the collapsed, planned-time layout of artist-filtered
+    playlists over the prior expanded duplicate-focus view. Press-and-hold now
+    uses that same scheduled summary layout for every affected tanda, while a
+    short duplicate-indicator click retains its existing jump and temporary
+    highlight behaviour (`ASR-069A`, `ASR-069B`).
+
+- 2026-10-27 — Version 0.4.6 delivery
+  - User requested that all current hierarchical similarity, metadata,
+    playlist-focus, playback-marker, documentation, and regression-test changes
+    be committed and pushed together under a version bump. Package and lockfile
+    versions advance from `0.4.5` to `0.4.6` on the existing branch.

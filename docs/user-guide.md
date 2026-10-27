@@ -171,6 +171,16 @@ matching tanda keeps its predicted start time visible. This makes it easy to see
 whether repeated orchestras are consecutive or separated across the evening,
 even though the intervening tandas and cortinas are hidden.
 
+Pressing and holding a duplicate indicator uses this same scheduled summary
+layout. It shows every playlist tanda affected by the selected track or
+confirmed similarity group while preserving each tanda's planned time. Choose
+**Show all** or press Escape to restore the complete playlist. A short click is
+unchanged: it jumps to the first affected tanda and highlights the matching
+track or tracks.
+
+During main playback, a vertical line moves across the active playlist track
+to show its position within the effective audio after saved start and end trims.
+
 Cortinas if used will be displayed between tandas and if clicked on will open the cortina picker to allow manual selection.
 
 Tandas show their overall style letter and then the name of the tanda if specified followed by a summary of the artist composition, whether sung, the years of the tracks in the tanda, the range of tempos in the tanda and the duration of the tanda.
@@ -881,9 +891,46 @@ error, or leaving the report resets the old control to **Play**. Confirm either
 the same recording or the same composition by checking the versions that truly
 match. Unchecked versions are left outside the confirmed relationship. Reopening
 the report restores those checkboxes from the saved decision, and the heading
-shows a result such as **3 of 4 matched** with a **Confirmed Match** tag.
-Individual bad pairings can be rejected with **No match** and reconsidered, and
-confirmations can be withdrawn.
+shows a result such as **3 of 4 matched**.
+
+### Partial confirmations and completing a candidate group
+
+A green **Confirmed Match** tag means that the candidate contains at least one
+saved confirmed relationship; it does not necessarily mean that every track in
+the card has been classified. Read it together with the count in the heading:
+
+- **2 of 3 matched** means two tracks form a confirmed relationship and the
+  third track still needs a decision.
+- A partially confirmed card remains under **To review**, because at least one
+  relationship involving an unchecked track is still unresolved.
+- When every member has been included in an appropriate confirmed group, or all
+  remaining candidate pairs have been rejected, the card moves to **Matched or
+  reviewed**.
+
+To finish a partially confirmed card, use whichever workflow matches what you
+hear:
+
+1. If the remaining track belongs to the same broader relationship, check it
+   along with the already confirmed tracks and choose the appropriate broader
+   confirmation, such as **Confirm same performance / alternate recording**.
+2. If it matches only one track, check exactly that pair and confirm the
+   relationship for those two.
+3. If it does not match another track, check exactly those two tracks and choose
+   the single **No match** action. The confirmation names the pair. Repeat for
+   any other unresolved pair involving that track.
+
+For a previously rejected pair, selecting exactly those two tracks changes the
+action to **Reconsider**. **Withdraw confirmation** removes the displayed saved
+confirmation so the relationship can be reviewed again.
+
+Relationships may be nested. For example, first select two interchangeable
+files, elect their master, and confirm **Identical versions**. Then select those
+two plus a third transfer and confirm **Same performance / alternate
+recording**. The report retains both the two-track identical subset and the
+broader three-track recording group and displays both decisions on the card.
+After the first step the card deliberately remains under **To review** as **2 of
+3 matched**; after the broader three-track decision it becomes **3 of 3
+matched** and moves to **Matched or reviewed**.
 
 Each group has a strongly coloured edge/header and its own collapse control.
 Collapsed groups stay collapsed when the report or application is reopened, so
@@ -912,10 +959,14 @@ track. This also works when the playlist version has different title or artist
 metadata but belongs to the confirmed group.
 
 The comparison table shows metadata and file provenance without ranking audio
-quality. Selecting an editable metadata value offers to copy it to the other
-members after confirmation. Technical identity, path, duration, trims, and
-analysis fields cannot be copied. After applying a copy, the open table is
+quality. Selecting an editable metadata value immediately copies it to all
+other members. **Undo metadata copy** in that comparison window restores each
+copy in reverse order. The undo history is discarded when the window closes
+and is not shown at report level or retained between sessions. Technical
+identity, path, duration, trims, and analysis fields cannot be copied. After a copy, the open table is
 rebuilt immediately so its values and difference colouring reflect the save.
+Album remains visible as useful provenance, but it is read-only in this view so
+a track cannot be moved into another album through similarity metadata assignment.
 Each track-column heading also has **Edit track**, which opens the normal track
 editor when all compared values need correction rather than replication. The
 comparison remains open behind the editor and returns when the editor closes;

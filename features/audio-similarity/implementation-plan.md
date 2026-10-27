@@ -64,9 +64,9 @@ not merely code written.
 - [x] Add the wide comparison table with sticky attribute and track headers.
 - [x] Show title, artist, album, path, neutral file-type lozenge, and all required
   editable/context fields without inferring quality.
-- [x] Implement click-to-replicate with destination/value preview, confirmation,
-  protected-field enforcement, and recovery/undo behaviour.
-- [ ] Add metadata workflow tests.
+- [x] Implement direct click-to-replicate with protected-field enforcement and
+  a window-scoped, session-only undo stack.
+- [x] Add metadata workflow tests.
 
 ## Phase 6 — Tanda and playlist usage/replacement
 
@@ -91,8 +91,10 @@ not merely code written.
 - [x] Extend duplicate indexes from exact track IDs to confirmed flat groups.
 - [x] Update search/library/clipboard/tanda/playlist full and partial indicators.
 - [x] Keep manual addition uninterrupted; show overlap only after insertion.
-- [x] Add press-and-hold duplicate focus with release/cancel restoration and a
-  keyboard equivalent.
+- [x] Add press-and-hold duplicate focus with a keyboard equivalent, persistent
+  Show-all dismissal, and the scheduled collapsed layout used by playlist
+  filtering.
+- [x] Show a live effective-audio playhead on the playing playlist track.
 - [x] Make auto-fill exclude confirmed same-composition groups and respect
   rejections/withdrawals.
 - [ ] Add equivalence, indicator, interaction, and auto-fill tests.

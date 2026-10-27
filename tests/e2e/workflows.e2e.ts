@@ -2424,7 +2424,7 @@ test.describe("Electron app end-to-end workflows", () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
-      await installDeterministicMediaStub(page);
+      await installAdvancingMediaStub(page, 60_000, 60_000, 50);
       await page.evaluate(() => {
         localStorage.setItem("tanda-main-output", "default");
         localStorage.setItem("tanda-main-output-label", "Default");
@@ -2454,6 +2454,12 @@ test.describe("Electron app end-to-end workflows", () => {
         .poll(async () => await detailLine.count(), { timeout: 10_000 })
         .toBeGreaterThan(0);
       await clickPlaylistTrackUntilNowPlaying(page, detailLine, "Tango Dos");
+      await expect(detailLine).toHaveClass(/playlist-playback-position/);
+      const initialPosition = await detailLine.evaluate((element) =>
+        element.style.getPropertyValue("--playlist-playback-position"));
+      await page.waitForTimeout(350);
+      await expect.poll(async () => await detailLine.evaluate((element) =>
+        element.style.getPropertyValue("--playlist-playback-position"))).not.toBe(initialPosition);
 
       const secondTandaRow = playlistTandaRow(page, "Canaro Milonga Pack A");
       await expect(secondTandaRow).toBeVisible();
@@ -4314,6 +4320,16 @@ test.describe("Electron app end-to-end workflows", () => {
         seconds: 4,
         frequency: 440,
       });
+      writeTaggedFlac(path.join(musicRoot, "third-transfer.flac"), {
+        title: "Similarity Third Transfer",
+        artist: "Orchestra Original",
+        album: "Third Transfer",
+        year: "1950",
+        genre: "Tango",
+        notes: "another transfer of the same performance",
+        seconds: 4,
+        frequency: 440,
+      });
       writeTaggedFlac(path.join(musicRoot, "control.flac"), {
         title: "Similarity Control Track One",
         artist: "Control Orchestra",
@@ -4335,8 +4351,8 @@ test.describe("Electron app end-to-end workflows", () => {
         frequency: 330,
       });
       await addMusicRootViaSettings(page, musicRoot);
-      expect(await runMusicScan(page)).toMatchObject({ scanned: 4, added: 4 });
-      await waitForTrackCount(page, 4);
+      expect(await runMusicScan(page)).toMatchObject({ scanned: 5, added: 5 });
+      await waitForTrackCount(page, 5);
 
       await page.locator("#open-audio-similarity").click();
       await expect(page.locator("#audio-similarity-page")).toHaveClass(/open/);
@@ -4351,7 +4367,9 @@ test.describe("Electron app end-to-end workflows", () => {
       }).filter({ hasText: "Completely Different Alternate Title" }).first();
       await expect(candidateCard).toBeVisible();
       const comparisonWaveforms = candidateCard.locator(".audio-similarity-waveform");
-      await expect(comparisonWaveforms).toHaveCount(2);
+      await expect(comparisonWaveforms).toHaveCount(3);
+      await expect(candidateCard.getByRole("button", { name: "No match" })).toHaveCount(1);
+      await expect(candidateCard.getByRole("button", { name: "No match" })).toBeDisabled();
       const waveformBounds = await comparisonWaveforms.first().boundingBox();
       expect(waveformBounds).not.toBeNull();
       await page.mouse.click(
@@ -4359,15 +4377,22 @@ test.describe("Electron app end-to-end workflows", () => {
         waveformBounds!.y + waveformBounds!.height / 2,
       );
       await expect(candidateCard).toContainText("Shared audition position: 50%");
+      await candidateCard.getByRole("checkbox", {
+        name: /Include Similarity Third Transfer.*in the confirmed match/,
+      }).uncheck();
+      await expect(candidateCard.getByRole("button", { name: "No match" })).toBeEnabled();
       await candidateCard.getByRole("button", { name: "Confirm identical versions" }).click();
       const masterDialog = page.locator(".audio-similarity-lazy-modal");
       await expect(masterDialog).toContainText("Choose the master version");
       await expect(masterDialog.getByRole("button", { name: "Apply" })).toBeDisabled();
-      await masterDialog.getByRole("radio").first().check();
+      await masterDialog.getByRole("radio", { name: /Similarity Original/ }).check();
       await masterDialog.getByRole("button", { name: "Apply" }).click();
       const identicalConfirmation = page.locator(".confirm-modal:not(.hidden)");
       await expect(identicalConfirmation).toContainText("identical, interchangeable versions");
-      await identicalConfirmation.getByRole("button", { name: "Cancel" }).click();
+      await identicalConfirmation.getByRole("button", { name: "Apply" }).click();
+      await candidateCard.getByRole("checkbox", {
+        name: /Include Similarity Third Transfer.*in the confirmed match/,
+      }).check();
       await candidateCard.getByRole("button", {
         name: "Confirm same performance / alternate recording",
       }).click();
@@ -4376,7 +4401,11 @@ test.describe("Electron app end-to-end workflows", () => {
       await confirmation.getByRole("button", { name: "Apply" }).click();
       await expect.poll(async () => {
         const report = await page.evaluate(async () => await window.tanda?.getAudioSimilarityReport());
-        return report?.confirmedGroups.some((group) => group.trackIds.length === 2) ?? false;
+        const groups = report?.confirmedGroups ?? [];
+        return groups.some((group) => group.relationshipType === "identical"
+          && group.trackIds.length === 2)
+          && groups.some((group) => group.relationshipType === "same-recording"
+            && group.trackIds.length === 3);
       }).toBe(true);
       await expect(candidateCard.locator(".audio-similarity-confirmed-tag")).toHaveText(
         "Confirmed Match",
@@ -4385,7 +4414,11 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect(reviewedSection).not.toHaveAttribute("open", "");
       await expect(reviewedSection.locator("summary")).toHaveText("Matched or reviewed (1)");
       await reviewedSection.locator("summary").click();
-      await expect(candidateCard.locator("h3")).toHaveText("2 of 2 matched");
+      await expect(candidateCard.locator("h3")).toHaveText("3 of 3 matched");
+      await expect(candidateCard.locator(".audio-similarity-confirmed-relationships"))
+        .toContainText("identical, interchangeable versions: 2");
+      await expect(candidateCard.locator(".audio-similarity-confirmed-relationships"))
+        .toContainText("the same performance in a different recording or transfer: 3");
       await candidateCard.locator(".audio-similarity-collapse").click();
       await expect(candidateCard.locator(".audio-similarity-group-body")).toBeHidden();
       await page.locator("#close-audio-similarity").click();
@@ -4402,16 +4435,25 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect(metadataOverlay).toBeVisible();
       await page.locator("#track-editor-close").click();
       const artistRow = metadataOverlay.getByText("Artist", { exact: true }).locator("..");
-      await artistRow.locator("td", { hasText: "Orchestra Original" }).click();
-      await page.locator(".confirm-modal:not(.hidden)").getByRole("button", { name: "Apply" }).click();
+      await artistRow.locator("td", { hasText: "Orchestra Original" }).first().click();
       metadataOverlay = page.locator(".audio-similarity-lazy-modal");
       const refreshedArtistCells = metadataOverlay
         .getByText("Artist", { exact: true })
         .locator("..")
         .locator("td");
-      await expect(refreshedArtistCells).toHaveCount(2);
+      await expect(refreshedArtistCells).toHaveCount(3);
       await expect(refreshedArtistCells.nth(0)).toHaveText("Orchestra Original");
       await expect(refreshedArtistCells.nth(1)).toHaveText("Orchestra Original");
+      const titleRow = metadataOverlay.getByText("Title", { exact: true }).locator("..");
+      await titleRow.locator("td", { hasText: "Similarity Original" }).click();
+      metadataOverlay = page.locator(".audio-similarity-lazy-modal");
+      await expect(metadataOverlay.getByRole("button", { name: "Undo metadata copy" })).toBeEnabled();
+      await metadataOverlay.getByRole("button", { name: "Undo metadata copy" }).click();
+      metadataOverlay = page.locator(".audio-similarity-lazy-modal");
+      await expect(metadataOverlay.getByText("Completely Different Alternate Title", { exact: true }))
+        .toBeVisible();
+      await expect(metadataOverlay.getByText("Similarity Third Transfer", { exact: true }))
+        .toBeVisible();
       await metadataOverlay.getByRole("button", { name: "Close" }).click();
 
       await page.locator("#close-audio-similarity").click();
@@ -4420,7 +4462,7 @@ test.describe("Electron app end-to-end workflows", () => {
         name: "Similarity Linked Tanda",
         style: "Tango",
         trackTexts: [
-          "Completely Different Alternate Title",
+          "Similarity Original",
           "Similarity Control Track One",
           "Similarity Control Track Two",
         ],
@@ -4436,7 +4478,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await reviewedCard.getByRole("button", { name: "Show 1 affected tandas" }).click();
       const affected = page.locator(".audio-similarity-lazy-modal");
       await expect(affected.locator(".audio-similarity-tanda-track")).toHaveCount(3);
-      await expect(affected.locator(".audio-similarity-compact-track")).toHaveCount(2);
+      await expect(affected.locator(".audio-similarity-compact-track")).toHaveCount(3);
       const firstComparisonPlay = affected.locator(".audio-similarity-compact-track").nth(0)
         .getByRole("button").first();
       const secondComparisonPlay = affected.locator(".audio-similarity-compact-track").nth(1)
@@ -4445,12 +4487,12 @@ test.describe("Electron app end-to-end workflows", () => {
       await secondComparisonPlay.click();
       await expect(firstComparisonPlay).toHaveText("Play");
       expect(await affected.getByRole("button", { name: "Stop" }).count()).toBeLessThanOrEqual(1);
-      await affected.getByRole("radio", { name: "Use Similarity Original" }).check();
+      await affected.getByRole("radio", { name: "Use Completely Different Alternate Title" }).check();
       await page.locator(".confirm-modal:not(.hidden)").getByRole("button", { name: "Apply" }).click();
       await expect.poll(async () => {
         const tandas = await getTandasViaApi(page);
         const tanda = tandas.find((candidate) => candidate.name === "Similarity Linked Tanda");
-        return tanda?.tracks.some((track) => track.title === "Similarity Original") ?? false;
+        return tanda?.tracks.some((track) => track.title === "Completely Different Alternate Title") ?? false;
       }).toBe(true);
       await affected.getByRole("button", { name: "Close" }).click();
       await page.locator("#close-audio-similarity").click();
@@ -4476,12 +4518,19 @@ test.describe("Electron app end-to-end workflows", () => {
 
       await page.locator('button[data-tab="search-tracks"]').click();
       await runSearch(page, "Similarity Original");
+      await clickRowAction(searchTrackRow(page, "Similarity Original"), "add-tanda");
+      const versionPicker = page.locator(".audio-similarity-lazy-modal");
+      await expect(versionPicker.getByRole("radio")).toHaveCount(3);
+      await versionPicker.getByRole("radio", { name: "Use Similarity Original" }).check();
+      await versionPicker.getByRole("button", { name: "Apply" }).click();
       await clickRowAction(searchTrackRow(page, "Similarity Original"), "add-playlist-track");
       await confirmIfPrompted(page);
 
       await runSearch(page, "Completely Different Alternate Title");
       const alternateRow = searchTrackRow(page, "Completely Different Alternate Title");
-      await expect(alternateRow.locator("button.duplicate-menu.full .duplicate-icon.full")).toBeVisible();
+      await expect(alternateRow).toHaveCount(0);
+      await runSearch(page, "Similarity Original");
+      await expect(searchTrackRow(page, "Similarity Original")).toBeVisible();
 
       await page.locator('button[data-tab="search-tandas"]').click();
       await page.locator("#style-options button").first().click();
@@ -4519,13 +4568,16 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.waitForTimeout(500);
       await persistentFocusTrigger.dispatchEvent("pointerup", { pointerType: "mouse" });
       await expect(page.locator("#playlist-duplicate-focus-status")).toBeVisible();
-      await expect(page.locator("#playlist-list .list-row:not(.playlist-duplicate-focus-hidden)"))
-        .toHaveCount(2);
+      await expect(page.locator("#playlist-list .list-row")).toHaveCount(2);
+      await expect(page.locator("#playlist-list .playlist-filter-schedule-divider")).toHaveCount(2);
+      await expect(page.locator("#playlist-list .playlist-filter-schedule-divider").first())
+        .toContainText("Scheduled for");
+      await expect(page.locator("#playlist-list .tanda-row.expanded")).toHaveCount(0);
       await page.waitForTimeout(100);
       await expect(page.locator("#playlist-duplicate-focus-status")).toBeVisible();
       await page.locator("#playlist-duplicate-focus-clear").click();
       await expect(page.locator("#playlist-duplicate-focus-status")).toBeHidden();
-      await expect(page.locator("#playlist-list .playlist-duplicate-focus-hidden")).toHaveCount(0);
+      await expect(page.locator("#playlist-list .playlist-filter-schedule-divider")).toHaveCount(0);
     } finally {
       await launched.close();
     }

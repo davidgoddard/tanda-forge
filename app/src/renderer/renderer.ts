@@ -3600,6 +3600,30 @@ const updatePlayingIndicators = () => {
     typeof CSS !== "undefined" && typeof CSS.escape === "function"
       ? CSS.escape
       : (value: string) => value.replace(/["\\]/g, "\\$&");
+  document.querySelectorAll<HTMLElement>(".playlist-playback-position").forEach((row) => {
+    row.classList.remove("playlist-playback-position");
+    row.style.removeProperty("--playlist-playback-position");
+  });
+  if (activeId && activeChannel === "main" && active?.state.active) {
+    const track = trackCache.get(activeId);
+    const sourceDurationMs = Math.max(
+      0,
+      track?.duration_ms ?? (Number.isFinite(active.state.active.duration)
+        ? active.state.active.duration * 1000 : 0),
+    );
+    const startOffsetMs = Math.max(0, track?.start_offset_ms ?? 0);
+    const endTrimMs = Math.max(0, track?.end_trim_ms ?? 0);
+    const effectiveDurationMs = Math.max(1, sourceDurationMs - startOffsetMs - endTrimMs);
+    const elapsedMs = Math.max(0, active.state.active.currentTime * 1000 - startOffsetMs);
+    const position = Math.min(100, Math.max(0, elapsedMs / effectiveDurationMs * 100));
+    playlistListEl?.querySelectorAll<HTMLElement>(
+      `.list-row[data-track-id="${cssEscape(activeId)}"], `
+        + `.tanda-detail-line[data-track-id="${cssEscape(activeId)}"]`,
+    ).forEach((row) => {
+      row.classList.add("playlist-playback-position");
+      row.style.setProperty("--playlist-playback-position", `${position}%`);
+    });
+  }
   const clearRows = (trackId: string | null) => {
     if (!trackId) {
       return;
@@ -6525,16 +6549,18 @@ const handleDuplicateJump = (target: HTMLElement) => {
 
 let duplicateFocusTimer: number | null = null;
 let suppressDuplicateJumpClick = false;
+let playlistDuplicateFocusTrackIds: Set<string> | null = null;
 const cancelPlaylistDuplicateFocusTimer = () => {
   if (duplicateFocusTimer !== null) window.clearTimeout(duplicateFocusTimer);
   duplicateFocusTimer = null;
 };
 const clearPlaylistDuplicateFocus = () => {
+  const wasFocused = playlistDuplicateFocusTrackIds !== null;
   cancelPlaylistDuplicateFocusTimer();
   suppressDuplicateJumpClick = false;
-  playlistListEl?.querySelectorAll(".playlist-duplicate-focus-hidden")
-    .forEach((row) => row.classList.remove("playlist-duplicate-focus-hidden"));
+  playlistDuplicateFocusTrackIds = null;
   playlistDuplicateFocusStatus?.classList.add("hidden");
+  if (wasFocused) renderPlaylist();
 };
 
 const startPlaylistDuplicateFocus = (trigger: HTMLElement, immediate = false) => {
@@ -6548,39 +6574,14 @@ const startPlaylistDuplicateFocus = (trigger: HTMLElement, immediate = false) =>
       .forEach((equivalent) => targetIds.add(equivalent)));
   if (targetIds.size === 0) return;
   const apply = () => {
-    const matchingRows: Array<{ row: HTMLElement; trackId: string | null }> = [];
-    playlistListEl?.querySelectorAll<HTMLElement>(".list-row[data-index]").forEach((row) => {
-      const index = Number.parseInt(row.dataset.index ?? "-1", 10);
-      const item = playlistItems[index];
-      const itemTrackIds = item?.kind === "track"
-        ? [item.track.id]
-        : item?.kind === "tanda"
-          ? resolveTandaDraft(item.tandaId)?.trackSlots.filter(Boolean) as string[] ?? []
-          : [];
-      const matches = itemTrackIds.some((trackId) =>
-        [...(similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))]
-          .some((equivalent) => targetIds.has(equivalent)));
-      row.classList.toggle("playlist-duplicate-focus-hidden", !matches);
-      if (matches) {
-        const matchedTrackId = itemTrackIds.find((trackId) =>
-          [...(similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))]
-            .some((equivalent) => targetIds.has(equivalent))) ?? null;
-        matchingRows.push({ row, trackId: matchedTrackId });
-      }
-    });
-    const firstMatch = matchingRows[0];
+    playlistDuplicateFocusTrackIds = targetIds;
+    renderPlaylist();
+    const firstMatch = playlistListEl?.querySelector<HTMLElement>(".list-row[data-index]");
     if (firstMatch) {
       playlistDuplicateFocusStatus?.classList.remove("hidden");
       suppressDuplicateJumpClick = true;
-      const { row, trackId } = firstMatch;
-      if (trackId && !row.classList.contains("expanded")) toggleTandaRow(row);
       window.requestAnimationFrame(() => {
-        const target = trackId
-          ? row.querySelector<HTMLElement>(
-              `.tanda-detail-line[data-track-id="${CSS.escape(trackId)}"]`,
-            ) ?? row
-          : row;
-        target.scrollIntoView({ block: "center", behavior: "smooth" });
+        firstMatch.scrollIntoView({ block: "center", behavior: "smooth" });
       });
     }
     duplicateFocusTimer = null;
@@ -9006,9 +9007,11 @@ const renderPlaylist = () => {
   const cortinaStartTimes = getCortinaStartTimes();
   const filterText = normalizeClipboardFilter(playlistFilterText);
   const hasFilter = filterText.length > 0;
-  const hideLeadingPlaceholder = !hasFilter && playlistItems[0] === null;
+  const hasDuplicateFocus = Boolean(playlistDuplicateFocusTrackIds?.size);
+  const hasFilteredLayout = hasFilter || hasDuplicateFocus;
+  const hideLeadingPlaceholder = !hasFilteredLayout && playlistItems[0] === null;
   let visibleItems = 0;
-  if (playlistAutofillInProgress && !hasFilter) {
+  if (playlistAutofillInProgress && !hasFilteredLayout) {
     const loadingRow = document.createElement("div");
     loadingRow.className = "list-row playlist-autofill-row";
     loadingRow.textContent = t("statusPlaylistAutofillRunning");
@@ -9018,11 +9021,19 @@ const renderPlaylist = () => {
     if (hideLeadingPlaceholder && index === 0 && item === null) {
       return;
     }
-    if (hasFilter) {
+    if (hasFilteredLayout) {
       if (!item) {
         return;
       }
-      if (item.kind === "track") {
+      if (hasDuplicateFocus) {
+        const trackIds = item.kind === "track"
+          ? [item.track.id]
+          : (resolveTandaDraft(item.tandaId)?.trackSlots.filter(Boolean) as string[] ?? []);
+        const matches = trackIds.some((trackId) =>
+          [...(similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))]
+            .some((equivalent) => playlistDuplicateFocusTrackIds!.has(equivalent)));
+        if (!matches) return;
+      } else if (item.kind === "track") {
         if (
           !matchesPlaylistFilter({
             filterText: playlistFilterText,
@@ -9086,7 +9097,7 @@ const renderPlaylist = () => {
       fragment.appendChild(row);
       visibleItems += 1;
     } else if (item && item.kind === "tanda") {
-      if (isCortinaEnabled() && !hasFilter) {
+      if (isCortinaEnabled() && !hasFilteredLayout) {
         const cortinaRow = document.createElement("div");
         cortinaRow.className = "list-row cortina-row";
         cortinaRow.dataset.cortinaIndex = index.toString();
@@ -9126,7 +9137,7 @@ const renderPlaylist = () => {
       const startTime = startTimes.get(index);
       const startLabel =
         startTime !== undefined ? formatClockTime(startTime) : null;
-      if (hasFilter && startLabel) {
+      if (hasFilteredLayout && startLabel) {
         const scheduleDivider = document.createElement("div");
         scheduleDivider.className = "playlist-filter-schedule-divider";
         scheduleDivider.setAttribute("aria-label", t("playlistFilterScheduledFor", {
@@ -9187,7 +9198,7 @@ const renderPlaylist = () => {
       fragment.appendChild(row);
       visibleItems += 1;
     } else {
-      if (hasFilter) {
+      if (hasFilteredLayout) {
         return;
       }
       const row = document.createElement("div");
@@ -9219,7 +9230,7 @@ const renderPlaylist = () => {
       fragment.appendChild(row);
     }
   });
-  if (!hasFilter && isCortinaEnabled() && playlistItems.some((item) => item?.kind === "tanda")) {
+  if (!hasFilteredLayout && isCortinaEnabled() && playlistItems.some((item) => item?.kind === "tanda")) {
     const endRow = document.createElement("div");
     endRow.className = "list-row cortina-row";
     endRow.dataset.cortinaIndex = playlistItems.length.toString();
@@ -9254,7 +9265,7 @@ const renderPlaylist = () => {
     applyPulseToRow(endRow, pulseCortinaIndices, playlistItems.length);
     fragment.appendChild(endRow);
   }
-  if (hasFilter && visibleItems === 0) {
+  if (hasFilteredLayout && visibleItems === 0) {
     const row = document.createElement("div");
     row.className = "list-row";
     const label = document.createElement("span");
@@ -9267,9 +9278,9 @@ const renderPlaylist = () => {
   playlistListEl.dataset.renderedRows = `${visibleItems}`;
   const shouldCenterTarget =
     targetIndex !== null &&
-    (centerPlaylistTargetOnNextRender || (!hasFilter && lastRenderedPlaylistHasFilter));
+    (centerPlaylistTargetOnNextRender || (!hasFilteredLayout && lastRenderedPlaylistHasFilter));
   centerPlaylistTargetOnNextRender = false;
-  lastRenderedPlaylistHasFilter = hasFilter;
+  lastRenderedPlaylistHasFilter = hasFilteredLayout;
   if (shouldCenterTarget) {
     requestAnimationFrame(() => {
       scrollPlaylistToIndex(targetIndex);
@@ -15249,7 +15260,7 @@ let similarityPreviewRequestVersion = 0;
 let similarityActiveGroupId: string | null = null;
 let similaritySharedPosition = 0;
 let similarityPollTimer: number | null = null;
-let similarityMetadataUndo: AudioSimilarityMetadataChange[] = [];
+let similarityMetadataUndoStacks = new Map<string, AudioSimilarityMetadataChange[][]>();
 
 const createSimilarityWaveform = (
   groupId: string,
@@ -15339,6 +15350,7 @@ const createSimilarityWaveform = (
 };
 const AUDIO_SIMILARITY_COLLAPSED_KEY = "audio-similarity-collapsed-groups";
 let similarityGroupSelections = new Map<string, Set<string>>();
+let similarityGroupMasterSelections = new Map<string, string>();
 let similarityCollapsedGroupIds = new Set<string>();
 try {
   const stored = JSON.parse(localStorage.getItem(AUDIO_SIMILARITY_COLLAPSED_KEY) ?? "[]");
@@ -15422,6 +15434,7 @@ const openAudioSimilarityOverlay = (titleText: string) => {
   close.textContent = t("close");
   const dismiss = () => {
     stopSimilarityPreview();
+    overlay.dispatchEvent(new Event("similarity-overlay-dismiss"));
     overlay.remove();
   };
   close.addEventListener("click", dismiss);
@@ -15564,24 +15577,6 @@ const renderAudioSimilarityReport = () => {
   reviewedContent.className = "audio-similarity-reviewed-content";
   reviewedSection.append(reviewedSummary, reviewedContent);
   let reviewedCount = 0;
-  if (similarityMetadataUndo.length > 0) {
-    const undoCard = document.createElement("div");
-    undoCard.className = "audio-similarity-card audio-similarity-actions";
-    const undoLabel = document.createElement("span");
-    undoLabel.textContent = t("audioSimilarityUndoAvailable", {
-      count: similarityMetadataUndo.length,
-    });
-    const undo = document.createElement("button");
-    undo.textContent = t("audioSimilarityUndo");
-    undo.addEventListener("click", async () => {
-      const result = await window.tanda?.undoAudioSimilarityMetadata(similarityMetadataUndo);
-      const conflicts = new Set(result?.conflicts ?? []);
-      similarityMetadataUndo = similarityMetadataUndo.filter((change) => conflicts.has(change.trackId));
-      await loadAudioSimilarityReport();
-    });
-    undoCard.append(undoLabel, undo);
-    audioSimilarityGroups.appendChild(undoCard);
-  }
   for (const confirmedGroup of report.confirmedGroups) {
     const representedByCandidate = report.candidateGroups.some((candidate) => {
       const candidateIds = new Set(candidate.members.map((member) => member.trackId));
@@ -15650,13 +15645,14 @@ const renderAudioSimilarityReport = () => {
   );
   for (const [groupIndex, group] of visibleGroups.entries()) {
     const memberIds = new Set(group.members.map((member) => member.trackId));
-    const confirmedGroup = report.confirmedGroups
+    const matchingConfirmedGroups = report.confirmedGroups
       .map((confirmed) => ({
         confirmed,
         matchedIds: confirmed.trackIds.filter((trackId) => memberIds.has(trackId)),
       }))
       .filter((entry) => entry.matchedIds.length >= 2)
-      .sort((left, right) => right.matchedIds.length - left.matchedIds.length)[0] ?? null;
+      .sort((left, right) => right.matchedIds.length - left.matchedIds.length);
+    const confirmedGroup = matchingConfirmedGroups[0] ?? null;
     let selectedIds = similarityGroupSelections.get(group.id);
     if (!selectedIds) {
       selectedIds = new Set(
@@ -15664,8 +15660,16 @@ const renderAudioSimilarityReport = () => {
       );
       similarityGroupSelections.set(group.id, selectedIds);
     }
+    const rememberedMasterTrackId = similarityGroupMasterSelections.get(group.id) ?? null;
     let masterTrackId = confirmedGroup?.confirmed.relationshipType === "identical"
-      ? confirmedGroup.confirmed.preferredTrackId : null;
+      ? confirmedGroup.confirmed.preferredTrackId
+      : rememberedMasterTrackId
+          && memberIds.has(rememberedMasterTrackId)
+          && selectedIds.has(rememberedMasterTrackId)
+        ? rememberedMasterTrackId
+        : null;
+    if (masterTrackId) similarityGroupMasterSelections.set(group.id, masterTrackId);
+    else similarityGroupMasterSelections.delete(group.id);
     const card = document.createElement("article");
     card.className = `audio-similarity-card audio-similarity-group group-color-${groupIndex % 6}`;
     card.dataset.similarityGroupId = group.id;
@@ -15707,6 +15711,18 @@ const renderAudioSimilarityReport = () => {
       : t("audioSimilarityCandidateEvidence")} · ${group.confidence.toFixed(6)}`;
     header.append(collapse, heading, titleSummary, confirmedTag, confidence);
     card.appendChild(header);
+    if (matchingConfirmedGroups.length > 0) {
+      const relationships = document.createElement("div");
+      relationships.className = "audio-similarity-confirmed-relationships";
+      for (const match of matchingConfirmedGroups) {
+        const relationship = document.createElement("span");
+        relationship.textContent = `${translateAudioSimilarityRelationship(
+          match.confirmed.relationshipType,
+        )}: ${match.matchedIds.length}`;
+        relationships.appendChild(relationship);
+      }
+      card.appendChild(relationships);
+    }
     const position = document.createElement("div");
     position.dataset.similarityPosition = group.id;
     position.textContent = t("audioSimilaritySharedPosition", {
@@ -15729,11 +15745,17 @@ const renderAudioSimilarityReport = () => {
         if (selected.checked) selectedIds!.add(member.trackId);
         else {
           selectedIds!.delete(member.trackId);
-          if (masterTrackId === member.trackId) masterTrackId = null;
+          if (masterTrackId === member.trackId) {
+            masterTrackId = null;
+            similarityGroupMasterSelections.delete(group.id);
+          }
         }
         updateHeading();
         card.querySelectorAll<HTMLButtonElement>("[data-similarity-confirm]")
           .forEach((button) => { button.disabled = selectedIds!.size < 2; });
+        card.querySelector<HTMLButtonElement>("[data-similarity-reject]")?.dispatchEvent(
+          new Event("similarity-selection-change"),
+        );
       });
       const election = document.createElement("label");
       election.className = "audio-similarity-election";
@@ -15753,6 +15775,7 @@ const renderAudioSimilarityReport = () => {
       masterChoice.addEventListener("change", () => {
         if (!masterChoice.checked) return;
         masterTrackId = member.trackId;
+        similarityGroupMasterSelections.set(group.id, member.trackId);
         if (!selected.checked) {
           selected.checked = true;
           selected.dispatchEvent(new Event("change"));
@@ -15767,7 +15790,12 @@ const renderAudioSimilarityReport = () => {
       const detail = document.createElement("small");
       detail.textContent = [member.artist, member.album, member.fullPath].filter(Boolean).join(" · ");
       const waveform = createSimilarityWaveform(group.id, member, position);
-      text.append(title, detail, waveform);
+      const effectiveDuration = document.createElement("small");
+      effectiveDuration.className = "audio-similarity-effective-duration";
+      effectiveDuration.textContent = `${t("colDuration")}: ${formatTime(
+        Math.max(0, member.durationMs - member.startOffsetMs - member.endTrimMs) / 1000,
+      )}`;
+      text.append(title, detail, waveform, effectiveDuration);
       const format = document.createElement("span");
       format.className = "audio-similarity-format";
       format.textContent = member.fullPath.split(".").pop() || "audio";
@@ -15798,13 +15826,43 @@ const renderAudioSimilarityReport = () => {
     metadataButton.addEventListener("click", () => {
     const tableWrap = openAudioSimilarityOverlay(t("audioSimilarityMetadataTitle"));
     const metadataOverlay = tableWrap.closest<HTMLElement>(".audio-similarity-lazy-modal");
-    if (metadataOverlay) metadataOverlay.dataset.similarityMetadataGroupId = group.id;
+    if (metadataOverlay) {
+      metadataOverlay.dataset.similarityMetadataGroupId = group.id;
+      metadataOverlay.addEventListener("similarity-overlay-dismiss", () => {
+        similarityMetadataUndoStacks.delete(group.id);
+      }, { once: true });
+    }
+    const undoStack = similarityMetadataUndoStacks.get(group.id) ?? [];
+    similarityMetadataUndoStacks.set(group.id, undoStack);
+    const metadataActions = document.createElement("div");
+    metadataActions.className = "audio-similarity-actions";
+    const undo = document.createElement("button");
+    undo.textContent = t("audioSimilarityUndo");
+    undo.disabled = undoStack.length === 0;
+    undo.addEventListener("click", async () => {
+      const changes = undoStack.pop();
+      if (!changes) return;
+      const result = await window.tanda?.undoAudioSimilarityMetadata(changes);
+      if (result?.conflicts.length) {
+        const conflicts = new Set(result.conflicts);
+        undoStack.push(changes.filter((change) => conflicts.has(change.trackId)));
+      }
+      await loadAudioSimilarityReport();
+      metadataOverlay?.remove();
+      audioSimilarityGroups
+        ?.querySelector<HTMLElement>(
+          `[data-similarity-group-id="${CSS.escape(group.id)}"] [data-action="show-similarity-metadata"]`,
+        )
+        ?.click();
+    });
+    metadataActions.appendChild(undo);
+    tableWrap.appendChild(metadataActions);
     tableWrap.style.overflowX = "auto";
     const table = document.createElement("table");
     const metadataFields: Array<{
       label: string;
       field: keyof AudioSimilarityMember;
-      editable?: "title" | "artist" | "artist_summary" | "singer" | "album" | "year" | "genre" | "bpm" | "notes" | "instrumental";
+      editable?: "title" | "artist" | "artist_summary" | "singer" | "year" | "genre" | "bpm" | "notes" | "instrumental";
     }> = [
       { label: t("audioSimilarityMetaTitle"), field: "title", editable: "title" },
       { label: t("audioSimilarityMetaArtist"), field: "artist", editable: "artist" },
@@ -15862,21 +15920,10 @@ const renderAudioSimilarityReport = () => {
           cell.role = "button";
           const replicate = async () => {
             const targets = group.members.filter((candidate) => candidate.trackId !== member.trackId);
-            const newValue = String(member[metadata.field] ?? "—");
-            const changes = targets.map((target) =>
-              `${target.title || target.trackId}: ${String(target[metadata.field] ?? "—")} → ${newValue}`,
-            ).join("\n");
-            const confirmed = await showConfirmModal(
-              `${t("audioSimilarityCopyConfirm", {
-                field: metadata.label, value: cell.textContent ?? "", count: targets.length,
-              })}\n\n${changes}`,
-              t("audioSimilarityApply"),
-            );
-            if (!confirmed) return;
             const result = await window.tanda?.replicateAudioSimilarityMetadata(
               member.trackId, targets.map((target) => target.trackId), metadata.editable!,
             );
-            similarityMetadataUndo = result?.changes ?? [];
+            if (result?.changes.length) undoStack.push(result.changes);
             await loadAudioSimilarityReport();
             tableWrap.closest(".audio-similarity-lazy-modal")?.remove();
             audioSimilarityGroups
@@ -16085,6 +16132,9 @@ const renderAudioSimilarityReport = () => {
         group.members.map((member) => member.trackId), accepted, relationshipType,
         relationshipType === "identical" ? masterTrackId : null,
       );
+      if (relationshipType !== "identical") {
+        similarityGroupMasterSelections.delete(group.id);
+      }
       await loadAudioSimilarityReport();
       renderAllLists();
     };
@@ -16120,35 +16170,47 @@ const renderAudioSimilarityReport = () => {
           confirmedGroup.confirmed.id,
         );
         similarityGroupSelections.delete(group.id);
+        similarityGroupMasterSelections.delete(group.id);
         await loadAudioSimilarityReport();
         renderAllLists();
       });
       actions.appendChild(withdraw);
     }
-    for (const edge of group.edges) {
-      const reject = document.createElement("button");
-      const left = group.members.find((member) => member.trackId === edge.leftTrackId);
-      const right = group.members.find((member) => member.trackId === edge.rightTrackId);
-      reject.textContent = edge.decision === "rejected"
+    const reject = document.createElement("button");
+    reject.dataset.similarityReject = "selected";
+    const updateReject = () => {
+      const selected = [...selectedIds!];
+      const edge = selected.length === 2
+        ? group.edges.find((candidate) => selected.includes(candidate.leftTrackId)
+          && selected.includes(candidate.rightTrackId)) : undefined;
+      const left = edge && group.members.find((member) => member.trackId === edge.leftTrackId);
+      const right = edge && group.members.find((member) => member.trackId === edge.rightTrackId);
+      reject.disabled = !edge;
+      reject.textContent = edge?.decision === "rejected"
         ? t("audioSimilarityRestorePair", { left: left?.title ?? "", right: right?.title ?? "" })
         : t("audioSimilarityRejectNamedPair");
-      reject.addEventListener("click", async () => {
-        if (edge.decision === "rejected") {
-          await window.tanda?.reconsiderAudioSimilarityPair(edge.leftTrackId, edge.rightTrackId);
-        } else {
-          if (!(await showConfirmModal(
-            t("audioSimilarityRejectConfirm", {
-              left: left?.title ?? "", right: right?.title ?? "",
-            }),
-            t("audioSimilarityApply"),
-          ))) return;
-          await window.tanda?.rejectAudioSimilarityPair(edge.leftTrackId, edge.rightTrackId);
-        }
-        await loadAudioSimilarityReport();
-        renderAllLists();
-      });
-      actions.appendChild(reject);
-    }
+    };
+    reject.addEventListener("click", async () => {
+      const selected = [...selectedIds!];
+      const edge = group.edges.find((candidate) => selected.includes(candidate.leftTrackId)
+        && selected.includes(candidate.rightTrackId));
+      if (!edge) return;
+      const left = group.members.find((member) => member.trackId === edge.leftTrackId);
+      const right = group.members.find((member) => member.trackId === edge.rightTrackId);
+      if (edge.decision === "rejected") {
+        await window.tanda?.reconsiderAudioSimilarityPair(edge.leftTrackId, edge.rightTrackId);
+      } else {
+        if (!(await showConfirmModal(t("audioSimilarityRejectConfirm", {
+          left: left?.title ?? "", right: right?.title ?? "",
+        }), t("audioSimilarityApply")))) return;
+        await window.tanda?.rejectAudioSimilarityPair(edge.leftTrackId, edge.rightTrackId);
+      }
+      await loadAudioSimilarityReport();
+      renderAllLists();
+    });
+    reject.addEventListener("similarity-selection-change", updateReject);
+    actions.appendChild(reject);
+    updateReject();
     card.appendChild(actions);
     const body = document.createElement("div");
     body.className = "audio-similarity-group-body";
@@ -16167,7 +16229,7 @@ const renderAudioSimilarityReport = () => {
       else similarityCollapsedGroupIds.delete(group.id);
       saveSimilarityCollapsedGroups();
     });
-    const dealtWith = Boolean(confirmedGroup)
+    const dealtWith = confirmedGroup?.matchedIds.length === group.members.length
       || (group.edges.length > 0 && group.edges.every((edge) => edge.decision !== "pending"));
     if (dealtWith) {
       reviewedContent.appendChild(card);
@@ -16261,7 +16323,12 @@ const loadAudioSimilarityReport = async () => {
   similarityEquivalentTrackIds = new Map();
   similarityRelationshipByTrackId = new Map();
   similarityPreferredTrackIds = new Map();
-  for (const group of similarityReport.confirmedGroups) {
+  const relationshipBreadth: Record<AudioSimilarityRelationshipType, number> = {
+    identical: 0, "same-recording": 1, "same-orchestra": 2, "same-composition": 3,
+  };
+  for (const group of [...similarityReport.confirmedGroups].sort((left, right) =>
+    left.trackIds.length - right.trackIds.length
+      || relationshipBreadth[left.relationshipType] - relationshipBreadth[right.relationshipType])) {
     const members = new Set(group.trackIds);
     for (const trackId of members) {
       similarityEquivalentTrackIds.set(trackId, members);
@@ -16286,10 +16353,12 @@ const initAudioSimilarityInteractions = () => {
     similarityActiveGroupId = null;
     similaritySharedPosition = 0;
     similarityGroupSelections = new Map();
+    similarityGroupMasterSelections = new Map();
     await loadAudioSimilarityReport();
   });
   closeAudioSimilarityBtn?.addEventListener("click", () => {
     stopSimilarityPreview();
+    similarityMetadataUndoStacks.clear();
     audioSimilarityPage?.classList.remove("open");
     audioSimilarityPage?.setAttribute("aria-hidden", "true");
     if (similarityPollTimer !== null) window.clearTimeout(similarityPollTimer);

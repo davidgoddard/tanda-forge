@@ -1,5 +1,57 @@
 ## Handoff
 
+### Version 0.4.6
+- Package and lockfile versions are `0.4.6`. This patch release contains the
+  hierarchical similarity workflow, selected-pair rejection, window-scoped
+  metadata undo with read-only album provenance, scheduled duplicate focus,
+  and the live playlist-track playhead described below.
+
+### Playlist playhead and scheduled duplicate focus
+- Main-output playback now draws a moving vertical position line over the
+  active standalone playlist row or expanded tanda track, calculated within
+  the effective start/end-trim range (`ASR-069C`).
+- Press-and-hold on a duplicate indicator now renders every affected playlist
+  tanda through the normal filtered-playlist layout: collapsed summaries with
+  their original **Scheduled for** dividers. Short-click jump and highlight is
+  unchanged (`ASR-069A`, `ASR-069B`).
+- Focused Electron workflows 25 and 41 verify marker movement, all affected
+  tandas, planned-time dividers, collapsed layout, Show-all restoration, and
+  unchanged single-click navigation.
+- Verification passed: `npm run preflight` (106 test files / 605 tests plus the
+  production build), both focused Electron workflows, and `git diff --check`.
+
+### Hierarchical audio-similarity review
+- Confirmed similarity groups may now overlap as nested subset/superset
+  relationships. A two-track identical group and its elected master survive
+  confirmation of a broader same-recording group containing three or more
+  transfers (`ASR-102`). The released globally-unique membership schema is
+  migrated in place without changing existing confirmations.
+- Search uses the broader same-recording group as one canonical result and its
+  nested identical master as representative; audition and tanda assignment
+  offer every recording in the broader group (`ASR-103`).
+- Candidate review now has one selection-driven **No match** action, enabled
+  only for an exactly selected candidate pair (`ASR-104`).
+- Metadata cells assign directly to all other compared tracks. Each open
+  comparison window owns a session-only LIFO undo stack; closing it discards
+  that history, and the former report-level undo card is removed (`ASR-033`,
+  `ASR-035`, `ASR-037`). Album remains visible provenance but is not assignable.
+- Focused domain/UI tests and Electron workflow 41 cover migration, a four-track
+  domain hierarchy, a three-track review hierarchy, canonical search,
+  three-version assignment, direct metadata copy and window undo.
+- Verification passed: `npm run preflight` (106 test files / 604 tests plus the
+  production build), focused Electron workflow 41, and `git diff --check`.
+
+### Provisional similarity master continuity — 0.4.5
+- An elected identical-version master now survives report redraws during the
+  current review session, including the reload after editing and saving track
+  metadata. Deselecting that member clears the election; leaving the report
+  clears unconfirmed review state; a confirmed preferred track remains
+  authoritative (`ASR-100`).
+- Branch: `fix/preserve-similarity-master-v0.4.5`; package version: `0.4.5`.
+- Candidate waveforms now show the localized effective playback duration after
+  subtracting imported start and end trims, making remaster/tempo length
+  differences directly visible (`ASR-101`).
+
 ### Normalized audio-similarity auditioning
 - Similarity-report group, replacement, and affected-tanda context auditions now
   apply the imported playback gain with the normal loudness fallback and bounded
@@ -273,8 +325,8 @@
   cross-origin localhost preflight, and added a console warning for failures.
 
 ### Current branch / version
-- Branch: `fix/similarity-normalization-v0.4.4`
-- Version: `0.4.4` (from `package.json`)
+- Branch: `fix/preserve-similarity-master-v0.4.5`
+- Version: `0.4.6` (from `package.json`)
 
 ### Release download fix
 - Reproduced the macOS release failure: Evermeet's removed `getrelease` endpoint returns HTTP 410 and an 86-byte JSON error response. This was an upstream change, not a rating-feature change; application compilation had succeeded.
