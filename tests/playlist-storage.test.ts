@@ -80,6 +80,36 @@ describe("playlist storage parsing", () => {
     });
   });
 
+  it("round-trips an unsaved playlist tanda with its master identity", () => {
+    const raw = serializeStoredPlaylistState({
+      version: 2,
+      items: [
+        {
+          kind: "tanda",
+          id: "playlist-variant",
+          snapshot: {
+            id: "playlist-variant",
+            masterTandaId: "saved-master",
+            unsaved: true,
+            name: "Late-night variant",
+            styles: ["Tango", "Milonga"],
+            rating: 3,
+            trackSlots: ["track-a", "track-b", "track-c", "track-extra"],
+          },
+        },
+      ],
+    });
+
+    expect(parseStoredPlaylistState(raw)?.items[0]).toMatchObject({
+      kind: "tanda",
+      id: "playlist-variant",
+      snapshot: {
+        masterTandaId: "saved-master",
+        unsaved: true,
+      },
+    });
+  });
+
   it("accepts older structured payloads that used cortinaOverrides", () => {
     const raw = JSON.stringify({
       version: 2,

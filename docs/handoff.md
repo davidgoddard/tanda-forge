@@ -1,5 +1,26 @@
 ## Handoff
 
+### Version 0.4.8 — playlist-local tanda variants
+- Package and lockfile versions are `0.4.8`.
+- Editing a tanda from the playlist now creates an explicit copy-on-write local
+  variant regardless of collection membership. Done keeps it only in the current
+  playlist and preserves it across restart without changing the saved master.
+- Save updates the variant's originating master; a tanda constructed only in the
+  playlist is promoted to a new saved master. Unmodified playlist entries remain
+  references to their saved masters (`UI-012.R20`).
+- Playlist-local variants show an amber pencil with localized tooltips for
+  changed-master and playlist-only states. It can coexist with the red count or
+  style mismatch warning (`UI-012.R20.a`).
+- Returning a variant to the same meaningful contents as its saved master now
+  restores the master reference and clears the pencil on Done. Trailing empty
+  editor slots are ignored for this comparison; metadata and populated-track
+  differences still retain the variant.
+- The user guide documents the workflow and the intentional end-of-evening case
+  of adding an extra traditional track without changing the reusable tanda.
+- Verification passed: `npm run preflight` (107 test files / 610 tests plus the
+  production build), focused Electron workflows 23, 23b and 23c, and the
+  focused playlist storage/controller/variant tests.
+
 ### Version 0.4.7 — track-to-tanda lookup
 - Package and lockfile versions are `0.4.7`.
 - Used track rows now show a compact saved-tanda usage count inside the track

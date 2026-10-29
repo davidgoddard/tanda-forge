@@ -7166,3 +7166,16 @@ live availability/digest/content checks for both pinned archives, and
   - Delivery is version `0.4.7` on branch
     `feature/find-track-tandas-v0.4.7`; the user guide and README search feature
     summary describe the database-backed count and exact lookup workflow.
+
+- 2026-10-29 — Playlist-local tanda variants and saved masters
+  - User established a copy-on-write model: collections reference saved tanda
+    masters; editing from a playlist creates a durable playlist-local variant;
+    Done keeps that variant only in the playlist; Save updates its originating
+    master or promotes a playlist-created tanda into a new master (`UI-012.R20`).
+  - Playlist rows show an amber pencil for unsaved/local-only tandas, independent
+    of the red style/count warning. This supports intentional live exceptions,
+    such as adding a final traditional track without changing the reusable
+    saved tanda (`UI-012.R20.a`, `UI-012.R20.b`).
+  - Follow-up: restoring a playlist variant to the master's meaningful contents
+    now clears the pencil and restores the master reference on Done; trailing
+    empty editor slots do not keep an otherwise identical variant dirty.

@@ -1,5 +1,7 @@
 export type PlaylistTandaSnapshot = {
   id: string;
+  masterTandaId?: string | null;
+  unsaved?: boolean;
   name: string;
   styles: string[];
   rating: number;

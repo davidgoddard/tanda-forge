@@ -179,6 +179,7 @@ import {
   type StoredPlaylistItem,
   type StoredPlaylistState,
 } from "../shared/playlist-storage.js";
+import { tandaContentsMatch } from "../shared/playlist-tanda-variant.js";
 import { resolveSearchResultTanda } from "../shared/tanda-search-resolution.js";
 import {
   PLAYLIST_EXPORT_VERSION,
@@ -1189,6 +1190,8 @@ type TandaDraft = {
   trackSlots: (string | null)[];
   totalDurationMs?: number;
   origin?: "designer" | "playlist";
+  masterTandaId?: string | null;
+  playlistUnsaved?: boolean;
   legacySourcePath?: string | null;
 };
 
@@ -3443,8 +3446,10 @@ const handleTandaAction = async (event: Event) => {
         trackId ? trackCache.get(trackId) ?? null : null,
       ),
     );
+    const wasPlaylistVariant = tanda.origin === "playlist" && tanda.playlistUnsaved;
+    const savedId = wasPlaylistVariant ? tanda.masterTandaId ?? tanda.id : tanda.id;
     const saved = await window.tanda.saveTanda({
-      id: tanda.id,
+      id: savedId,
       name: tanda.name,
       styles: tanda.styles,
       rating: tanda.rating,
@@ -3454,6 +3459,16 @@ const handleTandaAction = async (event: Event) => {
     });
     invalidateTrackTandaUsage();
     upsertTandaCache(saved);
+    if (wasPlaylistVariant) {
+      playlistItems = playlistItems.map((item) =>
+        item?.kind === "tanda" && item.tandaId === tanda.id
+          ? { ...item, tandaId: saved.id }
+          : item,
+      );
+      if (tanda.id !== saved.id) {
+        tandaCache.delete(tanda.id);
+      }
+    }
     tandaDrafts = tandaDrafts.filter((item) => item.id !== tanda.id);
     const fresh = createEmptyTanda();
     tandaDrafts = [fresh, ...tandaDrafts];
@@ -7212,7 +7227,28 @@ const finalizeTandaDraft = (
   tanda: TandaDraft,
   returnTab?: RightPanelTab | null,
 ) => {
-  tandaCache.set(tanda.id, { ...cloneTanda(tanda), origin: "designer" });
+  const savedMaster = tanda.masterTandaId
+    ? tandaCache.get(tanda.masterTandaId) ?? null
+    : null;
+  const restoredToMaster =
+    returnTab === "playlist-tab" &&
+    tanda.playlistUnsaved === true &&
+    savedMaster !== null &&
+    tandaContentsMatch(tanda, savedMaster);
+  if (restoredToMaster && tanda.masterTandaId) {
+    const masterTandaId = tanda.masterTandaId;
+    playlistItems = playlistItems.map((item) =>
+      item?.kind === "tanda" && item.tandaId === tanda.id
+        ? { ...item, tandaId: masterTandaId }
+        : item,
+    );
+    tandaCache.delete(tanda.id);
+  } else {
+    tandaCache.set(tanda.id, {
+      ...cloneTanda(tanda),
+      origin: returnTab === "playlist-tab" ? "playlist" : "designer",
+    });
+  }
   tandaDrafts = tandaDrafts.filter((item) => item.id !== tanda.id);
   const fresh = createEmptyTanda();
   tandaDrafts = [...tandaDrafts, fresh];
@@ -8937,9 +8973,11 @@ const serializePlaylistItems = (items: (PlaylistItem | null)[]) => {
       return { kind: "track", id: item.track.id };
     }
     const snapshotSource = resolveTandaDraft(item.tandaId);
-    const snapshot: PlaylistTandaSnapshot | undefined = snapshotSource
+    const snapshot: PlaylistTandaSnapshot | undefined = snapshotSource?.playlistUnsaved
       ? {
           id: snapshotSource.id,
+          masterTandaId: snapshotSource.masterTandaId ?? null,
+          unsaved: true,
           name: snapshotSource.name,
           styles: [...snapshotSource.styles],
           rating: snapshotSource.rating,
@@ -9081,14 +9119,33 @@ const applyStoredPlaylistState = async (storedState: StoredPlaylistState) => {
     }
     if (item.snapshot) {
       const snapshot = item.snapshot;
+      const savedTanda = tandaMap.get(item.id);
+      const legacySnapshotMatchesMaster =
+        snapshot.unsaved !== true &&
+        savedTanda !== undefined &&
+        snapshot.name === savedTanda.name &&
+        snapshot.rating === savedTanda.rating &&
+        JSON.stringify(snapshot.styles) === JSON.stringify(savedTanda.styles) &&
+        JSON.stringify(snapshot.trackSlots) === JSON.stringify(savedTanda.track_slots);
+      if (legacySnapshotMatchesMaster) {
+        return { kind: "tanda", tandaId: item.id, mismatch: item.mismatch };
+      }
+      const variantId = snapshot.unsaved === true ? item.id : crypto.randomUUID();
       const hydrated: TandaDraft = {
-        id: item.id,
+        id: variantId,
         name: snapshot.name,
         styles: [...snapshot.styles],
         rating: snapshot.rating,
         trackSlots: [...snapshot.trackSlots],
         totalDurationMs: snapshot.totalDurationMs,
         origin: "playlist",
+        masterTandaId:
+          snapshot.unsaved === true
+            ? snapshot.masterTandaId ?? null
+            : savedTanda
+              ? item.id
+              : null,
+        playlistUnsaved: true,
       };
       ensureTandaDraft(hydrated, "playlist");
       return { kind: "tanda", tandaId: hydrated.id, mismatch: item.mismatch };
@@ -9341,6 +9398,18 @@ const renderPlaylist = () => {
             tanda: getTandaSequenceLabel(tanda),
           });
         }
+      }
+      if (tanda.playlistUnsaved) {
+        row.classList.add("playlist-unsaved");
+        const unsavedIndicator = document.createElement("span");
+        unsavedIndicator.className = "playlist-unsaved-indicator";
+        unsavedIndicator.textContent = "✎";
+        const unsavedLabel = tanda.masterTandaId
+          ? t("playlistUnsavedChangesTooltip")
+          : t("playlistOnlyTandaTooltip");
+        unsavedIndicator.title = unsavedLabel;
+        unsavedIndicator.setAttribute("aria-label", unsavedLabel);
+        row.appendChild(unsavedIndicator);
       }
       row.dataset.index = index.toString();
       if (targetIndex === index) {
@@ -11681,9 +11750,6 @@ const clearPlaylistOpenTanda = () => {
   playlistOpenTandaIndex = null;
 };
 
-const isTandaInClipboard = (tandaId: string) =>
-  clipboardCollections.some((collection) => collection.tandaIds.includes(tandaId));
-
 const cloneTandaWithNewId = (
   tanda: TandaDraft,
   origin?: TandaDraft["origin"],
@@ -11698,10 +11764,12 @@ const ensurePlaylistEditableTanda = (tandaId: string, index: number) => {
   if (!original) {
     return null;
   }
-  if (!isTandaInClipboard(tandaId)) {
+  if (original.playlistUnsaved) {
     return original;
   }
   const draft = cloneTandaWithNewId(original, "playlist");
+  draft.masterTandaId = original.masterTandaId ?? original.id;
+  draft.playlistUnsaved = true;
   ensureTandaDraft(draft, "playlist");
   const existing = playlistItems[index];
   if (existing?.kind === "tanda") {
@@ -11897,22 +11965,22 @@ const appendTrackToPlaylist = (
   }
   const existing = playlistItems[insertIndex];
   if (existing?.kind === "tanda") {
-    const tanda = resolveTandaDraft(existing.tandaId);
-    if (!tanda) {
+    const sourceTanda = resolveTandaDraft(existing.tandaId);
+    if (!sourceTanda) {
       return;
     }
-    const emptyIndex = tanda.trackSlots.findIndex((slot) => !slot);
+    const emptyIndex = sourceTanda.trackSlots.findIndex((slot) => !slot);
     if (emptyIndex < 0) {
       setStatus(t("statusPlaylistNoEmptySlot"));
       return;
     }
-    const previewTrackSlots = [...tanda.trackSlots];
+    const previewTrackSlots = [...sourceTanda.trackSlots];
     previewTrackSlots[emptyIndex] = track.id;
     const previewTracks = previewTrackSlots.map((id) =>
       id ? trackCache.get(id) ?? null : null,
     );
     const derivedStyles = collectStylesFromTracks(previewTracks, availableStyles);
-    const normalizedExisting = tanda.styles
+    const normalizedExisting = sourceTanda.styles
       .map((style) => normalizeStyleName(style))
       .map((normalized) =>
         availableStyles.find(
@@ -11924,7 +11992,7 @@ const appendTrackToPlaylist = (
       new Set([...normalizedExisting, ...derivedStyles]),
     );
     const previewTanda: TandaDraft = {
-      ...tanda,
+      ...sourceTanda,
       styles: previewStyles,
       trackSlots: previewTrackSlots,
     };
@@ -11949,6 +12017,10 @@ const appendTrackToPlaylist = (
       );
       return;
     }
+    const tanda = ensurePlaylistEditableTanda(existing.tandaId, insertIndex);
+    if (!tanda) {
+      return;
+    }
     tanda.trackSlots = previewTrackSlots;
     tanda.styles = previewStyles;
     trackCache.set(track.id, track);
@@ -11958,7 +12030,7 @@ const appendTrackToPlaylist = (
         : undefined;
     playlistItems[insertIndex] = {
       kind: "tanda",
-      tandaId: existing.tandaId,
+      tandaId: tanda.id,
       mismatch,
     };
     normalizePlaylist();
@@ -12107,6 +12179,8 @@ const createPlaylistTandaForSlot = (
     rating: 0,
     trackSlots,
     origin: "playlist",
+    masterTandaId: null,
+    playlistUnsaved: true,
   };
 };
 
@@ -12503,6 +12577,8 @@ const cloneTanda = (tanda: TandaDraft): TandaDraft => ({
   trackSlots: [...tanda.trackSlots],
   totalDurationMs: tanda.totalDurationMs,
   origin: tanda.origin,
+  masterTandaId: tanda.masterTandaId,
+  playlistUnsaved: tanda.playlistUnsaved,
   legacySourcePath: tanda.legacySourcePath,
 });
 
