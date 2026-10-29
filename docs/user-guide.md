@@ -535,6 +535,35 @@ Once a tanda is open in the **Tanda Designer** or the playlist-hosted tanda edit
 - change the tanda name and other tanda-level details
 - click **Save** to keep the tanda
 
+Editing a tanda from inside the playlist does not immediately change its saved
+master. Tanda Forge creates a playlist-local version as soon as that tanda is
+changed:
+
+- **Done** closes the editor and keeps the changed version only in the current
+  playlist. It survives an application restart, but is discarded when that
+  playlist is cleared or replaced.
+- **Save** writes the current contents back to the tanda's original saved
+  master. If the tanda was constructed only in the playlist and has no master,
+  Save promotes it into a new saved tanda.
+- Collections hold references to saved master tandas. Therefore saving changes
+  to an existing master updates that tanda wherever the master is used, while
+  independently modified playlist-local versions remain independent until
+  they are saved.
+
+An amber pencil badge on a playlist tanda means that it contains unsaved local
+changes. Its tooltip says whether the tanda differs from a saved master or
+exists only in the playlist. This is separate from the red **!** warning for a
+wrong style or track count, so both badges can appear at once. If you undo the
+playlist changes so that the tanda once again matches its saved master, clicking
+**Done** clears the pencil automatically; you do not need to save it.
+
+For example, near the end of an evening a DJ may discover there is time for one
+more song and add **La Cumparsita**, or another traditional track, to the final
+tanda. The result might deliberately have too many tracks, mixed styles, and an
+unsaved pencil badge. Choosing **Done** is valid: the extra track remains in
+that evening's playlist without altering the reusable saved tanda. Clearing or
+replacing the playlist later discards that one-off version.
+
 When no tanda draft is currently open, the first track sent with **T** opens a
 new empty tanda at the configured default size and occupies its first slot.
 Further tracks sent with **T** are added to the next slots of that same tanda in

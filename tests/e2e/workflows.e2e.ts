@@ -2163,6 +2163,11 @@ test.describe("Electron app end-to-end workflows", () => {
       await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
       await ensurePlaylistTab(page);
       await expect(playlistTandaRow(page, "Tango Trio")).toBeVisible();
+      const originalTanda = (await getTandasViaApi(page)).find(
+        (tanda) => tanda.name === "Tango Trio",
+      );
+      expect(originalTanda).toBeTruthy();
+      const originalTrackSlots = [...(originalTanda?.track_slots ?? [])];
 
       await page.locator('button[data-tab="search-tracks"]').click();
       await runSearch(page, "Tempo 72 Test");
@@ -2190,24 +2195,131 @@ test.describe("Electron app end-to-end workflows", () => {
       await doneButton.first().click();
 
       const editedFirstTanda = page.locator("#playlist-list .tanda-row").first();
+      const unsavedIndicator = editedFirstTanda.locator(".playlist-unsaved-indicator");
+      await expect(unsavedIndicator).toBeVisible();
+      await expect(unsavedIndicator).toHaveAttribute(
+        "aria-label",
+        "This playlist tanda has unsaved changes.",
+      );
       if (!(await editedFirstTanda.locator(".tanda-details").isVisible())) {
         await editedFirstTanda.locator(".tanda-summary").click();
       }
       await expect(editedFirstTanda).toContainText("Tempo 72 Test");
+      const unchangedMaster = (await getTandasViaApi(page)).find(
+        (tanda) => tanda.id === originalTanda?.id,
+      );
+      expect(unchangedMaster?.track_slots).toEqual(originalTrackSlots);
 
       await launched.close({ cleanup: false });
       relaunched = await relaunchSeededApp(tempRoot);
       const firstAfterRestart = relaunched.page.locator("#playlist-list .tanda-row").first();
+      await expect(firstAfterRestart.locator(".playlist-unsaved-indicator")).toBeVisible();
       if (!(await firstAfterRestart.locator(".tanda-details").isVisible())) {
         await firstAfterRestart.locator(".tanda-summary").click();
       }
       await expect(firstAfterRestart).toContainText("Tempo 72 Test");
+
+      await clickRowAction(firstAfterRestart, "tanda-edit");
+      const relaunchedEditor = await waitForPlaylistEditorRows(relaunched.page, 3);
+      await relaunchedEditor.locator('button[data-action="tanda-save"]').click();
+      await expect(firstAfterRestart.locator(".playlist-unsaved-indicator")).toHaveCount(0);
+      await expect
+        .poll(async () => {
+          const master = (await getTandasViaApi(relaunched!.page)).find(
+            (tanda) => tanda.id === originalTanda?.id,
+          );
+          return JSON.stringify(master?.track_slots ?? []) !== JSON.stringify(originalTrackSlots);
+        })
+        .toBe(true);
+      const savedMaster = (await getTandasViaApi(relaunched.page)).find(
+        (tanda) => tanda.id === originalTanda?.id,
+      );
+      expect(savedMaster?.tracks.some((track) => track.title === "Tempo 72 Test")).toBe(true);
     } finally {
       if (relaunched) {
         await relaunched.close();
       } else {
         await launched.close();
       }
+    }
+  });
+
+  test("23b - saving a playlist-created tanda promotes it to a saved master", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await clearPlaylistViaUi(page);
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await runSearch(page, "Tempo 72 Test");
+      await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "add-playlist-track");
+      await confirmIfPrompted(page);
+      await ensurePlaylistTab(page);
+
+      const playlistTanda = page.locator("#playlist-list .tanda-row").first();
+      const indicator = playlistTanda.locator(".playlist-unsaved-indicator");
+      await expect(indicator).toBeVisible();
+      await expect(indicator).toHaveAttribute(
+        "aria-label",
+        "This tanda exists only in this playlist.",
+      );
+
+      const editor = await waitForPlaylistEditorRows(page, 1);
+      await editor.locator("input.tanda-name").fill("Saved playlist improvisation");
+      await editor.locator('button[data-action="tanda-save"]').click();
+      await confirmIfPrompted(page);
+
+      await expect(playlistTanda.locator(".playlist-unsaved-indicator")).toHaveCount(0);
+      await expect
+        .poll(async () =>
+          (await getTandasViaApi(page)).some(
+            (tanda) => tanda.name === "Saved playlist improvisation",
+          ),
+        )
+        .toBe(true);
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("23c - removing an added playlist track clears the unsaved indicator", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await clearPlaylistViaUi(page);
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await runSearch(page, "Tempo 72 Test");
+      await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "add-clip");
+
+      await ensurePlaylistTab(page);
+      const playlistTanda = playlistTandaRow(page, "Tango Trio");
+      await clickRowAction(playlistTanda, "tanda-edit");
+      let editor = await waitForPlaylistEditorRows(page, 3);
+      await editor.locator('button[data-action="tanda-add-slot"]').click();
+      await clickRowAction(clipboardTrackRow(page, "Tempo 72 Test"), "add-tanda");
+      editor = await waitForPlaylistEditorRows(page, 4);
+      await editor.locator('button[data-action="tanda-done"]').click();
+      await expect(playlistTandaRow(page, "Tango Trio").locator(".playlist-unsaved-indicator"))
+        .toBeVisible();
+
+      await clickRowAction(playlistTandaRow(page, "Tango Trio"), "tanda-edit");
+      editor = await waitForPlaylistEditorRows(page, 4);
+      await clickEditorTrackAction(editor, 3, "tanda-remove");
+      editor = await waitForPlaylistEditorRows(page, 4);
+      await editor.locator('button[data-action="tanda-done"]').click();
+
+      await expect(playlistTandaRow(page, "Tango Trio").locator(".playlist-unsaved-indicator"))
+        .toHaveCount(0);
+      const savedMaster = (await getTandasViaApi(page)).find(
+        (tanda) => tanda.name === "Tango Trio",
+      );
+      expect(savedMaster?.tracks.some((track) => track.title === "Tempo 72 Test")).toBe(false);
+    } finally {
+      await launched.close();
     }
   });
 

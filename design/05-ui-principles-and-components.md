@@ -607,6 +607,18 @@ Behavior:
 - UI-012.R19.b: Enabling the live-performance stop toggle during a tanda that is
   already playing still applies to that currently active tanda and must pause
   after its following cortina.
+- UI-012.R20: Editing a tanda from the playlist uses copy-on-write playlist
+  state. Done keeps the changed version in that playlist without changing its
+  saved master. Save updates the originating master, or promotes a tanda that
+  was created only in the playlist into a new saved master.
+- UI-012.R20.a: An amber draft indicator identifies playlist tandas with local
+  unsaved changes or no saved master. Its localized tooltip distinguishes those
+  states, persists with the playlist across restart, and can appear alongside
+  independent style/count mismatch warnings. If a variant is restored to the
+  same meaningful contents as its master, including after removing an added
+  empty slot, the playlist resumes referencing the master and clears the badge.
+- UI-012.R20.b: Clearing or replacing a playlist discards its unsaved local
+  tanda variants. Collections continue to reference saved master tanda IDs.
 
 ---
 
