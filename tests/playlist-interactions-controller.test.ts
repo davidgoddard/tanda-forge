@@ -17,18 +17,21 @@ const createBaseDeps = () => {
   const playlistPanel = new FakeClickable() as unknown as HTMLElement;
   const playlistListEl = new FakeClickable() as unknown as HTMLElement;
   const addTandaBtn = new FakeClickable() as unknown as HTMLElement;
+  const generateTandaBtn = new FakeClickable() as unknown as HTMLElement;
   const playlistItems: any[] = [];
 
   return {
     playlistPanel,
     playlistListEl,
     addTandaBtn,
+    generateTandaBtn,
     playlistItems,
     deps: {
       elements: {
         playlistPanel,
         playlistListEl,
         addTandaBtn,
+        generateTandaBtn,
       },
       readers: {
         getHeadphoneAvailable: () => false,
@@ -62,6 +65,7 @@ const createBaseDeps = () => {
         handleDropToPlaylist: () => {},
         createEmptyTanda: () => ({ id: "draft-1" }),
         appendTandaDraft: () => {},
+        generateDesignerTanda: async () => {},
         setActiveTanda: () => {},
         openCortinaModal: () => {},
         toggleTandaRow: () => {},
@@ -131,6 +135,18 @@ describe("playlist interactions controller", () => {
 
     expect(appendTandaDraft).toHaveBeenCalledWith({ id: "draft-1" });
     expect(setActiveTanda).toHaveBeenCalledWith("draft-1");
+  });
+
+  it("generates and replaces the active designer tanda from the generate button", async () => {
+    const generateDesignerTanda = vi.fn(async () => {});
+    const { generateTandaBtn, deps } = createBaseDeps();
+    deps.actions.generateDesignerTanda = generateDesignerTanda;
+
+    const controller = createPlaylistInteractionsController(deps as any);
+    controller.initialize();
+    await (generateTandaBtn as unknown as FakeClickable).dispatch("click", {});
+
+    expect(generateDesignerTanda).toHaveBeenCalledOnce();
   });
 
   it("starts playlist playback immediately from a prep-mode tanda detail click", async () => {

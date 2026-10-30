@@ -1,5 +1,15 @@
 ## Handoff
 
+### Designer tanda generation and cortina audition
+- Cortina-picker headphone buttons now invoke the configured headphone channel
+  directly without selecting the cortina (`UI-012.R9.d`).
+- Tanda Designer has a localized **Generate Tanda** action. Each click replaces
+  the current draft, excludes playlist tracks/orchestras, and uses the marked
+  playlist slot's style/size or Search styles plus the default size
+  (`UI-016.R17`).
+- Verification: `npm run preflight` passed (110 test files, 644 tests, production
+  build); `git diff --check` passed.
+
 ### Orchestra-balanced track generation
 - Track-based auto-generation now prioritizes orchestras not yet represented in
   the playlist before repeats, regardless of how many eligible recordings each

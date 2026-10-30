@@ -7324,3 +7324,10 @@ live availability/digest/content checks for both pinned archives, and
   - Investigation also found that track generation removed its same-orchestra
     constraint before relaxing singer/year/tempo cohesion. The phase order now
     tries relaxed-but-pure orchestras before any mixed construction.
+- 2026-10-30 — Designer generation and cortina-picker audition
+  - The user reported that cortina-picker headphone buttons did nothing and
+    requested a Generate Tanda action beside Add Tanda.
+  - `UI-012.R9.d` wires picker results directly to headphone playback.
+    `UI-016.R17` replaces the active designer draft with a cohesive tanda that
+    excludes playlist songs/orchestras and derives style from the marked
+    playlist slot or Search selectors.

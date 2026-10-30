@@ -191,6 +191,8 @@ During main playback, a vertical line moves across the active playlist track
 to show its position within the effective audio after saved start and end trims.
 
 Cortinas if used will be displayed between tandas and if clicked on will open the cortina picker to allow manual selection.
+The headphone button beside a picker result auditions it without selecting the
+cortina or closing the picker.
 
 Tandas show their overall style letter and then the name of the tanda if specified followed by a summary of the artist composition, whether sung, the years of the tracks in the tanda, the range of tempos in the tanda and the duration of the tanda.
 
@@ -544,6 +546,10 @@ There are several ways a tanda can be created or filled:
   - from a **clipboard track**, use **P** to add it into the playlist or **T** to send it into the Tanda Designer.
   - from a **playlist tanda**, use the per-track send actions to move a track out to the clipboard or into another tanda slot.
 - **Auto-fill can create tandas automatically** when rebuilding a playlist and no saved tanda fits the required slot.
+- **Generate Tanda** in the Tanda Designer builds a fresh draft from tracks and
+  orchestras not already used in the playlist. Repeated clicks replace the
+  current draft. A marked playlist tanda slot supplies the required style and
+  size; otherwise the Search style selectors and default tanda size are used.
 
 Once a tanda is open in the **Tanda Designer** or the playlist-hosted tanda editor, it can be changed in several ways:
 

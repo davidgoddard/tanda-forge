@@ -534,6 +534,12 @@ Requirements:
   plus at most one empty template; the template is always listed first.
 - UI-016.R16: Clearing while Tanda Designer is active resets non-playlist drafts
   to one fresh empty template and preserves playlist-origin drafts.
+- UI-016.R17: A localized **Generate Tanda** action replaces the active designer
+  draft on every click. It excludes tracks and canonical orchestras already in
+  the playlist, then applies the normal single-orchestra, style, vocal, singer,
+  year and tempo cohesion rules. Style and size come from the marked playlist
+  tanda slot when present; otherwise style comes from the Search selectors and
+  size from the configured designer default.
 
 Filtering:
 - UI-016.R13: When a tanda is selected, the clipboard (and search results, when enabled)
@@ -584,6 +590,8 @@ Behavior:
   before the first tanda, between tandas, and after the final tanda.
 - UI-012.R9.b: Clicking a cortina row opens the cortina picker to replace the
   upcoming cortina.
+- UI-012.R9.d: Headphone actions in cortina-picker results audition that cortina
+  through the configured headphone output without selecting or closing the row.
 - UI-012.R9.c: Playlist cortina assignments persist with the saved playlist,
   whether they were auto-planned or manually replaced. They are restored on
   startup when the active cortina set is still the same. If the cortina set

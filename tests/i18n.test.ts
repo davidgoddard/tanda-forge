@@ -98,6 +98,23 @@ describe("renderer i18n", () => {
     }
   });
 
+  it("translates designer tanda generation in every language", () => {
+    const keys = [
+      "generateTanda",
+      "statusGenerateTandaChooseStyle",
+      "statusGenerateTandaUnavailable",
+      "statusGenerateTandaCreated",
+    ];
+    for (const language of SUPPORTED_LANGUAGES) {
+      for (const key of keys) {
+        expect(translations[language][key], `${language}.${key}`).toBeTruthy();
+        if (language !== "en") {
+          expect(translations[language][key]).not.toBe(translations.en[key]);
+        }
+      }
+    }
+  });
+
   it("fully translates the AV-lag settings and calibration component", () => {
     const keys = Object.keys(translations.en).filter((key) => key.startsWith("displayAvLag"));
     expect(keys.length).toBeGreaterThanOrEqual(10);

@@ -16,6 +16,7 @@ type PlaylistInteractionsElements = {
   playlistPanel?: HTMLElement | null;
   playlistListEl?: HTMLElement | null;
   addTandaBtn?: HTMLElement | null;
+  generateTandaBtn?: HTMLElement | null;
 };
 
 export type PlaylistInteractionsControllerDeps = {
@@ -52,6 +53,7 @@ export type PlaylistInteractionsControllerDeps = {
     handleDropToPlaylist: (event: DragEvent) => void;
     createEmptyTanda: () => TandaLike;
     appendTandaDraft: (draft: TandaLike) => void;
+    generateDesignerTanda: () => Promise<void>;
     setActiveTanda: (tandaId: string) => void;
     openCortinaModal: (index: number | null) => void;
     toggleTandaRow: (row: HTMLElement) => void;
@@ -234,6 +236,9 @@ export const createPlaylistInteractionsController = (
       const draft = deps.actions.createEmptyTanda();
       deps.actions.appendTandaDraft(draft);
       deps.actions.setActiveTanda(draft.id);
+    });
+    deps.elements.generateTandaBtn?.addEventListener("click", async () => {
+      await deps.actions.generateDesignerTanda();
     });
 
     deps.elements.playlistListEl?.addEventListener("click", async (event) => {
