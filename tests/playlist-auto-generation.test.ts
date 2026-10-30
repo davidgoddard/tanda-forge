@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   findExactOrderedTandaMatch,
+  groupGenerationSeedsByArtist,
   scoreTandaTrackCohesion,
 } from "../app/src/shared/playlist-auto-generation";
 
@@ -44,6 +45,44 @@ describe("scoreTandaTrackCohesion", () => {
     const otherSinger = scoreTandaTrackCohesion(seed, { ...seed, singer: "Jorge Duran" });
     expect(sameSinger).toBeLessThan(unknownSinger);
     expect(unknownSinger).toBeLessThan(otherSinger);
+  });
+});
+
+describe("groupGenerationSeedsByArtist", () => {
+  const tracks = [
+    { id: "d1", artist: "D'Arienzo", title: "A" },
+    { id: "d2", artist: "D'Arienzo", title: "B" },
+    { id: "d3", artist: "D'Arienzo", title: "C" },
+    { id: "t1", artist: "Troilo", title: "D" },
+    { id: "t2", artist: "Troilo", title: "E" },
+    { id: "t3", artist: "Troilo", title: "F" },
+    { id: "f1", artist: "Fresedo", title: "G" },
+  ];
+
+  it("places unused viable orchestras before already-used orchestras", () => {
+    const groups = groupGenerationSeedsByArtist({
+      items: tracks,
+      getArtistKey: (track) => track.artist,
+      getTitleKey: (track) => track.title,
+      getArtistUsage: (artist) => artist === "D'Arienzo" ? 3 : 0,
+      targetCount: 3,
+      requireViableSingleArtist: true,
+      getTieBreaker: () => 0,
+    });
+    expect(groups.map((group) => group[0]?.artist)).toEqual(["Troilo", "D'Arienzo"]);
+  });
+
+  it("excludes orchestras that cannot fill a single-orchestra tanda", () => {
+    const groups = groupGenerationSeedsByArtist({
+      items: tracks,
+      getArtistKey: (track) => track.artist,
+      getTitleKey: (track) => track.title,
+      getArtistUsage: () => 0,
+      targetCount: 3,
+      requireViableSingleArtist: true,
+      getTieBreaker: () => 0,
+    });
+    expect(groups.flat().some((track) => track.artist === "Fresedo")).toBe(false);
   });
 });
 

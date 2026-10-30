@@ -430,6 +430,9 @@ Interactions:
 - UI-014.R32: Track-based auto-generation remains independent of saved tanda
   selection, but an exact ordered-track match to a persisted tanda resolves to
   that saved tanda and is not marked auto-generated or playlist-only.
+- UI-014.R33: Track-based auto-generation prioritizes orchestras with no tanda
+  yet in the playlist before repeating an orchestra. It exhausts viable
+  single-orchestra construction before relaxing to mixed-orchestra tandas.
 
 ## UI-015 — Now Playing Strip
 

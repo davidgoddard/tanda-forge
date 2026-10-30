@@ -659,6 +659,9 @@ A playlist can be built up as required and then cleared using the **Clear** butt
 - Generation still builds from tracks rather than choosing saved tandas. If the
   resulting tracks exactly match a saved tanda in the same order, the playlist
   links to that known tanda and shows neither the pencil nor auto-generated badge.
+- Auto-generation aims for one tanda per orchestra before repeating orchestras
+  and uses a single orchestra whenever enough suitable tracks exist. Collection
+  popularity therefore does not by itself make prolific orchestras dominate.
 - Auto-fill never reuses a track title already present in the generated playlist.
 
 If the tanda sequence configured uses a grouped option such as "3t 3t 3w 3t 3t (3m 3c 3f)" (where 'c' might be Candombe and 'f' might be Foxtrot) then a tanda matching any of those styles will be picked or built if required.

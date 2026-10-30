@@ -1,5 +1,14 @@
 ## Handoff
 
+### Orchestra-balanced track generation
+- Track-based auto-generation now prioritizes orchestras not yet represented in
+  the playlist before repeats, regardless of how many eligible recordings each
+  orchestra has (`UI-014.R33`).
+- Each construction phase exhausts viable single-orchestra groups before any
+  mixed-orchestra relaxation; the hard repeat interval still applies.
+- Verification: `npm run preflight` passed (109 test files, 638 tests, production
+  build); `git diff --check` passed.
+
 ### Accurate waveform loading status
 - A live-data audit found valid waveform PNGs for all 3,679 active tracks after
   setup/import/rescan. The transient localized display wording now says

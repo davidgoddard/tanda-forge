@@ -7310,3 +7310,8 @@ live availability/digest/content checks for both pinned archives, and
   - A live-data audit found valid cached waveforms for all 3,679 active tracks;
     the generic loading placeholder was misleading. It now says "Loading
     waveform" in every language while genuine missing-cache repair remains.
+- 2026-10-30 — Prefer one generated tanda per orchestra
+  - The user observed that prolific or DJ-popular orchestras dominated a
+    generated playlist and requested breadth across the collection.
+  - `UI-014.R33` prioritizes unused viable orchestras before repeats and
+    exhausts single-orchestra construction before mixed-orchestra fallback.

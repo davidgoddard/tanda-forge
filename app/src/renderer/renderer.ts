@@ -186,6 +186,7 @@ import {
 import { tandaContentsMatch } from "../shared/playlist-tanda-variant.js";
 import {
   findExactOrderedTandaMatch,
+  groupGenerationSeedsByArtist,
   scoreTandaTrackCohesion,
 } from "../shared/playlist-auto-generation.js";
 import { resolveSearchResultTanda } from "../shared/tanda-search-resolution.js";
@@ -10941,11 +10942,16 @@ const pickGeneratedTandaForSlot = (
     "style-only",
   ];
   for (const phase of phases) {
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      const seed = pool[Math.floor(Math.random() * pool.length)] ?? null;
-      if (!seed) {
-        continue;
-      }
+    const seedGroups = groupGenerationSeedsByArtist({
+      items: pool,
+      getArtistKey: artistKey,
+      getTitleKey: normalizeTrackTitleForAutofill,
+      getArtistUsage: (artist) => artistCounts.get(artist) ?? 0,
+      targetCount,
+      requireViableSingleArtist: phase === "strict",
+    });
+    for (const seedGroup of seedGroups) {
+      for (const seed of seedGroup) {
       const seedArtist = artistKey(seed);
       const seedYear = yearValue(seed);
       const seedBpm = seed.bpm ?? null;
@@ -11083,6 +11089,7 @@ const pickGeneratedTandaForSlot = (
       }
       ensureTandaDraft(generated, "playlist");
       return generated;
+      }
     }
   }
   return null;
