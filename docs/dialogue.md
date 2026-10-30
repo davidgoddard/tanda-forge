@@ -7281,3 +7281,12 @@ live availability/digest/content checks for both pinned archives, and
   - Initial row rendering appended `legacySourcePath` unconditionally, while
     the toggle renderer rebuilt the summary without it. `UI-011.R18` now keeps
     internal filesystem/import provenance out of all tanda result summaries.
+- 2026-10-30 — Generate a playlist without saved tandas
+  - The user requested a separate clear-dialog action that ignores user-defined
+    tandas and constructs traditional DJ tandas directly from library tracks,
+    with all wording supported in every language.
+  - `UI-014.R30` defines **Clear and auto-generate** as a generate-only mode that
+    follows sequence style/size, strongly prefers canonical orchestra,
+    instrumental/sung status and singer coherence, then nearby known year and
+    tempo, progressively relaxing only when necessary. Existing **Clear and
+    auto-fill** retains its saved-tanda-first behavior.

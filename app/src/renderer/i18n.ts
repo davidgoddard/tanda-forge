@@ -763,6 +763,8 @@ export const translations = {
     playlistClearTitle: "Playlist clear options",
     playlistClearOnly: "Clear playlist",
     playlistClearAutofill: "Clear and auto-fill",
+    playlistClearGenerate: "Clear and auto-generate",
+    playlistClearGenerateHelp: "Auto-fill prefers your saved tandas. Auto-generate ignores them and builds traditional tandas from tracks, preferring the same orchestra, vocal type and singer, then nearby year and tempo.",
     outputSelectionFailed: "Output selection failed.",
     outputSelectionFailedDetail: "Output selection failed: {message}",
     outputRoutingFailedDetail:
@@ -1588,6 +1590,8 @@ export const translations = {
     playlistClearTitle: "Opciones de limpieza de playlist",
     playlistClearOnly: "Borrar playlist",
     playlistClearAutofill: "Borrar y autocompletar",
+    playlistClearGenerate: "Borrar y autogenerar",
+    playlistClearGenerateHelp: "Autocompletar da prioridad a sus tandas guardadas. Autogenerar las ignora y crea tandas tradicionales con pistas, prefiriendo la misma orquesta, tipo vocal y cantante, y despues anos y tempos cercanos.",
     outputSelectionFailed: "Fallo al seleccionar salida.",
     outputSelectionFailedDetail: "Fallo al seleccionar salida: {message}",
     outputRoutingFailedDetail:
@@ -2480,6 +2484,8 @@ export const translations = {
     playlistClearTitle: "Options de nettoyage de playlist",
     playlistClearOnly: "Effacer la playlist",
     playlistClearAutofill: "Effacer et remplir automatiquement",
+    playlistClearGenerate: "Effacer et generer automatiquement",
+    playlistClearGenerateHelp: "Le remplissage automatique privilegie vos tandas enregistrees. La generation automatique les ignore et construit des tandas traditionnelles avec des pistes, en privilegiant le meme orchestre, le type vocal et le chanteur, puis des annees et tempos proches.",
     outputSelectionFailed: "Selection de sortie impossible.",
     outputSelectionFailedDetail: "Selection de sortie impossible: {message}",
     outputRoutingFailedDetail:
@@ -3381,6 +3387,8 @@ export const translations = {
     playlistClearTitle: "Playlist-Leeren Optionen",
     playlistClearOnly: "Playlist leeren",
     playlistClearAutofill: "Leeren und automatisch fuellen",
+    playlistClearGenerate: "Leeren und automatisch erzeugen",
+    playlistClearGenerateHelp: "Automatisches Fullen bevorzugt Ihre gespeicherten Tandas. Automatisches Erzeugen ignoriert sie und baut traditionelle Tandas aus Titeln, bevorzugt mit demselben Orchester, Gesangstyp und Sanger sowie ahnlichen Jahren und Tempi.",
     outputSelectionFailed: "Auswahl fehlgeschlagen.",
     outputSelectionFailedDetail: "Auswahl fehlgeschlagen: {message}",
     outputRoutingFailedDetail:
@@ -4283,6 +4291,8 @@ export const translations = {
     playlistClearTitle: "Opcoes de limpeza da playlist",
     playlistClearOnly: "Limpar playlist",
     playlistClearAutofill: "Limpar e preencher automaticamente",
+    playlistClearGenerate: "Limpar e gerar automaticamente",
+    playlistClearGenerateHelp: "O preenchimento automatico da prioridade as suas tandas guardadas. A geracao automatica ignora-as e cria tandas tradicionais a partir das faixas, preferindo a mesma orquestra, tipo vocal e cantor, e depois anos e tempos proximos.",
     outputSelectionFailed: "Falha ao selecionar saida.",
     outputSelectionFailedDetail: "Falha ao selecionar saida: {message}",
     outputRoutingFailedDetail:
@@ -5189,6 +5199,8 @@ export const translations = {
     playlistClearTitle: "Opzioni svuota playlist",
     playlistClearOnly: "Svuota playlist",
     playlistClearAutofill: "Svuota e riempi automaticamente",
+    playlistClearGenerate: "Svuota e genera automaticamente",
+    playlistClearGenerateHelp: "Il riempimento automatico preferisce le tande salvate. La generazione automatica le ignora e crea tande tradizionali dai brani, preferendo la stessa orchestra, il tipo vocale e il cantante, poi anni e tempi vicini.",
     outputSelectionFailed: "Selezione uscita fallita.",
     outputSelectionFailedDetail: "Selezione uscita fallita: {message}",
     outputRoutingFailedDetail:
@@ -6106,6 +6118,8 @@ translations.is = {
   playlistClearTitle: "Valmöguleikar við hreinsun spilunarlista",
   playlistClearOnly: "Hreinsa spilunarlista",
   playlistClearAutofill: "Hreinsa og fylla sjálfkrafa",
+  playlistClearGenerate: "Hreinsa og búa til sjálfkrafa",
+  playlistClearGenerateHelp: "Sjálfvirk fylling velur helst vistaðar töndur. Sjálfvirk gerð hunsar þær og byggir hefðbundnar töndur úr lögum með áherslu á sömu hljómsveit, sönggerð og söngvara og síðan nálæg ár og tempó.",
   outputSelectionFailed: "Ekki tókst að velja úttak.",
   outputSelectionFailedDetail: "Ekki tókst að velja úttak: {message}",
   outputRoutingFailedDetail:

@@ -2070,7 +2070,12 @@ test.describe("Electron app end-to-end workflows", () => {
       await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "add-playlist-track");
       await page.locator('button[data-tab="playlist-tab"]').click();
       await page.locator("#playlist-clear").click();
-      await expect(page.locator(".playlist-clear-modal")).not.toHaveClass(/hidden/);
+      const clearModal = page.locator(".playlist-clear-modal");
+      await expect(clearModal).not.toHaveClass(/hidden/);
+      await expect(clearModal.getByRole("button", { name: "Clear and auto-generate" }))
+        .toBeVisible();
+      await expect(clearModal.locator(".playlist-clear-help"))
+        .toContainText("ignores them and builds traditional tandas");
       await page.locator('.playlist-clear-modal .confirm-ok[data-option="clear"]').click();
       await expect(playlistTrackRow(page, "Tempo 72 Test")).toHaveCount(0);
     } finally {

@@ -184,6 +184,7 @@ import {
   type StoredPlaylistState,
 } from "../shared/playlist-storage.js";
 import { tandaContentsMatch } from "../shared/playlist-tanda-variant.js";
+import { scoreTandaTrackCohesion } from "../shared/playlist-auto-generation.js";
 import { resolveSearchResultTanda } from "../shared/tanda-search-resolution.js";
 import {
   PLAYLIST_EXPORT_VERSION,
@@ -387,7 +388,7 @@ let clipboardClearModalResolve:
   | null = null;
 let playlistClearModalEl: HTMLDivElement | null = null;
 let playlistClearModalResolve:
-  | ((value: "clear" | "autofill" | null) => void)
+  | ((value: "clear" | "autofill" | "generate" | null) => void)
   | null = null;
 const progressEl = document.querySelector<HTMLProgressElement>("#scan-progress");
 const progressLabel = document.querySelector<HTMLDivElement>("#progress-label");
@@ -5510,6 +5511,8 @@ const ensurePlaylistClearModal = () => {
   dialog.className = "confirm-dialog playlist-clear-dialog";
   const title = document.createElement("div");
   title.className = "playlist-clear-title";
+  const help = document.createElement("div");
+  help.className = "confirm-message playlist-clear-help";
   const actions = document.createElement("div");
   actions.className = "confirm-actions playlist-clear-actions";
   const cancelBtn = document.createElement("button");
@@ -5523,13 +5526,17 @@ const ensurePlaylistClearModal = () => {
   autofillBtn.type = "button";
   autofillBtn.className = "confirm-ok";
   autofillBtn.dataset.option = "autofill";
-  actions.append(cancelBtn, clearBtn, autofillBtn);
-  dialog.append(title, actions);
+  const generateBtn = document.createElement("button");
+  generateBtn.type = "button";
+  generateBtn.className = "confirm-ok";
+  generateBtn.dataset.option = "generate";
+  actions.append(cancelBtn, clearBtn, autofillBtn, generateBtn);
+  dialog.append(title, help, actions);
   overlay.append(dialog);
   document.body.appendChild(overlay);
   playlistClearModalEl = overlay;
 
-  const closeModal = (result: "clear" | "autofill" | null) => {
+  const closeModal = (result: "clear" | "autofill" | "generate" | null) => {
     if (!playlistClearModalEl) {
       return;
     }
@@ -5544,6 +5551,7 @@ const ensurePlaylistClearModal = () => {
   cancelBtn.addEventListener("click", () => closeModal(null));
   clearBtn.addEventListener("click", () => closeModal("clear"));
   autofillBtn.addEventListener("click", () => closeModal("autofill"));
+  generateBtn.addEventListener("click", () => closeModal("generate"));
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) {
       closeModal(null);
@@ -5560,6 +5568,7 @@ const showPlaylistClearModal = async () => {
     return null;
   }
   const title = playlistClearModalEl.querySelector<HTMLElement>(".playlist-clear-title");
+  const help = playlistClearModalEl.querySelector<HTMLElement>(".playlist-clear-help");
   const cancelButton = playlistClearModalEl.querySelector<HTMLButtonElement>(".confirm-cancel");
   const clearButton = playlistClearModalEl.querySelector<HTMLButtonElement>(
     ".confirm-ok[data-option=\"clear\"]",
@@ -5567,15 +5576,21 @@ const showPlaylistClearModal = async () => {
   const autofillButton = playlistClearModalEl.querySelector<HTMLButtonElement>(
     ".confirm-ok[data-option=\"autofill\"]",
   );
-  if (!title || !cancelButton || !clearButton || !autofillButton) {
+  const generateButton = playlistClearModalEl.querySelector<HTMLButtonElement>(
+    ".confirm-ok[data-option=\"generate\"]",
+  );
+  if (!title || !help || !cancelButton || !clearButton || !autofillButton || !generateButton) {
     return null;
   }
   title.textContent = t("playlistClearTitle");
+  help.textContent = t("playlistClearGenerateHelp");
   cancelButton.textContent = t("cancel");
   clearButton.textContent = t("playlistClearOnly");
   autofillButton.textContent = t("playlistClearAutofill");
+  generateButton.textContent = t("playlistClearGenerate");
+  generateButton.title = t("playlistClearGenerateHelp");
   playlistClearModalEl.classList.remove("hidden");
-  return new Promise<"clear" | "autofill" | null>((resolve) => {
+  return new Promise<"clear" | "autofill" | "generate" | null>((resolve) => {
     playlistClearModalResolve = resolve;
   });
 };
@@ -10728,7 +10743,9 @@ const yearValue = (track: TrackRow) => {
 };
 
 const artistKey = (track: TrackRow) =>
-  (track.artist || track.artist_summary || "").trim().toLowerCase();
+  resolveCanonicalArtistName(track.artist_summary || track.artist || "")
+    .trim()
+    .toLowerCase();
 
 const singerKey = (track: TrackRow) => (track.singer ?? "").trim().toLowerCase();
 
@@ -10969,21 +10986,26 @@ const pickGeneratedTandaForSlot = (
           return true;
         })
         .sort((left, right) => {
-          const leftArtistPenalty = artistCounts.get(artistKey(left)) ?? 0;
-          const rightArtistPenalty = artistCounts.get(artistKey(right)) ?? 0;
-          if (leftArtistPenalty !== rightArtistPenalty) {
-            return leftArtistPenalty - rightArtistPenalty;
-          }
-          const leftYear = yearValue(left);
-          const rightYear = yearValue(right);
-          if (seedYear !== null && leftYear !== null && rightYear !== null) {
-            const leftDiff = Math.abs(leftYear - seedYear);
-            const rightDiff = Math.abs(rightYear - seedYear);
-            if (leftDiff !== rightDiff) {
-              return leftDiff - rightDiff;
-            }
-          }
-          return Math.random() - 0.5;
+          const seedTraits = {
+            artist: seedArtist,
+            singer: seedSinger,
+            instrumental: seedInstrumental,
+            year: seedYear,
+            bpm: seedBpm,
+          };
+          const score = (track: TrackRow) => scoreTandaTrackCohesion(
+            seedTraits,
+            {
+              artist: artistKey(track),
+              singer: singerKey(track),
+              instrumental: track.instrumental,
+              year: yearValue(track),
+              bpm: track.bpm,
+            },
+            artistCounts.get(artistKey(track)) ?? 0,
+          );
+          const difference = score(left) - score(right);
+          return difference !== 0 ? difference : left.id.localeCompare(right.id);
         });
       const chosen: TrackRow[] = [seed];
       for (const candidate of candidates) {
@@ -11150,7 +11172,7 @@ const clearTandaDesignerDrafts = async () => {
   renderTandaDesigner();
 };
 
-const clearAndAutofillPlaylist = async () => {
+const clearAndAutofillPlaylist = async (options?: { generateOnly?: boolean }) => {
   if (!window.tanda) {
     setStatus(t("statusNoApi"));
     return;
@@ -11167,7 +11189,9 @@ const clearAndAutofillPlaylist = async () => {
     const targetWindowMs = getPlaylistTargetWindowMs();
     const allTracks = await window.tanda.listTracks();
     allTracks.forEach((track) => trackCache.set(track.id, track));
-    const candidateTandas = await collectSavedAutofillTandas();
+    const candidateTandas = options?.generateOnly
+      ? []
+      : await collectSavedAutofillTandas();
     const usedTrackTitles = collectUsedTrackTitles();
     const usedTandaIds = new Set<string>();
     const artistCounts = new Map<string, number>();
@@ -17852,6 +17876,10 @@ const init = async () => {
     }
     if (selection === "autofill") {
       await clearAndAutofillPlaylist();
+      return;
+    }
+    if (selection === "generate") {
+      await clearAndAutofillPlaylist({ generateOnly: true });
       return;
     }
     await clearPlaylist();

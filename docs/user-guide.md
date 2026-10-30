@@ -164,7 +164,7 @@ Across the top are:
 - Play button
 - Stop button
 - Contents filter - to help see all tandas by one orchestra for example
-- Clear button - clear only or clear and auto-fill
+- Clear button - clear only, clear and auto-fill, or clear and auto-generate
 
 The diversity viewer starts with **Tandas to review**. It counts consistency
 issues separately: a mix of instrumental and sung tracks, multiple orchestras,
@@ -635,6 +635,12 @@ A playlist can be built up as required and then cleared using the **Clear** butt
 - Choose **Clear playlist** to empty the list without changing configuration.
 - Choose **Clear and auto-fill** to rebuild the playlist from your saved tandas
   and sequence rules until projected playback reaches the configured end time.
+- Choose **Clear and auto-generate** to ignore all saved tandas and construct a
+  fresh playlist entirely from library tracks. It follows the configured tanda
+  sequence and sizes, strongly preferring tracks from the same orchestra with
+  consistent instrumental/sung and singer metadata, then close years and tempos.
+  Those preferences relax progressively only when the library cannot otherwise
+  fill a slot.
 - If no suitable tanda is available for a slot, the app builds an ad-hoc tanda
   from similar tracks (same style first, then progressively relaxed matching).
 - An auto-generated tanda has a localized letter badge at the left of its

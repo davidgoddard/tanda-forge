@@ -393,7 +393,9 @@ Interactions:
 - UI-014.R19: Playlist tracks include a "Send to clipboard" action that clears the slot.
 - UI-014.R20: Clipboard tracks/tandas can only be added to the playlist when at least one empty slot exists.
 - UI-014.R21: The current playlist auto-restores on app launch.
-- UI-014.R22: Clearing the playlist opens explicit options (clear only, or clear + auto-fill).
+- UI-014.R22: Clearing the playlist opens explicit options: clear only, clear +
+  auto-fill from saved tandas with generated fallback, or clear + auto-generate
+  entirely from library tracks.
 - UI-014.R23: Adding a track to the playlist creates a new tanda in the first empty slot,
   pre-sized to the sequence slot (or default size) and seeded with the track.
 - UI-014.R24: Clicking an empty playlist slot creates a new tanda seeded with the slot’s
@@ -412,6 +414,14 @@ Interactions:
 - UI-014.R29: While the playlist contents filter is active, each matching tanda
   is preceded by a divider showing its predicted scheduled start time, including
   when cortina rows are hidden by the filter.
+- UI-014.R30: Clear + auto-generate must ignore user-saved tandas and construct
+  every tanda from eligible library tracks according to the configured sequence
+  style and size. Construction strongly prefers one canonical orchestra, a
+  consistent instrumental/sung status and named singer, then nearby known years
+  and tempos. It may progressively relax those preferences only when necessary
+  to fill a slot, must still avoid duplicate recordings/titles and respect the
+  artist repeat-gap aspiration, and marks each result as auto-generated for DJ
+  review. All clear-dialog wording is localized in every supported language.
 
 ## UI-015 — Now Playing Strip
 

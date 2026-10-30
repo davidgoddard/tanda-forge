@@ -71,6 +71,15 @@ describe("playlist storage parsing", () => {
     expect(styles).toContain(".mismatch.playlist-auto-generated .playlist-unsaved-indicator");
   });
 
+  it("offers generate-only playlist construction without saved tandas", () => {
+    const renderer = fs.readFileSync(
+      path.join(process.cwd(), "app/src/renderer/renderer.ts"), "utf8",
+    );
+    expect(renderer).toContain('generateBtn.dataset.option = "generate"');
+    expect(renderer).toContain('clearAndAutofillPlaylist({ generateOnly: true })');
+    expect(renderer).toContain("options?.generateOnly\n      ? []");
+  });
+
   it("parses legacy item-array payloads", () => {
     const legacy = JSON.stringify([{ kind: "track", id: "track-a" }, null] satisfies StoredPlaylistItem[]);
 

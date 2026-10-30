@@ -1,5 +1,19 @@
 ## Handoff
 
+### Clear and auto-generate playlist mode
+- The playlist clear dialog now distinguishes saved-tanda-first **Clear and
+  auto-fill** from **Clear and auto-generate**, which bypasses saved tandas and
+  constructs every slot from eligible library tracks (`UI-014.R30`).
+- Generated tanda ranking strongly prioritizes canonical orchestra and vocal/
+  singer coherence, followed by nearby known year and BPM. Existing progressive
+  relaxation, duplicate avoidance, repeat-gap behavior, sequence validation,
+  placeholders, timing, cortina planning, and review badges remain in force.
+- The new button and explanatory text are localized in English, Spanish,
+  French, German, Portuguese, Italian, and Icelandic.
+- `npm run preflight` passed (109 test files / 631 tests and the production
+  build); `git diff --check` passed. Focused Electron workflow 19 could not
+  launch in this shell (`Process failed to launch!`) before app behavior.
+
 ### Version 0.4.10 — tanda review and safe variation workflow
 - Package and lockfile versions are `0.4.10`.
 - This patch adds actionable playlist tanda-consistency statistics, safe
