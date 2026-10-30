@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { createSettingsPlaylistController } from "../app/src/renderer/controllers/settings-playlist-controller";
 
 class FakeInput extends EventTarget {
@@ -7,6 +9,21 @@ class FakeInput extends EventTarget {
 }
 
 describe("settings playlist controller", () => {
+  it("places the hard orchestra repeat interval in the final auto-generation section", () => {
+    const html = fs.readFileSync(
+      path.join(process.cwd(), "app/src/renderer/index.html"),
+      "utf8",
+    );
+    const playlistTab = html.slice(
+      html.indexOf('<div class="settings-tab" data-tab="playlist">'),
+      html.indexOf('<div class="settings-tab" data-tab="system">'),
+    );
+    const autoGeneration = playlistTab.indexOf('id="playlist-auto-generation-settings"');
+    const transfer = playlistTab.indexOf('data-i18n="playlistTransferTitle"');
+    expect(autoGeneration).toBeGreaterThan(transfer);
+    expect(playlistTab).toContain('id="playlist-artist-repeat-gap"');
+    expect(playlistTab).toContain('data-i18n="playlistAutoGenerationSettingsTitle"');
+  });
   it("persists the display AV lag slider with millisecond precision", () => {
     const input = new FakeInput() as unknown as HTMLInputElement;
     const output = new FakeInput() as unknown as HTMLOutputElement;

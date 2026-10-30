@@ -14,6 +14,16 @@
   build); `git diff --check` passed. Focused Electron workflow 19 could not
   launch in this shell (`Process failed to launch!`) before app behavior.
 
+### Hard orchestra repeat interval
+- Playlist settings now end with a localized **Auto-generation** section holding
+  the existing repeat-gap value, relabelled as the minimum time between tandas
+  by the same orchestra (`UI-014.R31`, `CFG-PL-014`). Zero disables the rule.
+- Saved-tanda auto-fill and track-based auto-generation no longer fall back to
+  an orchestra inside the configured projected start-to-start interval. If no
+  compliant tanda can be built, the established placeholder behavior applies.
+- Verification: `npm run preflight` passed (109 test files, 634 tests, production
+  build); `git diff --check` passed.
+
 ### Version 0.4.10 — tanda review and safe variation workflow
 - Package and lockfile versions are `0.4.10`.
 - This patch adds actionable playlist tanda-consistency statistics, safe

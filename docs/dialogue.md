@@ -7290,3 +7290,11 @@ live availability/digest/content checks for both pinned archives, and
     instrumental/sung status and singer coherence, then nearby known year and
     tempo, progressively relaxing only when necessary. Existing **Clear and
     auto-fill** retains its saved-tanda-first behavior.
+- 2026-10-30 — Hard orchestra interval for automatic playlist construction
+  - The user requested an Auto-generation section at the bottom of Playlist
+    settings and a configurable interval that prevents repeated orchestras,
+    such as consecutive D'Arienzo tandas when set to 60 minutes.
+  - `UI-014.R31` and `CFG-PL-014` replace the former best-effort aspiration with
+    a hard projected-start-time constraint for both saved-tanda auto-fill and
+    track-based auto-generation. Other cohesion preferences may relax, but the
+    orchestra interval cannot; zero explicitly disables it.

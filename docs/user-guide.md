@@ -641,6 +641,11 @@ A playlist can be built up as required and then cleared using the **Clear** butt
   consistent instrumental/sung and singer metadata, then close years and tempos.
   Those preferences relax progressively only when the library cannot otherwise
   fill a slot.
+- At the bottom of **Settings → Playlist**, the **Auto-generation** section sets
+  the minimum time between tandas by the same orchestra. This is a firm rule for
+  both auto-fill and auto-generation: at 60 minutes, another D'Arienzo tanda
+  cannot be selected until its projected start is at least 60 minutes after the
+  previous D'Arienzo tanda. Set it to 0 to disable the rule.
 - If no suitable tanda is available for a slot, the app builds an ad-hoc tanda
   from similar tracks (same style first, then progressively relaxed matching).
 - An auto-generated tanda has a localized letter badge at the left of its

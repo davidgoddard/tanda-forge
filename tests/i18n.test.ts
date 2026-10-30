@@ -213,6 +213,9 @@ describe("renderer i18n", () => {
       "searchDiversitySummaryText",
       "searchDiversitySuggestionCreateFirst",
       "playlistArtistRepeatGapLabel",
+      "playlistArtistRepeatGapHelp",
+      "playlistAutoGenerationSettingsTitle",
+      "playlistAutoGenerationSettingsHelp",
     ] as const;
     for (const language of SUPPORTED_LANGUAGES.filter((language) => language !== "en")) {
       for (const key of keys) {

@@ -419,9 +419,14 @@ Interactions:
   style and size. Construction strongly prefers one canonical orchestra, a
   consistent instrumental/sung status and named singer, then nearby known years
   and tempos. It may progressively relax those preferences only when necessary
-  to fill a slot, must still avoid duplicate recordings/titles and respect the
-  artist repeat-gap aspiration, and marks each result as auto-generated for DJ
+  to fill a slot, must still avoid duplicate recordings/titles and enforce the
+  configured orchestra repeat interval, and marks each result as auto-generated for DJ
   review. All clear-dialog wording is localized in every supported language.
+- UI-014.R31: The bottom of Playlist settings contains an **Auto-generation**
+  section with a configurable minimum number of projected playlist minutes
+  between tandas containing the same canonical orchestra. Auto-fill and
+  auto-generation treat a positive value as a hard constraint, including after
+  all other matching preferences are relaxed; `0` disables the constraint.
 
 ## UI-015 — Now Playing Strip
 

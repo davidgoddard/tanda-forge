@@ -197,6 +197,7 @@ import {
   buildAdaptiveNumericDistribution,
   buildAdaptiveStyleNumericDistribution,
   findTandaPurityIssues,
+  filterByArtistRepeatGap,
   type TandaPurityIssue,
   collectEligibleArtistStyleGroups,
   isTandaArtistStyleAvailable,
@@ -10885,9 +10886,14 @@ const pickAutofillTandaForSlot = (
       repeatGapMs,
       artistLastPlayedAtMs,
     });
-  const usable = asScored.some((entry) => respectsGap(entry.tanda))
-    ? asScored.filter((entry) => respectsGap(entry.tanda))
-    : asScored;
+  const usable = filterByArtistRepeatGap({
+    items: asScored,
+    repeatGapMs,
+    isGapSatisfied: (entry) => respectsGap(entry.tanda),
+  });
+  if (usable.length === 0) {
+    return null;
+  }
   usable.sort((left, right) => left.score - right.score);
   const top = usable.slice(0, Math.min(8, usable.length));
   return top[Math.floor(Math.random() * top.length)]?.tanda ?? null;
@@ -10927,8 +10933,6 @@ const pickGeneratedTandaForSlot = (
     "style-only",
   ];
   for (const phase of phases) {
-    const gapModes = repeatGapMs > 0 ? [true, false] : [false];
-    for (const enforceGap of gapModes) {
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const seed = pool[Math.floor(Math.random() * pool.length)] ?? null;
       if (!seed) {
@@ -11026,7 +11030,7 @@ const pickGeneratedTandaForSlot = (
         continue;
       }
       if (
-        enforceGap &&
+        repeatGapMs > 0 &&
         !areArtistsGapSatisfied({
           items: chosen,
           getArtistKey: artistKey,
@@ -11063,7 +11067,6 @@ const pickGeneratedTandaForSlot = (
       }
       ensureTandaDraft(generated, "playlist");
       return generated;
-    }
     }
   }
   return null;

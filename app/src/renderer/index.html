@@ -1315,21 +1315,6 @@
                 />
               </div>
               <div class="settings-field">
-                <label for="playlist-artist-repeat-gap" data-i18n="playlistArtistRepeatGapLabel">
-                  Artist repeat gap aspiration (min)
-                </label>
-                <input
-                  id="playlist-artist-repeat-gap"
-                  type="number"
-                  min="0"
-                  max="180"
-                  step="1"
-                />
-                <p data-i18n="playlistArtistRepeatGapHelp">
-                  Auto-fill tries to avoid repeating artists within this time window.
-                </p>
-              </div>
-              <div class="settings-field">
                 <label for="playlist-cortina-set" data-i18n="cortinaSetLabel">
                   Cortina set
                 </label>
@@ -1408,6 +1393,27 @@
                   </button>
                 </div>
                 <div id="playlist-transfer-result" class="diagnostics-result diagnostics-log"></div>
+              </section>
+              <section class="settings-subgroup settings-field wide" id="playlist-auto-generation-settings">
+                <h4 data-i18n="playlistAutoGenerationSettingsTitle">Auto-generation</h4>
+                <p data-i18n="playlistAutoGenerationSettingsHelp">
+                  Rules applied while automatically filling or generating a playlist.
+                </p>
+                <div class="settings-field">
+                  <label for="playlist-artist-repeat-gap" data-i18n="playlistArtistRepeatGapLabel">
+                    Minimum time between tandas by the same orchestra (min)
+                  </label>
+                  <input
+                    id="playlist-artist-repeat-gap"
+                    type="number"
+                    min="0"
+                    max="180"
+                    step="1"
+                  />
+                  <p data-i18n="playlistArtistRepeatGapHelp">
+                    Auto-fill and auto-generation will not repeat an orchestra inside this interval. Set to 0 to disable the rule.
+                  </p>
+                </div>
               </section>
             </div>
           </div>

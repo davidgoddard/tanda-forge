@@ -185,11 +185,16 @@ Board, Diagnostics, System).
 - CFG-PL-010: Playlist Clear opens an options dialog with:
   - CFG-PL-010.a: Clear playlist only.
   - CFG-PL-010.b: Clear and auto-fill playlist.
+  - CFG-PL-010.c: Clear and auto-generate from tracks without saved tandas.
 - CFG-PL-011: Auto-fill follows the configured sequence/style map and keeps adding
   tandas until projected playback reaches the configured end window.
 - CFG-PL-012: Auto-fill prioritizes saved tandas and avoids duplicate track titles.
 - CFG-PL-013: If no suitable tanda exists, auto-fill builds an ad-hoc tanda from
   similar tracks using progressively relaxed constraints.
+- CFG-PL-014: The bottom of Playlist settings contains an Auto-generation
+  section. Its orchestra repeat interval is measured between projected tanda
+  start times and is a hard exclusion for both saved-tanda auto-fill and
+  track-based auto-generation. A value of zero disables the exclusion.
 
 ## Library Utilities
 
