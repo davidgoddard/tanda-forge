@@ -2222,6 +2222,9 @@ test.describe("Electron app end-to-end workflows", () => {
       await clickRowAction(firstAfterRestart, "tanda-edit");
       const relaunchedEditor = await waitForPlaylistEditorRows(relaunched.page, 3);
       await relaunchedEditor.locator('button[data-action="tanda-save"]').click();
+      const saveChoice = relaunched.page.locator(".confirm-modal:not(.hidden)");
+      await expect(saveChoice).toContainText("Save changed tanda");
+      await saveChoice.getByRole("button", { name: "Replace existing" }).click();
       await expect(firstAfterRestart.locator(".playlist-unsaved-indicator")).toHaveCount(0);
       await expect
         .poll(async () => {
@@ -2235,6 +2238,12 @@ test.describe("Electron app end-to-end workflows", () => {
         (tanda) => tanda.id === originalTanda?.id,
       );
       expect(savedMaster?.tracks.some((track) => track.title === "Tempo 72 Test")).toBe(true);
+      const savedPlaylistTanda = relaunched.page.locator("#playlist-list .tanda-row").first();
+      if (!(await savedPlaylistTanda.locator(".tanda-details").isVisible())) {
+        await savedPlaylistTanda.locator(".tanda-summary").click();
+      }
+      await expect(savedPlaylistTanda).toContainText("Tempo 72 Test");
+      await expect(savedPlaylistTanda.locator(".playlist-unsaved-indicator")).toHaveCount(0);
     } finally {
       if (relaunched) {
         await relaunched.close();

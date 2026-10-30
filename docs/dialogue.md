@@ -7250,3 +7250,34 @@ live availability/digest/content checks for both pinned archives, and
   - The user requested a version bump and a pull request to `main` covering the
     accumulated maintenance and playlist workflow changes. Package metadata was
     advanced from 0.4.8 to 0.4.9 for that review.
+- 2026-10-30 — Actionable playlist tanda consistency statistics
+  - The user requested clearer visibility of less-pure playlist tandas and a
+    way to review them directly from the diversity view.
+  - `UI-012.R23` adds overlapping counts for instrumental/sung mixes, multiple
+    canonical orchestras, multiple named singers on sung tracks, mixed
+    top-level Tango/Milonga/Waltz styles, and the union of all four. Selecting a
+    count filters the playlist by exact tanda ID so
+    the review does not depend on text-search terms.
+- 2026-10-30 — Saved playlist edit retained its stale local snapshot
+  - The user showed a playlist-hosted tanda whose replacement third track was
+    correctly saved to the database and visible in Search, while the playlist
+    still displayed its older amber local variant.
+  - The Save transition now recognizes the actively hosted playlist draft even
+    if its origin marker has drifted and directly repoints that exact playlist
+    slot to the returned saved master. Regression workflow 23 now verifies the
+    replacement track in both the database and playlist and checks that the
+    unsaved indicator clears (`UI-012.R20`).
+- 2026-10-30 — Save changed tanda as new or replace
+  - The user requested a safe choice when saving changes to an existing
+    database tanda so variations can be created without rebuilding them track
+    by track or accidentally overwriting the master.
+  - `UI-012.R20.d` now requires a localized Save as new / Replace existing /
+    Cancel choice only when a persisted master exists and meaningful contents
+    changed. New and unchanged tandas retain direct Save behavior. Playlist
+    Save as new repoints the edited slot to the newly created master.
+- 2026-10-30 — Find Tandas leaked legacy source paths
+  - The user reported that some collapsed FT results displayed an absolute
+    imported source directory until each tanda was expanded and collapsed.
+  - Initial row rendering appended `legacySourcePath` unconditionally, while
+    the toggle renderer rebuilt the summary without it. `UI-011.R18` now keeps
+    internal filesystem/import provenance out of all tanda result summaries.

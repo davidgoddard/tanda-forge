@@ -166,6 +166,15 @@ Across the top are:
 - Contents filter - to help see all tandas by one orchestra for example
 - Clear button - clear only or clear and auto-fill
 
+The diversity viewer starts with **Tandas to review**. It counts consistency
+issues separately: a mix of instrumental and sung tracks, multiple orchestras,
+multiple named singers, and multiple top-level dance styles (Tango, Milonga, or
+Waltz). Substyles such as Tango - Traditional still count as Tango. A tanda can
+appear in more than one count. Click a
+count (or **Any consistency issue**) to close the viewer and show only those
+tandas in the playlist. Clear or edit the playlist filter to show everything
+again. Missing singer names are not treated as an additional singer.
+
 While the contents filter is active, a **Scheduled for** divider before each
 matching tanda keeps its predicted start time visible. This makes it easy to see
 whether repeated orchestras are consecutive or separated across the evening,
@@ -553,8 +562,12 @@ changed:
   playlist. It survives an application restart, but is discarded when that
   playlist is cleared or replaced.
 - **Save** writes the current contents back to the tanda's original saved
-  master. If the tanda was constructed only in the playlist and has no master,
-  Save promotes it into a new saved tanda.
+  master. If that master already exists and the contents changed, Save asks
+  whether to **Save as new** or **Replace existing**. Save as new preserves the
+  original master and gives the variation its own database identity; Replace
+  existing updates the original. Cancel returns to editing. If the tanda was
+  constructed only in the playlist and has no master, Save promotes it directly
+  into a new saved tanda. An unchanged existing tanda saves without prompting.
 - Collections hold references to saved master tandas. Therefore saving changes
   to an existing master updates that tanda wherever the master is used, while
   independently modified playlist-local versions remain independent until

@@ -1,5 +1,58 @@
 ## Handoff
 
+### Version 0.4.10 — tanda review and safe variation workflow
+- Package and lockfile versions are `0.4.10`.
+- This patch adds actionable playlist tanda-consistency statistics, safe
+  Save-as-new versus replace behavior for changed database tandas, immediate
+  playlist/master synchronization after Save, mixed top-level style review,
+  and removal of leaked legacy source paths from Find Tandas summaries.
+
+### Find Tandas summaries no longer expose legacy source paths
+- Initial tanda-row rendering no longer appends the internal legacy import
+  directory beneath collapsed Search/FT results. This now matches the existing
+  expand/collapse redraw behavior and prevents absolute paths appearing in the
+  normal UI (`UI-011.R18`).
+- A renderer/style regression assertion prevents the path element from being
+  reintroduced.
+- `npm run preflight` passed (108 test files / 626 tests and the production
+  build); `git diff --check` passed.
+
+### Changed saved tandas offer Save as new or Replace existing
+- Save now reads the persisted master and, only when meaningful contents differ,
+  presents localized **Save as new**, **Replace existing**, and **Cancel**
+  choices (`UI-012.R20.d`). New tandas and unchanged masters save directly.
+- Save as new assigns a new database ID. For playlist-hosted edits, the active
+  slot is repointed to that new master; Replace existing retains the established
+  master ID and update behavior.
+- Electron workflow 23 now asserts the choice appears and explicitly replaces
+  the existing master before checking database/playlist synchronization.
+- `npm run preflight` passed (108 test files / 625 tests and the production
+  build). Focused Electron workflow 23 could not launch in this shell
+  (`Process failed to launch!`) before reaching application behavior.
+
+### Playlist Save now replaces the active local snapshot
+- Saving a playlist-hosted edit now directly repoints the actively edited slot
+  to the saved master returned by the database, in addition to replacing any
+  matching transient draft IDs. Hosted drafts are recognized even if their
+  origin marker has drifted (`UI-012.R20`).
+- Electron workflow 23 now asserts that the replacement track immediately
+  appears in the playlist and that its amber unsaved indicator clears.
+- `npm run preflight` passed (108 test files / 625 tests and the production
+  build). Focused Electron workflow 23 could not launch in this shell
+  (`Process failed to launch!`) before reaching application behavior.
+
+### Actionable playlist tanda consistency statistics
+- Playlist diversity now begins with localized review counts for tandas that
+  mix instrumental/sung tracks, use multiple canonical orchestras, or name
+  multiple singers on sung tracks, or span multiple top-level Tango, Milonga,
+  or Waltz styles, plus the union of all concerns
+  (`UI-012.R23`). Categories deliberately overlap.
+- Each non-zero count filters the playlist to the exact affected tanda IDs and
+  closes the statistics modal. Clearing or editing the standard playlist
+  filter returns to normal text filtering. Blank singer metadata is ignored.
+- Focused playlist-diversity/i18n tests passed, followed by `npm run preflight`
+  (108 test files / 625 tests and the production build) and `git diff --check`.
+
 ### Version 0.4.9 — maintenance and playlist workflow polish
 - Package and lockfile versions are `0.4.9`.
 - This release collects playlist import/master relinking and automatic return,

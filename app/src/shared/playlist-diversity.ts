@@ -9,6 +9,57 @@ export const normalizeAvailabilityStyleGroup = (
     ?.trim()
     .toLowerCase() ?? "";
 
+export type TandaPurityIssue =
+  | "mixedVocal"
+  | "multipleArtists"
+  | "multipleSingers"
+  | "multipleStyles";
+
+export type TandaPurityTrack = {
+  artist: string;
+  singer: string | null | undefined;
+  instrumental: boolean | null | undefined;
+  style: string | null | undefined;
+};
+
+const normalizedDistinctValues = (values: Array<string | null | undefined>) =>
+  new Set(values.map((value) => normalizeArtistGroupKey(value)).filter(Boolean));
+
+export const findTandaPurityIssues = (
+  tracks: TandaPurityTrack[],
+): TandaPurityIssue[] => {
+  if (tracks.length === 0) {
+    return [];
+  }
+  const issues: TandaPurityIssue[] = [];
+  const vocalStates = new Set(
+    tracks.map((track) => track.instrumental === true ? "instrumental" : "sung"),
+  );
+  if (vocalStates.size > 1) {
+    issues.push("mixedVocal");
+  }
+  if (normalizedDistinctValues(tracks.map((track) => track.artist)).size > 1) {
+    issues.push("multipleArtists");
+  }
+  const singers = normalizedDistinctValues(
+    tracks
+      .filter((track) => track.instrumental !== true)
+      .map((track) => track.singer),
+  );
+  if (singers.size > 1) {
+    issues.push("multipleSingers");
+  }
+  const styles = new Set(
+    tracks
+      .map((track) => normalizeAvailabilityStyleGroup(track.style))
+      .filter((style) => style === "tango" || style === "milonga" || style === "waltz"),
+  );
+  if (styles.size > 1) {
+    issues.push("multipleStyles");
+  }
+  return issues;
+};
+
 export const isArtistGapSatisfied = (params: {
   artist: string;
   currentTotalMs: number;

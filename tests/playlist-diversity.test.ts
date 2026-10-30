@@ -7,11 +7,47 @@ import {
   buildAdaptiveStyleNumericDistribution,
   collectEligibleArtistGroups,
   collectEligibleArtistStyleGroups,
+  findTandaPurityIssues,
   isTandaArtistStyleAvailable,
   isArtistGapSatisfied,
   normalizeAvailabilityStyleGroup,
   normalizeArtistGroupKey,
 } from "../app/src/shared/playlist-diversity.js";
+
+describe("findTandaPurityIssues", () => {
+  it("reports independently overlapping tanda consistency concerns", () => {
+    expect(findTandaPurityIssues([
+      { artist: "Di Sarli", singer: null, instrumental: true, style: "Tango" },
+      { artist: "Ángel D'Agostino", singer: "Ángel Vargas", instrumental: false, style: "Tango - Traditional" },
+      { artist: "Angel D'Agostino", singer: "Tino García", instrumental: false, style: "Tango" },
+    ])).toEqual(["mixedVocal", "multipleArtists", "multipleSingers"]);
+  });
+
+  it("treats missing instrumental metadata as sung and ignores unnamed singers", () => {
+    expect(findTandaPurityIssues([
+      { artist: "Troilo", singer: "Fiorentino", instrumental: null, style: "Milonga" },
+      { artist: " troilo ", singer: "", instrumental: false, style: "Milonga - Traditional" },
+    ])).toEqual([]);
+  });
+
+  it("does not count singer metadata on instrumental tracks", () => {
+    expect(findTandaPurityIssues([
+      { artist: "Canaro", singer: "Tag artifact", instrumental: true, style: "Waltz" },
+      { artist: "Canaro", singer: null, instrumental: true, style: "Waltz" },
+    ])).toEqual([]);
+  });
+
+  it("reports a mix of top-level dance styles but not substyles", () => {
+    expect(findTandaPurityIssues([
+      { artist: "Canaro", singer: null, instrumental: true, style: "Tango - Traditional" },
+      { artist: "Canaro", singer: null, instrumental: true, style: "Milonga" },
+    ])).toContain("multipleStyles");
+    expect(findTandaPurityIssues([
+      { artist: "Canaro", singer: null, instrumental: true, style: "Tango" },
+      { artist: "Canaro", singer: null, instrumental: true, style: "Tango - Nuevo" },
+    ])).not.toContain("multipleStyles");
+  });
+});
 
 describe("normalizeArtistGroupKey", () => {
   it("normalizes casing and whitespace", () => {
