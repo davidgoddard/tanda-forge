@@ -20,6 +20,13 @@ const makeDb = () => {
 };
 
 describe("logical track deletion", () => {
+  it("wires UI deletion to similarity-state cleanup", () => {
+    const main = fs.readFileSync(
+      new URL("../app/src/main/main.ts", import.meta.url), "utf8",
+    );
+    expect(main).toContain("if (result.ok) removeAudioSimilarityTrackState(db, [payload.id])");
+  });
+
   it("tombstones the track and invalidates dependent tandas and playlists", async () => {
     const { db, calls } = makeDb();
     expect(await logicallyDeleteTrack(db, "track-1", false)).toEqual({ ok: true, fileRemoved: false });

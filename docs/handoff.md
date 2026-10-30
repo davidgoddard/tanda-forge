@@ -1,5 +1,107 @@
 ## Handoff
 
+### Version 0.4.9 — maintenance and playlist workflow polish
+- Package and lockfile versions are `0.4.9`.
+- This release collects playlist import/master relinking and automatic return,
+  localized auto-generated tanda review badges, playlist-aware tanda deletion,
+  similarity review ordering/visibility fixes, track-deletion similarity
+  cleanup, the removed playlist title progress marker, and the README's
+  AI-assisted database-maintenance guidance.
+
+### Successful playlist import returns to Playlist
+- After a successful JSON or M3U playlist import, the renderer now preserves the
+  localized result in the main status area, activates the normal Playlist tab,
+  and closes Settings (`UI-050.R12`). Cancelled and failed imports remain in
+  Settings for retry and error visibility.
+- Electron workflow 24 now expects automatic Settings dismissal, the active
+  Playlist tab, and all imported rows immediately visible.
+- Focused tests and `npm run preflight` passed (108 test files / 621 tests and
+  production build). Focused Electron workflow 24 could not launch in this
+  shell (`Process failed to launch!`) before reaching application behavior.
+
+### Playlist JSON saved-master relinking
+- JSON playlist export now records each tanda's saved-master ID when available.
+  Import restores the database reference only when resolved ordered tracks,
+  name, styles, rating, and instrumental state exactly match the master
+  (`FR-020.3.R8`).
+- Older JSON exports without tanda IDs use the same strict content signature
+  and relink only a unique exact saved match. Changed or ambiguous content
+  remains a playlist-local snapshot; a valid exported master hint is retained
+  for later Save.
+- This fixes old playlist imports marking every unchanged tanda as existing only
+  in the playlist. M3U imports remain snapshots because that format lacks the
+  required tanda metadata and identity.
+- Focused transfer/storage/i18n tests and `npm run preflight` passed (108 test
+  files / 621 tests and production build); `git diff --check` passed. Read-only
+  validation against the two 22 October playlist exports relinked 26/28 and
+  25/28 tandas respectively, leaving only genuinely non-exact snapshots.
+
+### Auto-generated playlist tanda badge
+- Tandas synthesized from individual tracks by playlist auto-fill now carry a
+  localized initial badge on the playlist's left indicator rail (`A` in six
+  languages and Icelandic `S`) with a tooltip prompting review and optional
+  saving (`UI-012.R22`).
+- The marker is distinct from saved-tanda selection, persists in playlist-local
+  snapshots, stacks below mismatch warnings and above the unsaved pencil, and
+  disappears when Save promotes the tanda to a database master.
+- Auto-generated tandas are now explicitly playlist-unsaved, ensuring their
+  tracks and badge survive application restart until saved or discarded.
+- Focused playlist storage/view/flow and i18n tests passed, followed by
+  `npm run preflight` (108 test files / 619 tests and production build) and
+  `git diff --check`.
+
+### Hidden/deleted similarity candidates
+- Hidden tracks and incident candidate edges are excluded from the outstanding
+  audio-similarity report. Groups with fewer than two visible members disappear
+  from **To review** and return if enough members are restored (`ASR-093`).
+- Logical track deletion now also removes that track's persisted similarity
+  features, candidate membership/edges, rejections, hidden state, and any
+  no-longer-valid confirmed group through the established cleanup routine.
+- Four imported placeholder tracks under `_Non-tango/Dummy` were logically
+  deleted from the live database, their four dummy tandas were invalidated, and
+  their stale candidate group was removed. Source audio files were not deleted.
+- Focused similarity/deletion tests passed, followed by `npm run preflight`
+  (108 test files / 617 tests and production build) and `git diff --check`.
+
+### Audio-similarity review ordering and disclosures
+- **To review** is now an open-by-default disclosure, so the outstanding list
+  can be collapsed as a whole in addition to each candidate card.
+- **Matched or reviewed** orders all completed cards by their latest persisted
+  confirmation or rejection decision time, newest first. Confirmed-group and
+  candidate-edge timestamps are exposed in the report model (`ASR-099`).
+- Focused domain/UI coverage verifies timestamp ordering and disclosure wiring.
+  `npm run preflight` passed (108 test files / 615 tests and production build).
+  Focused Electron workflow 41 could not launch in this shell (`Process failed
+  to launch!`) before reaching application behavior.
+
+### Instrumental metadata undo SQLite binding fix
+- Audio-similarity metadata undo now converts boolean Instrumental history back
+  to SQLite `0/1` before binding. This fixes the runtime `TypeError` from
+  `better-sqlite3`; null Instrumental values remain null (`ASR-035A`).
+- Focused domain coverage verifies both boolean and null restoration.
+  Verification passed: `npm run preflight` (108 test files / 614 tests plus the
+  production build) and `git diff --check`.
+
+### Playlist title progress marker removed
+- Playlist rows no longer draw the moving vertical playback-position line over
+  track titles. Existing active-track highlighting and playback behavior are
+  unchanged (`UI-012.R21`; supersedes the visual part of `ASR-069C`).
+- Focused UI coverage now asserts that the marker class, custom property, and
+  styling are absent. `npm run preflight` passed (108 test files / 613 tests and
+  production build). Focused Electron workflow 25 could not launch in this
+  shell (`Process failed to launch!`) before reaching application behavior.
+
+### Playlist tanda removal versus database deletion
+- Delete in the playlist-hosted tanda editor now offers explicit **Remove from
+  playlist** and **Delete from database** choices (`FR-011.R10`,
+  `UI-012.R20.c`). Removal affects only the open slot; database deletion targets
+  the saved master even when the open entry is a playlist-local variant.
+- Playlist-only tandas expose removal but disable database deletion because no
+  saved record exists. The normal Tanda Designer retains its direct confirmed
+  database-delete workflow.
+- Verification passed: `npm run preflight` (108 test files / 613 tests plus the
+  production build) and `git diff --check`.
+
 ### Version 0.4.8 — playlist-local tanda variants
 - Package and lockfile versions are `0.4.8`.
 - Editing a tanda from the playlist now creates an explicit copy-on-write local
@@ -40,19 +142,17 @@
 - Package and lockfile versions are `0.4.6`. This patch release contains the
   hierarchical similarity workflow, selected-pair rejection, window-scoped
   metadata undo with read-only album provenance, scheduled duplicate focus,
-  and the live playlist-track playhead described below.
+  and the duplicate-focus behavior described below.
 
-### Playlist playhead and scheduled duplicate focus
-- Main-output playback now draws a moving vertical position line over the
-  active standalone playlist row or expanded tanda track, calculated within
-  the effective start/end-trim range (`ASR-069C`).
+### Scheduled duplicate focus
 - Press-and-hold on a duplicate indicator now renders every affected playlist
   tanda through the normal filtered-playlist layout: collapsed summaries with
   their original **Scheduled for** dividers. Short-click jump and highlight is
   unchanged (`ASR-069A`, `ASR-069B`).
-- Focused Electron workflows 25 and 41 verify marker movement, all affected
+- Focused Electron workflows 25 and 41 verify playback selection, all affected
   tandas, planned-time dividers, collapsed layout, Show-all restoration, and
-  unchanged single-click navigation.
+  unchanged single-click navigation. The former playlist title playhead was
+  subsequently removed by `UI-012.R21`.
 - Verification passed: `npm run preflight` (106 test files / 605 tests plus the
   production build), both focused Electron workflows, and `git diff --check`.
 

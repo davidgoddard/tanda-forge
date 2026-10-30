@@ -343,14 +343,16 @@ export const listConfirmedAudioSimilarityGroups = (
 ): ConfirmedAudioSimilarityGroup[] => {
   const rows = database.prepare(`
     select g.id, g.relationship_type as relationshipType,
-      g.preferred_track_id as preferredTrackId, m.track_id as trackId
+      g.preferred_track_id as preferredTrackId, g.updated_at as updatedAt,
+      m.track_id as trackId
     from audio_similarity_confirmed_groups g
     join audio_similarity_confirmed_members m on m.group_id = g.id
-    order by g.created_at, m.track_id
+    order by g.updated_at desc, m.track_id
   `).all() as Array<{
     id: string;
     relationshipType: AudioSimilarityRelationshipType;
     preferredTrackId: string | null;
+    updatedAt: string;
     trackId: string;
   }>;
   const groups = new Map<string, ConfirmedAudioSimilarityGroup>();
@@ -360,6 +362,7 @@ export const listConfirmedAudioSimilarityGroups = (
       relationshipType: row.relationshipType,
       preferredTrackId: row.preferredTrackId,
       trackIds: [],
+      updatedAt: row.updatedAt,
     };
     group.trackIds.push(row.trackId);
     groups.set(row.id, group);
@@ -415,6 +418,7 @@ export const getAudioSimilarityReport = (
     join audio_similarity_candidate_members m on m.group_id = g.id
     join tracks t on t.id = m.track_id
     left join hidden_tracks h on h.track_id = t.id
+    where h.track_id is null
     order by g.confidence desc, g.id, t.id
   `).all() as Array<{
     id: string; runId: string; confidence: number; trackId: string;
@@ -425,11 +429,16 @@ export const getAudioSimilarityReport = (
     loudnessDb: number | null; gainDb: number | null;
   }>;
   const edgeRows = database.prepare(`
-    select group_id as groupId, left_track_id as leftTrackId,
-      right_track_id as rightTrackId, score, envelope_score as envelopeScore,
-      chroma_score as chromaScore, transition_score as transitionScore,
-      coarse_score as coarseScore, pitch_shift as pitchShift, decision
-    from audio_similarity_candidate_edges order by score desc
+    select e.group_id as groupId, e.left_track_id as leftTrackId,
+      e.right_track_id as rightTrackId, e.score, e.envelope_score as envelopeScore,
+      e.chroma_score as chromaScore, e.transition_score as transitionScore,
+      e.coarse_score as coarseScore, e.pitch_shift as pitchShift, e.decision,
+      e.updated_at as updatedAt
+    from audio_similarity_candidate_edges e
+    left join hidden_tracks hidden_left on hidden_left.track_id = e.left_track_id
+    left join hidden_tracks hidden_right on hidden_right.track_id = e.right_track_id
+    where hidden_left.track_id is null and hidden_right.track_id is null
+    order by e.score desc
   `).all() as Array<Record<string, unknown> & { groupId: string }>;
   const groups = new Map<string, AudioSimilarityCandidateGroup>();
   for (const row of groupRows) {
@@ -500,7 +509,7 @@ export const getAudioSimilarityReport = (
     `).get()),
     status: getAudioSimilarityStatus(database),
     integrity: getAudioSimilarityIntegrity(database),
-    candidateGroups: [...groups.values()],
+    candidateGroups: [...groups.values()].filter((group) => group.members.length >= 2),
     confirmedGroups: listConfirmedAudioSimilarityGroups(database),
     failures,
     hiddenTrackIds: (database.prepare("select track_id as trackId from hidden_tracks order by hidden_at desc")
@@ -603,8 +612,11 @@ export const undoAudioSimilarityMetadata = (
       conflicts.push(change.trackId);
       continue;
     }
+    const restoredValue = change.field === "instrumental" && typeof change.oldValue === "boolean"
+      ? (change.oldValue ? 1 : 0)
+      : change.oldValue;
     database.prepare(`update tracks set ${change.field} = ?, updated_at = ? where id = ?`)
-      .run(change.oldValue, now, change.trackId);
+      .run(restoredValue, now, change.trackId);
     restored.push(change);
   }
   return { updated: restored.length, conflicts, changes: restored };

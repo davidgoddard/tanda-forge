@@ -21,6 +21,7 @@ export type PortablePlaylistItem =
     }
   | {
       kind: "tanda";
+      savedTandaId?: string;
       name: string;
       styles: string[];
       rating: number;
@@ -102,6 +103,7 @@ export const isValidPlaylistExportManifest = (
     }
     if (item.kind === "tanda") {
       const tanda = item as {
+        savedTandaId?: unknown;
         name?: unknown;
         styles?: unknown;
         rating?: unknown;
@@ -109,6 +111,7 @@ export const isValidPlaylistExportManifest = (
         trackRefs?: unknown;
       };
       return (
+        (tanda.savedTandaId === undefined || typeof tanda.savedTandaId === "string") &&
         typeof tanda.name === "string" &&
         Array.isArray(tanda.styles) &&
         tanda.styles.every((style) => typeof style === "string") &&

@@ -132,6 +132,11 @@ Analysis:
 - FR-011.R7: Style filtering for search/clipboard updates immediately when a tanda is selected.
 - FR-011.R8: Tracks without an instrumental flag are treated as non-instrumental.
 - FR-011.R9: DJs may export saved tandas as a portable JSON file containing tanda metadata and track path references.
+- FR-011.R10: Deleting from the playlist-hosted tanda editor must distinguish
+  removing only the current playlist occurrence from permanently deleting the
+  saved tanda from the database. Permanent deletion must target the saved master
+  when the playlist entry is a local variant; playlist-only tandas may only be
+  removed because no saved database record exists.
 
 ---
 
@@ -154,6 +159,12 @@ Analysis:
 - FR-020.3.R5: DJs may import a previously saved portable playlist file.
 - FR-020.3.R6: Imported playlist files must restore playlist items, tanda snapshots, and compatible cortina assignments when matching local tracks can be found.
 - FR-020.3.R7: DJs may manually save or import the current playlist in grouped `m3u` / `m3u8` form for cross-machine interchange when the same relative music layout exists.
+- FR-020.3.R8: Tanda Forge JSON playlist export shall retain saved-master tanda
+  identity when available. Import shall restore a database reference when the
+  resolved ordered tracks and tanda metadata exactly match a unique saved
+  master, including for older exports without an identity field; otherwise it
+  shall preserve the imported contents as a playlist-local snapshot and retain
+  any still-valid originating-master link.
 
 ---
 

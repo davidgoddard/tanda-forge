@@ -51,12 +51,18 @@ describe("audio similarity report UI", () => {
     expect(renderer).toContain('distinctTitles.join(" / ")');
   });
 
-  it("separates unresolved groups from a closed reviewed panel", () => {
+  it("uses collapsible unresolved and newest-first reviewed panels", () => {
+    expect(renderer).toContain('const reviewSection = document.createElement("details")');
+    expect(renderer).toContain("reviewSection.open = true");
     expect(renderer).toContain('reviewedSection.className = "audio-similarity-reviewed-section"');
     expect(renderer).not.toContain("reviewedSection.open = true");
     expect(renderer).toContain('group.edges.every((edge) => edge.decision !== "pending")');
     expect(renderer).toContain('t("audioSimilarityToReview", { count: reviewCount })');
     expect(renderer).toContain('t("audioSimilarityReviewed", { count: reviewedCount })');
+    expect(renderer).toContain("right.processedAt.localeCompare(left.processedAt)");
+    expect(renderer).toContain("confirmedGroup.updatedAt");
+    expect(renderer).toContain("edge.updatedAt");
+    expect(styles).toContain(".audio-similarity-review-section > summary");
     expect(styles).toContain(".audio-similarity-reviewed-section > summary");
   });
 
@@ -202,11 +208,10 @@ describe("audio similarity report UI", () => {
     expect(styles).toMatch(/\.playlist-duplicate-focus-status \{[\s\S]*?z-index:\s*5/);
   });
 
-  it("moves a vertical playhead across the playing playlist track", () => {
-    expect(renderer).toContain('row.classList.add("playlist-playback-position")');
-    expect(renderer).toContain('row.style.setProperty("--playlist-playback-position", `${position}%`)');
-    expect(styles).toContain(".tanda-detail-line.playlist-playback-position::before");
-    expect(styles).toContain("left: var(--playlist-playback-position, 0%)");
+  it("does not draw a progress marker over playlist track titles", () => {
+    expect(renderer).not.toContain("playlist-playback-position");
+    expect(styles).not.toContain("playlist-playback-position");
+    expect(styles).not.toContain("--playlist-playback-position");
   });
 
   it("keeps playlist stop controls in a readable non-scrolling footer", () => {

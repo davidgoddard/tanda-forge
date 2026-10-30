@@ -210,6 +210,10 @@ accepted into a group again after preview and confirmation.
   that window. Undo shall restore one transfer at a time. Closing the comparison
   window shall discard its undo history; it shall not persist between sessions,
   and no global report-level metadata undo control shall be shown.
+- **ASR-035A — Type-safe metadata restoration:** Undo shall restore nullable,
+  textual, numeric, and boolean metadata using values supported by the SQLite
+  binding layer. In particular, Instrumental booleans shall be persisted as
+  SQLite integers while retaining boolean comparison semantics in the UI.
 - **ASR-036 — Track-column comparison table:** Metadata comparison shall use a
   wide table with attribute names in a fixed left column and one subsequent
   column per matched track/file. Track headers shall remain identifiable while
@@ -498,6 +502,9 @@ listening to the complete context.
   the report with a pair-order CHECK constraint error.
 - **ASR-093 — Hidden-track placement:** The reversible hidden-track management
   section shall appear after all visible candidate and confirmed-group content.
+  Hidden members and their incident candidate edges shall not remain in **To
+  review**; restoring a hidden member shall make any still-valid candidate
+  relationship visible again.
 - **ASR-094 — Audition stops main output:** Starting any similarity audition,
   including report, affected-tanda, and confirmed-alternative picker playback,
   shall first stop active main-output playback using the configured stop fade.
@@ -516,11 +523,13 @@ listening to the complete context.
   overlays shall provide clear vertical and horizontal separation around
   headings, choices, playback controls, track rows, and footer actions.
 - **ASR-099 — Outstanding-first report:** The report shall show candidate
-  groups with pending relationships in a clearly counted **To review** section.
+  groups with pending relationships in a clearly counted, collapsible **To
+  review** section that is open by default.
   Confirmed groups and candidate groups whose relationships have all been
   rejected shall move into a separately counted, localized disclosure panel
-  that is closed by default. Partially reviewed groups with any pending edge
-  shall remain in **To review**, and hidden-track management shall remain last.
+  that is closed by default and ordered by decision time with the most recently
+  processed group first. Partially reviewed groups with any pending edge shall
+  remain in **To review**, and hidden-track management shall remain last.
 - **ASR-100 — Provisional master continuity:** Electing an identical-version
   master shall remain effective while the open similarity report is refreshed,
   including after editing and saving member metadata. The provisional election

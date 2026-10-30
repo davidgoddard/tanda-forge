@@ -35,6 +35,21 @@ Tanda Forge is completely free and open source.
 * Built by tango DJs, for tango DJs
 * Open for contributions and community-driven improvement
 
+### AI-assisted library maintenance
+
+Tanda Forge stores its library in a straightforward SQLite database named
+`tanda-player.db`. AI coding agents such as ChatGPT Codex can understand this
+database and, once they locate the active data folder, use natural-language
+instructions to inspect or update tandas and track details in bulk. For example,
+an agent can find duplicate tandas, retain the preferred rated version, report
+metadata disagreements, or apply a consistent correction across many tracks.
+
+This makes the curated library accessible without requiring a purpose-built
+screen for every unusual maintenance task. Database changes should still be
+treated with care: ask the agent to identify the active database, create a
+backup, preserve relationships between tables, and verify database integrity
+afterwards. Do not perform bulk maintenance during live playback.
+
 ---
 
 ## Download
