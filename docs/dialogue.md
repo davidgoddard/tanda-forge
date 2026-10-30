@@ -7331,3 +7331,10 @@ live availability/digest/content checks for both pinned archives, and
     `UI-016.R17` replaces the active designer draft with a cohesive tanda that
     excludes playlist songs/orchestras and derives style from the marked
     playlist slot or Search selectors.
+- 2026-10-30 — Direct Designer-to-playlist placement and style context
+  - The user chose a persistent Add to Playlist action with destination priority:
+    explicit target, first empty slot, then playlist end, subject to the existing
+    style/count conflict warning.
+  - `UI-016.R18` adds an independent playlist-local copy. `UI-016.R19` uses a
+    still-marked slot when Designer is chosen manually, but preserves source
+    styles for `T` entry; explicit style selection remains authoritative.

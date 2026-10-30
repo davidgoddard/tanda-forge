@@ -540,6 +540,15 @@ Requirements:
   year and tempo cohesion rules. Style and size come from the marked playlist
   tanda slot when present; otherwise style comes from the Search selectors and
   size from the configured designer default.
+- UI-016.R18: Every designer tanda offers **Add to Playlist**. Placement uses an
+  explicitly marked playlist target first, otherwise the first empty tanda slot,
+  otherwise the playlist end. Normal sequence style/count validation and
+  override warnings apply. The playlist receives an independent local copy so
+  later designer edits or regeneration cannot mutate it.
+- UI-016.R19: Manually selecting the Tanda Designer while a playlist target is
+  still marked applies that slot's permitted styles as the generator/search
+  context. Opening Designer through a `T` action instead defaults to the source
+  tanda or track style. Explicit style clicks always override either default.
 
 Filtering:
 - UI-016.R13: When a tanda is selected, the clipboard (and search results, when enabled)

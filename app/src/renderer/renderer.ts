@@ -156,6 +156,7 @@ import {
   resolveLastTandaRemainingCount,
   resolveContinuationIndexAfterEndCortina,
   resolveOverlapFadeMs,
+  resolveTandaPlaylistDestination,
   resolveScheduledTransitionTimeSeconds,
   shouldEnablePlaylistStart,
   shouldPauseAfterMarkedPerformanceStop,
@@ -1332,6 +1333,7 @@ let waveformTrackId: string | null = null;
 let openRowMenuId: string | null = null;
 let playlistOpenTandaIndex: number | null = null;
 let tandaEditorHostTab: RightPanelTab = "tanda-designer-tab";
+let preserveDesignerSourceStylesOnNextTabActivation = false;
 let searchDiversityRenderInFlight = false;
 let systemBackupStatus: SystemBackupStatus = { state: "idle", path: "" };
 
@@ -3626,6 +3628,15 @@ const handleTandaAction = async (event: Event) => {
     ensureTandaDraft(tanda);
     addTandaToClipboard(tanda.id);
     setStatus(t("statusTandaSentToClipboard"));
+    return;
+  }
+  if (action === "tanda-playlist") {
+    const playlistCopy = cloneTandaWithNewId(tanda, "playlist");
+    playlistCopy.masterTandaId =
+      tanda.masterTandaId ?? (tandaCache.has(tanda.id) ? tanda.id : null);
+    playlistCopy.playlistUnsaved = true;
+    ensureTandaDraft(playlistCopy, "playlist");
+    addTandaToPlaylist(playlistCopy.id, playlistCopy);
     return;
   }
   const slotIndexRaw = target.closest<HTMLElement>(".tanda-track-row")
@@ -7432,6 +7443,7 @@ const openTandaInDesigner = (
     }
   }
   setActiveTanda(tandaId);
+  preserveDesignerSourceStylesOnNextTabActivation = true;
   activateRightTab(tandaEditorHostTab ?? "tanda-designer-tab");
   renderTandaDesigner();
 };
@@ -11141,7 +11153,7 @@ const generateDesignerTanda = async () => {
     setStatus(t("statusNoApi"));
     return;
   }
-  const targetIndex = playlistTargetIndex;
+  const targetIndex = getPlaylistTargetIndex();
   const targetStyles = targetIndex !== null
     ? getDefaultPlaylistStyles(targetIndex)
     : getExpandedStyleFilter();
@@ -11922,7 +11934,19 @@ const renderTandaDesigner = () => {
     clipButton.dataset.action = "tanda-clip";
     clipButton.dataset.tandaId = tanda.id;
     clipButton.disabled = locked;
-    footerRow.append(addSlotButton, saveButton, doneButton, deleteButton, clipButton);
+    const playlistButton = document.createElement("button");
+    playlistButton.textContent = t("tandaToPlaylist");
+    playlistButton.dataset.action = "tanda-playlist";
+    playlistButton.dataset.tandaId = tanda.id;
+    playlistButton.disabled = locked;
+    footerRow.append(
+      addSlotButton,
+      saveButton,
+      doneButton,
+      deleteButton,
+      clipButton,
+      playlistButton,
+    );
 
     card.append(header, trackList, footerRow);
     card.addEventListener("click", (event) => {
@@ -13304,6 +13328,7 @@ const addTrackToActiveTanda = async (requestedTrack: TrackRow) => {
   }
   const added = addTrackToTanda(activeTanda.id, track);
   if (added) {
+    preserveDesignerSourceStylesOnNextTabActivation = true;
     activateRightTab(
       tandaEditorHostTab === "playlist-tab" ? "playlist-tab" : "tanda-designer-tab",
     );
@@ -13364,10 +13389,9 @@ const addTandaToPlaylist = (tandaId: string, source?: TandaDraft | null) => {
   }
   normalizePlaylist();
   const targetIndex = getPlaylistTargetIndex();
-  const insertIndex = targetIndex ?? findFirstEmptyPlaylistSlot();
-  if (insertIndex < 0) {
-    setStatus(t("statusPlaylistNoEmptySlot"));
-    return;
+  const insertIndex = resolveTandaPlaylistDestination(targetIndex, playlistItems);
+  if (insertIndex === playlistItems.length) {
+    playlistItems.push(null);
   }
   const placed = placeTandaInPlaylistSlot(tandaId, insertIndex);
   if (placed && targetIndex !== null) {
@@ -17584,7 +17608,22 @@ const init = async () => {
       },
       updateSearchTabVisibility,
       setActiveRightTab: (tabId) => {
-        setActiveRightTabState(tabId as RightPanelTab);
+        const nextTab = tabId as RightPanelTab;
+        setActiveRightTabState(nextTab);
+        if (nextTab !== "tanda-designer-tab") return;
+        if (preserveDesignerSourceStylesOnNextTabActivation) {
+          preserveDesignerSourceStylesOnNextTabActivation = false;
+          return;
+        }
+        const markedTargetIndex = getPlaylistTargetIndex();
+        if (markedTargetIndex !== null) {
+          selectedStyles = toBaseStyleFilters(
+            getDefaultPlaylistStyles(markedTargetIndex),
+          );
+          loadStyles();
+          updateSearchTabVisibility();
+          refreshSearch();
+        }
       },
       renderTandaDesigner,
     },

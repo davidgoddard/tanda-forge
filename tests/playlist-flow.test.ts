@@ -6,6 +6,7 @@ import {
   resolveLastTandaRemainingCount,
   resolveContinuationIndexAfterEndCortina,
   resolveOverlapFadeMs,
+  resolveTandaPlaylistDestination,
   resolveScheduledTransitionTimeSeconds,
   shouldEnablePlaylistStart,
   shouldPauseAfterMarkedPerformanceStop,
@@ -20,6 +21,20 @@ import {
   shouldTreatClickStartAsIdle,
   shouldUseOverlapForGapMs,
 } from "../app/src/shared/playlist-flow.js";
+
+describe("resolveTandaPlaylistDestination", () => {
+  it("prefers an explicitly marked target", () => {
+    expect(resolveTandaPlaylistDestination(1, [{}, {}, null])).toBe(1);
+  });
+
+  it("uses the first empty slot when no target is marked", () => {
+    expect(resolveTandaPlaylistDestination(null, [{}, null, {}])).toBe(1);
+  });
+
+  it("appends when there is no target or empty slot", () => {
+    expect(resolveTandaPlaylistDestination(null, [{}, {}])).toBe(2);
+  });
+});
 
 describe("shouldContinueAfterEndCortina", () => {
   it("returns true when new items were appended after the end cortina", () => {

@@ -7,7 +7,11 @@
   the current draft, excludes playlist tracks/orchestras, and uses the marked
   playlist slot's style/size or Search styles plus the default size
   (`UI-016.R17`).
-- Verification: `npm run preflight` passed (110 test files, 644 tests, production
+- Every designer tanda now has **Add to Playlist**, targeting an explicit mark,
+  then the first empty slot, then the end, with existing mismatch warnings and
+  an independent playlist-local copy (`UI-016.R18`). Manual Designer selection
+  follows a still-marked slot; `T` entry follows its source (`UI-016.R19`).
+- Verification: `npm run preflight` passed (111 test files, 648 tests, production
   build); `git diff --check` passed.
 
 ### Orchestra-balanced track generation

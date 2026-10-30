@@ -104,6 +104,7 @@ describe("renderer i18n", () => {
       "statusGenerateTandaChooseStyle",
       "statusGenerateTandaUnavailable",
       "statusGenerateTandaCreated",
+      "tandaToPlaylist",
     ];
     for (const language of SUPPORTED_LANGUAGES) {
       for (const key of keys) {

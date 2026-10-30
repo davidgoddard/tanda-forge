@@ -550,6 +550,13 @@ There are several ways a tanda can be created or filled:
   orchestras not already used in the playlist. Repeated clicks replace the
   current draft. A marked playlist tanda slot supplies the required style and
   size; otherwise the Search style selectors and default tanda size are used.
+- **Add to Playlist** is available on every designer tanda. It uses a marked
+  playlist target first, then the first empty slot, then the playlist end, and
+  warns before allowing a style or size conflict. The added playlist tanda is
+  independent of later edits or regeneration in Designer.
+- If Designer is selected manually while a playlist target remains marked, its
+  style context follows that slot. Opening Designer with `T` follows the source
+  track/tanda style instead. Clicking another style explicitly overrides either.
 
 Once a tanda is open in the **Tanda Designer** or the playlist-hosted tanda editor, it can be changed in several ways:
 
