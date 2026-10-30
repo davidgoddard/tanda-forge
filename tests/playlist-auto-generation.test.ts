@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { scoreTandaTrackCohesion } from "../app/src/shared/playlist-auto-generation";
+import {
+  findExactOrderedTandaMatch,
+  scoreTandaTrackCohesion,
+} from "../app/src/shared/playlist-auto-generation";
 
 const seed = {
   artist: "Carlos Di Sarli",
@@ -41,5 +44,28 @@ describe("scoreTandaTrackCohesion", () => {
     const otherSinger = scoreTandaTrackCohesion(seed, { ...seed, singer: "Jorge Duran" });
     expect(sameSinger).toBeLessThan(unknownSinger);
     expect(unknownSinger).toBeLessThan(otherSinger);
+  });
+});
+
+describe("findExactOrderedTandaMatch", () => {
+  const saved = [
+    { id: "same", tracks: ["one", "two", "three", null] },
+    { id: "different-order", tracks: ["three", "two", "one"] },
+  ];
+
+  it("returns a saved tanda with the same tracks in the same order", () => {
+    expect(findExactOrderedTandaMatch(
+      ["one", "two", "three"],
+      saved,
+      (tanda) => tanda.tracks,
+    )?.id).toBe("same");
+  });
+
+  it("does not accept the same tracks in another order", () => {
+    expect(findExactOrderedTandaMatch(
+      ["one", "three", "two"],
+      saved,
+      (tanda) => tanda.tracks,
+    )).toBeNull();
   });
 });

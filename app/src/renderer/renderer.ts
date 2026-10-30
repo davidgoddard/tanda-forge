@@ -184,7 +184,10 @@ import {
   type StoredPlaylistState,
 } from "../shared/playlist-storage.js";
 import { tandaContentsMatch } from "../shared/playlist-tanda-variant.js";
-import { scoreTandaTrackCohesion } from "../shared/playlist-auto-generation.js";
+import {
+  findExactOrderedTandaMatch,
+  scoreTandaTrackCohesion,
+} from "../shared/playlist-auto-generation.js";
 import { resolveSearchResultTanda } from "../shared/tanda-search-resolution.js";
 import {
   PLAYLIST_EXPORT_VERSION,
@@ -10781,10 +10784,13 @@ const isAutofillTrackUsed = (track: TrackRow, used: Set<string>) =>
 
 const collectSavedAutofillTandas = async () => {
   if (!window.tanda) {
-    return [] as TandaDraft[];
+    return { candidates: [] as TandaDraft[], persisted: [] as TandaDraft[] };
   }
   const saved = await window.tanda.listTandas();
   saved.forEach(upsertTandaCache);
+  const persisted = saved
+    .map((tanda) => tandaCache.get(tanda.id))
+    .filter((tanda): tanda is TandaDraft => Boolean(tanda));
   const combined = new Map<string, TandaDraft>();
   for (const tanda of tandaCache.values()) {
     if (!isTandaEmpty(tanda)) {
@@ -10796,9 +10802,10 @@ const collectSavedAutofillTandas = async () => {
       combined.set(draft.id, draft);
     }
   });
-  return Array.from(combined.values()).filter((tanda) =>
+  const candidates = Array.from(combined.values()).filter((tanda) =>
     !tanda.trackSlots.some((trackId) =>
       Boolean(trackId && similarityHiddenTrackIds.has(trackId))));
+  return { candidates, persisted };
 };
 
 const scoreAutofillTanda = (
@@ -10904,6 +10911,7 @@ type SimilarityPhase = "strict" | "relax-artist" | "relax-year-bpm" | "style-onl
 const pickGeneratedTandaForSlot = (
   slotIndex: number,
   allTracks: TrackRow[],
+  savedTandas: TandaDraft[],
   usedTrackTitles: Set<string>,
   artistCounts: Map<string, number>,
   currentTotalMs: number,
@@ -11065,6 +11073,14 @@ const pickGeneratedTandaForSlot = (
       if (!validation.ok) {
         continue;
       }
+      const savedMatch = findExactOrderedTandaMatch(
+        generated.trackSlots,
+        savedTandas,
+        (tanda) => tanda.trackSlots,
+      );
+      if (savedMatch && validateTandaForSlot(savedMatch, slotIndex).ok) {
+        return savedMatch;
+      }
       ensureTandaDraft(generated, "playlist");
       return generated;
     }
@@ -11192,9 +11208,8 @@ const clearAndAutofillPlaylist = async (options?: { generateOnly?: boolean }) =>
     const targetWindowMs = getPlaylistTargetWindowMs();
     const allTracks = await window.tanda.listTracks();
     allTracks.forEach((track) => trackCache.set(track.id, track));
-    const candidateTandas = options?.generateOnly
-      ? []
-      : await collectSavedAutofillTandas();
+    const savedTandas = await collectSavedAutofillTandas();
+    const candidateTandas = options?.generateOnly ? [] : savedTandas.candidates;
     const usedTrackTitles = collectUsedTrackTitles();
     const usedTandaIds = new Set<string>();
     const artistCounts = new Map<string, number>();
@@ -11228,6 +11243,7 @@ const clearAndAutofillPlaylist = async (options?: { generateOnly?: boolean }) =>
         pickGeneratedTandaForSlot(
           slotIndex,
           allTracks,
+          savedTandas.persisted,
           usedTrackTitles,
           artistCounts,
           currentTotalMs,

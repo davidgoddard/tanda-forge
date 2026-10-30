@@ -652,6 +652,9 @@ A playlist can be built up as required and then cleared using the **Clear** butt
   playlist row (for example **A** in English). Review its tracks and choose
   **Save** if you want to keep it as a reusable database tanda; saving removes
   the auto-generated badge.
+- Generation still builds from tracks rather than choosing saved tandas. If the
+  resulting tracks exactly match a saved tanda in the same order, the playlist
+  links to that known tanda and shows neither the pencil nor auto-generated badge.
 - Auto-fill never reuses a track title already present in the generated playlist.
 
 If the tanda sequence configured uses a grouped option such as "3t 3t 3w 3t 3t (3m 3c 3f)" (where 'c' might be Candombe and 'f' might be Foxtrot) then a tanda matching any of those styles will be picked or built if required.

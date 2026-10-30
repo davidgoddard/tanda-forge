@@ -13,6 +13,9 @@
 - `npm run preflight` passed (109 test files / 631 tests and the production
   build); `git diff --check` passed. Focused Electron workflow 19 could not
   launch in this shell (`Process failed to launch!`) before app behavior.
+- Track-led generation reconciles exact same-order results with persisted
+  tandas. Known matches retain their database identity and show neither the
+  playlist-only pencil nor auto-generated badge (`UI-014.R32`).
 
 ### Hard orchestra repeat interval
 - Playlist settings now end with a localized **Auto-generation** section holding
@@ -21,7 +24,7 @@
 - Saved-tanda auto-fill and track-based auto-generation no longer fall back to
   an orchestra inside the configured projected start-to-start interval. If no
   compliant tanda can be built, the established placeholder behavior applies.
-- Verification: `npm run preflight` passed (109 test files, 634 tests, production
+- Verification: `npm run preflight` passed (109 test files, 636 tests, production
   build); `git diff --check` passed.
 
 ### Version 0.4.10 — tanda review and safe variation workflow

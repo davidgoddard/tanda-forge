@@ -427,6 +427,9 @@ Interactions:
   between tandas containing the same canonical orchestra. Auto-fill and
   auto-generation treat a positive value as a hard constraint, including after
   all other matching preferences are relaxed; `0` disables the constraint.
+- UI-014.R32: Track-based auto-generation remains independent of saved tanda
+  selection, but an exact ordered-track match to a persisted tanda resolves to
+  that saved tanda and is not marked auto-generated or playlist-only.
 
 ## UI-015 — Now Playing Strip
 

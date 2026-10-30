@@ -7298,3 +7298,9 @@ live availability/digest/content checks for both pinned archives, and
     a hard projected-start-time constraint for both saved-tanda auto-fill and
     track-based auto-generation. Other cohesion preferences may relax, but the
     orchestra interval cannot; zero explicitly disables it.
+- 2026-10-30 — Recognise saved tandas after track-based generation
+  - The user confirmed that generation should keep exploring the collection
+    independently of saved tandas, while a result already known by the database
+    must not appear playlist-only.
+  - `UI-014.R32` resolves an exact same-order track match to the persisted tanda
+    and suppresses both the pencil and auto-generated indicators.

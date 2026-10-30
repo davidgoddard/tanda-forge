@@ -35,3 +35,19 @@ export const scoreTandaTrackCohesion = (
     : 3;
   return score;
 };
+
+const orderedTrackIds = (trackIds: (string | null)[]) =>
+  trackIds.filter((trackId): trackId is string => Boolean(trackId));
+
+export const findExactOrderedTandaMatch = <T>(
+  generatedTrackIds: (string | null)[],
+  savedTandas: T[],
+  getTrackIds: (tanda: T) => (string | null)[],
+) => {
+  const generated = orderedTrackIds(generatedTrackIds);
+  return savedTandas.find((tanda) => {
+    const saved = orderedTrackIds(getTrackIds(tanda));
+    return saved.length === generated.length
+      && saved.every((trackId, index) => trackId === generated[index]);
+  }) ?? null;
+};

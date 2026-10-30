@@ -77,7 +77,8 @@ describe("playlist storage parsing", () => {
     );
     expect(renderer).toContain('generateBtn.dataset.option = "generate"');
     expect(renderer).toContain('clearAndAutofillPlaylist({ generateOnly: true })');
-    expect(renderer).toContain("options?.generateOnly\n      ? []");
+    expect(renderer).toContain("options?.generateOnly ? [] : savedTandas.candidates");
+    expect(renderer).toContain("findExactOrderedTandaMatch(");
   });
 
   it("parses legacy item-array payloads", () => {
