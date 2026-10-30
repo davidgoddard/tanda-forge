@@ -281,6 +281,7 @@ const resolveM3uEntry = (
 const buildStoredStateFromPlaylistManifest = (
   manifest: PlaylistExportManifest,
   maps: TrackLookupMaps,
+  savedTandas: SavedTandaLookup,
 ) => {
   const warnings: string[] = [];
   const items: StoredPlaylistItem[] = manifest.items.map((item, index) => {
@@ -311,13 +312,33 @@ const buildStoredStateFromPlaylistManifest = (
       warnings.push(`Skipped tanda with no matching tracks: ${item.name}`);
       return null;
     }
+    const matchKey = buildSavedTandaMatchKey({
+      name: item.name,
+      styles: item.styles,
+      rating: item.rating,
+      instrumental: item.instrumental,
+      trackIds: trackSlots,
+    });
+    const matchingIds = savedTandas.byKey.get(matchKey) ?? [];
+    const matchedId = item.savedTandaId && matchingIds.includes(item.savedTandaId)
+      ? item.savedTandaId
+      : matchingIds.length === 1
+        ? matchingIds[0]
+        : null;
+    if (matchedId) {
+      return { kind: "tanda", id: matchedId, mismatch: item.mismatch };
+    }
     const snapshotId = `imported-${index + 1}-${sanitizePathSegment(item.name) || "tanda"}`;
+    const savedMasterId = item.savedTandaId && savedTandas.ids.has(item.savedTandaId)
+      ? item.savedTandaId
+      : undefined;
     return {
       kind: "tanda",
       id: snapshotId,
       mismatch: item.mismatch,
       snapshot: {
         id: snapshotId,
+        ...(savedMasterId ? { masterTandaId: savedMasterId, unsaved: true } : {}),
         name: item.name,
         styles: [...item.styles],
         rating: item.rating,
@@ -346,6 +367,67 @@ const buildStoredStateFromPlaylistManifest = (
     } satisfies StoredPlaylistState,
     warnings,
   };
+};
+
+type SavedTandaMatch = {
+  name: string;
+  styles: string[];
+  rating: number;
+  instrumental: boolean;
+  trackIds: (string | null)[];
+};
+
+type SavedTandaLookup = {
+  byKey: Map<string, string[]>;
+  ids: Set<string>;
+};
+
+const buildSavedTandaMatchKey = (tanda: SavedTandaMatch) => JSON.stringify({
+  name: tanda.name,
+  styles: [...tanda.styles].sort(),
+  rating: tanda.rating,
+  instrumental: tanda.instrumental,
+  trackIds: tanda.trackIds,
+});
+
+const buildSavedTandaLookup = (db: Database.Database): SavedTandaLookup => {
+  const rows = db.prepare(`select ta.id, ta.name, coalesce(ta.rating, 0) as rating,
+      coalesce(ta.instrumental, 0) as instrumental,
+      (select group_concat(track_id, char(31)) from (
+        select track_id from tanda_tracks where tanda_id = ta.id order by position
+      )) as trackIds,
+      (select group_concat(style_name, char(31)) from (
+        select style_name from tanda_styles where tanda_id = ta.id order by style_name
+      )) as styles
+    from tandas ta
+    where coalesce(ta.invalid, 0) = 0
+      and not exists (
+        select 1 from tanda_tracks deleted_tt
+        left join tracks deleted_t on deleted_t.id = deleted_tt.track_id
+        where deleted_tt.tanda_id = ta.id
+          and (deleted_t.id is null or deleted_t.deleted_at is not null)
+      )`).all() as Array<{
+        id: string;
+        name: string;
+        rating: number;
+        instrumental: number;
+        trackIds: string | null;
+        styles: string | null;
+      }>;
+  const byKey = new Map<string, string[]>();
+  const ids = new Set<string>();
+  for (const row of rows) {
+    ids.add(row.id);
+    const key = buildSavedTandaMatchKey({
+      name: row.name,
+      styles: row.styles ? row.styles.split(String.fromCharCode(31)) : [],
+      rating: row.rating,
+      instrumental: Boolean(row.instrumental),
+      trackIds: row.trackIds ? row.trackIds.split(String.fromCharCode(31)) : [],
+    });
+    byKey.set(key, [...(byKey.get(key) ?? []), row.id]);
+  }
+  return { byKey, ids };
 };
 
 const buildStoredStateFromM3u = (filePath: string, maps: TrackLookupMaps) => {
@@ -431,9 +513,12 @@ export const importPlaylistFile = (db: Database.Database, filePath: string) => {
   }
   const raw = JSON.parse(fs.readFileSync(filePath, "utf-8")) as unknown;
   if (isValidPlaylistExportManifest(raw)) {
+    const savedTandas = raw.items.some((item) => item?.kind === "tanda")
+      ? buildSavedTandaLookup(db)
+      : { byKey: new Map<string, string[]>(), ids: new Set<string>() };
     return {
       format: "tanda-forge-playlist" as const,
-      ...buildStoredStateFromPlaylistManifest(raw, maps),
+      ...buildStoredStateFromPlaylistManifest(raw, maps, savedTandas),
     };
   }
   const parsedState = parseStoredPlaylistState(JSON.stringify(raw));

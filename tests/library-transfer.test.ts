@@ -149,6 +149,9 @@ describe("playlist file import", () => {
     const db = {
       prepare: (sql: string) => ({
         all: () => {
+          if (sql.includes("from tandas ta")) {
+            return [];
+          }
           expect(sql).toContain("select id, full_path, relative_path, title, artist from tracks where deleted_at is null");
           return rows;
         },
@@ -293,6 +296,94 @@ describe("playlist file import", () => {
         cortinaAssignments: [],
       },
       warnings: [],
+    });
+  });
+
+  it("relinks an old playlist tanda to its unique exact saved master", () => {
+    const { db: fixtureDb, tempDir, absoluteTrack } = createFixture();
+    const db = {
+      prepare: (sql: string) => ({
+        all: () => sql.includes("from tandas ta")
+          ? [{
+              id: "saved-tanda",
+              name: "Original tanda",
+              rating: 4,
+              instrumental: 0,
+              trackIds: "track-a",
+              styles: "Tango",
+            }]
+          : fixtureDb.prepare(sql).all(),
+      }),
+    };
+    const manifest: PlaylistExportManifest = {
+      format: "tanda-forge-playlist",
+      version: PLAYLIST_EXPORT_VERSION,
+      createdAt: "2026-03-23T10:11:12.345Z",
+      appVersion: "0.4.8",
+      items: [{
+        kind: "tanda",
+        name: "Original tanda",
+        styles: ["Tango"],
+        rating: 4,
+        instrumental: false,
+        trackRefs: [{
+          fullPath: absoluteTrack,
+          relativePath: "Tango/song-a.mp3",
+          title: "Song A",
+          artist: "Artist A",
+        }],
+      }],
+    };
+    const jsonPath = path.join(tempDir, "playlist-relink.json");
+    fs.writeFileSync(jsonPath, JSON.stringify(manifest), "utf-8");
+
+    expect(importPlaylistFile(db as never, jsonPath).state.items).toEqual([
+      { kind: "tanda", id: "saved-tanda", mismatch: undefined },
+    ]);
+  });
+
+  it("keeps a changed playlist tanda as a variant of its saved master", () => {
+    const { db: fixtureDb, tempDir, absoluteTrack } = createFixture();
+    const db = {
+      prepare: (sql: string) => ({
+        all: () => sql.includes("from tandas ta")
+          ? [{
+              id: "saved-tanda",
+              name: "Original tanda",
+              rating: 4,
+              instrumental: 0,
+              trackIds: "track-a",
+              styles: "Tango",
+            }]
+          : fixtureDb.prepare(sql).all(),
+      }),
+    };
+    const manifest: PlaylistExportManifest = {
+      format: "tanda-forge-playlist",
+      version: PLAYLIST_EXPORT_VERSION,
+      createdAt: "2026-03-23T10:11:12.345Z",
+      appVersion: "0.4.8",
+      items: [{
+        kind: "tanda",
+        savedTandaId: "saved-tanda",
+        name: "Changed for this playlist",
+        styles: ["Tango"],
+        rating: 4,
+        instrumental: false,
+        trackRefs: [{
+          fullPath: absoluteTrack,
+          relativePath: "Tango/song-a.mp3",
+          title: "Song A",
+          artist: "Artist A",
+        }],
+      }],
+    };
+    const jsonPath = path.join(tempDir, "playlist-variant.json");
+    fs.writeFileSync(jsonPath, JSON.stringify(manifest), "utf-8");
+
+    expect(importPlaylistFile(db as never, jsonPath).state.items[0]).toMatchObject({
+      kind: "tanda",
+      snapshot: { masterTandaId: "saved-tanda", unsaved: true },
     });
   });
   it("imports grouped m3u entries as tanda snapshots", () => {

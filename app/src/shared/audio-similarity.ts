@@ -89,6 +89,7 @@ export type AudioSimilarityCandidateEdge = {
   coarseScore: number;
   pitchShift: number;
   decision: AudioSimilarityDecision;
+  updatedAt: string;
 };
 
 export type AudioSimilarityCandidateGroup = {
@@ -125,6 +126,7 @@ export type ConfirmedAudioSimilarityGroup = {
   relationshipType: AudioSimilarityRelationshipType;
   preferredTrackId: string | null;
   trackIds: string[];
+  updatedAt: string;
 };
 
 export type AudioSimilarityStatus = {

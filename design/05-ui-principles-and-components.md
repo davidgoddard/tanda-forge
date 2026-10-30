@@ -619,6 +619,20 @@ Behavior:
   empty slot, the playlist resumes referencing the master and clears the badge.
 - UI-012.R20.b: Clearing or replacing a playlist discards its unsaved local
   tanda variants. Collections continue to reference saved master tanda IDs.
+- UI-012.R20.c: Delete in the playlist-hosted tanda editor presents explicit
+  **Remove from playlist** and **Delete from database** choices. The first
+  clears only the open playlist slot. The second deletes the saved master and
+  removes its current-playlist occurrences; it is unavailable for a tanda that
+  exists only in the playlist.
+- UI-012.R21: Playlist track titles and rows must not display a moving playback
+  position marker. The established active/playing highlight continues to identify
+  the playing track without drawing over its text.
+- UI-012.R22: A tanda synthesized from individual tracks by playlist auto-fill
+  displays a compact localized initial at the left warning/indicator rail. Its
+  localized tooltip identifies the tanda as auto-generated and prompts the DJ
+  to review and optionally save it. The marker persists with the playlist,
+  stacks without obscuring mismatch or unsaved indicators, and clears when the
+  tanda is saved as a database master.
 
 ---
 
@@ -738,7 +752,9 @@ Rules:
 - UI-050.R11: Library settings must expose a dedicated tandas-only export action.
 - UI-050.R12: Playlist settings must expose playlist save/import actions with
   plain-language guidance on the limitations of standard playlist formats such
-  as `m3u` and `m3u8`.
+  as `m3u` and `m3u8`. After a successful playlist import, Settings closes and
+  the normal workspace returns with the Playlist tab active so the imported
+  result is immediately visible. Cancelled or failed imports remain in Settings.
 - UI-050.R13: Diagnostics must surface suspicious track-length anomalies,
   including unusually short raw durations and tracks where trims remove a large
   amount of the FFmpeg-reported duration.

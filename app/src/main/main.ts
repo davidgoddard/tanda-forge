@@ -100,6 +100,7 @@ import {
   undoAudioSimilarityMetadata,
   replaceAudioSimilarityTandaTrack,
   replaceAudioSimilarityTandaReferences,
+  removeAudioSimilarityTrackState,
   setTrackHidden,
   withdrawConfirmedAudioSimilarityGroup,
 } from "./audio-similarity/store";
@@ -2214,7 +2215,10 @@ const registerIpc = () => {
       if (!payload?.id || typeof payload.id !== "string") {
         return { ok: false, fileRemoved: false };
       }
-      return logicallyDeleteTrack(getDb(), payload.id, payload.removeFile === true);
+      const db = getDb();
+      const result = await logicallyDeleteTrack(db, payload.id, payload.removeFile === true);
+      if (result.ok) removeAudioSimilarityTrackState(db, [payload.id]);
+      return result;
     },
   );
   ipcMain.handle("tracks:listDeleted", async () => listDeletedTracks(getDb()));

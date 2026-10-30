@@ -436,6 +436,16 @@ Use this when you want to save or move the current playlist only.
 - save as grouped M3U/M3U8 for broader interoperability
 - import either format back into the current playlist
 
+After a successful import, Tanda Forge closes Settings and returns to the normal
+workspace with the Playlist tab active, so the imported result is immediately
+visible. A cancelled or failed import leaves Settings open for another attempt.
+
+JSON playlist files retain saved-master tanda identity. When importing an older
+JSON file that predates that identity field, Tanda Forge safely relinks a tanda
+to the database only when its name, styles, rating, instrumental state, and
+ordered tracks exactly match one unique saved tanda. Changed or ambiguous
+tandas remain playlist-local snapshots instead of overwriting a saved master.
+
 This does **not** back up your whole library database, saved tandas collection, waveform cache, compressed cache, or all app settings.
 
 #### 2) Export Tandas
@@ -573,7 +583,14 @@ Deleting or removing a tanda depends on where you are looking at it:
 
 - **Delete a saved tanda itself**: open it in the Tanda Designer with **T**, then click **Delete**. This removes the tanda record, so it disappears from collections and can no longer be used in playlists.
 - **Remove a tanda from a clipboard collection only**: use **R** on the tanda in that collection. This removes it from that collection view, but does not delete the tanda from the library if it still exists elsewhere.
-- **Remove a tanda from the playlist**: use **R** on the playlist tanda. The playlist keeps its sequence shape by leaving an empty placeholder slot.
+- **Remove or delete from the playlist editor**: click **Delete tanda** to choose
+  **Remove from playlist** or **Delete from database**. Removal clears only that
+  playlist slot and keeps the saved tanda. Database deletion permanently removes
+  the saved master from collections and every occurrence in the current
+  playlist. For a tanda that exists only in the playlist, database deletion is
+  unavailable because there is no saved record. The playlist keeps its sequence
+  shape by leaving an empty placeholder slot. The tanda row's **R** action remains
+  the quick remove-only path.
 - **Delete a tanda seen in a collection**: as a safe rule, use **T** to send it to the Tanda Designer and then use **Delete** there.
 
 Re-ordering can happen in more than one place:
@@ -607,6 +624,10 @@ A playlist can be built up as required and then cleared using the **Clear** butt
   and sequence rules until projected playback reaches the configured end time.
 - If no suitable tanda is available for a slot, the app builds an ad-hoc tanda
   from similar tracks (same style first, then progressively relaxed matching).
+- An auto-generated tanda has a localized letter badge at the left of its
+  playlist row (for example **A** in English). Review its tracks and choose
+  **Save** if you want to keep it as a reusable database tanda; saving removes
+  the auto-generated badge.
 - Auto-fill never reuses a track title already present in the generated playlist.
 
 If the tanda sequence configured uses a grouped option such as "3t 3t 3w 3t 3t (3m 3c 3f)" (where 'c' might be Candombe and 'f' might be Foxtrot) then a tanda matching any of those styles will be picked or built if required.
@@ -907,9 +928,10 @@ highlight differing fields, identify affected tandas, and provide the available
 match or **No match** decisions.*
 
 The report presents confidence-ranked candidate groups. Groups still needing a
-decision remain visible under **To review**. Confirmed matches and groups whose
-relationships have all been rejected move into **Matched or reviewed**, which
-is closed by default. A score is
+decision remain visible under **To review**, which is open by default but can be
+collapsed. Confirmed matches and groups whose relationships have all been
+rejected move into **Matched or reviewed**, which is closed by default and lists
+the most recently processed decision first. A score is
 evidence, not proof: only tracks with the same source-file hash are labelled as
 exact file duplicates. Play any member to compare it; starting a similarity
 preview first stops anything playing on the main output, using the configured
@@ -1059,9 +1081,12 @@ the selected version will be assigned silently; the confirmation continues
 only after a selection is made.
 
 **Hide** removes a version from normal library/search and new tanda/playlist
-selection without deleting it or changing existing references. Hidden tracks
-remain visible in a management section at the bottom of this report and can be
-restored there.
+selection without deleting it or changing existing references. It also removes
+that version from outstanding similarity candidates; a candidate with fewer
+than two visible tracks disappears from **To review**. Hidden tracks remain
+visible in a management section at the bottom of this report and can be restored
+there. **No match** applies to one pair, so select exactly two tracks before
+using it.
 
 ## Importing more than one legacy collection
 

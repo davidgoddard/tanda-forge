@@ -173,6 +173,8 @@ describe("audio similarity persistence", () => {
       .run("group", "run", 0.9);
     database.prepare("insert into audio_similarity_candidate_members values (?, ?)")
       .run("group", "candidate");
+    database.prepare("insert into audio_similarity_candidate_members values (?, ?)")
+      .run("group", "context");
 
     const report = getAudioSimilarityReport(database as never);
     expect(report.candidateGroups[0].members[0].usages[0].contextTracks[1])
@@ -187,18 +189,21 @@ describe("audio similarity persistence", () => {
         relationshipType: "same-composition",
         preferredTrackId: null,
         trackIds: ["a", "b", "c"],
+        updatedAt: "one",
       },
       {
         id: "group-two",
         relationshipType: "same-recording",
         preferredTrackId: "d",
         trackIds: ["d", "e"],
+        updatedAt: "two",
       },
       {
         id: "group-three",
         relationshipType: "same-orchestra",
         preferredTrackId: null,
         trackIds: ["f", "g"],
+        updatedAt: "three",
       },
     ]);
 
@@ -257,7 +262,8 @@ describe("audio similarity persistence", () => {
       database as never, ["a", "b", "c"], ["a", "b"], "same-composition",
     );
     expect(listConfirmedAudioSimilarityGroups(database as never)).toEqual([
-      { id: firstGroup, relationshipType: "same-composition", preferredTrackId: null, trackIds: ["a", "b"] },
+      { id: firstGroup, relationshipType: "same-composition", preferredTrackId: null,
+        trackIds: ["a", "b"], updatedAt: expect.any(String) },
     ]);
     expect(database.prepare("select left_track_id, right_track_id from audio_similarity_rejections order by 1, 2").all())
       .toEqual([]);
@@ -283,7 +289,8 @@ describe("audio similarity persistence", () => {
       .toEqual({ count: 3 });
     withdrawConfirmedAudioSimilarityGroup(database as never, secondGroup);
     expect(listConfirmedAudioSimilarityGroups(database as never)).toEqual([
-      { id: firstGroup, relationshipType: "same-composition", preferredTrackId: null, trackIds: ["a", "b"] },
+      { id: firstGroup, relationshipType: "same-composition", preferredTrackId: null,
+        trackIds: ["a", "b"], updatedAt: expect.any(String) },
     ]);
     database.close();
   });
@@ -297,12 +304,33 @@ describe("audio similarity persistence", () => {
     );
 
     expect(listConfirmedAudioSimilarityGroups(database as never)).toEqual([
-      { id: identical, relationshipType: "identical", preferredTrackId: "b", trackIds: ["a", "b"] },
-      { id: recording, relationshipType: "same-recording", preferredTrackId: "b", trackIds: ["a", "b", "c", "d"] },
+      { id: recording, relationshipType: "same-recording", preferredTrackId: "b",
+        trackIds: ["a", "b", "c", "d"], updatedAt: expect.any(String) },
+      { id: identical, relationshipType: "identical", preferredTrackId: "b",
+        trackIds: ["a", "b"], updatedAt: expect.any(String) },
     ]);
     expect([...buildConfirmedAudioSimilarityLookup(
       listConfirmedAudioSimilarityGroups(database as never),
     ).get("a")!]).toEqual(["a", "b", "c", "d"]);
+    database.close();
+  });
+
+  it("lists the most recently processed confirmed group first", () => {
+    const database = createDatabase();
+    ["a", "b", "c", "d"].forEach((id) => addTrack(database, id));
+    const older = confirmAudioSimilarityGroup(
+      database as never, ["a", "b"], "identical", "a",
+    );
+    const newer = confirmAudioSimilarityGroup(
+      database as never, ["c", "d"], "identical", "c",
+    );
+    database.prepare(`update audio_similarity_confirmed_groups
+      set updated_at = '2026-01-01T00:00:00.000Z' where id = ?`).run(older);
+    database.prepare(`update audio_similarity_confirmed_groups
+      set updated_at = '2026-01-02T00:00:00.000Z' where id = ?`).run(newer);
+
+    expect(listConfirmedAudioSimilarityGroups(database as never).map((group) => group.id))
+      .toEqual([newer, older]);
     database.close();
   });
 
@@ -339,6 +367,78 @@ describe("audio similarity persistence", () => {
     expect(() => replicateAudioSimilarityMetadata(
       database as never, "source", ["target"], "album" as never,
     )).toThrow("cannot be replicated");
+    database.close();
+  });
+
+  it("removes hidden members and their edges from outstanding candidates", () => {
+    const database = createDatabase();
+    ["a", "b", "c"].forEach((id) => addTrack(database, id));
+    database.prepare(`insert into audio_similarity_candidate_groups
+      (id, run_id, confidence, created_at, updated_at)
+      values ('group', 'run', 1, 'now', 'now')`).run();
+    ["a", "b", "c"].forEach((id) => database.prepare(
+      "insert into audio_similarity_candidate_members values ('group', ?)",
+    ).run(id));
+    for (const [left, right] of [["a", "b"], ["a", "c"], ["b", "c"]]) {
+      database.prepare(`insert into audio_similarity_candidate_edges
+        (group_id, left_track_id, right_track_id, score, envelope_score,
+         chroma_score, transition_score, coarse_score, pitch_shift, decision, updated_at)
+        values ('group', ?, ?, 1, 1, 1, 1, 1, 0, 'pending', 'now')`).run(left, right);
+    }
+
+    setTrackHidden(database as never, "b", true);
+    setTrackHidden(database as never, "c", true);
+    expect(getAudioSimilarityReport(database as never).candidateGroups).toEqual([]);
+
+    setTrackHidden(database as never, "b", false);
+    const restored = getAudioSimilarityReport(database as never).candidateGroups[0];
+    expect(restored.members.map((member) => member.trackId)).toEqual(["a", "b"]);
+    expect(restored.edges).toHaveLength(1);
+    expect(restored.edges[0]).toMatchObject({ leftTrackId: "a", rightTrackId: "b" });
+    database.close();
+  });
+
+  it("restores boolean and null instrumental metadata with SQLite-safe values", () => {
+    const database = createDatabase();
+    addTrack(database, "instrumental-source");
+    addTrack(database, "instrumental-target");
+    addTrack(database, "unknown-target");
+    database.prepare("update tracks set instrumental = 0 where id = ?")
+      .run("instrumental-source");
+    database.prepare("update tracks set instrumental = 1 where id = ?")
+      .run("instrumental-target");
+    database.prepare("update tracks set instrumental = null where id = ?")
+      .run("unknown-target");
+
+    const mutation = replicateAudioSimilarityMetadata(
+      database as never,
+      "instrumental-source",
+      ["instrumental-target", "unknown-target"],
+      "instrumental",
+    );
+    expect(mutation.changes).toEqual([
+      {
+        trackId: "instrumental-target",
+        field: "instrumental",
+        oldValue: true,
+        newValue: false,
+      },
+      {
+        trackId: "unknown-target",
+        field: "instrumental",
+        oldValue: null,
+        newValue: false,
+      },
+    ]);
+
+    expect(undoAudioSimilarityMetadata(database as never, mutation.changes))
+      .toMatchObject({ updated: 2, conflicts: [] });
+    expect(database.prepare(
+      "select id, instrumental from tracks where id in (?, ?) order by id",
+    ).all("instrumental-target", "unknown-target")).toEqual([
+      { id: "instrumental-target", instrumental: 1 },
+      { id: "unknown-target", instrumental: null },
+    ]);
     database.close();
   });
 

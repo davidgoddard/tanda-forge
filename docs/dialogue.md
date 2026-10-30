@@ -7179,3 +7179,74 @@ live availability/digest/content checks for both pinned archives, and
   - Follow-up: restoring a playlist variant to the master's meaningful contents
     now clears the pencil and restores the master reference on Done; trailing
     empty editor slots do not keep an otherwise identical variant dirty.
+
+- 2026-10-29 — Explicit playlist removal versus tanda deletion
+  - User reported that Delete in the playlist/tanda editor appeared to remove
+    only the playlist entry and requested both choices in a dialog.
+  - The playlist-hosted editor now distinguishes removing the current slot from
+    permanently deleting the saved database master. A playlist-local variant
+    resolves deletion to its master; a playlist-only tanda cannot offer database
+    deletion because no saved record exists (`FR-011.R10`, `UI-012.R20.c`).
+
+- 2026-10-29 — Remove playlist title progress marker
+  - User requested removal of the moving progress marker drawn across playlist
+    track titles. The marker rendering, style, and movement assertions are
+    removed while the active/playing track highlight remains unchanged
+    (`UI-012.R21`, superseding the visual behavior introduced by `ASR-069C`).
+
+- 2026-10-30 — Instrumental metadata undo binding failure
+  - User reported that undoing audio-similarity metadata raised a
+    `better-sqlite3` bind-type error. Investigation found that Instrumental
+    history uses JavaScript booleans for comparison but undo passed those
+    booleans directly to SQLite, whose binding layer accepts numeric `0/1`
+    instead. Undo now converts boolean Instrumental values to SQLite integers
+    and preserves null, with regression coverage for both cases (`ASR-035A`).
+- 2026-10-30 — Audio-similarity review-list ordering
+  - The user requested that the audio-similarity **To review** list be
+    collapsible and that **Matched or reviewed** show the most recently
+    processed decisions first.
+  - `ASR-099` now defines an open-by-default To review disclosure and
+    newest-first Done ordering. The implementation uses persisted
+    confirmed-group and rejected-edge decision timestamps rather than
+    confidence or render order.
+  - Affected files: `features/audio-similarity/requirements.md`,
+    `app/src/main/audio-similarity/store.ts`,
+    `app/src/shared/audio-similarity.ts`, and
+    `app/src/renderer/renderer.ts`.
+- 2026-10-30 — Hidden dummy tracks remained in similarity review
+  - The user reported four unwanted dummy tracks whose candidate card remained
+    after Hide and whose four-way selection could not use No match.
+  - The records came from the imported `_Non-tango/Dummy` folder and belonged
+    to four dummy tandas. They were logically deleted without deleting source
+    files; the dependent tandas were invalidated and stale similarity state was
+    removed from the live database.
+  - `ASR-093` now explicitly removes hidden members and incident edges from
+    outstanding candidates. No match remains deliberately pair-scoped and the
+    user guide now says to select exactly two tracks. Normal track deletion also
+    invokes similarity-state cleanup so deleted tracks cannot leave stale
+    requests.
+- 2026-10-30 — Auto-generated tanda review marker
+  - The user requested a localized letter marker beside playlist warning icons
+    for tandas synthesized by auto-fill, encouraging DJs to review and save
+    useful results.
+  - `UI-012.R22` uses a localized initial (`A` for English, Spanish, French,
+    German, Portuguese, and Italian; `S` for Icelandic), persists it with the
+    playlist-local tanda snapshot, stacks it with mismatch/draft indicators,
+    and removes it after the tanda is saved as a master.
+- 2026-10-30 — Re-imported playlists lost saved-tanda links
+  - The user reported that reopening an old saved JSON playlist marked every
+    tanda as playlist-only despite the saved masters still existing.
+  - Investigation found that playlist JSON exported tanda contents but no tanda
+    ID, and import unconditionally generated snapshot IDs. `FR-020.3.R8` now
+    preserves saved-master IDs in new exports and strictly relinks old exports
+    by unique exact metadata plus ordered-track signature. Non-matches remain
+    local snapshots so import cannot silently overwrite or misidentify a master.
+- 2026-10-30 — Return to Playlist after import
+  - The user requested that successful playlist import close Settings and show
+    the imported playlist immediately, avoiding a manual close step.
+  - `UI-050.R12` now returns to the normal workspace with Playlist active after
+    success, while cancelled and failed imports deliberately remain in Settings.
+- 2026-10-30 — Version 0.4.9 release preparation
+  - The user requested a version bump and a pull request to `main` covering the
+    accumulated maintenance and playlist workflow changes. Package metadata was
+    advanced from 0.4.8 to 0.4.9 for that review.

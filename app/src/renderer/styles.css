@@ -1683,6 +1683,39 @@ body.theme-dark-classic .collection-tabs button.active {
   z-index: 3;
 }
 
+.playlist-auto-generated-indicator {
+  position: absolute;
+  top: 6px;
+  left: -14px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #245c86;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  color: #eaf6ff;
+  display: grid;
+  place-items: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow:
+    0 0 0 2px rgba(91, 79, 68, 0.35),
+    0 6px 16px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.list-row.tanda-row.mismatch .playlist-auto-generated-indicator {
+  top: 34px;
+}
+
+.list-row.tanda-row.playlist-auto-generated .playlist-unsaved-indicator {
+  top: 34px;
+}
+
+.list-row.tanda-row.mismatch.playlist-auto-generated .playlist-unsaved-indicator {
+  top: 62px;
+}
+
 .list-row.tanda-row.mismatch .playlist-unsaved-indicator {
   top: 34px;
 }
@@ -1810,27 +1843,6 @@ body.theme-dark-classic .collection-tabs button.active {
   color: var(--accent);
   font-weight: 700;
   text-shadow: 0 0 12px rgba(176, 138, 90, 0.35);
-}
-
-.list-row.track-row.playlist-playback-position,
-.tanda-detail-line.playlist-playback-position {
-  position: relative;
-}
-
-.list-row.track-row.playlist-playback-position::before,
-.tanda-detail-line.playlist-playback-position::before {
-  content: "";
-  position: absolute;
-  z-index: 4;
-  top: 0;
-  bottom: 0;
-  left: var(--playlist-playback-position, 0%);
-  width: 2px;
-  border-radius: 2px;
-  background: var(--accent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent);
-  pointer-events: none;
-  transform: translateX(-1px);
 }
 
 .list-row .meta {
@@ -2609,6 +2621,14 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
 
 .confirm-actions .confirm-cancel {
   background: transparent;
+}
+
+.playlist-tanda-delete-dialog {
+  width: min(540px, 90vw);
+}
+
+.playlist-tanda-delete-dialog .confirm-actions {
+  flex-wrap: wrap;
 }
 
 .clipboard-clear-dialog {
@@ -4267,7 +4287,16 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
 .audio-similarity-card td.metadata-different { background: color-mix(in srgb, #f59e0b 13%, transparent); }
 .audio-similarity-card td.metadata-equal { opacity: 0.7; }
 .audio-similarity-hidden-tracks { margin-top: 0.5rem; }
-.audio-similarity-review-section > h2 { margin: 0.4rem 0 0.8rem; font-size: 1.15rem; }
+.audio-similarity-review-section {
+  margin-top: 0.4rem;
+  color: var(--text);
+}
+.audio-similarity-review-section > summary {
+  cursor: pointer;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.audio-similarity-review-section[open] > summary { margin-bottom: 0.8rem; }
 .audio-similarity-review-content,
 .audio-similarity-reviewed-content { display: grid; gap: 0.8rem; }
 .audio-similarity-reviewed-section {
