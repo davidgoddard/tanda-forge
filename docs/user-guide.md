@@ -620,6 +620,10 @@ The bar across the top of the app shows the song now playing.  As well as the ar
 "Live" clicking somewhere on that waveform will skip the playback to that position either forwards or backwards.  This is useful to quickly assess if there is singing in a song when 
 classifying or simply to hear how a track ends.
 
+Selecting or playing a track only loads an existing cached waveform; it does
+not start FFmpeg work. If the waveform is unavailable, run the library scan or
+use the explicit waveform action in Diagnostics to rebuild it.
+
 Below the now playing text is a compression control.  "Compression" in this context is a dynamic-range compression in which the quieter parts of the track are made louder - almost as loud
 as the loudest parts of the song.  This removes the dynamic effects the orchestra intended but is useful when there is a lot of chatter on the dance floor, perhaps at the start of a new
 tanda or song as it makes the details otherwise lost stand out.  The DJ does not need to turn up the amplifier or mixer's volume control which might make the louder parts too loud and painful to hear.  This in turn allows those who wish to dance to hear the music's beat or details well enough to start dancing.  Once the chatter dies down

@@ -579,6 +579,17 @@ export const hasUsableWaveformPng = (outputPath: string) => {
   }
 };
 
+export const readUsableWaveformDataUrl = (outputPath: string) => {
+  if (!hasUsableWaveformPng(outputPath)) {
+    return null;
+  }
+  try {
+    return `data:image/png;base64,${fs.readFileSync(outputPath).toString("base64")}`;
+  } catch {
+    return null;
+  }
+};
+
 export type TrackAnalysisWithWaveform = {
   analysis: TrackAnalysis;
   waveformError?: string;

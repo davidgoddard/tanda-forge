@@ -33,6 +33,7 @@ import {
   getResolvedFfprobePath,
   renderCompressedAudio,
   renderPlayableAudio,
+  readUsableWaveformDataUrl,
   renderWaveformPng,
   setCustomFfmpegToolsDir,
 } from "./library/analysis";
@@ -2229,24 +2230,14 @@ const registerIpc = () => {
   ipcMain.handle("tracks:getWaveform", async (_event, trackId: string) => {
     const db = getDb();
     const row = db
-      .prepare("select full_path from tracks where id = ?")
-      .get(trackId) as { full_path?: string } | undefined;
-    if (!row?.full_path) {
+      .prepare("select id from tracks where id = ?")
+      .get(trackId) as { id?: string } | undefined;
+    if (!row?.id) {
       return null;
     }
     const { waveformsDir: waveDir } = getDataPaths();
     const wavePath = path.join(waveDir, `${trackId}.png`);
-    try {
-      fs.mkdirSync(waveDir, { recursive: true });
-      if (!hasUsableWaveformPng(wavePath)) {
-        fs.rmSync(wavePath, { force: true });
-        await renderWaveformPng(row.full_path, wavePath);
-      }
-      const data = fs.readFileSync(wavePath);
-      return `data:image/png;base64,${data.toString("base64")}`;
-    } catch {
-      return null;
-    }
+    return readUsableWaveformDataUrl(wavePath);
   });
 
   ipcMain.handle("tracks:generateWaveform", async (_event, trackId: string) => {

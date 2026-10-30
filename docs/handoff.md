@@ -1,5 +1,14 @@
 ## Handoff
 
+### Cache-only waveform display
+- Selecting or playing a track no longer launches FFmpeg when its waveform PNG
+  is missing. Normal display reads only usable cached PNGs; library scan and the
+  explicit Diagnostics action generate them (`AUD-002.R9.a`).
+- The transient localized display wording now says **Loading waveform** rather
+  than implying that normal playback generates one.
+- Verification: `npm run preflight` passed (109 test files, 637 tests, production
+  build); `git diff --check` passed.
+
 ### Clear and auto-generate playlist mode
 - The playlist clear dialog now distinguishes saved-tanda-first **Clear and
   auto-fill** from **Clear and auto-generate**, which bypasses saved tandas and
