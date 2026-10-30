@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   findExactOrderedTandaMatch,
+  filterForArtistDiversity,
+  getTandaGenerationPhaseRules,
   groupGenerationSeedsByArtist,
   scoreTandaTrackCohesion,
+  TANDA_GENERATION_PHASES,
 } from "../app/src/shared/playlist-auto-generation";
 
 const seed = {
@@ -45,6 +48,47 @@ describe("scoreTandaTrackCohesion", () => {
     const otherSinger = scoreTandaTrackCohesion(seed, { ...seed, singer: "Jorge Duran" });
     expect(sameSinger).toBeLessThan(unknownSinger);
     expect(unknownSinger).toBeLessThan(otherSinger);
+  });
+});
+
+describe("tanda generation relaxation order", () => {
+  it("tries relaxed single-orchestra construction before any mixed phase", () => {
+    expect(TANDA_GENERATION_PHASES).toEqual([
+      "strict",
+      "same-artist-relaxed",
+      "mixed-cohesive",
+      "style-only",
+    ]);
+    expect(getTandaGenerationPhaseRules("same-artist-relaxed")).toMatchObject({
+      requireSameArtist: true,
+      matchYearAndBpm: false,
+      matchVocalCharacter: false,
+    });
+    expect(getTandaGenerationPhaseRules("mixed-cohesive").requireSameArtist).toBe(false);
+  });
+});
+
+describe("filterForArtistDiversity", () => {
+  const candidates = [
+    { id: "repeat", artists: ["D'Arienzo"] },
+    { id: "unused-mixed", artists: ["Troilo", "Fresedo"] },
+    { id: "unused-pure", artists: ["Di Sarli"] },
+  ];
+
+  it("rejects repeated orchestras while an unused option exists", () => {
+    expect(filterForArtistDiversity({
+      items: candidates,
+      getArtistKeys: (candidate) => candidate.artists,
+      getArtistUsage: (artist) => artist === "D'Arienzo" ? 1 : 0,
+    }).map((candidate) => candidate.id)).toEqual(["unused-pure"]);
+  });
+
+  it("prefers fewer orchestras among equally unused candidates", () => {
+    expect(filterForArtistDiversity({
+      items: candidates.slice(1),
+      getArtistKeys: (candidate) => candidate.artists,
+      getArtistUsage: () => 0,
+    }).map((candidate) => candidate.id)).toEqual(["unused-pure"]);
   });
 });
 

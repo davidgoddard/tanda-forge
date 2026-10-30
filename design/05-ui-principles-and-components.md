@@ -432,7 +432,12 @@ Interactions:
   that saved tanda and is not marked auto-generated or playlist-only.
 - UI-014.R33: Track-based auto-generation prioritizes orchestras with no tanda
   yet in the playlist before repeating an orchestra. It exhausts viable
-  single-orchestra construction before relaxing to mixed-orchestra tandas.
+  single-orchestra construction—including relaxed singer, year, and tempo
+  matching—before relaxing to mixed-orchestra tandas.
+- UI-014.R34: Saved-tanda auto-fill applies the same diversity priority: it must
+  not select a tanda containing a repeated orchestra while a valid tanda using
+  only unrepresented orchestras exists, and it prefers a single orchestra among
+  candidates with equal repeat status.
 
 ## UI-015 — Now Playing Strip
 

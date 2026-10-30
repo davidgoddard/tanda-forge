@@ -6,6 +6,25 @@ export type TandaGenerationTrackTraits = {
   bpm: number | null;
 };
 
+export type TandaGenerationPhase =
+  | "strict"
+  | "same-artist-relaxed"
+  | "mixed-cohesive"
+  | "style-only";
+
+export const TANDA_GENERATION_PHASES: TandaGenerationPhase[] = [
+  "strict",
+  "same-artist-relaxed",
+  "mixed-cohesive",
+  "style-only",
+];
+
+export const getTandaGenerationPhaseRules = (phase: TandaGenerationPhase) => ({
+  requireSameArtist: phase === "strict" || phase === "same-artist-relaxed",
+  matchYearAndBpm: phase === "strict" || phase === "mixed-cohesive",
+  matchVocalCharacter: phase === "strict" || phase === "mixed-cohesive",
+});
+
 const normalized = (value: string) => value.trim().toLocaleLowerCase();
 
 export const scoreTandaTrackCohesion = (
@@ -87,4 +106,30 @@ export const groupGenerationSeedsByArtist = <T>(params: {
     }))
     .sort((left, right) => left.usage - right.usage || left.tie - right.tie)
     .map(({ items }) => items);
+};
+
+export const filterForArtistDiversity = <T>(params: {
+  items: T[];
+  getArtistKeys: (item: T) => string[];
+  getArtistUsage: (artistKey: string) => number;
+}) => {
+  if (params.items.length === 0) return [];
+  const ranked = params.items.map((item) => {
+    const artists = Array.from(new Set(params.getArtistKeys(item).filter(Boolean)));
+    return {
+      item,
+      repeatedArtists: artists.length === 0
+        ? Number.POSITIVE_INFINITY
+        : artists.filter((artist) => params.getArtistUsage(artist) > 0).length,
+      artistCount: artists.length || Number.POSITIVE_INFINITY,
+    };
+  });
+  const fewestRepeated = Math.min(...ranked.map((entry) => entry.repeatedArtists));
+  const repeatFiltered = ranked.filter(
+    (entry) => entry.repeatedArtists === fewestRepeated,
+  );
+  const fewestArtists = Math.min(...repeatFiltered.map((entry) => entry.artistCount));
+  return repeatFiltered
+    .filter((entry) => entry.artistCount === fewestArtists)
+    .map((entry) => entry.item);
 };

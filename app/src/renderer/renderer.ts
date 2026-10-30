@@ -186,8 +186,11 @@ import {
 import { tandaContentsMatch } from "../shared/playlist-tanda-variant.js";
 import {
   findExactOrderedTandaMatch,
+  filterForArtistDiversity,
+  getTandaGenerationPhaseRules,
   groupGenerationSeedsByArtist,
   scoreTandaTrackCohesion,
+  TANDA_GENERATION_PHASES,
 } from "../shared/playlist-auto-generation.js";
 import { resolveSearchResultTanda } from "../shared/tanda-search-resolution.js";
 import {
@@ -10902,12 +10905,15 @@ const pickAutofillTandaForSlot = (
   if (usable.length === 0) {
     return null;
   }
-  usable.sort((left, right) => left.score - right.score);
-  const top = usable.slice(0, Math.min(8, usable.length));
+  const diverse = filterForArtistDiversity({
+    items: usable,
+    getArtistKeys: (entry) => getTandaTracks(entry.tanda).map(artistKey),
+    getArtistUsage: (artist) => artistCounts.get(artist) ?? 0,
+  });
+  diverse.sort((left, right) => left.score - right.score);
+  const top = diverse.slice(0, Math.min(8, diverse.length));
   return top[Math.floor(Math.random() * top.length)]?.tanda ?? null;
 };
-
-type SimilarityPhase = "strict" | "relax-artist" | "relax-year-bpm" | "style-only";
 
 const pickGeneratedTandaForSlot = (
   slotIndex: number,
@@ -10935,20 +10941,15 @@ const pickGeneratedTandaForSlot = (
   if (pool.length < targetCount) {
     return null;
   }
-  const phases: SimilarityPhase[] = [
-    "strict",
-    "relax-artist",
-    "relax-year-bpm",
-    "style-only",
-  ];
-  for (const phase of phases) {
+  for (const phase of TANDA_GENERATION_PHASES) {
+    const phaseRules = getTandaGenerationPhaseRules(phase);
     const seedGroups = groupGenerationSeedsByArtist({
       items: pool,
       getArtistKey: artistKey,
       getTitleKey: normalizeTrackTitleForAutofill,
       getArtistUsage: (artist) => artistCounts.get(artist) ?? 0,
       targetCount,
-      requireViableSingleArtist: phase === "strict",
+      requireViableSingleArtist: phaseRules.requireSameArtist,
     });
     for (const seedGroup of seedGroups) {
       for (const seed of seedGroup) {
@@ -10957,9 +10958,9 @@ const pickGeneratedTandaForSlot = (
       const seedBpm = seed.bpm ?? null;
       const seedSinger = singerKey(seed);
       const seedInstrumental = seed.instrumental;
-      const sameArtistPreferred = phase === "strict";
-      const matchYearBpm = phase === "strict" || phase === "relax-artist";
-      const matchSinger = phase !== "style-only";
+      const sameArtistPreferred = phaseRules.requireSameArtist;
+      const matchYearBpm = phaseRules.matchYearAndBpm;
+      const matchSinger = phaseRules.matchVocalCharacter;
       const candidates = pool
         .filter((track) => track.id !== seed.id)
         .filter((track) => normalizeTrackTitleForAutofill(track) !== normalizeTrackTitleForAutofill(seed))

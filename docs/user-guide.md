@@ -662,6 +662,8 @@ A playlist can be built up as required and then cleared using the **Clear** butt
 - Auto-generation aims for one tanda per orchestra before repeating orchestras
   and uses a single orchestra whenever enough suitable tracks exist. Collection
   popularity therefore does not by itself make prolific orchestras dominate.
+- The same orchestra-diversity priority applies when auto-fill selects from
+  saved tandas: unused orchestras and pure tandas take precedence over repeats.
 - Auto-fill never reuses a track title already present in the generated playlist.
 
 If the tanda sequence configured uses a grouped option such as "3t 3t 3w 3t 3t (3m 3c 3f)" (where 'c' might be Candombe and 'f' might be Foxtrot) then a tanda matching any of those styles will be picked or built if required.

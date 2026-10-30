@@ -7315,3 +7315,12 @@ live availability/digest/content checks for both pinned archives, and
     generated playlist and requested breadth across the collection.
   - `UI-014.R33` prioritizes unused viable orchestras before repeats and
     exhausts single-orchestra construction before mixed-orchestra fallback.
+- 2026-10-30 — Apply strict orchestra diversity to saved-tanda auto-fill
+  - The user observed that an automatic playlist still tended to produce pairs
+    of tandas for several orchestras despite the track-generation balancing.
+  - `UI-014.R34` removes the older top-candidate randomness across repeat status:
+    valid unused-orchestra saved tandas now precede all repeated orchestras, with
+    single-orchestra tandas preferred among equally diverse candidates.
+  - Investigation also found that track generation removed its same-orchestra
+    constraint before relaxing singer/year/tempo cohesion. The phase order now
+    tries relaxed-but-pure orchestras before any mixed construction.

@@ -5,8 +5,12 @@
   the playlist before repeats, regardless of how many eligible recordings each
   orchestra has (`UI-014.R33`).
 - Each construction phase exhausts viable single-orchestra groups before any
-  mixed-orchestra relaxation; the hard repeat interval still applies.
-- Verification: `npm run preflight` passed (109 test files, 638 tests, production
+  mixed-orchestra relaxation. Singer/year/tempo cohesion relaxes while retaining
+  one orchestra first; the hard repeat interval still applies.
+- Saved-tanda auto-fill now applies the same hard diversity tier: it cannot pick
+  a repeated orchestra while a valid unused-orchestra tanda remains, and pure
+  tandas precede mixed tandas within the same tier (`UI-014.R34`).
+- Verification: `npm run preflight` passed (109 test files, 641 tests, production
   build); `git diff --check` passed.
 
 ### Accurate waveform loading status
