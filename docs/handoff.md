@@ -1,5 +1,17 @@
 ## Handoff
 
+### Version 0.4.11 — automatic playlist and tanda construction
+- Package and lockfile versions are `0.4.11`.
+- Release scope includes generate-only playlist construction, orchestra-balanced
+  diversity and repeat intervals, recognition of exact saved tandas, Designer
+  generation and direct playlist placement, playlist review statistics, and the
+  cortina-picker headphone repair described below.
+- Verification: `npm run preflight` passed (111 test files, 648 tests, production
+  build), including the fetch-script tests; all three configured FFmpeg URLs
+  currently resolve. Release publication still requires resolving the existing
+  integrity gap in `scripts/fetch-ffmpeg.sh`: Windows uses a moving generic URL
+  and does not verify an upstream SHA-256 digest. This PR does not change FFmpeg.
+
 ### Designer tanda generation and cortina audition
 - Cortina-picker headphone buttons now invoke the configured headphone channel
   directly without selecting the cortina (`UI-012.R9.d`).

@@ -7338,3 +7338,7 @@ live availability/digest/content checks for both pinned archives, and
   - `UI-016.R18` adds an independent playlist-local copy. `UI-016.R19` uses a
     still-marked slot when Designer is chosen manually, but preserves source
     styles for `T` entry; explicit style selection remains authoritative.
+- 2026-10-30 — Version 0.4.11 release preparation
+  - The user requested a version bump and pull request for the completed
+    automatic playlist/tanda generation and related workflow fixes.
+  - Package and lockfile versions advance from 0.4.10 to 0.4.11.
