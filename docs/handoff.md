@@ -1,12 +1,12 @@
 ## Handoff
 
-### Cache-only waveform display
-- Selecting or playing a track no longer launches FFmpeg when its waveform PNG
-  is missing. Normal display reads only usable cached PNGs; library scan and the
-  explicit Diagnostics action generate them (`AUD-002.R9.a`).
-- The transient localized display wording now says **Loading waveform** rather
-  than implying that normal playback generates one.
-- Verification: `npm run preflight` passed (109 test files, 637 tests, production
+### Accurate waveform loading status
+- A live-data audit found valid waveform PNGs for all 3,679 active tracks after
+  setup/import/rescan. The transient localized display wording now says
+  **Loading waveform** rather than claiming normal cache reads are generation.
+- Genuine invalid or missing cache entries retain established on-demand repair
+  behavior (`AUD-002.R9.a`).
+- Verification: `npm run preflight` passed (109 test files, 636 tests, production
   build); `git diff --check` passed.
 
 ### Clear and auto-generate playlist mode

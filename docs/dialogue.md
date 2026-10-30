@@ -7304,8 +7304,9 @@ live availability/digest/content checks for both pinned archives, and
     must not appear playlist-only.
   - `UI-014.R32` resolves an exact same-order track match to the persisted tanda
     and suppresses both the pencil and auto-generated indicators.
-- 2026-10-30 — Do not generate waveforms on track selection
-  - The user reported an unexpected "Generating waveform" delay after clicking
-    a song. Ordinary waveform retrieval was launching FFmpeg for a missing cache.
-  - `AUD-002.R9.a` now makes display retrieval cache-only. Scanning and the
-    explicit diagnostics action remain the supported generation paths.
+- 2026-10-30 — Clarify waveform loading on track selection
+  - The user reported an unexpected "Generating waveform" message after clicking
+    a song despite completing setup/import/rescan.
+  - A live-data audit found valid cached waveforms for all 3,679 active tracks;
+    the generic loading placeholder was misleading. It now says "Loading
+    waveform" in every language while genuine missing-cache repair remains.
