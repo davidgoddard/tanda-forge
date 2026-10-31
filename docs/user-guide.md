@@ -164,7 +164,7 @@ Across the top are:
 - Play button
 - Stop button
 - Contents filter - to help see all tandas by one orchestra for example
-- Clear button - clear only or clear and auto-fill
+- Clear button - clear only, clear and auto-fill, or clear and auto-generate
 
 The diversity viewer starts with **Tandas to review**. It counts consistency
 issues separately: a mix of instrumental and sung tracks, multiple orchestras,
@@ -191,6 +191,8 @@ During main playback, a vertical line moves across the active playlist track
 to show its position within the effective audio after saved start and end trims.
 
 Cortinas if used will be displayed between tandas and if clicked on will open the cortina picker to allow manual selection.
+The headphone button beside a picker result auditions it without selecting the
+cortina or closing the picker.
 
 Tandas show their overall style letter and then the name of the tanda if specified followed by a summary of the artist composition, whether sung, the years of the tracks in the tanda, the range of tempos in the tanda and the duration of the tanda.
 
@@ -544,12 +546,61 @@ There are several ways a tanda can be created or filled:
   - from a **clipboard track**, use **P** to add it into the playlist or **T** to send it into the Tanda Designer.
   - from a **playlist tanda**, use the per-track send actions to move a track out to the clipboard or into another tanda slot.
 - **Auto-fill can create tandas automatically** when rebuilding a playlist and no saved tanda fits the required slot.
+- **Generate Tanda** in the Tanda Designer builds a fresh draft from tracks and
+  orchestras not already used in the playlist. A marked playlist tanda slot
+  supplies the required style and size; otherwise the Search style selectors
+  and default tanda size are used. On a saved tanda, Generate creates a separate
+  draft and does not update the saved tanda.
+- After you manually add one or more tracks to an incomplete tanda, the action
+  becomes **Complete Tanda**. It preserves your tracks and fills the remaining
+  preferred-size slots with cohesive candidates. Generate again on the completed
+  tanda to cycle its suggested surround: an offered combination is not repeated,
+  although one of its tracks may occur in a different combination. If none is
+  available, your tracks remain and the app reports **No similar tracks found**.
+  The action remains **Complete Tanda** after the slots are filled because the
+  draft still combines your manual anchors with generated suggestions.
+- This is useful when a dancer requests a particular song or orchestra and you
+  need a coherent tanda quickly: add the requested track first, check that its
+  style is selected, then choose **Complete Tanda**. The requested track remains
+  fixed while Tanda Forge looks first for compatible tracks from the same
+  orchestra and style, then applies the normal vocal character, singer, year,
+  and tempo cohesion rules. Playlist diversity exclusions do not remove the
+  requested orchestra from this completion search.
+- Completion is also a collection-exploration tool. Start with a recording you
+  have not programmed recently and cycle **Complete Tanda** to hear it in
+  different plausible contexts. Previously offered generated combinations are
+  remembered for the current draft: an individual track may return in a new
+  combination, but the same generated set is not offered twice.
+- Tracks added manually at any stage become anchors. Generated tracks remain
+  replaceable. If tracks are removed or an extended tanda is reduced to the
+  preferred size, manual anchors are compacted and retained before new tracks
+  fill every remaining slot. If no valid untried completion exists, the anchors
+  remain untouched and **No similar tracks found** is shown.
+- The completion history lasts only for the current draft. It resets when the
+  manual anchors change, the draft is cleared, or the tanda is saved. Saving
+  turns it into a normal database tanda; until then, clipboard-only drafts show
+  an unsaved pencil and will be lost on exit, while playlist-local snapshots are
+  retained with the playlist.
+- **Add to Playlist** is available on every designer tanda. It uses a marked
+  playlist target first, then the first empty slot, then the playlist end, and
+  warns before allowing a style or size conflict. The added playlist tanda is
+  independent of later edits or regeneration in Designer.
+- If Designer is selected manually while a playlist target remains marked, its
+  style context follows that slot. Opening Designer with `T` follows the source
+  track/tanda style instead. Clicking another style explicitly overrides either.
 
 Once a tanda is open in the **Tanda Designer** or the playlist-hosted tanda editor, it can be changed in several ways:
+
+Unsaved tandas sent to a clipboard collection display a pencil warning. The
+collection remembers its reference, but the unsaved tanda itself is not stored
+in the database and will be lost when the app closes. The app asks for
+confirmation before closing while any unsaved tanda remains.
 
 - click tracks to audition them in Preparation or Edit mode
 - use the per-track menu to remove a track from the tanda
 - use the track move buttons in the editor to re-order tracks inside the tanda
+- use the headphone button beside a populated track to audition it through the
+  configured secondary output without changing the tanda
 - send more tracks into the open tanda from Search or Clipboard
 - change the tanda name and other tanda-level details
 - click **Save** to keep the tanda
@@ -620,6 +671,10 @@ The bar across the top of the app shows the song now playing.  As well as the ar
 "Live" clicking somewhere on that waveform will skip the playback to that position either forwards or backwards.  This is useful to quickly assess if there is singing in a song when 
 classifying or simply to hear how a track ends.
 
+Waveform images are derived cache files stored beside the database, rather than
+binary data inside it. Selecting a track normally loads its existing cache; if
+one is genuinely missing or invalid, the app can regenerate it on demand.
+
 Below the now playing text is a compression control.  "Compression" in this context is a dynamic-range compression in which the quieter parts of the track are made louder - almost as loud
 as the loudest parts of the song.  This removes the dynamic effects the orchestra intended but is useful when there is a lot of chatter on the dance floor, perhaps at the start of a new
 tanda or song as it makes the details otherwise lost stand out.  The DJ does not need to turn up the amplifier or mixer's volume control which might make the louder parts too loud and painful to hear.  This in turn allows those who wish to dance to hear the music's beat or details well enough to start dancing.  Once the chatter dies down
@@ -635,12 +690,31 @@ A playlist can be built up as required and then cleared using the **Clear** butt
 - Choose **Clear playlist** to empty the list without changing configuration.
 - Choose **Clear and auto-fill** to rebuild the playlist from your saved tandas
   and sequence rules until projected playback reaches the configured end time.
+- Choose **Clear and auto-generate** to ignore all saved tandas and construct a
+  fresh playlist entirely from library tracks. It follows the configured tanda
+  sequence and sizes, strongly preferring tracks from the same orchestra with
+  consistent instrumental/sung and singer metadata, then close years and tempos.
+  Those preferences relax progressively only when the library cannot otherwise
+  fill a slot.
+- At the bottom of **Settings → Playlist**, the **Auto-generation** section sets
+  the minimum time between tandas by the same orchestra. This is a firm rule for
+  both auto-fill and auto-generation: at 60 minutes, another D'Arienzo tanda
+  cannot be selected until its projected start is at least 60 minutes after the
+  previous D'Arienzo tanda. Set it to 0 to disable the rule.
 - If no suitable tanda is available for a slot, the app builds an ad-hoc tanda
   from similar tracks (same style first, then progressively relaxed matching).
 - An auto-generated tanda has a localized letter badge at the left of its
   playlist row (for example **A** in English). Review its tracks and choose
   **Save** if you want to keep it as a reusable database tanda; saving removes
   the auto-generated badge.
+- Generation still builds from tracks rather than choosing saved tandas. If the
+  resulting tracks exactly match a saved tanda in the same order, the playlist
+  links to that known tanda and shows neither the pencil nor auto-generated badge.
+- Auto-generation aims for one tanda per orchestra before repeating orchestras
+  and uses a single orchestra whenever enough suitable tracks exist. Collection
+  popularity therefore does not by itself make prolific orchestras dominate.
+- The same orchestra-diversity priority applies when auto-fill selects from
+  saved tandas: unused orchestras and pure tandas take precedence over repeats.
 - Auto-fill never reuses a track title already present in the generated playlist.
 
 If the tanda sequence configured uses a grouped option such as "3t 3t 3w 3t 3t (3m 3c 3f)" (where 'c' might be Candombe and 'f' might be Foxtrot) then a tanda matching any of those styles will be picked or built if required.

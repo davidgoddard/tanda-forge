@@ -7281,3 +7281,110 @@ live availability/digest/content checks for both pinned archives, and
   - Initial row rendering appended `legacySourcePath` unconditionally, while
     the toggle renderer rebuilt the summary without it. `UI-011.R18` now keeps
     internal filesystem/import provenance out of all tanda result summaries.
+- 2026-10-30 — Generate a playlist without saved tandas
+  - The user requested a separate clear-dialog action that ignores user-defined
+    tandas and constructs traditional DJ tandas directly from library tracks,
+    with all wording supported in every language.
+  - `UI-014.R30` defines **Clear and auto-generate** as a generate-only mode that
+    follows sequence style/size, strongly prefers canonical orchestra,
+    instrumental/sung status and singer coherence, then nearby known year and
+    tempo, progressively relaxing only when necessary. Existing **Clear and
+    auto-fill** retains its saved-tanda-first behavior.
+- 2026-10-30 — Hard orchestra interval for automatic playlist construction
+  - The user requested an Auto-generation section at the bottom of Playlist
+    settings and a configurable interval that prevents repeated orchestras,
+    such as consecutive D'Arienzo tandas when set to 60 minutes.
+  - `UI-014.R31` and `CFG-PL-014` replace the former best-effort aspiration with
+    a hard projected-start-time constraint for both saved-tanda auto-fill and
+    track-based auto-generation. Other cohesion preferences may relax, but the
+    orchestra interval cannot; zero explicitly disables it.
+- 2026-10-30 — Recognise saved tandas after track-based generation
+  - The user confirmed that generation should keep exploring the collection
+    independently of saved tandas, while a result already known by the database
+    must not appear playlist-only.
+  - `UI-014.R32` resolves an exact same-order track match to the persisted tanda
+    and suppresses both the pencil and auto-generated indicators.
+- 2026-10-30 — Clarify waveform loading on track selection
+  - The user reported an unexpected "Generating waveform" message after clicking
+    a song despite completing setup/import/rescan.
+  - A live-data audit found valid cached waveforms for all 3,679 active tracks;
+    the generic loading placeholder was misleading. It now says "Loading
+    waveform" in every language while genuine missing-cache repair remains.
+- 2026-10-30 — Prefer one generated tanda per orchestra
+  - The user observed that prolific or DJ-popular orchestras dominated a
+    generated playlist and requested breadth across the collection.
+  - `UI-014.R33` prioritizes unused viable orchestras before repeats and
+    exhausts single-orchestra construction before mixed-orchestra fallback.
+- 2026-10-30 — Apply strict orchestra diversity to saved-tanda auto-fill
+  - The user observed that an automatic playlist still tended to produce pairs
+    of tandas for several orchestras despite the track-generation balancing.
+  - `UI-014.R34` removes the older top-candidate randomness across repeat status:
+    valid unused-orchestra saved tandas now precede all repeated orchestras, with
+    single-orchestra tandas preferred among equally diverse candidates.
+  - Investigation also found that track generation removed its same-orchestra
+    constraint before relaxing singer/year/tempo cohesion. The phase order now
+    tries relaxed-but-pure orchestras before any mixed construction.
+- 2026-10-30 — Designer generation and cortina-picker audition
+  - The user reported that cortina-picker headphone buttons did nothing and
+    requested a Generate Tanda action beside Add Tanda.
+  - `UI-012.R9.d` wires picker results directly to headphone playback.
+    `UI-016.R17` replaces the active designer draft with a cohesive tanda that
+    excludes playlist songs/orchestras and derives style from the marked
+    playlist slot or Search selectors.
+- 2026-10-30 — Direct Designer-to-playlist placement and style context
+  - The user chose a persistent Add to Playlist action with destination priority:
+    explicit target, first empty slot, then playlist end, subject to the existing
+    style/count conflict warning.
+  - `UI-016.R18` adds an independent playlist-local copy. `UI-016.R19` uses a
+    still-marked slot when Designer is chosen manually, but preserves source
+    styles for `T` entry; explicit style selection remains authoritative.
+- 2026-10-30 — Version 0.4.11 release preparation
+  - The user requested a version bump and pull request for the completed
+    automatic playlist/tanda generation and related workflow fixes.
+  - Package and lockfile versions advance from 0.4.10 to 0.4.11.
+- 2026-10-30 — Architecture review refactoring
+  - The user requested execution of the review's modularity, type-safety, CI,
+    coverage, behavioral-test, and localization recommendations.
+  - `ARCH-004`, `IPC-001.R4`, and `TQ-GATE-001.a`/`TQ-GATE-005` establish
+    focused renderer state boundaries, concrete controller contracts, guarded
+    IPC domain registration, explicit per-locale maps, preflight CI, and initial
+    coverage thresholds. Live playback remains behaviorally unchanged and is
+    to migrate through tested feature slices rather than a wholesale move.
+- 2026-10-31 — Anchor-aware Tanda Designer completion
+  - The user required incomplete, manually started tandas to preserve their
+    chosen tracks while cohesive generated tracks fill the preferred size.
+  - `UI-016.R20` remembers generated combinations as unordered sets so cycling
+    may reuse individual tracks but never repeats the same surround. Empty and
+    full tandas say Generate; only incomplete manual drafts say Complete.
+  - Generate from a saved tanda creates a new draft without mutating the saved
+    tanda. `UI-016.R21` shortens the footer actions to Save and Delete.
+  - Follow-up: `UI-016.R22` makes each manually added track set the style for
+    the whole tanda immediately; the most recently added manual track wins.
+  - Follow-up: completion must retain the anchor orchestra as a candidate even
+    when that orchestra already appears in the playlist; orchestra exclusion is
+    restricted to from-scratch generation.
+  - Follow-up: completion compacts retained anchors before shrinking extended
+    slot arrays, fixing the four-track/remove-three workflow that previously
+    dropped the last manual track and left one preferred slot empty.
+  - Follow-up: a full draft that mixes manual anchors and generated tracks stays
+    labelled **Complete Tanda** so repeated clicks clearly cycle only the
+    generated surround.
+  - Follow-up: clipboard references do not persist unsaved tanda snapshots.
+    `UI-016.R23` instead marks unsaved clipboard tandas and warns on app close
+    when volatile unsaved tandas will be lost.
+  - Correction: playlist-local unsaved tandas are persisted snapshots and must
+    not be counted as lost. The close warning now reports only volatile
+    clipboard/Designer tandas and explicitly says playlist tandas are retained.
+  - Follow-up: `UI-016.R24` adds the standard headphone audition control to
+    populated tracks in both Designer and playlist-hosted tanda editors.
+  - Follow-up: `UI-016.R25` prevents duplicate empty Designer templates and
+    prevents stale return-tab state from sending a newly added draft back to
+    Playlist when it is closed.
+- 2026-10-31 — Completion release polish
+  - Auto-generated playlist tandas now suppress the simultaneous unsaved pencil;
+    the generated badge communicates the actionable state until Save clears both
+    (`UI-016.R26`).
+  - Release preparation keeps the package at 0.4.10 because the intervening
+    versions have not been released. It replaces the moving, unverified Windows
+    FFmpeg download with Gyan's immutable archived 8.1.2 ZIP and published
+    SHA-256 digest. The archive still supplies both required tools.

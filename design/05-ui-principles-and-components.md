@@ -393,7 +393,9 @@ Interactions:
 - UI-014.R19: Playlist tracks include a "Send to clipboard" action that clears the slot.
 - UI-014.R20: Clipboard tracks/tandas can only be added to the playlist when at least one empty slot exists.
 - UI-014.R21: The current playlist auto-restores on app launch.
-- UI-014.R22: Clearing the playlist opens explicit options (clear only, or clear + auto-fill).
+- UI-014.R22: Clearing the playlist opens explicit options: clear only, clear +
+  auto-fill from saved tandas with generated fallback, or clear + auto-generate
+  entirely from library tracks.
 - UI-014.R23: Adding a track to the playlist creates a new tanda in the first empty slot,
   pre-sized to the sequence slot (or default size) and seeded with the track.
 - UI-014.R24: Clicking an empty playlist slot creates a new tanda seeded with the slot’s
@@ -412,6 +414,30 @@ Interactions:
 - UI-014.R29: While the playlist contents filter is active, each matching tanda
   is preceded by a divider showing its predicted scheduled start time, including
   when cortina rows are hidden by the filter.
+- UI-014.R30: Clear + auto-generate must ignore user-saved tandas and construct
+  every tanda from eligible library tracks according to the configured sequence
+  style and size. Construction strongly prefers one canonical orchestra, a
+  consistent instrumental/sung status and named singer, then nearby known years
+  and tempos. It may progressively relax those preferences only when necessary
+  to fill a slot, must still avoid duplicate recordings/titles and enforce the
+  configured orchestra repeat interval, and marks each result as auto-generated for DJ
+  review. All clear-dialog wording is localized in every supported language.
+- UI-014.R31: The bottom of Playlist settings contains an **Auto-generation**
+  section with a configurable minimum number of projected playlist minutes
+  between tandas containing the same canonical orchestra. Auto-fill and
+  auto-generation treat a positive value as a hard constraint, including after
+  all other matching preferences are relaxed; `0` disables the constraint.
+- UI-014.R32: Track-based auto-generation remains independent of saved tanda
+  selection, but an exact ordered-track match to a persisted tanda resolves to
+  that saved tanda and is not marked auto-generated or playlist-only.
+- UI-014.R33: Track-based auto-generation prioritizes orchestras with no tanda
+  yet in the playlist before repeating an orchestra. It exhausts viable
+  single-orchestra construction—including relaxed singer, year, and tempo
+  matching—before relaxing to mixed-orchestra tandas.
+- UI-014.R34: Saved-tanda auto-fill applies the same diversity priority: it must
+  not select a tanda containing a repeated orchestra while a valid tanda using
+  only unrepresented orchestras exists, and it prefers a single orchestra among
+  candidates with equal repeat status.
 
 ## UI-015 — Now Playing Strip
 
@@ -501,13 +527,76 @@ Requirements:
   - UI-016.R11.d: Track count.
   - UI-016.R11.e: Rating (0–5 stars).
 - UI-016.R11.f: Name.
-- UI-016.R11.g: The tanda style list is the union of styles present in its tracks
-  (normalized against the system style list) and updates as tracks are added or removed.
+- UI-016.R11.g: Except for the manual-add override in `UI-016.R22`, the tanda
+  style list is the union of styles present in its tracks (normalized against
+  the system style list) and updates as tracks are added or removed.
 - UI-016.R12: A Done action replaces the active draft with a fresh empty tanda.
 - UI-016.R15: The Tanda Designer shows only in-progress draft tandas that contain tracks
   plus at most one empty template; the template is always listed first.
 - UI-016.R16: Clearing while Tanda Designer is active resets non-playlist drafts
   to one fresh empty template and preserves playlist-origin drafts.
+- UI-016.R17: A localized **Generate Tanda** action replaces the active designer
+  draft on every click. It excludes tracks and canonical orchestras already in
+  the playlist, then applies the normal single-orchestra, style, vocal, singer,
+  year and tempo cohesion rules. Style and size come from the marked playlist
+  tanda slot when present; otherwise style comes from the Search selectors and
+  size from the configured designer default.
+- UI-016.R18: Every designer tanda offers **Add to Playlist**. Placement uses an
+  explicitly marked playlist target first, otherwise the first empty tanda slot,
+  otherwise the playlist end. Normal sequence style/count validation and
+  override warnings apply. The playlist receives an independent local copy so
+  later designer edits or regeneration cannot mutate it.
+- UI-016.R19: Manually selecting the Tanda Designer while a playlist target is
+  still marked applies that slot's permitted styles as the generator/search
+  context. Opening Designer through a `T` action instead defaults to the source
+  tanda or track style. Explicit style clicks always override either default.
+- UI-016.R20: Generation in the Tanda Designer reflects the active draft state:
+  - UI-016.R20.a: Empty and wholly manual or wholly generated full tandas show
+    **Generate Tanda**. A user-started tanda containing manual tracks but fewer
+    than the preferred number shows **Complete Tanda**; other incomplete drafts
+    do not show either action.
+  - UI-016.R20.b: Completing preserves manual anchor tracks and fills only the
+    remaining preferred-size slots using the normal cohesion rules. Unlike
+    from-scratch generation, completion must not exclude the anchor orchestra
+    merely because that orchestra is already represented in the playlist.
+    Retained anchors are compacted before the draft is reduced to the preferred
+    size, so an anchor beyond that boundary is never truncated behind empty slots.
+  - UI-016.R20.c: Each offered generated-track combination is remembered as an
+    unordered set. Individual candidates may recur in new combinations, but an
+    already offered combination must not recur.
+  - UI-016.R20.d: Once completion makes the tanda full, the label remains
+    **Complete Tanda** because the tanda still contains manual anchors plus a
+    generated surround. Repeated completion preserves its manual anchors and
+    cycles that surround. Changing an anchor resets the history.
+  - UI-016.R20.e: If no untried valid completion exists, manual tracks remain
+    unchanged and a localized **No similar tracks found** alert is shown.
+  - UI-016.R20.f: Generate replaces an active unsaved, non-anchored draft. If
+    the active tanda is saved, it creates a separate draft without mutation.
+- UI-016.R21: The Designer footer uses the compact localized labels **Save**
+  and **Delete** for its save and delete actions.
+- UI-016.R22: Adding a track manually to a Designer tanda immediately sets the
+  whole tanda's style from that track, using the configured canonical spelling
+  when available. A later manual addition likewise applies that added track's
+  style rather than retaining or unioning an earlier manual style selection.
+- UI-016.R23: Clipboard tandas that have not been saved to the database show the
+  same pencil-style unsaved warning used for playlist-local tandas. Clipboard
+  collections continue to persist references only, not unsaved tanda snapshots.
+  Closing the app while a clipboard-only or Designer-only unsaved tanda exists
+  requires explicit confirmation identifying the volatile locations and count.
+  Playlist-local unsaved snapshots are excluded because playlist persistence
+  restores them on the next launch, and the dialog states that they are retained.
+- UI-016.R24: Every populated track row in the Tanda Designer and playlist-hosted
+  tanda editor shows the standard headphone-preview control whenever a secondary
+  audio output is available. It auditions that track through the configured
+  headphone channel without changing tanda selection or order.
+- UI-016.R25: **Add Tanda** reuses the existing empty Designer template instead
+  of creating a second empty tanda. Closing a standalone Designer draft clears
+  it and selects that single empty template without changing tabs; an unreferenced
+  unsaved draft is discarded, while clipboard/playlist references remain valid.
+- UI-016.R26: When a playlist tanda is both auto-generated and unsaved, only the
+  localized auto-generated badge is shown. Saving the tanda removes its
+  auto-generated/unsaved state together, so a simultaneous pencil adds no useful
+  information.
 
 Filtering:
 - UI-016.R13: When a tanda is selected, the clipboard (and search results, when enabled)
@@ -558,6 +647,8 @@ Behavior:
   before the first tanda, between tandas, and after the final tanda.
 - UI-012.R9.b: Clicking a cortina row opens the cortina picker to replace the
   upcoming cortina.
+- UI-012.R9.d: Headphone actions in cortina-picker results audition that cortina
+  through the configured headphone output without selecting or closing the row.
 - UI-012.R9.c: Playlist cortina assignments persist with the saved playlist,
   whether they were auto-planned or manually replaced. They are restored on
   startup when the active cortina set is still the same. If the cortina set

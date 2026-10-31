@@ -1,12 +1,19 @@
+import type {
+  PlaylistItem,
+  PlaylistRule,
+  RendererTrack,
+  RightPanelTab,
+  TandaDraft,
+  TandaSlotValidation,
+} from "../domain.js";
+import { toggleDetailMenu } from "../modules/row-menu.js";
+
 type TrackData = {
   filePath: string;
   trackId: string;
   gainDb: number | null;
 };
 
-type PlaylistItem = any;
-type TandaLike = any;
-type TrackLike = any;
 type ActiveCollection = {
   trackIds: string[];
   tandaIds: string[];
@@ -16,6 +23,7 @@ type PlaylistInteractionsElements = {
   playlistPanel?: HTMLElement | null;
   playlistListEl?: HTMLElement | null;
   addTandaBtn?: HTMLElement | null;
+  generateTandaBtn?: HTMLElement | null;
 };
 
 export type PlaylistInteractionsControllerDeps = {
@@ -23,9 +31,9 @@ export type PlaylistInteractionsControllerDeps = {
   readers: {
     getHeadphoneAvailable: () => boolean;
     getTrackDataFromRow: (row: HTMLElement) => TrackData | null;
-    getTrackFromCache: (trackId: string) => TrackLike | null;
-    getTrackById: (trackId: string) => TrackLike | null;
-    resolveTandaForSearch: (tandaId: string) => TandaLike | null;
+    getTrackFromCache: (trackId: string) => RendererTrack | null;
+    getTrackById: (trackId: string) => RendererTrack | null;
+    resolveTandaForSearch: (tandaId: string) => TandaDraft | null;
     resolvePlaylistRowIndex: (row: HTMLElement) => number;
     resolveSearchStylesForPlaylistIndex: (index: number) => string[] | undefined;
     isCortinaIndexEditable: (index: number | null) => boolean;
@@ -33,25 +41,26 @@ export type PlaylistInteractionsControllerDeps = {
     isPlaylistTandaSlotLocked: (index: number, slotIndex: number) => boolean;
     getPlaylistTargetIndex: () => number | null;
     getPlaylistTrackTargetIndex: () => number | null;
-    getPlaylistItems: () => PlaylistItem[];
+    getPlaylistItems: () => Array<PlaylistItem | null>;
     getPlaylistOpenTandaIndex: () => number | null;
-    getRuleForSlot: (index: number) => any;
+    getRuleForSlot: (index: number) => PlaylistRule | null;
     getPlaylistStyleMap: () => Record<string, string[]>;
     getSelectedTandaId: () => string | null;
     getSelectedClipboardTandaId: () => string | null;
     getSelectedClipboardTrackId: () => string | null;
-    getClipboardTandas: () => TandaLike[];
-    getClipboardTracks: () => TrackLike[];
+    getClipboardTandas: () => TandaDraft[];
+    getClipboardTracks: () => RendererTrack[];
     getActiveCollection: () => ActiveCollection | null;
     getAppMode: () => string;
     isMainPlaying: () => boolean;
     shouldStartPlaylistFromClick: (appMode: string, isMainPlaying: boolean) => boolean;
-    resolveTandaDraft: (tandaId: string) => TandaLike | null;
+    resolveTandaDraft: (tandaId: string) => TandaDraft | null;
   };
   actions: {
     handleDropToPlaylist: (event: DragEvent) => void;
-    createEmptyTanda: () => TandaLike;
-    appendTandaDraft: (draft: TandaLike) => void;
+    createEmptyTanda: () => TandaDraft;
+    appendTandaDraft: (draft: TandaDraft) => TandaDraft;
+    generateDesignerTanda: () => Promise<void>;
     setActiveTanda: (tandaId: string) => void;
     openCortinaModal: (index: number | null) => void;
     toggleTandaRow: (row: HTMLElement) => void;
@@ -62,11 +71,11 @@ export type PlaylistInteractionsControllerDeps = {
       channel: "main" | "headphone",
       filePath: string,
       trackId: string,
-      track: TrackLike,
+      track: RendererTrack,
       gainDb: number | null,
-    ) => Promise<any>;
-    runSearchForTanda: (tanda: TandaLike, preferredStyles?: string[]) => void;
-    runSearchForTrack: (track: TrackLike, preferredStyles?: string[]) => void;
+    ) => Promise<unknown>;
+    runSearchForTanda: (tanda: TandaDraft, preferredStyles?: string[]) => void;
+    runSearchForTrack: (track: RendererTrack, preferredStyles?: string[]) => void;
     toggleRowMenu: (row: HTMLElement) => void;
     clearPlaylistTarget: () => void;
     retainPlaylistTargetAtIndex: (index: number) => number | null;
@@ -80,7 +89,7 @@ export type PlaylistInteractionsControllerDeps = {
     setStatusClipboardReadonlyRemove: () => void;
     setStatusCortinaLocked: () => void;
     markPlaylistPulse: (index: number) => void;
-    validateTandaForSlot: (tanda: TandaLike, slotIndex: number) => any;
+    validateTandaForSlot: (tanda: TandaDraft, slotIndex: number) => TandaSlotValidation;
     confirmPlaylistCountOverride: (
       ruleLabel: string,
       expected: number,
@@ -94,45 +103,32 @@ export type PlaylistInteractionsControllerDeps = {
     ) => void;
     setPlaylistItem: (index: number, item: PlaylistItem | null) => void;
     setPlaylistOpenTandaIndex: (index: number | null) => void;
-    ensurePlaylistEditableTanda: (tandaId: string, index: number) => TandaLike | null;
-    createPlaceholderTanda: (tandaId: string) => TandaLike;
-    openTandaInDesigner: (tandaId: string, source: TandaLike | null, hostTab?: any) => void;
+    ensurePlaylistEditableTanda: (tandaId: string, index: number) => TandaDraft | null;
+    createPlaceholderTanda: (tandaId: string) => TandaDraft;
+    openTandaInDesigner: (tandaId: string, source: TandaDraft | null, hostTab?: RightPanelTab) => void;
     addTandaToActiveCollection: (tandaId: string) => boolean;
-    addTrackToActiveCollection: (track: TrackLike) => boolean;
+    addTrackToActiveCollection: (track: RendererTrack) => boolean;
     normalizePlaylist: () => void;
     renderClipboard: () => void;
     setSelectedStylesFromRule: (styles: string[]) => void;
-    createPlaylistTandaForSlot: (index: number) => TandaLike;
-    ensureTandaDraft: (tanda: TandaLike) => void;
+    createPlaylistTandaForSlot: (index: number) => TandaDraft;
+    ensureTandaDraft: (tanda: TandaDraft) => void;
     startPlaylistFrom: (index: number, trackId: string | null) => void;
     setSelectedClipboardTandaId: (tandaId: string | null) => void;
     setSelectedClipboardTrackId: (trackId: string | null) => void;
     saveClipboardCollections: () => void;
     placeTandaInPlaylistSlot: (tandaId: string, index: number) => boolean;
-    playTrackForMode: (track: TrackLike, data: TrackData) => Promise<any>;
-    refreshPlaylistTandaStyles: (tanda: TandaLike) => void;
-    setTrackInCache: (track: TrackLike) => void;
+    playTrackForMode: (track: RendererTrack, data: TrackData) => Promise<unknown>;
+    refreshPlaylistTandaStyles: (tanda: TandaDraft) => void;
+    setTrackInCache: (track: RendererTrack) => void;
     updateHeadphoneButtonIndicators: () => void;
-    getSequenceLabel: (rule: any) => string;
-    getTandaSequenceLabel: (tanda: TandaLike) => string;
+    getSequenceLabel: (rule: PlaylistRule) => string;
+    getTandaSequenceLabel: (tanda: TandaDraft) => string;
   };
 };
 
 const getAction = (target: HTMLElement) =>
   (target.closest("button[data-action]") as HTMLButtonElement | null)?.dataset.action ?? null;
-
-const toggleDetailMenu = (target: HTMLElement, closeDetailMenus: () => void) => {
-  const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
-  if (!detailLine) {
-    return;
-  }
-  if (detailLine.classList.contains("detail-menu-open")) {
-    detailLine.classList.remove("detail-menu-open");
-    return;
-  }
-  closeDetailMenus();
-  detailLine.classList.add("detail-menu-open");
-};
 
 export const createPlaylistInteractionsController = (
   deps: PlaylistInteractionsControllerDeps,
@@ -232,8 +228,11 @@ export const createPlaylistInteractionsController = (
 
     deps.elements.addTandaBtn?.addEventListener("click", () => {
       const draft = deps.actions.createEmptyTanda();
-      deps.actions.appendTandaDraft(draft);
-      deps.actions.setActiveTanda(draft.id);
+      const activeDraft = deps.actions.appendTandaDraft(draft);
+      deps.actions.setActiveTanda(activeDraft.id);
+    });
+    deps.elements.generateTandaBtn?.addEventListener("click", async () => {
+      await deps.actions.generateDesignerTanda();
     });
 
     deps.elements.playlistListEl?.addEventListener("click", async (event) => {
@@ -439,6 +438,7 @@ export const createPlaylistInteractionsController = (
       const data = deps.readers.getTrackDataFromRow(row);
       if (action === "headphone" && deps.readers.getHeadphoneAvailable() && data) {
         const playlistTrack = deps.readers.getTrackById(data.trackId);
+        if (!playlistTrack) return;
         await deps.actions.playOnChannel(
           "headphone",
           data.filePath,

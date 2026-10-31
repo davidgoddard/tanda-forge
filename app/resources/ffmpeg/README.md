@@ -1,3 +1,3 @@
 Place platform-specific ffmpeg/ffprobe binaries here during packaging.
 
-Run `scripts/fetch-ffmpeg.sh <macos|windows|linux>` from the project to stage the tools. macOS uses direct versioned Evermeet ZIP downloads pinned to 9.0.2; its former `getrelease` API now returns HTTP 410. Update `MACOS_FFMPEG_VERSION` in the script when upgrading both macOS tools. Downloads fail on HTTP errors, retry transient failures, and validate ZIPs before extraction. Binaries remain ignored by Git.
+Run `scripts/fetch-ffmpeg.sh <macos|windows|linux>` from the project to stage the tools. macOS builds the official FFmpeg 9.0.2 source archive; Windows uses Gyan's archived 8.1.2 essentials ZIP; Linux uses a versioned BtbN 9.0.2 build. Every archive is pinned to its upstream SHA-256 digest. Downloads fail on HTTP errors, retry transient failures, and stop before extraction when checksum or archive validation fails. Binaries remain ignored by Git.

@@ -8,6 +8,7 @@ import {
   collectEligibleArtistGroups,
   collectEligibleArtistStyleGroups,
   findTandaPurityIssues,
+  filterByArtistRepeatGap,
   isTandaArtistStyleAvailable,
   isArtistGapSatisfied,
   normalizeAvailabilityStyleGroup,
@@ -93,6 +94,34 @@ describe("isArtistGapSatisfied", () => {
         artistLastPlayedAtMs: new Map([["di sarli", 45_000]]),
       }),
     ).toBe(false);
+  });
+});
+
+describe("filterByArtistRepeatGap", () => {
+  it("never falls back to a blocked orchestra when the interval is enabled", () => {
+    const candidates = [
+      { name: "D'Arienzo", allowed: false },
+      { name: "Di Sarli", allowed: true },
+    ];
+    expect(filterByArtistRepeatGap({
+      items: candidates,
+      repeatGapMs: 60 * 60 * 1000,
+      isGapSatisfied: (candidate) => candidate.allowed,
+    })).toEqual([candidates[1]]);
+    expect(filterByArtistRepeatGap({
+      items: [candidates[0]],
+      repeatGapMs: 60 * 60 * 1000,
+      isGapSatisfied: (candidate) => candidate.allowed,
+    })).toEqual([]);
+  });
+
+  it("allows all candidates when the interval is disabled", () => {
+    const candidates = [{ allowed: false }];
+    expect(filterByArtistRepeatGap({
+      items: candidates,
+      repeatGapMs: 0,
+      isGapSatisfied: (candidate) => candidate.allowed,
+    })).toEqual(candidates);
   });
 });
 

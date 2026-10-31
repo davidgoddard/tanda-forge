@@ -1,6 +1,7 @@
 import type { RatingFilter } from "../shared/rating-filter";
 import { getRatingSnapshot } from "./library/rating-filter";
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, session, shell } from "electron";
+import { createDomainIpcRegistrar } from "./ipc/domain-registrar";
 
 if (process.platform === "darwin" && process.arch === "x64") {
   app.disableHardwareAcceleration();
@@ -853,7 +854,8 @@ const ensureDisplayWindow = () => {
 };
 
 const registerIpc = () => {
-  ipcMain.handle("app:close-response", async (event, allowed: boolean) => {
+  const ipc = createDomainIpcRegistrar(ipcMain);
+  ipc.handle("app:close-response", async (event, allowed: boolean) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     const closeState = closeStateByWebContentsId.get(event.sender.id);
     if (!window || window.isDestroyed() || !closeState) {
@@ -870,7 +872,7 @@ const registerIpc = () => {
     }
   });
 
-  ipcMain.handle("app:close", async (event) => {
+  ipc.handle("app:close", async (event) => {
     if (!app.isPackaged) {
       app.exit(0);
       return;
@@ -893,14 +895,14 @@ const registerIpc = () => {
     }
   });
 
-  ipcMain.handle("app:getVersion", async () => app.getVersion());
-  ipcMain.handle("app:getReleaseUpdateInfo", async (): Promise<ReleaseUpdateInfo | null> => {
+  ipc.handle("app:getVersion", async () => app.getVersion());
+  ipc.handle("app:getReleaseUpdateInfo", async (): Promise<ReleaseUpdateInfo | null> => {
     if (process.env.NODE_ENV === "test") {
       return null;
     }
     return getReleaseUpdateInfo(app.getVersion());
   });
-  ipcMain.handle("app:openReleasePage", async (_event, url?: string | null) => {
+  ipc.handle("app:openReleasePage", async (_event, url?: string | null) => {
     const target = url && isSupportedReleaseUrl(url) ? url : RELEASES_PAGE_URL;
     try {
       await shell.openExternal(target);
@@ -913,7 +915,7 @@ const registerIpc = () => {
     }
   });
 
-  ipcMain.handle("app:toggleFullscreen", async (event) => {
+  ipc.handle("app:toggleFullscreen", async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow();
     if (!window || window.isDestroyed()) {
       return { fullscreen: false };
@@ -931,7 +933,7 @@ const registerIpc = () => {
     return { fullscreen: window.isFullScreen() };
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "library:pickRoot",
     async (_event, kind: "music" | "cortina" | "background") => {
     const result = consumeE2EOpenDialogResult() ?? await dialog.showOpenDialog({
@@ -950,7 +952,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("data:pickLocation", async () => {
+  ipc.handle("data:pickLocation", async () => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory"],
       title: "Select Data Location",
@@ -961,12 +963,12 @@ const registerIpc = () => {
     return result.filePaths[0];
   });
 
-  ipcMain.handle("data:getLocation", async () => ({
+  ipc.handle("data:getLocation", async () => ({
     path: getDataRoot(),
     defaultPath: getDefaultDataPath(),
   }));
 
-  ipcMain.handle("data:setLocation", async (_event, selectedPath: string | null) => {
+  ipc.handle("data:setLocation", async (_event, selectedPath: string | null) => {
     const next = setDataRoot(selectedPath);
     legacyOverridesByRootId = new Map();
     reopenDb();
@@ -975,7 +977,7 @@ const registerIpc = () => {
     return { path: next };
   });
 
-  ipcMain.handle("diagnostics:pickFfmpegToolsDir", async () => {
+  ipc.handle("diagnostics:pickFfmpegToolsDir", async () => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory"],
       title: "Select FFmpeg Tools Folder",
@@ -986,15 +988,15 @@ const registerIpc = () => {
     return result.filePaths[0];
   });
 
-  ipcMain.handle("diagnostics:getFfmpegToolsDir", async () => ({
+  ipc.handle("diagnostics:getFfmpegToolsDir", async () => ({
     path: getCustomFfmpegToolsDir() ?? "",
   }));
 
-  ipcMain.handle("diagnostics:setFfmpegToolsDir", async (_event, dirPath: string | null) =>
+  ipc.handle("diagnostics:setFfmpegToolsDir", async (_event, dirPath: string | null) =>
     persistFfmpegToolsDir(dirPath),
   );
 
-  ipcMain.handle("app:exportSystemData", async () => {
+  ipc.handle("app:exportSystemData", async () => {
     const result = consumeE2EOpenDialogResult() ?? await dialog.showOpenDialog({
       properties: ["openDirectory", "createDirectory"],
       title: "Choose Export Location",
@@ -1023,9 +1025,9 @@ const registerIpc = () => {
     return { ok: true, cancelled: false, path: exportRoot, started: true };
   });
 
-  ipcMain.handle("app:getSystemBackupStatus", async () => systemBackupStatus);
+  ipc.handle("app:getSystemBackupStatus", async () => systemBackupStatus);
 
-  ipcMain.handle("app:importSystemData", async () => {
+  ipc.handle("app:importSystemData", async () => {
     if (hasRunningSystemBackup()) {
       return {
         ok: false,
@@ -1069,7 +1071,7 @@ const registerIpc = () => {
     return { ok: true, cancelled: false, path: backupRoot };
   });
 
-  ipcMain.handle("app:exportTandasData", async () => {
+  ipc.handle("app:exportTandasData", async () => {
     const createdAt = new Date().toISOString();
     const result = consumeE2ESaveDialogResult() ?? await dialog.showSaveDialog({
       title: "Export Tandas",
@@ -1085,7 +1087,7 @@ const registerIpc = () => {
     return { ok: true, cancelled: false, path: result.filePath };
   });
 
-  ipcMain.handle("app:exportPlaylistData", async (_event, manifest: PlaylistExportManifest) => {
+  ipc.handle("app:exportPlaylistData", async (_event, manifest: PlaylistExportManifest) => {
     const createdAt = new Date().toISOString();
     const result = consumeE2ESaveDialogResult() ?? await dialog.showSaveDialog({
       title: "Save Playlist",
@@ -1111,7 +1113,7 @@ const registerIpc = () => {
     return { ok: true, cancelled: false, path: result.filePath };
   });
 
-  ipcMain.handle("app:importPlaylistData", async () => {
+  ipc.handle("app:importPlaylistData", async () => {
     const result = consumeE2EOpenDialogResult() ?? await dialog.showOpenDialog({
       title: "Import Playlist",
       properties: ["openFile"],
@@ -1146,7 +1148,7 @@ const registerIpc = () => {
     }
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "library:addRoot",
     async (_event, kind: "music" | "cortina" | "background", rootPath: string) => {
       const db = getDb();
@@ -1160,7 +1162,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("library:listRoots", async () => {
+  ipc.handle("library:listRoots", async () => {
     const db = getDb();
     const roots = db
       .prepare("select id, kind, path, label from library_roots order by label")
@@ -1171,12 +1173,12 @@ const registerIpc = () => {
     }));
   });
 
-  ipcMain.handle("library:getRootRemovalPreview", async (_event, rootId: string) => {
+  ipc.handle("library:getRootRemovalPreview", async (_event, rootId: string) => {
     const db = getDb();
     return getRootRemovalPreview(db, rootId);
   });
 
-  ipcMain.handle("library:removeRoot", async (_event, rootId: string) => {
+  ipc.handle("library:removeRoot", async (_event, rootId: string) => {
     const db = getDb();
     const result = removeLibraryRoot(db, rootId);
     if (result?.kind === "music" || result?.kind === "cortina") {
@@ -1185,7 +1187,7 @@ const registerIpc = () => {
     return result;
   });
 
-  ipcMain.handle("legacy:detect", async (_event, candidatePath?: string | null) => {
+  ipc.handle("legacy:detect", async (_event, candidatePath?: string | null) => {
     if (candidatePath) {
       const detected = detectLegacyRoot(candidatePath);
       return detected
@@ -1202,7 +1204,7 @@ const registerIpc = () => {
       : { available: false, rootPath: "" };
   });
 
-  ipcMain.handle("legacy:import", async (_event, rootPath: string) => {
+  ipc.handle("legacy:import", async (_event, rootPath: string) => {
     const db = getDb();
     const roots = db
       .prepare("select id, kind, path, label from library_roots")
@@ -1222,7 +1224,7 @@ const registerIpc = () => {
     };
   });
 
-  ipcMain.handle("legacy:listStyles", async (_event, rootPath: string) => {
+  ipc.handle("legacy:listStyles", async (_event, rootPath: string) => {
     const detected = detectLegacyRoot(rootPath);
     if (!detected) {
       return {
@@ -1282,7 +1284,7 @@ const registerIpc = () => {
     }
   };
 
-  ipcMain.handle("library:scanAll", async () => {
+  ipc.handle("library:scanAll", async () => {
     const db = getDb();
     const roots = db
       .prepare("select id, kind, path, label from library_roots")
@@ -1326,7 +1328,7 @@ const registerIpc = () => {
     }
   });
 
-  ipcMain.handle("library:scanKind", async (_event, kind: "music" | "cortina") => {
+  ipc.handle("library:scanKind", async (_event, kind: "music" | "cortina") => {
     const db = getDb();
     const roots = db
       .prepare("select id, kind, path, label from library_roots where kind = ?")
@@ -1366,7 +1368,7 @@ const registerIpc = () => {
     }
   });
 
-  ipcMain.handle("library:refreshStoredMetadata", async () => {
+  ipc.handle("library:refreshStoredMetadata", async () => {
     const db = getDb();
     const rows = db
       .prepare("select id, title, artist, artist_summary, singer, tag_json from tracks")
@@ -1408,7 +1410,7 @@ const registerIpc = () => {
     };
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "library:runStartupFlow",
     async (_event, params: CompressionRenderConfig) => {
       const pushStartupFlowPhase = (phase: StartupFlowPhase) => {
@@ -1464,7 +1466,7 @@ const registerIpc = () => {
       : row;
   const normalizeTrackRows = (rows: any[]) => rows.map(normalizeTrackRow);
 
-  ipcMain.handle("library:listTracks", async () => {
+  ipc.handle("library:listTracks", async () => {
     const db = getDb();
     const rows = db
       .prepare(
@@ -1481,15 +1483,15 @@ const registerIpc = () => {
     return normalizeTrackRows(rows);
   });
 
-  ipcMain.handle("audio-similarity:report", async () =>
+  ipc.handle("audio-similarity:report", async () =>
     getAudioSimilarityReport(getDb()));
-  ipcMain.handle("audio-similarity:generate", async (_event, options?: { fullRebuild?: boolean }) =>
+  ipc.handle("audio-similarity:generate", async (_event, options?: { fullRebuild?: boolean }) =>
     generateAudioSimilarityReport(getDb(), { fullRebuild: Boolean(options?.fullRebuild) }));
-  ipcMain.handle("audio-similarity:cancel", async () => {
+  ipc.handle("audio-similarity:cancel", async () => {
     cancelAudioSimilarityAnalysis();
     return { ok: true };
   });
-  ipcMain.handle(
+  ipc.handle(
     "audio-similarity:confirm",
     async (
       _event,
@@ -1513,24 +1515,24 @@ const registerIpc = () => {
       return { ok: true, groupId };
     },
   );
-  ipcMain.handle("audio-similarity:reject", async (_event, left: string, right: string) => {
+  ipc.handle("audio-similarity:reject", async (_event, left: string, right: string) => {
     rejectAudioSimilarityPair(getDb(), String(left ?? ""), String(right ?? ""));
     return { ok: true };
   });
-  ipcMain.handle("audio-similarity:reconsider", async (_event, left: string, right: string) => {
+  ipc.handle("audio-similarity:reconsider", async (_event, left: string, right: string) => {
     reconsiderAudioSimilarityPair(getDb(), String(left ?? ""), String(right ?? ""));
     return { ok: true };
   });
-  ipcMain.handle("audio-similarity:withdraw", async (_event, groupId: string) => {
+  ipc.handle("audio-similarity:withdraw", async (_event, groupId: string) => {
     if (!groupId) throw new Error("A confirmed group is required.");
     withdrawConfirmedAudioSimilarityGroup(getDb(), groupId);
     return { ok: true };
   });
-  ipcMain.handle("audio-similarity:set-hidden", async (_event, trackId: string, hidden: boolean) => {
+  ipc.handle("audio-similarity:set-hidden", async (_event, trackId: string, hidden: boolean) => {
     setTrackHidden(getDb(), String(trackId ?? ""), Boolean(hidden));
     return { ok: true };
   });
-  ipcMain.handle("audio-similarity:replicate-metadata", async (
+  ipc.handle("audio-similarity:replicate-metadata", async (
     _event, sourceTrackId: string, targetTrackIds: string[], field: ReplicableAudioSimilarityField,
   ) => {
     if (!Array.isArray(targetTrackIds)) throw new Error("Invalid metadata destinations.");
@@ -1539,13 +1541,13 @@ const registerIpc = () => {
     );
     return { ok: true, ...result };
   });
-  ipcMain.handle("audio-similarity:undo-metadata", async (
+  ipc.handle("audio-similarity:undo-metadata", async (
     _event, changes: import("../shared/audio-similarity").AudioSimilarityMetadataChange[],
   ) => {
     const result = undoAudioSimilarityMetadata(getDb(), changes);
     return { ok: true, ...result };
   });
-  ipcMain.handle("audio-similarity:replace-tanda-track", async (
+  ipc.handle("audio-similarity:replace-tanda-track", async (
     _event, tandaId: string, position: number, replacementTrackId: string,
   ) => {
     replaceAudioSimilarityTandaTrack(
@@ -1553,7 +1555,7 @@ const registerIpc = () => {
     );
     return { ok: true };
   });
-  ipcMain.handle("audio-similarity:replace-tanda-references", async (
+  ipc.handle("audio-similarity:replace-tanda-references", async (
     _event,
     references: import("../shared/audio-similarity").AudioSimilarityTandaReference[],
     replacementTrackId: string,
@@ -1564,7 +1566,7 @@ const registerIpc = () => {
     return { ok: true, ...result };
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "tracks:listPage",
     async (
       _event,
@@ -1600,7 +1602,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "tracks:search",
     async (
       _event,
@@ -1659,7 +1661,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "tracks:searchCount",
     async (
       _event,
@@ -1685,7 +1687,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "tracks:searchJumpIndex",
     async (
       _event,
@@ -1739,7 +1741,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "tracks:searchJumpToPrefix",
     async (
       _event,
@@ -1816,7 +1818,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("cortinas:listSets", async () => {
+  ipc.handle("cortinas:listSets", async () => {
     const db = getDb();
     const rows = db
       .prepare(
@@ -1847,7 +1849,7 @@ const registerIpc = () => {
     return Array.from(sets).sort();
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "cortinas:listTracks",
     async (_event, setName: string): Promise<CortinaTrackRow[]> => {
       const db = getDb();
@@ -1879,7 +1881,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "cortinas:searchTracks",
     async (
       _event,
@@ -1932,7 +1934,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("tracks:getStyles", async () => {
+  ipc.handle("tracks:getStyles", async () => {
     const db = getDb();
     return db
       .prepare("select name from styles order by name")
@@ -1940,7 +1942,7 @@ const registerIpc = () => {
       .map((row) => (row as { name: string }).name);
   });
 
-  ipcMain.handle("styles:list", async () => {
+  ipc.handle("styles:list", async () => {
     const db = getDb();
     return db
       .prepare("select name from styles order by name")
@@ -1948,7 +1950,7 @@ const registerIpc = () => {
       .map((row) => (row as { name: string }).name);
   });
 
-  ipcMain.handle("styles:listDefinitions", async () => {
+  ipc.handle("styles:listDefinitions", async () => {
     const db = getDb();
     const styles = db
       .prepare("select name from styles order by name")
@@ -1969,7 +1971,7 @@ const registerIpc = () => {
     }));
   });
 
-  ipcMain.handle("styles:add", async (_event, name: string) => {
+  ipc.handle("styles:add", async (_event, name: string) => {
     const db = getDb();
     const parsed = parseStyleDefinition(name);
     if (!parsed.canonical) {
@@ -2002,7 +2004,7 @@ const registerIpc = () => {
     return { ok: true };
   });
 
-  ipcMain.handle("styles:remove", async (_event, name: string) => {
+  ipc.handle("styles:remove", async (_event, name: string) => {
     const db = getDb();
     const normalized = normalizeStyleName(name);
     if (!normalized) {
@@ -2017,7 +2019,7 @@ const registerIpc = () => {
     return { ok: true };
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "styles:replaceDefaults",
     async (
       _event,
@@ -2065,7 +2067,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "tracks:jumpToPrefix",
     async (
       _event,
@@ -2104,7 +2106,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("tracks:getJumpIndex", async (_event, params: { sortBy?: string }) => {
+  ipc.handle("tracks:getJumpIndex", async (_event, params: { sortBy?: string }) => {
     const db = getDb();
     const sortBy = normalizeSortColumn(params.sortBy);
     const keySql = getSortKeySql(sortBy);
@@ -2122,7 +2124,7 @@ const registerIpc = () => {
     return buildJumpIndex(prefixes);
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "tracks:update",
     async (
       _event,
@@ -2209,7 +2211,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "tracks:delete",
     async (_event, payload: { id: string; removeFile: boolean }) => {
       if (!payload?.id || typeof payload.id !== "string") {
@@ -2221,12 +2223,12 @@ const registerIpc = () => {
       return result;
     },
   );
-  ipcMain.handle("tracks:listDeleted", async () => listDeletedTracks(getDb()));
-  ipcMain.handle("tracks:restoreDeleted", async (_event, ids: string[]) =>
+  ipc.handle("tracks:listDeleted", async () => listDeletedTracks(getDb()));
+  ipc.handle("tracks:restoreDeleted", async (_event, ids: string[]) =>
     restoreDeletedTracks(getDb(), Array.isArray(ids) ? ids : []),
   );
 
-  ipcMain.handle("tracks:getWaveform", async (_event, trackId: string) => {
+  ipc.handle("tracks:getWaveform", async (_event, trackId: string) => {
     const db = getDb();
     const row = db
       .prepare("select full_path from tracks where id = ?")
@@ -2249,7 +2251,7 @@ const registerIpc = () => {
     }
   });
 
-  ipcMain.handle("tracks:generateWaveform", async (_event, trackId: string) => {
+  ipc.handle("tracks:generateWaveform", async (_event, trackId: string) => {
     const db = getDb();
     const row = db
       .prepare("select full_path from tracks where id = ?")
@@ -2272,7 +2274,7 @@ const registerIpc = () => {
     }
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "audio:getCompressedTrackPath",
     async (
       _event,
@@ -2311,7 +2313,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "audio:renderCompressedTrack",
     async (
       _event,
@@ -2377,7 +2379,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "audio:renderPlayableTrack",
     async (
       _event,
@@ -2404,7 +2406,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "audio:precomputeCompressedTracks",
     async (event, params: CompressionRenderConfig) => {
       try {
@@ -2438,7 +2440,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("diagnostics:getPaths", () => {
+  ipc.handle("diagnostics:getPaths", () => {
     return getDiagnosticsPaths(
       getDataPaths,
       getResolvedFfmpegInfo(),
@@ -2447,11 +2449,11 @@ const registerIpc = () => {
     );
   });
 
-  ipcMain.handle("diagnostics:verifyCaches", async () => {
+  ipc.handle("diagnostics:verifyCaches", async () => {
     return verifyCachedFiles(getDb(), getDataPaths);
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "diagnostics:getLogs",
     async (
       _event,
@@ -2464,16 +2466,16 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("diagnostics:clearLogs", async () => {
+  ipc.handle("diagnostics:clearLogs", async () => {
     clearDiagnosticsLogs(getDataPaths);
     return { ok: true };
   });
 
-  ipcMain.handle("diagnostics:getDataReadiness", async () => {
+  ipc.handle("diagnostics:getDataReadiness", async () => {
     return getDiagnosticsDataReadiness(getDb(), getDataPaths);
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "diagnostics:acknowledgeTrack",
     async (_event, payload: { id?: string; issueSignature?: string }) => {
       if (!payload?.id || !payload.issueSignature) return { ok: false };
@@ -2487,7 +2489,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "diagnostics:saveTrackTrim",
     async (_event, payload: { id?: string; startOffsetMs?: number; endTrimMs?: number }) => {
       const row = payload?.id
@@ -2524,7 +2526,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("diagnostics:resetTrackTrim", async (_event, id: string) => {
+  ipc.handle("diagnostics:resetTrackTrim", async (_event, id: string) => {
     const row = getDb().prepare(`
       select analysis_json, start_offset_ms, end_trim_ms
       from tracks where id = ? and deleted_at is null
@@ -2561,7 +2563,7 @@ const registerIpc = () => {
     return { ok: true, ...measured };
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "backgrounds:list",
     async (
       _event,
@@ -2591,7 +2593,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("display:open", async () => {
+  ipc.handle("display:open", async () => {
     const window = ensureDisplayWindow();
     if (!window.isVisible()) {
       window.show();
@@ -2600,12 +2602,12 @@ const registerIpc = () => {
     return { ok: true };
   });
 
-  ipcMain.handle("display:status", async () => ({
+  ipc.handle("display:status", async () => ({
     open: Boolean(displayWindow && !displayWindow.isDestroyed() && displayWindow.isVisible()),
     lastPayload: lastDisplayPayload ?? null,
   }));
 
-  ipcMain.handle("display:update", async (_event, payload: DisplayUpdatePayload) => {
+  ipc.handle("display:update", async (_event, payload: DisplayUpdatePayload) => {
     lastDisplayPayload = payload ?? {};
     if (!displayWindow || displayWindow.isDestroyed()) {
       return;
@@ -2613,7 +2615,7 @@ const registerIpc = () => {
     displayWindow.webContents.send("display:update", lastDisplayPayload);
   });
 
-  ipcMain.handle("tracks:getByIds", async (_event, ids: string[]) => {
+  ipc.handle("tracks:getByIds", async (_event, ids: string[]) => {
     if (!Array.isArray(ids) || ids.length === 0) {
       return [];
     }
@@ -2631,7 +2633,7 @@ const registerIpc = () => {
     return normalizeTrackRows(rows);
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "tracks:listRecent",
     async (_event, limit: number): Promise<string[]> => {
       const db = getDb();
@@ -2655,7 +2657,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "tandas:list",
     async () => {
       const db = getDb();
@@ -2663,7 +2665,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "tandas:listRecent",
     async (_event, limit: number): Promise<string[]> => {
       const db = getDb();
@@ -2676,7 +2678,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("tandas:getByIds", async (_event, ids: string[]) => {
+  ipc.handle("tandas:getByIds", async (_event, ids: string[]) => {
     if (!Array.isArray(ids) || ids.length === 0) {
       return [];
     }
@@ -2684,10 +2686,10 @@ const registerIpc = () => {
     return getTandasByIds(db, ids);
   });
 
-  ipcMain.handle("tandas:getTrackUsage", async (_event, trackIds: string[]) =>
+  ipc.handle("tandas:getTrackUsage", async (_event, trackIds: string[]) =>
     getTrackTandaUsage(getDb(), Array.isArray(trackIds) ? trackIds : []));
 
-  ipcMain.handle(
+  ipc.handle(
     "tandas:save",
     async (
       _event,
@@ -2706,15 +2708,15 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("ratings:snapshot", () => getRatingSnapshot(getDb()));
+  ipc.handle("ratings:snapshot", () => getRatingSnapshot(getDb()));
 
-  ipcMain.handle("tandas:delete", async (_event, id: string) => {
+  ipc.handle("tandas:delete", async (_event, id: string) => {
     const db = getDb();
     deleteTanda(db, id);
     return { ok: true };
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "tandas:search",
     async (
       _event,
@@ -2733,24 +2735,24 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle("stats:getSearchDiversity", async () => {
+  ipc.handle("stats:getSearchDiversity", async () => {
     const db = getDb();
     return computeSearchDiversityStats(db);
   });
 
-  ipcMain.handle("app:resetDatabase", async () => {
+  ipc.handle("app:resetDatabase", async () => {
     resetDb();
     legacyOverridesByRootId = new Map();
     clearDiagnosticsArtifacts();
     return { ok: true };
   });
 
-  ipcMain.handle("app:clearCachedFiles", async () => {
+  ipc.handle("app:clearCachedFiles", async () => {
     clearCachedArtifacts();
     return { ok: true };
   });
 
-  ipcMain.handle("e2e:setDialogResponses", async (_event, payload: {
+  ipc.handle("e2e:setDialogResponses", async (_event, payload: {
     saveFilePaths?: string[];
     openFilePaths?: string[];
   }) => {
@@ -2767,14 +2769,14 @@ const registerIpc = () => {
     return { ok: true };
   });
 
-  ipcMain.handle("e2e:getScanSummaries", async () => {
+  ipc.handle("e2e:getScanSummaries", async () => {
     if (process.env.NODE_ENV !== "test") {
       throw new Error("e2e scan summaries are only available in test mode");
     }
     return e2eScanSummaries;
   });
 
-  ipcMain.handle("e2e:seedData", async (_event, payload: E2ESeedPayload) => {
+  ipc.handle("e2e:seedData", async (_event, payload: E2ESeedPayload) => {
     if (process.env.NODE_ENV !== "test") {
       throw new Error("e2e seeding is only available in test mode");
     }
@@ -2857,7 +2859,7 @@ const registerIpc = () => {
     return { ok: true };
   });
 
-  ipcMain.handle(
+  ipc.handle(
     "app:logClientError",
     async (_event, params: { message: string; stack?: string }) => {
       appendLogEntry(getDataPaths, RENDERER_ERROR_LOG, [
@@ -2868,7 +2870,7 @@ const registerIpc = () => {
     },
   );
 
-  ipcMain.handle(
+  ipc.handle(
     "app:logPlaybackDiagnostic",
     async (
       _event,

@@ -77,6 +77,21 @@ export const shouldStartPlaylistFromClick = (
   return false;
 };
 
+export const resolveTandaPlaylistDestination = (
+  explicitTargetIndex: number | null,
+  items: unknown[],
+) => {
+  if (
+    explicitTargetIndex !== null &&
+    explicitTargetIndex >= 0 &&
+    explicitTargetIndex < items.length
+  ) {
+    return explicitTargetIndex;
+  }
+  const emptyIndex = items.findIndex((item) => item === null);
+  return emptyIndex >= 0 ? emptyIndex : items.length;
+};
+
 export const shouldPlayStandaloneTrackFromClick = (
   appMode: "prep" | "live" | "edit",
   isMainChannelActivelyPlaying: boolean,

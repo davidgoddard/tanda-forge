@@ -89,6 +89,11 @@ Create, refine, and reuse tandas without friction.
 * Build from tracks or existing tandas
 * Edit and rebalance in seconds
 * Keep musical consistency across your sets
+* Start with a dancer's request—or any track you want to rediscover—and use
+  **Complete Tanda** to surround it with cohesive suggestions
+* Keep the tracks you chose while cycling through different generated
+  combinations, making it quick to answer a request or explore overlooked
+  connections in your own collection
 
 ---
 

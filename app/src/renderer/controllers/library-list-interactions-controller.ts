@@ -1,3 +1,6 @@
+import type { RendererTrack, RightPanelTab, TandaDraft } from "../domain.js";
+import { toggleDetailMenu } from "../modules/row-menu.js";
+
 type TrackData = {
   filePath: string;
   trackId: string;
@@ -6,6 +9,9 @@ type TrackData = {
 
 type ClipboardMoveTarget = {
   id: string;
+  name: string;
+  trackIds: string[];
+  tandaIds: string[];
 };
 
 type LibraryListElements = {
@@ -18,16 +24,16 @@ type LibraryListElements = {
 export type LibraryListInteractionsControllerDeps = {
   elements: LibraryListElements;
   readers: {
-    getClipboardTandas: () => Array<{ id: string }>;
-    getClipboardTracks: () => Array<{ id: string }>;
+    getClipboardTandas: () => TandaDraft[];
+    getClipboardTracks: () => RendererTrack[];
     getActiveCollectionId: () => string | null;
     getAppMode: () => string;
     isHeadphoneAvailable: () => boolean;
     isTrackEditorOpen: () => boolean;
     getTrackDataFromRow: (row: HTMLElement) => TrackData | null;
-    getTrackById: (id: string) => any | null;
-    getTrackFromCache: (id: string) => any | null;
-    resolveTandaForSearch: (id: string) => any | null;
+    getTrackById: (id: string) => RendererTrack | null;
+    getTrackFromCache: (id: string) => RendererTrack | null;
+    resolveTandaForSearch: (id: string) => TandaDraft | null;
     getClipboardMoveTargets: (activeCollectionId: string | null) => ClipboardMoveTarget[];
   };
   actions: {
@@ -37,29 +43,29 @@ export type LibraryListInteractionsControllerDeps = {
     closeRowMenus: () => void;
     toggleRowMenu: (row: HTMLElement) => void;
     openTrackEditor: (trackId: string) => void;
-    runSearchForTrack: (track: any) => void;
-    runFindTandasForTrack: (track: any) => Promise<void>;
-    runSearchForTanda: (tanda: any) => void;
+    runSearchForTrack: (track: RendererTrack) => void;
+    runFindTandasForTrack: (track: RendererTrack) => Promise<void>;
+    runSearchForTanda: (tanda: TandaDraft) => void;
     playOnChannel: (
       channel: "main" | "headphone",
       filePath: string,
       trackId: string,
-      track: any,
+      track: RendererTrack,
       gainDb: number | null,
-    ) => Promise<any>;
-    previewSearchTrackOnHeadphones?: (track: any) => Promise<void>;
-    playTrackForMode: (track: any, data: TrackData) => Promise<any>;
+    ) => Promise<unknown>;
+    previewSearchTrackOnHeadphones?: (track: RendererTrack) => Promise<void>;
+    playTrackForMode: (track: RendererTrack, data: TrackData) => Promise<unknown>;
     updateHeadphoneButtonIndicators: () => void;
-    addTrackToClipboard: (track: any) => void;
+    addTrackToClipboard: (track: RendererTrack) => void;
     addTandaToClipboard: (tandaId: string) => void;
-    openTandaInDesigner: (tandaId: string, source: any | null, hostTab?: any) => void;
-    addTrackToActiveTanda: (track: any) => Promise<boolean>;
-    appendTrackToPlaylist: (track: any) => void;
-    addTandaToPlaylist: (tandaId: string, source: any | null) => void;
+    openTandaInDesigner: (tandaId: string, source: TandaDraft | null, hostTab?: RightPanelTab) => void;
+    addTrackToActiveTanda: (track: RendererTrack) => Promise<boolean>;
+    appendTrackToPlaylist: (track: RendererTrack) => void;
+    addTandaToPlaylist: (tandaId: string, source: TandaDraft | null) => void;
     moveTrackBetweenClipboardCollections: (trackId: string, targetId: string) => void;
     moveTandaBetweenClipboardCollections: (tandaId: string, targetId: string) => void;
-    openTrackMoveTargetMenu: (x: number, y: number, trackId: string, targets: any[]) => void;
-    openTandaMoveTargetMenu: (x: number, y: number, tandaId: string, targets: any[]) => void;
+    openTrackMoveTargetMenu: (x: number, y: number, trackId: string, targets: ClipboardMoveTarget[]) => void;
+    openTandaMoveTargetMenu: (x: number, y: number, tandaId: string, targets: ClipboardMoveTarget[]) => void;
     removeClipboardTrack: (trackId: string) => void;
     removeClipboardTanda: (tandaId: string) => void;
     activateClipboardTab: (tabId: "clip-tracks" | "clip-tandas") => void;
@@ -68,22 +74,6 @@ export type LibraryListInteractionsControllerDeps = {
     renderClipboard: () => void;
     setStatusNoTandaSelected: () => void;
   };
-};
-
-const toggleDetailMenu = (
-  target: HTMLElement,
-  closeDetailMenus: () => void,
-) => {
-  const detailLine = target.closest<HTMLElement>(".tanda-detail-line");
-  if (!detailLine) {
-    return;
-  }
-  if (detailLine.classList.contains("detail-menu-open")) {
-    detailLine.classList.remove("detail-menu-open");
-    return;
-  }
-  closeDetailMenus();
-  detailLine.classList.add("detail-menu-open");
 };
 
 export const createLibraryListInteractionsController = (

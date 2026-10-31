@@ -93,6 +93,14 @@ export const areArtistsGapSatisfied = <T>(params: {
   );
 };
 
+export const filterByArtistRepeatGap = <T>(params: {
+  items: T[];
+  repeatGapMs: number;
+  isGapSatisfied: (item: T) => boolean;
+}) => params.repeatGapMs > 0
+  ? params.items.filter(params.isGapSatisfied)
+  : params.items;
+
 export const collectEligibleArtistGroups = <T>(params: {
   items: T[];
   usedGroups: Set<string>;

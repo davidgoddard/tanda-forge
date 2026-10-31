@@ -50,6 +50,13 @@ describe("FFmpeg fetch script", () => {
     expect(releaseWorkflow).toContain("for attempt in 1 2 3; do");
     expect(releaseWorkflow).toContain("FFmpeg staging failed after 3 attempts.");
   });
+
+  it("pins and verifies the archived Windows package", () => {
+    expect(script).toContain('WINDOWS_FFMPEG_ARCHIVE="ffmpeg-${WINDOWS_FFMPEG_VERSION}-essentials_build.zip"');
+    expect(script).toContain('verify_sha256 "$TMP_DIR/ffmpeg-win.zip" "$WINDOWS_FFMPEG_SHA256"');
+    expect(script).toContain("https://www.gyan.dev/ffmpeg/builds/packages/${WINDOWS_FFMPEG_ARCHIVE}");
+    expect(script).not.toContain("ffmpeg-release-essentials.zip");
+  });
 });
 
 // Run the real shell script in an isolated project with a controlled downloader.
