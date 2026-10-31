@@ -195,6 +195,8 @@ import {
   areArtistsGapSatisfied,
   buildAdaptiveNumericDistribution,
   buildAdaptiveStyleNumericDistribution,
+  findTandaPurityIssues,
+  type TandaPurityIssue,
   collectEligibleArtistStyleGroups,
   isTandaArtistStyleAvailable,
   normalizeAvailabilityStyleGroup,
@@ -650,6 +652,8 @@ const playlistStatsCloseBtn =
   document.querySelector<HTMLButtonElement>("#playlist-stats-close");
 const playlistStatsOrchestraEl =
   document.querySelector<HTMLDivElement>("#playlist-stats-orchestra");
+const playlistStatsPurityEl =
+  document.querySelector<HTMLDivElement>("#playlist-stats-purity");
 const playlistStatsYearEl =
   document.querySelector<HTMLDivElement>("#playlist-stats-year");
 const playlistStatsTempoEl =
@@ -1210,6 +1214,7 @@ let activeRightTab: RightPanelTab = "playlist-tab";
 let activeSearchTab: SearchTab = "search-tracks";
 let playlistFilterText = "";
 let playlistFilterOrchestra: string | null = null;
+let playlistFilterTandaIds: Set<string> | null = null;
 let clipboardFilterText = "";
 let playlistFilterClearTimer: number | undefined;
 const PLAYLIST_FILTER_AUTO_CLEAR_MS = 30_000;
@@ -3451,8 +3456,29 @@ const handleTandaAction = async (event: Event) => {
         trackId ? trackCache.get(trackId) ?? null : null,
       ),
     );
-    const wasPlaylistVariant = tanda.origin === "playlist" && tanda.playlistUnsaved;
-    const savedId = wasPlaylistVariant ? tanda.masterTandaId ?? tanda.id : tanda.id;
+    const hostedPlaylistItem = playlistOpenTandaIndex !== null
+      ? playlistItems[playlistOpenTandaIndex]
+      : null;
+    const isHostedPlaylistDraft =
+      tandaEditorHostTab === "playlist-tab" &&
+      hostedPlaylistItem?.kind === "tanda" &&
+      hostedPlaylistItem.tandaId === tanda.id;
+    const wasPlaylistVariant =
+      tanda.playlistUnsaved === true &&
+      (tanda.origin === "playlist" || isHostedPlaylistDraft);
+    const existingId = wasPlaylistVariant ? tanda.masterTandaId ?? tanda.id : tanda.id;
+    const [persistedMaster] = await window.tanda.getTandasByIds([existingId]);
+    let savedId = existingId;
+    if (persistedMaster && !tandaContentsMatch(tanda, {
+      name: persistedMaster.name,
+      styles: persistedMaster.styles,
+      rating: persistedMaster.rating,
+      trackSlots: persistedMaster.track_slots,
+    })) {
+      const choice = await showTandaSaveChoiceModal();
+      if (!choice) return;
+      if (choice === "new") savedId = crypto.randomUUID();
+    }
     const saved = await window.tanda.saveTanda({
       id: savedId,
       name: tanda.name,
@@ -3470,6 +3496,15 @@ const handleTandaAction = async (event: Event) => {
           ? { ...item, tandaId: saved.id }
           : item,
       );
+      if (isHostedPlaylistDraft && playlistOpenTandaIndex !== null) {
+        const current = playlistItems[playlistOpenTandaIndex];
+        if (current?.kind === "tanda") {
+          playlistItems[playlistOpenTandaIndex] = {
+            ...current,
+            tandaId: saved.id,
+          };
+        }
+      }
       if (tanda.id !== saved.id) {
         tandaCache.delete(tanda.id);
       }
@@ -5178,6 +5213,51 @@ const showConfirmModal = async (
   });
 };
 
+type TandaSaveChoice = "new" | "replace" | null;
+
+const showTandaSaveChoiceModal = async (): Promise<TandaSaveChoice> => {
+  const overlay = document.createElement("div");
+  overlay.className = "confirm-modal";
+  const dialog = document.createElement("div");
+  dialog.className = "confirm-dialog";
+  const title = document.createElement("div");
+  title.className = "confirm-title";
+  title.textContent = t("tandaSaveChoiceTitle");
+  const message = document.createElement("div");
+  message.className = "confirm-message";
+  message.textContent = t("tandaSaveChoiceMessage");
+  const actions = document.createElement("div");
+  actions.className = "confirm-actions";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "confirm-cancel";
+  cancel.textContent = t("cancel");
+  const saveNew = document.createElement("button");
+  saveNew.type = "button";
+  saveNew.className = "tanda-save-new";
+  saveNew.textContent = t("tandaSaveAsNew");
+  const replace = document.createElement("button");
+  replace.type = "button";
+  replace.className = "confirm-ok tanda-save-replace";
+  replace.textContent = t("tandaReplaceExisting");
+  actions.append(cancel, saveNew, replace);
+  dialog.append(title, message, actions);
+  overlay.append(dialog);
+  document.body.appendChild(overlay);
+  return new Promise((resolve) => {
+    const close = (result: TandaSaveChoice) => {
+      overlay.remove();
+      resolve(result);
+    };
+    cancel.addEventListener("click", () => close(null));
+    saveNew.addEventListener("click", () => close("new"));
+    replace.addEventListener("click", () => close("replace"));
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) close(null);
+    });
+  });
+};
+
 type PlaylistTandaDeleteChoice = "remove" | "delete" | null;
 
 const showPlaylistTandaDeleteModal = async (
@@ -6228,6 +6308,12 @@ const renderPlaylistStats = () => {
   const yearStyleBuckets = new Map<number, Record<string, number>>();
   const tempoBuckets = new Map<number, number>();
   const tempoStyleBuckets = new Map<number, Record<string, number>>();
+  const purityTandaIds = new Map<TandaPurityIssue, Set<string>>([
+    ["mixedVocal", new Set()],
+    ["multipleArtists", new Set()],
+    ["multipleSingers", new Set()],
+    ["multipleStyles", new Set()],
+  ]);
   playlistItems.forEach((item) => {
     if (!item) {
       return;
@@ -6249,6 +6335,14 @@ const renderPlaylistStats = () => {
           })()
         : "";
     const tracks = resolvePlaylistTracks(item);
+    if (item.kind === "tanda") {
+      findTandaPurityIssues(tracks.map((track) => ({
+        artist: resolveCanonicalArtistName(track.artist_summary || track.artist || ""),
+        singer: track.singer,
+        instrumental: track.instrumental,
+        style: normalizeStyleName(track.genre ?? ""),
+      }))).forEach((issue) => purityTandaIds.get(issue)?.add(item.tandaId));
+    }
     tracks.forEach((track) => {
       const seconds = Math.max(1, Math.round(getEffectiveTrackDurationMs(track) / 1000));
       const orchestra =
@@ -6283,9 +6377,45 @@ const renderPlaylistStats = () => {
   const yearStyleRows = buildAdaptiveStyleNumericDistribution(yearStyleBuckets, 30, 30);
   const tempoRows = buildAdaptiveNumericDistribution(tempoBuckets, 30, 30);
   const tempoStyleRows = buildAdaptiveStyleNumericDistribution(tempoStyleBuckets, 30, 30);
+  if (playlistStatsPurityEl) {
+    playlistStatsPurityEl.replaceChildren();
+    const allIssueIds = new Set(
+      Array.from(purityTandaIds.values()).flatMap((ids) => Array.from(ids)),
+    );
+    const categories: Array<{ key: string; ids: Set<string> }> = [
+      { key: "playlistStatsPurityAny", ids: allIssueIds },
+      { key: "playlistStatsPurityMixedVocal", ids: purityTandaIds.get("mixedVocal")! },
+      { key: "playlistStatsPurityMultiArtist", ids: purityTandaIds.get("multipleArtists")! },
+      { key: "playlistStatsPurityMultiSinger", ids: purityTandaIds.get("multipleSingers")! },
+      { key: "playlistStatsPurityMultiStyle", ids: purityTandaIds.get("multipleStyles")! },
+    ];
+    categories.forEach(({ key, ids }) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "purity-chart-item";
+      button.disabled = ids.size === 0;
+      button.title = t("playlistStatsPurityFilterHint");
+      const count = document.createElement("strong");
+      count.textContent = ids.size.toString();
+      const label = document.createElement("span");
+      label.textContent = t(key);
+      button.append(count, label);
+      button.addEventListener("click", () => {
+        playlistFilterTandaIds = new Set(ids);
+        playlistFilterOrchestra = null;
+        setPlaylistFilterTextState(t(key));
+        if (playlistFilterInput) playlistFilterInput.value = t(key);
+        activateRightTab("playlist-tab");
+        renderPlaylist();
+        setPlaylistStatsModalVisible(false);
+      });
+      playlistStatsPurityEl.appendChild(button);
+    });
+  }
   renderOrchestraChart(playlistStatsOrchestraEl, orchestraRows, Number.POSITIVE_INFINITY, (orchestra) => {
     setPlaylistFilterTextState(orchestra);
     playlistFilterOrchestra = orchestra;
+    playlistFilterTandaIds = null;
     if (playlistFilterInput) {
       playlistFilterInput.value = orchestra;
     }
@@ -8119,6 +8249,7 @@ const clearPlaylistFilterTimer = () => {
 const clearPlaylistFilter = () => {
   clearPlaylistFilterTimer();
   playlistFilterOrchestra = null;
+  playlistFilterTandaIds = null;
   if (playlistFilterText && getPlaylistTargetIndex() !== null) {
     centerPlaylistTargetOnNextRender = true;
   }
@@ -8392,13 +8523,6 @@ const renderTandaRow = (
       : buildTandaSummaryText(tanda, nameOverride);
   }
   summary.title = summary.textContent ?? "";
-  if (tanda.legacySourcePath) {
-    const source = document.createElement("small");
-    source.className = "tanda-legacy-source";
-    source.textContent = tanda.legacySourcePath;
-    source.title = tanda.legacySourcePath;
-    summary.appendChild(source);
-  }
   const details = document.createElement("div");
   details.className = "tanda-details";
   buildTandaDetailLines(tanda).forEach((line) => {
@@ -9287,7 +9411,7 @@ const renderPlaylist = () => {
   const startTimes = getPlaylistStartTimes();
   const cortinaStartTimes = getCortinaStartTimes();
   const filterText = normalizeClipboardFilter(playlistFilterText);
-  const hasFilter = filterText.length > 0;
+  const hasFilter = filterText.length > 0 || playlistFilterTandaIds !== null;
   const hasDuplicateFocus = Boolean(playlistDuplicateFocusTrackIds?.size);
   const hasFilteredLayout = hasFilter || hasDuplicateFocus;
   const hideLeadingPlaceholder = !hasFilteredLayout && playlistItems[0] === null;
@@ -9314,6 +9438,8 @@ const renderPlaylist = () => {
           [...(similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))]
             .some((equivalent) => playlistDuplicateFocusTrackIds!.has(equivalent)));
         if (!matches) return;
+      } else if (playlistFilterTandaIds) {
+        if (item.kind !== "tanda" || !playlistFilterTandaIds.has(item.tandaId)) return;
       } else if (item.kind === "track") {
         if (
           !matchesPlaylistFilter({
@@ -17686,6 +17812,7 @@ const init = async () => {
     playlistFilterInput.addEventListener("input", () => {
       markUserInteraction();
       playlistFilterOrchestra = null;
+      playlistFilterTandaIds = null;
       setPlaylistFilterTextState(playlistFilterInput.value);
       schedulePlaylistFilterAutoClear();
       if (getPlaylistTargetIndex() !== null) {
@@ -17700,6 +17827,7 @@ const init = async () => {
     playlistFilterInput.addEventListener("search", () => {
       markUserInteraction();
       playlistFilterOrchestra = null;
+      playlistFilterTandaIds = null;
       setPlaylistFilterTextState(playlistFilterInput.value);
       if (!playlistFilterText) {
         clearPlaylistFilterTimer();

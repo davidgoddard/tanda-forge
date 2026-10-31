@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import {
   matchesPlaylistFilter,
   resetPlaylistLastTandaState,
@@ -6,6 +8,19 @@ import {
 } from "../app/src/renderer/modules/playlist-view";
 
 describe("playlist view helpers", () => {
+  it("does not render internal legacy source paths in tanda summaries", () => {
+    const renderer = fs.readFileSync(
+      path.join(process.cwd(), "app/src/renderer/renderer.ts"),
+      "utf8",
+    );
+    const styles = fs.readFileSync(
+      path.join(process.cwd(), "app/src/renderer/styles.css"),
+      "utf8",
+    );
+    expect(renderer).not.toContain('className = "tanda-legacy-source"');
+    expect(styles).not.toContain(".tanda-legacy-source");
+  });
+
   it("computes same-day playlist window", () => {
     const ms = resolvePlaylistWindowMs({
       startInput: "20:00",

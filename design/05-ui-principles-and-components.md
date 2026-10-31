@@ -350,6 +350,9 @@ Behavior:
 - UI-011.R16.a: If headphones are available, tanda track lines expose a headphone
   preview control consistent with track rows.
 - UI-011.R17: The tanda edit action (T) opens the tanda in the Tanda Designer for editing.
+- UI-011.R18: Tanda result summaries must not expose internal filesystem or
+  legacy-import source paths. Collapsed and expanded summary transitions must
+  preserve this rule consistently.
 - UI-011.R18: The expand/collapse action uses a distinct control (E) separate from editing.
 - UI-011.R19: In the playlist view, each tanda track line offers a send-to-clipboard
   action that clears the slot and places the track into the General collection.
@@ -610,7 +613,15 @@ Behavior:
 - UI-012.R20: Editing a tanda from the playlist uses copy-on-write playlist
   state. Done keeps the changed version in that playlist without changing its
   saved master. Save updates the originating master, or promotes a tanda that
-  was created only in the playlist into a new saved master.
+  was created only in the playlist into a new saved master. After Save, the
+  actively edited playlist slot must immediately reference and display that
+  saved master rather than retaining its previous local snapshot.
+- UI-012.R20.d: When Save is invoked for a tanda that already exists in the
+  database and whose meaningful contents have changed, the app must ask whether
+  to **Save as new**, **Replace existing**, or cancel. Save as new creates a new
+  database identity and, for a playlist-hosted edit, repoints that playlist slot
+  to the new tanda. New tandas and unchanged existing tandas save directly
+  without this choice.
 - UI-012.R20.a: An amber draft indicator identifies playlist tandas with local
   unsaved changes or no saved master. Its localized tooltip distinguishes those
   states, persists with the playlist across restart, and can appear alongside
@@ -633,6 +644,13 @@ Behavior:
   to review and optionally save it. The marker persists with the playlist,
   stacks without obscuring mismatch or unsaved indicators, and clears when the
   tanda is saved as a database master.
+- UI-012.R23: Playlist diversity identifies tandas that merit consistency
+  review because they mix instrumental and sung tracks, resolve to multiple
+  orchestras, name multiple singers on sung tracks, or span multiple top-level
+  dance styles (Tango, Milonga, or Waltz). It shows counts for each
+  independently overlapping category and their union. Selecting a non-empty
+  count closes the diversity view and filters the playlist to the exact affected
+  tandas; clearing or editing the playlist filter restores its normal text mode.
 
 ---
 
