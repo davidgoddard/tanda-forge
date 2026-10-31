@@ -51,6 +51,12 @@ describe("FFmpeg fetch script", () => {
     expect(releaseWorkflow).toContain("FFmpeg staging failed after 3 attempts.");
   });
 
+  it("uses supported native runners for both macOS architectures", () => {
+    expect(releaseWorkflow).toContain("- os: macos-15-intel\n            target: mac-x64");
+    expect(releaseWorkflow).toContain("- os: macos-15\n            target: mac-arm64");
+    expect(releaseWorkflow).not.toContain("- os: macos-14");
+  });
+
   it("pins and verifies the archived Windows package", () => {
     expect(script).toContain('WINDOWS_FFMPEG_ARCHIVE="ffmpeg-${WINDOWS_FFMPEG_VERSION}-essentials_build.zip"');
     expect(script).toContain('verify_sha256 "$TMP_DIR/ffmpeg-win.zip" "$WINDOWS_FFMPEG_SHA256"');

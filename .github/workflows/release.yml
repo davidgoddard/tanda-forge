@@ -41,7 +41,7 @@ jobs:
             arch: x64
             upload_glob: |
               dist/*-mac-x64.dmg
-          - os: macos-14
+          - os: macos-15
             target: mac-arm64
             arch: arm64
             upload_glob: |

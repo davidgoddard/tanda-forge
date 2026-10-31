@@ -8,7 +8,10 @@
 - Windows FFmpeg staging now uses Gyan's immutable archived 8.1.2 essentials
   package with its upstream SHA-256 digest instead of the moving unverified
   release URL. macOS, Windows, and Linux inputs are all versioned and verified.
-- Verification: `npm run preflight` passed (115 test files, 663 tests and the
+- Release CI uses GitHub's supported native macOS 15 runners for both
+  architectures: `macos-15-intel` for x64 and `macos-15` for ARM64. The retired
+  `macos-14` ARM64 label is covered by a workflow regression test.
+- Verification: `npm run preflight` passed (115 test files, 664 tests and the
   production build); focused Electron workflow 44 passed; `git diff --check`
   passed. All three pinned FFmpeg assets resolve, and the Windows archive passed
   its upstream SHA-256 check and contains x86-64 `ffmpeg.exe` and `ffprobe.exe`.

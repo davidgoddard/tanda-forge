@@ -7388,3 +7388,8 @@ live availability/digest/content checks for both pinned archives, and
     versions have not been released. It replaces the moving, unverified Windows
     FFmpeg download with Gyan's immutable archived 8.1.2 ZIP and published
     SHA-256 digest. The archive still supplies both required tools.
+- 2026-10-31 — macOS 14 release-runner retirement
+  - A scheduled GitHub Actions brownout cancelled the ARM64 release job because
+    `macos-14` retires on 2026-11-02. Release CI now uses the native ARM64
+    `macos-15` runner while retaining `macos-15-intel` for x64, with a regression
+    assertion preserving both architecture-specific labels.
