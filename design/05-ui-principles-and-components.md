@@ -527,8 +527,9 @@ Requirements:
   - UI-016.R11.d: Track count.
   - UI-016.R11.e: Rating (0–5 stars).
 - UI-016.R11.f: Name.
-- UI-016.R11.g: The tanda style list is the union of styles present in its tracks
-  (normalized against the system style list) and updates as tracks are added or removed.
+- UI-016.R11.g: Except for the manual-add override in `UI-016.R22`, the tanda
+  style list is the union of styles present in its tracks (normalized against
+  the system style list) and updates as tracks are added or removed.
 - UI-016.R12: A Done action replaces the active draft with a fresh empty tanda.
 - UI-016.R15: The Tanda Designer shows only in-progress draft tandas that contain tracks
   plus at most one empty template; the template is always listed first.
@@ -549,6 +550,53 @@ Requirements:
   still marked applies that slot's permitted styles as the generator/search
   context. Opening Designer through a `T` action instead defaults to the source
   tanda or track style. Explicit style clicks always override either default.
+- UI-016.R20: Generation in the Tanda Designer reflects the active draft state:
+  - UI-016.R20.a: Empty and wholly manual or wholly generated full tandas show
+    **Generate Tanda**. A user-started tanda containing manual tracks but fewer
+    than the preferred number shows **Complete Tanda**; other incomplete drafts
+    do not show either action.
+  - UI-016.R20.b: Completing preserves manual anchor tracks and fills only the
+    remaining preferred-size slots using the normal cohesion rules. Unlike
+    from-scratch generation, completion must not exclude the anchor orchestra
+    merely because that orchestra is already represented in the playlist.
+    Retained anchors are compacted before the draft is reduced to the preferred
+    size, so an anchor beyond that boundary is never truncated behind empty slots.
+  - UI-016.R20.c: Each offered generated-track combination is remembered as an
+    unordered set. Individual candidates may recur in new combinations, but an
+    already offered combination must not recur.
+  - UI-016.R20.d: Once completion makes the tanda full, the label remains
+    **Complete Tanda** because the tanda still contains manual anchors plus a
+    generated surround. Repeated completion preserves its manual anchors and
+    cycles that surround. Changing an anchor resets the history.
+  - UI-016.R20.e: If no untried valid completion exists, manual tracks remain
+    unchanged and a localized **No similar tracks found** alert is shown.
+  - UI-016.R20.f: Generate replaces an active unsaved, non-anchored draft. If
+    the active tanda is saved, it creates a separate draft without mutation.
+- UI-016.R21: The Designer footer uses the compact localized labels **Save**
+  and **Delete** for its save and delete actions.
+- UI-016.R22: Adding a track manually to a Designer tanda immediately sets the
+  whole tanda's style from that track, using the configured canonical spelling
+  when available. A later manual addition likewise applies that added track's
+  style rather than retaining or unioning an earlier manual style selection.
+- UI-016.R23: Clipboard tandas that have not been saved to the database show the
+  same pencil-style unsaved warning used for playlist-local tandas. Clipboard
+  collections continue to persist references only, not unsaved tanda snapshots.
+  Closing the app while a clipboard-only or Designer-only unsaved tanda exists
+  requires explicit confirmation identifying the volatile locations and count.
+  Playlist-local unsaved snapshots are excluded because playlist persistence
+  restores them on the next launch, and the dialog states that they are retained.
+- UI-016.R24: Every populated track row in the Tanda Designer and playlist-hosted
+  tanda editor shows the standard headphone-preview control whenever a secondary
+  audio output is available. It auditions that track through the configured
+  headphone channel without changing tanda selection or order.
+- UI-016.R25: **Add Tanda** reuses the existing empty Designer template instead
+  of creating a second empty tanda. Closing a standalone Designer draft clears
+  it and selects that single empty template without changing tabs; an unreferenced
+  unsaved draft is discarded, while clipboard/playlist references remain valid.
+- UI-016.R26: When a playlist tanda is both auto-generated and unsaved, only the
+  localized auto-generated badge is shown. Saving the tanda removes its
+  auto-generated/unsaved state together, so a simultaneous pencil adds no useful
+  information.
 
 Filtering:
 - UI-016.R13: When a tanda is selected, the clipboard (and search results, when enabled)

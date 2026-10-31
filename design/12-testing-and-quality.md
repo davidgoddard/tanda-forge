@@ -27,9 +27,16 @@
 ## Quality Gates
 
 - TQ-GATE-001: Tests must pass before release builds.
+- TQ-GATE-001.a: Pull requests and release-triggered packaging run
+  `npm ci` and `npm run preflight` in a required quality job. Packaging depends
+  on that job and does not run for pull-request events.
 - TQ-GATE-002: Linting and type-checking are required for CI (planned).
 - TQ-GATE-003: Regression-prone workflows (legacy import, scan, tanda timeline,
   cortina selection, trim/normalization readiness) must be covered by explicit
   automated checks or a documented smoke checklist run per change.
 - TQ-GATE-004: Diagnostics must expose missing prerequisite data (analysis, trims,
   loudness/gain, waveforms) so operators can detect incomplete states after import/scan.
+- TQ-GATE-005: Coverage includes extracted renderer controllers, view modules,
+  focused state stores, and main-process IPC-domain modules. Initial global
+  thresholds are 50% statements/functions/lines and 40% branches and may only
+  increase as extraction continues.

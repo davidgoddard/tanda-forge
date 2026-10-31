@@ -547,9 +547,40 @@ There are several ways a tanda can be created or filled:
   - from a **playlist tanda**, use the per-track send actions to move a track out to the clipboard or into another tanda slot.
 - **Auto-fill can create tandas automatically** when rebuilding a playlist and no saved tanda fits the required slot.
 - **Generate Tanda** in the Tanda Designer builds a fresh draft from tracks and
-  orchestras not already used in the playlist. Repeated clicks replace the
-  current draft. A marked playlist tanda slot supplies the required style and
-  size; otherwise the Search style selectors and default tanda size are used.
+  orchestras not already used in the playlist. A marked playlist tanda slot
+  supplies the required style and size; otherwise the Search style selectors
+  and default tanda size are used. On a saved tanda, Generate creates a separate
+  draft and does not update the saved tanda.
+- After you manually add one or more tracks to an incomplete tanda, the action
+  becomes **Complete Tanda**. It preserves your tracks and fills the remaining
+  preferred-size slots with cohesive candidates. Generate again on the completed
+  tanda to cycle its suggested surround: an offered combination is not repeated,
+  although one of its tracks may occur in a different combination. If none is
+  available, your tracks remain and the app reports **No similar tracks found**.
+  The action remains **Complete Tanda** after the slots are filled because the
+  draft still combines your manual anchors with generated suggestions.
+- This is useful when a dancer requests a particular song or orchestra and you
+  need a coherent tanda quickly: add the requested track first, check that its
+  style is selected, then choose **Complete Tanda**. The requested track remains
+  fixed while Tanda Forge looks first for compatible tracks from the same
+  orchestra and style, then applies the normal vocal character, singer, year,
+  and tempo cohesion rules. Playlist diversity exclusions do not remove the
+  requested orchestra from this completion search.
+- Completion is also a collection-exploration tool. Start with a recording you
+  have not programmed recently and cycle **Complete Tanda** to hear it in
+  different plausible contexts. Previously offered generated combinations are
+  remembered for the current draft: an individual track may return in a new
+  combination, but the same generated set is not offered twice.
+- Tracks added manually at any stage become anchors. Generated tracks remain
+  replaceable. If tracks are removed or an extended tanda is reduced to the
+  preferred size, manual anchors are compacted and retained before new tracks
+  fill every remaining slot. If no valid untried completion exists, the anchors
+  remain untouched and **No similar tracks found** is shown.
+- The completion history lasts only for the current draft. It resets when the
+  manual anchors change, the draft is cleared, or the tanda is saved. Saving
+  turns it into a normal database tanda; until then, clipboard-only drafts show
+  an unsaved pencil and will be lost on exit, while playlist-local snapshots are
+  retained with the playlist.
 - **Add to Playlist** is available on every designer tanda. It uses a marked
   playlist target first, then the first empty slot, then the playlist end, and
   warns before allowing a style or size conflict. The added playlist tanda is
@@ -560,9 +591,16 @@ There are several ways a tanda can be created or filled:
 
 Once a tanda is open in the **Tanda Designer** or the playlist-hosted tanda editor, it can be changed in several ways:
 
+Unsaved tandas sent to a clipboard collection display a pencil warning. The
+collection remembers its reference, but the unsaved tanda itself is not stored
+in the database and will be lost when the app closes. The app asks for
+confirmation before closing while any unsaved tanda remains.
+
 - click tracks to audition them in Preparation or Edit mode
 - use the per-track menu to remove a track from the tanda
 - use the track move buttons in the editor to re-order tracks inside the tanda
+- use the headphone button beside a populated track to audition it through the
+  configured secondary output without changing the tanda
 - send more tracks into the open tanda from Search or Clipboard
 - change the tanda name and other tanda-level details
 - click **Save** to keep the tanda

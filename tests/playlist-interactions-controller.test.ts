@@ -64,7 +64,7 @@ const createBaseDeps = () => {
       actions: {
         handleDropToPlaylist: () => {},
         createEmptyTanda: () => ({ id: "draft-1" }),
-        appendTandaDraft: () => {},
+        appendTandaDraft: (draft: any) => draft,
         generateDesignerTanda: async () => {},
         setActiveTanda: () => {},
         openCortinaModal: () => {},
@@ -123,7 +123,7 @@ const createBaseDeps = () => {
 
 describe("playlist interactions controller", () => {
   it("creates and activates a new tanda from the add button", async () => {
-    const appendTandaDraft = vi.fn();
+    const appendTandaDraft = vi.fn((draft) => draft);
     const setActiveTanda = vi.fn();
     const { addTandaBtn, deps } = createBaseDeps();
     deps.actions.appendTandaDraft = appendTandaDraft;

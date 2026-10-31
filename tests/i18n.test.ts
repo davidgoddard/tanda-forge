@@ -101,9 +101,12 @@ describe("renderer i18n", () => {
   it("translates designer tanda generation in every language", () => {
     const keys = [
       "generateTanda",
+      "completeTanda",
       "statusGenerateTandaChooseStyle",
       "statusGenerateTandaUnavailable",
       "statusGenerateTandaCreated",
+      "statusCompleteTandaCreated",
+      "statusCompleteTandaUnavailable",
       "tandaToPlaylist",
     ];
     for (const language of SUPPORTED_LANGUAGES) {

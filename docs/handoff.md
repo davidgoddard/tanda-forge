@@ -1,16 +1,80 @@
 ## Handoff
 
-### Version 0.4.11 — automatic playlist and tanda construction
-- Package and lockfile versions are `0.4.11`.
-- Release scope includes generate-only playlist construction, orchestra-balanced
+### Version 0.4.10 release preparation — tanda completion and architecture foundations
+- Package and lockfile versions remain `0.4.10`; later version numbers have not
+  yet been released. Release scope includes the anchor-aware completion workflow
+  and polish below, plus the renderer/IPC architecture foundations described in
+  this handoff.
+- Windows FFmpeg staging now uses Gyan's immutable archived 8.1.2 essentials
+  package with its upstream SHA-256 digest instead of the moving unverified
+  release URL. macOS, Windows, and Linux inputs are all versioned and verified.
+- Verification: `npm run preflight` passed (115 test files, 663 tests and the
+  production build); focused Electron workflow 44 passed; `git diff --check`
+  passed. All three pinned FFmpeg assets resolve, and the Windows archive passed
+  its upstream SHA-256 check and contains x86-64 `ffmpeg.exe` and `ffprobe.exe`.
+
+### Anchor-aware Designer completion
+- A manually started incomplete Designer tanda now shows **Complete Tanda** and
+  preserves its anchor tracks while normal cohesion rules fill the preferred
+  size (`UI-016.R20`). Offered generated combinations are remembered without
+  regard to order, allowing candidates to recur only in different combinations.
+- Once full, the button remains **Complete Tanda** while the draft still mixes
+  manual anchors with a generated surround. Exhaustion shows **No similar tracks found** without
+  changing the manual tracks. Generate from a saved tanda creates a new draft.
+- Designer footer labels are now the compact localized **Save** and **Delete**
+  (`UI-016.R21`).
+- Completion is permitted when the active style is **Any**; only from-scratch
+  generation still requires a selected style. The focused Playwright scenario
+  explicitly clears the seeded track's style before clicking Complete, covering
+  the previously missed real-library state.
+- A manually added track now immediately sets the whole Designer tanda's style
+  (`UI-016.R22`); the Playwright scenario asserts this before exercising the
+  explicit **Any** completion fallback.
+- Anchor completion no longer applies the from-scratch playlist-orchestra
+  exclusion. This prevents a represented anchor orchestra (for example,
+  D'Arienzo) being discarded before same-orchestra cohesion is attempted.
+- Completion now compacts retained anchors before reducing an extended draft to
+  its preferred size, preventing a later-slot manual track being truncated and
+  leaving an empty slot after generated tracks are inserted.
+- Unsaved clipboard tandas now carry the same pencil warning as playlist-local
+  tandas. Clipboard storage remains reference-only; app close (button or native
+  window close) now counts only volatile clipboard/Designer tandas and explicitly
+  says unsaved playlist snapshots will be retained (`UI-016.R23`).
+- Populated Designer and playlist-hosted editor rows now expose the standard
+  headphone audition control when a secondary output is available (`UI-016.R24`).
+- Adding a tanda now reuses an existing empty Designer template. Closing a
+  standalone draft stays in Designer, discards an unreferenced unsaved draft,
+  and leaves exactly one selected empty template (`UI-016.R25`).
+- Auto-generated playlist tandas now show only their localized generated badge,
+  suppressing the redundant unsaved pencil until Save clears both states
+  (`UI-016.R26`).
+
+### Architecture refactoring baseline
+- PR and release CI now run `npm run preflight` before packaging; PRs run only
+  the quality job, while release packaging depends on it.
+- Renderer controllers share concrete domain contracts and a tested row-menu
+  helper. Focused DOM-independent stores now define playlist, playback,
+  tanda-editor, and clipboard state boundaries for continued slice migration.
+- Locale maps are split into one file per language; Icelandic no longer spreads
+  English at source, and completeness remains enforced by tests.
+- Main IPC registration is guarded and inventoried by domain, rejecting
+  duplicate channels. Extracted renderer and IPC modules are now included in
+  coverage with modest enforced thresholds.
+- Source-text assertions for generated-playlist badge wiring were replaced by
+  DOM behavior coverage. Full renderer playback extraction remains deliberately
+  incremental because live-playback behavior must not be mechanically moved.
+
+
+### Unreleased automatic playlist and tanda construction
+- This work remains part of the pending 0.4.10 release; the earlier 0.4.11
+  version preparation was not published and has been superseded.
+- Scope includes generate-only playlist construction, orchestra-balanced
   diversity and repeat intervals, recognition of exact saved tandas, Designer
   generation and direct playlist placement, playlist review statistics, and the
   cortina-picker headphone repair described below.
-- Verification: `npm run preflight` passed (111 test files, 648 tests, production
-  build), including the fetch-script tests; all three configured FFmpeg URLs
-  currently resolve. Release publication still requires resolving the existing
-  integrity gap in `scripts/fetch-ffmpeg.sh`: Windows uses a moving generic URL
-  and does not verify an upstream SHA-256 digest. This PR does not change FFmpeg.
+- Earlier verification was `npm run preflight` (111 test files, 648 tests and
+  production build). The Windows integrity gap recorded at that checkpoint is
+  resolved by the current 0.4.10 preparation above.
 
 ### Designer tanda generation and cortina audition
 - Cortina-picker headphone buttons now invoke the configured headphone channel

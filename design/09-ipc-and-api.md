@@ -9,6 +9,10 @@ identified as `IPC-<section>.R<n>` in order under each section. Sub-bullets use
 - IPC-001.R1: Renderer has no direct filesystem access.
 - IPC-001.R2: All data access and device IO runs in the main process.
 - IPC-001.R3: IPC is typed and versioned.
+- IPC-001.R4: Main-process request handlers are registered through the guarded
+  domain registrar. Channels are inventoried under application, library,
+  tracks, tandas, diagnostics, audio similarity, display, or transfer, and a
+  duplicate channel registration fails immediately.
 
 ## IPC-002 — IPC Shape
 

@@ -7342,3 +7342,49 @@ live availability/digest/content checks for both pinned archives, and
   - The user requested a version bump and pull request for the completed
     automatic playlist/tanda generation and related workflow fixes.
   - Package and lockfile versions advance from 0.4.10 to 0.4.11.
+- 2026-10-30 — Architecture review refactoring
+  - The user requested execution of the review's modularity, type-safety, CI,
+    coverage, behavioral-test, and localization recommendations.
+  - `ARCH-004`, `IPC-001.R4`, and `TQ-GATE-001.a`/`TQ-GATE-005` establish
+    focused renderer state boundaries, concrete controller contracts, guarded
+    IPC domain registration, explicit per-locale maps, preflight CI, and initial
+    coverage thresholds. Live playback remains behaviorally unchanged and is
+    to migrate through tested feature slices rather than a wholesale move.
+- 2026-10-31 — Anchor-aware Tanda Designer completion
+  - The user required incomplete, manually started tandas to preserve their
+    chosen tracks while cohesive generated tracks fill the preferred size.
+  - `UI-016.R20` remembers generated combinations as unordered sets so cycling
+    may reuse individual tracks but never repeats the same surround. Empty and
+    full tandas say Generate; only incomplete manual drafts say Complete.
+  - Generate from a saved tanda creates a new draft without mutating the saved
+    tanda. `UI-016.R21` shortens the footer actions to Save and Delete.
+  - Follow-up: `UI-016.R22` makes each manually added track set the style for
+    the whole tanda immediately; the most recently added manual track wins.
+  - Follow-up: completion must retain the anchor orchestra as a candidate even
+    when that orchestra already appears in the playlist; orchestra exclusion is
+    restricted to from-scratch generation.
+  - Follow-up: completion compacts retained anchors before shrinking extended
+    slot arrays, fixing the four-track/remove-three workflow that previously
+    dropped the last manual track and left one preferred slot empty.
+  - Follow-up: a full draft that mixes manual anchors and generated tracks stays
+    labelled **Complete Tanda** so repeated clicks clearly cycle only the
+    generated surround.
+  - Follow-up: clipboard references do not persist unsaved tanda snapshots.
+    `UI-016.R23` instead marks unsaved clipboard tandas and warns on app close
+    when volatile unsaved tandas will be lost.
+  - Correction: playlist-local unsaved tandas are persisted snapshots and must
+    not be counted as lost. The close warning now reports only volatile
+    clipboard/Designer tandas and explicitly says playlist tandas are retained.
+  - Follow-up: `UI-016.R24` adds the standard headphone audition control to
+    populated tracks in both Designer and playlist-hosted tanda editors.
+  - Follow-up: `UI-016.R25` prevents duplicate empty Designer templates and
+    prevents stale return-tab state from sending a newly added draft back to
+    Playlist when it is closed.
+- 2026-10-31 — Completion release polish
+  - Auto-generated playlist tandas now suppress the simultaneous unsaved pencil;
+    the generated badge communicates the actionable state until Save clears both
+    (`UI-016.R26`).
+  - Release preparation keeps the package at 0.4.10 because the intervening
+    versions have not been released. It replaces the moving, unverified Windows
+    FFmpeg download with Gyan's immutable archived 8.1.2 ZIP and published
+    SHA-256 digest. The archive still supplies both required tools.

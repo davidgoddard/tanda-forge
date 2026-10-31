@@ -52,6 +52,7 @@ app/
   src/
     main/
       main.ts               # Electron main entry
+      ipc/                  # Domain classification and guarded registration
       library/
         scan.ts             # Library discovery
         analysis.ts         # FFmpeg/ffprobe integration
@@ -63,6 +64,19 @@ app/
       styles.css
       controllers/          # Localized orchestration
       modules/              # Localized view/helper logic
+      state/                # Focused, DOM-independent feature stores
+      locales/              # One explicit translation map per locale
+      domain.ts             # Shared renderer-domain contracts
     shared/
       types.ts              # Shared types and IPC contracts
 ```
+
+- ARCH-004.R1: Renderer feature boundaries use the concrete contracts in
+  `renderer/domain.ts`; controller dependency APIs must not erase tracks,
+  tandas, playlist items, validation results, or playback results to `any`.
+- ARCH-004.R2: New stateful renderer slices use focused playlist, playback,
+  tanda-editor, or clipboard stores whose transitions can be tested without a
+  mounted DOM. A single catch-all renderer store is not introduced.
+- ARCH-004.R3: Locale source maps remain separate and explicit. Runtime English
+  fallback is permitted, but source-map inheritance must not conceal missing
+  locale keys from completeness tests.

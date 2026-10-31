@@ -1683,6 +1683,14 @@ body.theme-dark-classic .collection-tabs button.active {
   z-index: 3;
 }
 
+.list-row.tanda-row.clipboard-unsaved .playlist-unsaved-indicator {
+  left: 6px;
+}
+
+.list-row.tanda-row.clipboard-unsaved .tanda-style-badge {
+  transform: translateX(8px);
+}
+
 .playlist-auto-generated-indicator {
   position: absolute;
   top: 6px;
@@ -1908,6 +1916,7 @@ body.theme-dark-green .list-row.playing {
 .tanda-toolbar {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .tanda-list {
