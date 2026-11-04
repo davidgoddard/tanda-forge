@@ -1920,21 +1920,41 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
-  test("12 - search-track menu action adds track to playlist", async () => {
+  test("12 - consecutive search P actions open and fill the playlist editing tanda", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
-      await runSearch(page, "Tempo 72 Test");
-      const row = searchTrackRow(page, "Tempo 72 Test");
-      await clickRowAction(row, "add-playlist-track");
+      await clearPlaylistViaUi(page);
+      await runSearch(page, "Alberto Gomez Tango");
+      await clickRowAction(
+        searchTrackRow(page, "Alberto Gomez Tango Uno"),
+        "add-playlist-track",
+      );
       await confirmIfPrompted(page);
       await ensurePlaylistTab(page);
+      let editor = await waitForPlaylistEditorRows(page, 1);
+      await expect(editor).toContainText("Alberto Gomez Tango Uno");
+
+      await clickRowAction(
+        searchTrackRow(page, "Alberto Gomez Tango Dos"),
+        "add-playlist-track",
+      );
+      editor = await waitForPlaylistEditorRows(page, 2);
+      await expect(editor).toContainText("Alberto Gomez Tango Uno");
+      await expect(editor).toContainText("Alberto Gomez Tango Dos");
+      await expect(page.locator("#playlist-list .tanda-row")).toHaveCount(1);
+
+      await editor.locator('button[data-action="tanda-done"]').click();
       const playlistRow = page.locator("#playlist-list .tanda-row").first();
-      await expect(playlistRow).toBeVisible();
-      await playlistRow.locator(".tanda-summary").first().click();
-      await expect(
-        playlistRow.locator(".tanda-detail-line", { hasText: "Tempo 72 Test" }).first(),
-      ).toBeVisible();
+      await clickRowAction(playlistRow, "tanda-edit");
+      editor = await waitForPlaylistEditorRows(page, 2);
+      await editor.locator('button[data-action="tanda-delete"]').click();
+      const deleteDialog = page.locator(".playlist-tanda-delete-dialog");
+      await expect(deleteDialog).toBeVisible();
+      await expect(deleteDialog.getByRole("button", { name: "Delete from database" }))
+        .toHaveCount(0);
+      await deleteDialog.getByRole("button", { name: "Remove from playlist" }).click();
+      await expect(page.locator("#playlist-list .tanda-row")).toHaveCount(0);
     } finally {
       await launched.close();
     }
@@ -2778,6 +2798,13 @@ test.describe("Electron app end-to-end workflows", () => {
       const traditionalPill = page.locator("#style-options button", { hasText: "T - Traditional" }).first();
       await expect(traditionalPill).toBeVisible();
       await expect(traditionalPill).toHaveClass(/active/);
+      await expect.poll(async () => await searchTrackRow(page, "Tempo 72 Test").count()).toBeGreaterThan(0);
+      await expect.poll(async () => await searchTrackRow(page, "Alberto Gomez Tango Uno").count()).toBe(0);
+
+      await closeTrackEditorIfOpen(page);
+      await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "search-track");
+      await expect(traditionalPill).toHaveClass(/active/);
+      await expect(page.locator("#search-input")).not.toHaveValue(/Tango - Traditional/i);
       await expect.poll(async () => await searchTrackRow(page, "Tempo 72 Test").count()).toBeGreaterThan(0);
       await expect.poll(async () => await searchTrackRow(page, "Alberto Gomez Tango Uno").count()).toBe(0);
     } finally {

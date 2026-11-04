@@ -1,10 +1,49 @@
 ## Handoff
 
-### Version 0.4.10 release preparation — tanda completion and architecture foundations
-- Package and lockfile versions remain `0.4.10`; later version numbers have not
-  yet been released. Release scope includes the anchor-aware completion workflow
+### Playlist-only tanda deletion
+- The playlist-hosted delete dialog now shows **Delete from database** only when
+  the tanda resolves to an ID confirmed in the persisted database set
+  (`UI-012.R20.c`). Playlist-only tandas do not need saving and offer only
+  **Remove from playlist**; stale or missing master IDs cannot enable database
+  deletion.
+- `npm run preflight` passed (115 test files, 666 tests, production build).
+  Electron workflow 12 could not launch in this shell (`Process failed to
+  launch!`) before reaching application behavior.
+
+### Explicit T and P track destinations
+- Search and Clipboard `T` always target the open Tanda Designer draft, creating
+  one there when needed. `P` always targets the tanda open in Playlist, creating
+  the next tanda in the trailing playlist slot when needed and opening its
+  hosted editor (`UI-016.R6.a-c`, `UI-016.R27`). Destination no longer depends
+  on the currently visible right-hand view or a marked playlist target.
+- `npm run preflight` passed (115 test files, 666 tests, production build).
+  Focused Electron workflows 12 and 13 could not launch in this shell (`Process
+  failed to launch!`) before reaching application behavior.
+
+### Exact style variants in Search similar
+- Track **Search similar** now retains a fine-grained style such as
+  `Tango - Contemporary` as an exact style-pill filter instead of collapsing it
+  to the `Tango` family and admitting Traditional/Alternative results
+  (`FR-090.2.R11`). Track-editor genre search and all track Search-similar entry
+  points now agree on exact-variant behavior.
+- `npm run preflight` passed (115 test files, 667 tests, production build).
+  Focused Electron workflow 29 could not launch in this shell (`Process failed
+  to launch!`) before reaching application behavior.
+
+### Version 0.4.11 bug-fix release preparation
+- Package and lockfile versions are `0.4.11`. Release scope includes the
+  anchor-aware completion workflow
   and polish below, plus the renderer/IPC architecture foundations described in
   this handoff.
+- `npm run preflight` passed at the release version (115 test files, 666 tests,
+  production build); `git diff --check` passed.
+- Release-integrity recheck on 2026-11-04 confirmed the retained BtbN month-end
+  Linux asset still resolves with the pinned size/digest and remains covered by
+  its two-year retention policy. The official FFmpeg 9.0.2 source and Gyan 8.1.2
+  package/checksum remain published, with the pinned digests unchanged. Direct
+  FFmpeg/Gyan requests from this shell intermittently timed out/returned 503;
+  the repository's prior same-pin archive/executable verification remains the
+  current content check, and fetch-script tests pass.
 - Windows FFmpeg staging now uses Gyan's immutable archived 8.1.2 essentials
   package with its upstream SHA-256 digest instead of the moving unverified
   release URL. macOS, Windows, and Linux inputs are all versioned and verified.
@@ -17,6 +56,10 @@
   its upstream SHA-256 check and contains x86-64 `ffmpeg.exe` and `ffprobe.exe`.
 
 ### Anchor-aware Designer completion
+- Search and Clipboard `T` actions reveal the Designer destination; `P` reveals
+  the Playlist-hosted destination (`UI-016.R27`). Automatic tanda construction
+  uses an exact fine-grained style whenever it can fill the tanda, and falls
+  back to the broad family only when necessary (`UI-016.R28`).
 - A manually started incomplete Designer tanda now shows **Complete Tanda** and
   preserves its anchor tracks while normal cohesion rules fill the preferred
   size (`UI-016.R20`). Offered generated combinations are remembered without
@@ -291,8 +334,8 @@
   playlist** and **Delete from database** choices (`FR-011.R10`,
   `UI-012.R20.c`). Removal affects only the open slot; database deletion targets
   the saved master even when the open entry is a playlist-local variant.
-- Playlist-only tandas expose removal but disable database deletion because no
-  saved record exists. The normal Tanda Designer retains its direct confirmed
+- Playlist-only tandas expose removal but do not show database deletion because
+  no saved record exists. The normal Tanda Designer retains its direct confirmed
   database-delete workflow.
 - Verification passed: `npm run preflight` (108 test files / 613 tests plus the
   production build) and `git diff --check`.

@@ -76,8 +76,9 @@ Numeric fields (e.g. BPM, year) may be searchable both:
 - FR-090.2.R9: As text (simple).
 - FR-090.2.R10: As ranges (advanced feature; define later).
 - FR-090.2.R11: Invoking "Search similar" from a track should set style via the
-  style-pill filter (not as query text) and include artist/summary, singer, year,
-  BPM, and notes in the query text (excluding title and album).
+  style-pill filter (not as query text), preserving the track's exact style
+  variant when one is assigned, and include artist/summary, singer, year, BPM,
+  and notes in the query text (excluding title and album).
 - FR-090.2.R12: Machine-generated Search Similar metadata must use explicit
   field intent for singer and non-free-text values: `singer:"<name>"`,
   `instrumental:true`, `bpm:<value>` and `year:<value>`. These terms score only

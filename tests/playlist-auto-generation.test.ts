@@ -4,9 +4,39 @@ import {
   filterForArtistDiversity,
   getTandaGenerationPhaseRules,
   groupGenerationSeedsByArtist,
+  hasFineGrainedStyleCapacity,
   scoreTandaTrackCohesion,
   TANDA_GENERATION_PHASES,
 } from "../app/src/shared/playlist-auto-generation";
+
+describe("fine-grained generation style capacity", () => {
+  const tracks = [
+    { title: "One", style: "Tango - Traditional" },
+    { title: "Two", style: "Tango - Traditional" },
+    { title: "Three", style: "Tango - Traditional" },
+    { title: "Other", style: "Tango - Alternative" },
+  ];
+
+  it("uses an exact style when it can fill the tanda", () => {
+    expect(hasFineGrainedStyleCapacity({
+      items: tracks,
+      targetStyle: "tango - traditional",
+      targetCount: 3,
+      getStyle: (track) => track.style,
+      getTitleKey: (track) => track.title,
+    })).toBe(true);
+  });
+
+  it("permits broad-family fallback only when exact style is insufficient", () => {
+    expect(hasFineGrainedStyleCapacity({
+      items: tracks,
+      targetStyle: "Tango - Alternative",
+      targetCount: 3,
+      getStyle: (track) => track.style,
+      getTitleKey: (track) => track.title,
+    })).toBe(false);
+  });
+});
 
 const seed = {
   artist: "Carlos Di Sarli",
