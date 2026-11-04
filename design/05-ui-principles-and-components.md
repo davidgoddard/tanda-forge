@@ -509,12 +509,16 @@ Requirements:
 - UI-016.R4: Each tanda has Save and Delete actions.
 - UI-016.R5: Tandas are selectable; the selected tanda is the target for incoming tracks.
 - UI-016.R6: Tracks can be added from search/clipboard via the add action or drag/drop.
-- UI-016.R6.a: Adding a track to the active tanda brings the Tanda Designer tab into focus.
+- UI-016.R6.a: Adding a track with `T` targets the open Tanda Designer draft and
+  brings the Tanda Designer into focus.
 - UI-016.R6.b: Sending a Search or Clipboard track with `T` appends it to the
-  currently open tanda in order. If no active tanda draft can be resolved, the
-  first `T` action creates and opens an empty default-sized designer draft
-  before inserting the track; subsequent `T` actions continue filling that
-  same draft. This does not change the separate `P` playlist behavior.
+  currently open Designer tanda in order. If no Designer draft can be resolved,
+  the first `T` action creates and opens an empty default-sized draft; subsequent
+  `T` actions continue filling it.
+- UI-016.R6.c: Sending a Search or Clipboard track with `P` appends it to the
+  tanda open in the playlist-hosted editor. If none is open, it creates the next
+  tanda in the trailing playlist slot and opens that editor; subsequent `P`
+  actions continue filling it.
 - UI-016.R7: Tracks can be reordered via drag/drop and up/down controls.
 - UI-016.R8: Tracks can be sent back to the clipboard, leaving a placeholder.
 - UI-016.R9: A "+" control adds another placeholder to extend tanda length.
@@ -597,6 +601,14 @@ Requirements:
   localized auto-generated badge is shown. Saving the tanda removes its
   auto-generated/unsaved state together, so a simultaneous pencil adds no useful
   information.
+- UI-016.R27: Sending a track with `T` from Search or Clipboard reveals the
+  destination tanda in Designer. Sending it with `P` reveals the destination in
+  the playlist-hosted editor. The two actions never redirect based on whichever
+  right-hand view happens to be active.
+- UI-016.R28: Automatic tanda construction exhausts a seed or anchor's exact,
+  fine-grained style (for example Traditional or Alternative) whenever enough
+  distinct tracks can fill the tanda. It may mix styles from the permitted broad
+  family (for example Tango) only when the exact style cannot fill it.
 
 Filtering:
 - UI-016.R13: When a tanda is selected, the clipboard (and search results, when enabled)
@@ -724,8 +736,9 @@ Behavior:
 - UI-012.R20.c: Delete in the playlist-hosted tanda editor presents explicit
   **Remove from playlist** and **Delete from database** choices. The first
   clears only the open playlist slot. The second deletes the saved master and
-  removes its current-playlist occurrences; it is unavailable for a tanda that
-  exists only in the playlist.
+  removes its current-playlist occurrences; it is shown only when that master
+  is confirmed to exist in the database. A tanda that exists only in the
+  playlist offers removal only and does not need to be saved.
 - UI-012.R21: Playlist track titles and rows must not display a moving playback
   position marker. The established active/playing highlight continues to identify
   the playing track without drawing over its text.

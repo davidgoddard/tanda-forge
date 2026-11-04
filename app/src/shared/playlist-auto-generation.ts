@@ -27,6 +27,23 @@ export const getTandaGenerationPhaseRules = (phase: TandaGenerationPhase) => ({
 
 const normalized = (value: string) => value.trim().toLocaleLowerCase();
 
+export const hasFineGrainedStyleCapacity = <T>(params: {
+  items: T[];
+  targetStyle: string;
+  targetCount: number;
+  getStyle: (item: T) => string;
+  getTitleKey: (item: T) => string;
+}) => {
+  const targetStyle = normalized(params.targetStyle);
+  if (!targetStyle) return false;
+  return new Set(
+    params.items
+      .filter((item) => normalized(params.getStyle(item)) === targetStyle)
+      .map(params.getTitleKey)
+      .filter(Boolean),
+  ).size >= params.targetCount;
+};
+
 export const scoreTandaTrackCohesion = (
   seed: TandaGenerationTrackTraits,
   candidate: TandaGenerationTrackTraits,

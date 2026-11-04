@@ -12,6 +12,7 @@ import {
 import { applySearchSortDefaults } from "../shared/search-sort.js";
 import {
   belongsToSavedTanda,
+  getPlaylistTandaDeleteActions,
   getSavedTandaId,
 } from "./tanda-deletion.js";
 import {
@@ -199,6 +200,7 @@ import {
   filterForArtistDiversity,
   getTandaGenerationPhaseRules,
   groupGenerationSeedsByArtist,
+  hasFineGrainedStyleCapacity,
   scoreTandaTrackCohesion,
   TANDA_GENERATION_PHASES,
 } from "../shared/playlist-auto-generation.js";
@@ -3510,7 +3512,7 @@ const handleTandaAction = async (event: Event) => {
   }
   if (action === "tanda-delete") {
     const wasPlaylistHosted = tandaEditorHostTab === "playlist-tab";
-    const savedTandaId = getSavedTandaId(tanda);
+    const savedTandaId = getSavedTandaId(tanda, persistedTandaIds);
     if (wasPlaylistHosted) {
       const choice = await showPlaylistTandaDeleteModal(savedTandaId !== null);
       if (!choice) return;
@@ -5283,8 +5285,12 @@ const showPlaylistTandaDeleteModal = async (
   deleteSaved.type = "button";
   deleteSaved.className = "danger";
   deleteSaved.textContent = t("playlistTandaDeleteSaved");
-  deleteSaved.disabled = !canDeleteSavedTanda;
-  actions.append(cancel, remove, deleteSaved);
+  const availableActions = getPlaylistTandaDeleteActions(canDeleteSavedTanda);
+  const showDeleteSaved = availableActions.length > 1;
+  actions.append(cancel, remove);
+  if (showDeleteSaved) {
+    actions.append(deleteSaved);
+  }
   dialog.append(title, message, actions);
   overlay.append(dialog);
   document.body.appendChild(overlay);
@@ -5295,7 +5301,9 @@ const showPlaylistTandaDeleteModal = async (
     };
     cancel.addEventListener("click", () => close(null));
     remove.addEventListener("click", () => close("remove"));
-    deleteSaved.addEventListener("click", () => close("delete"));
+    if (showDeleteSaved) {
+      deleteSaved.addEventListener("click", () => close("delete"));
+    }
     overlay.addEventListener("click", (event) => {
       if (event.target === overlay) close(null);
     });
@@ -8149,7 +8157,10 @@ const resolveSearchStylesForTrack = (track: TrackRow) => {
 const runSearchForTrack = (track: TrackRow, preferredStyles?: string[]) => {
   const styles = preferredStyles ?? resolveSearchStylesForTrack(track);
   if (styles.length > 0 || selectedStyles.length > 0) {
-    selectedStyles = toBaseStyleFilters(styles);
+    // Track similarity is an exact-style operation. Base styles still expand
+    // through getExpandedStyleFilter(), but an explicit variant must remain
+    // exact instead of admitting every variant in its family.
+    selectedStyles = [...styles];
     loadStyles();
   }
   runSearchQuery(buildSearchQueryForTrack(track), true, "search-tracks");
@@ -10989,7 +11000,22 @@ const pickGeneratedTandaForSlot = (
     for (const seedGroup of seedGroups) {
       for (const seed of seedGroup) {
         const seedArtist = artistKey(seed);
-      const seedYear = yearValue(seed);
+        const anchorStyles = Array.from(new Set(
+          anchorTracks
+            .map((track) => canonicalizeStyleForMatching(track.genre ?? ""))
+            .filter(Boolean),
+        ));
+        const fineStyle = anchorStyles.length === 1
+          ? anchorStyles[0] ?? ""
+          : canonicalizeStyleForMatching(seed.genre ?? "");
+        const requireFineStyle = hasFineGrainedStyleCapacity({
+          items: pool,
+          targetStyle: fineStyle,
+          targetCount,
+          getStyle: (track) => canonicalizeStyleForMatching(track.genre ?? ""),
+          getTitleKey: normalizeTrackTitleForAutofill,
+        });
+        const seedYear = yearValue(seed);
       const seedBpm = seed.bpm ?? null;
       const seedSinger = singerKey(seed);
       const seedInstrumental = seed.instrumental;
@@ -10999,6 +11025,8 @@ const pickGeneratedTandaForSlot = (
       const candidates = pool
         .filter((track) => !anchorIds.has(track.id) && track.id !== seed.id)
         .filter((track) => normalizeTrackTitleForAutofill(track) !== normalizeTrackTitleForAutofill(seed))
+        .filter((track) => !requireFineStyle
+          || canonicalizeStyleForMatching(track.genre ?? "") === fineStyle)
         .filter((track) => {
           if (sameArtistPreferred && seedArtist && artistKey(track) !== seedArtist) {
             return false;
@@ -12582,6 +12610,14 @@ const appendTrackToPlaylist = (
   requestAnimationFrame(() => scrollPlaylistToIndex(insertIndex));
 };
 
+const sendTrackToPlaylistTanda = (track: TrackRow) => {
+  normalizePlaylist();
+  const openIndex = getOpenPlaylistTandaIndex();
+  const insertIndex = openIndex ?? Math.max(0, playlistItems.length - 1);
+  appendTrackToPlaylist(track, { forcedIndex: insertIndex });
+  activateRightTab("playlist-tab");
+};
+
 const getDefaultTandaSize = () => {
   const raw = localStorage.getItem("tanda-default-size");
   const value = raw ? Number.parseInt(raw, 10) : 3;
@@ -13467,6 +13503,11 @@ const addTrackToActiveTanda = async (requestedTrack: TrackRow) => {
   }
   if (!track) return true;
   let activeTanda = getActiveTanda();
+  if (activeTanda?.origin === "playlist") {
+    activeTanda = tandaDrafts.find(
+      (draft) => draft.origin !== "playlist" && !isTandaEmpty(draft),
+    ) ?? tandaDrafts.find((draft) => draft.origin !== "playlist") ?? null;
+  }
   if (!activeTanda) {
     activeTanda = createEmptyTanda();
     ensureTandaDraft(activeTanda, "designer");
@@ -13477,9 +13518,7 @@ const addTrackToActiveTanda = async (requestedTrack: TrackRow) => {
   const added = addTrackToTanda(activeTanda.id, track);
   if (added) {
     preserveDesignerSourceStylesOnNextTabActivation = true;
-    activateRightTab(
-      tandaEditorHostTab === "playlist-tab" ? "playlist-tab" : "tanda-designer-tab",
-    );
+    activateRightTab("tanda-designer-tab");
   }
   return added;
 };
@@ -17712,7 +17751,7 @@ const init = async () => {
       addTandaToClipboard,
       openTandaInDesigner,
       addTrackToActiveTanda,
-      appendTrackToPlaylist,
+      appendTrackToPlaylist: sendTrackToPlaylistTanda,
       addTandaToPlaylist,
       moveTrackBetweenClipboardCollections,
       moveTandaBetweenClipboardCollections,

@@ -559,6 +559,14 @@ There are several ways a tanda can be created or filled:
   available, your tracks remain and the app reports **No similar tracks found**.
   The action remains **Complete Tanda** after the slots are filled because the
   draft still combines your manual anchors with generated suggestions.
+- Use **T** from Search or Clipboard to add to the open Tanda Designer draft;
+  if none exists, Tanda Forge creates one and opens Designer. Use **P** to add
+  to the tanda open in Playlist; if none is open, Tanda Forge creates the next
+  tanda in the trailing playlist slot and opens its playlist-hosted editor.
+- Generation keeps fine-grained styles together when possible: a Traditional
+  seed is completed with Traditional tracks, and an Alternative seed with
+  Alternative tracks. The broader family is used only when the exact style does
+  not contain enough distinct tracks to fill the tanda.
 - This is useful when a dancer requests a particular song or orchestra and you
   need a coherent tanda quickly: add the requested track first, check that its
   style is selected, then choose **Complete Tanda**. The requested track remains
@@ -651,8 +659,9 @@ Deleting or removing a tanda depends on where you are looking at it:
   **Remove from playlist** or **Delete from database**. Removal clears only that
   playlist slot and keeps the saved tanda. Database deletion permanently removes
   the saved master from collections and every occurrence in the current
-  playlist. For a tanda that exists only in the playlist, database deletion is
-  unavailable because there is no saved record. The playlist keeps its sequence
+  playlist. For a tanda that exists only in the playlist, **Delete from
+  database** is not shown because there is no saved record; the tanda does not
+  need to be saved. The playlist keeps its sequence
   shape by leaving an empty placeholder slot. The tanda row's **R** action remains
   the quick remove-only path.
 - **Delete a tanda seen in a collection**: as a safe rule, use **T** to send it to the Tanda Designer and then use **Delete** there.

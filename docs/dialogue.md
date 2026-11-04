@@ -7393,3 +7393,55 @@ live availability/digest/content checks for both pinned archives, and
     `macos-14` retires on 2026-11-02. Release CI now uses the native ARM64
     `macos-15` runner while retaining `macos-15-intel` for x64, with a regression
     assertion preserving both architecture-specific labels.
+- 2026-11-04 — Visible T-entry destination and exact-style completion
+  - The user required Search/Clipboard `T` actions to reveal their destination
+    unless the same tanda is already open in Playlist.
+  - `UI-016.R27` derives the destination tab from the currently open playlist
+    editor instead of stale host state. `UI-016.R28` makes exact fine-grained
+    style capacity outrank broad-family matching during automatic construction;
+    broad matching remains the fallback when the exact style cannot fill a tanda.
+
+### 2026-11-04 — Search similar preserves exact track style
+
+- User reported that searching similar from a `Tango - Contemporary` track
+  returned Alternative and Traditional tracks.
+- The exact style resolver was already correct, but the shared track-similarity
+  action collapsed its result back to the base family before searching.
+- Track Search similar now retains explicit variants as exact style-pill filters;
+  base styles continue to expand normally (`FR-090.2.R11`,
+  `app/src/renderer/renderer.ts`, `tests/e2e/workflows.e2e.ts`).
+
+### 2026-11-04 — T targets the tanda open in the current view
+
+- User clarified that `T` should use an open tanda whether its editor is in
+  Playlist or Designer.
+- The destination is now resolved from the active right-hand view rather than a
+  global selection that could be stale. Playlist uses its open tanda, or creates
+  the next tanda in the trailing slot and opens its hosted editor; Designer uses
+  its open draft or creates one (`UI-016.R6.a-b`).
+
+### 2026-11-04 — Correction: T and P have fixed destinations
+
+- User corrected the preceding interpretation: track `T` means send to Tanda
+  Designer, while `P` means send to the playlist's currently edited tanda.
+- `T` now always uses or creates a Designer draft. `P` uses the open
+  playlist-hosted tanda, or creates the next tanda in the trailing playlist slot
+  and opens it. Marked playlist targets and the currently visible right-hand tab
+  do not change these command meanings (`UI-016.R6.a-c`, `UI-016.R27`).
+
+### 2026-11-04 — Playlist-only tandas offer removal only
+
+- User reported that reopening a newly created playlist tanda and choosing
+  Delete displayed a database-delete action that did nothing.
+- That action was disabled but still visible. It is now omitted entirely unless
+  the tanda resolves to a master ID confirmed in the database. Playlist-only
+  tandas remain valid without saving and offer only **Remove from playlist**
+  (`UI-012.R20.c`).
+
+### 2026-11-04 — Version 0.4.11 bug-fix release
+
+- User requested that the accumulated playlist/tanda fixes be versioned,
+  committed, pushed, and opened as a pull request.
+- Package and lockfile versions advance from `0.4.10` to `0.4.11`; this is a
+  SemVer patch release covering exact-style Search Similar, fine-grained tanda
+  completion, fixed `T`/`P` destinations, and safe playlist-only deletion.
