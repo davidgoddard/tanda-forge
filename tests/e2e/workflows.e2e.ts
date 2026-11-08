@@ -2541,6 +2541,8 @@ test.describe("Electron app end-to-end workflows", () => {
 
       const milongaRow = playlistTandaRow(page, "Canaro Milonga Pack A");
       await clickRowAction(milongaRow, "send-playlist-tanda");
+      await expect(playlistTandaRow(page, "Canaro Milonga Pack A")).toBeVisible();
+      await clickRowAction(milongaRow, "remove-playlist-tanda");
       await expect(playlistTandaRow(page, "Canaro Milonga Pack A")).toHaveCount(0);
 
       await selectClipboardCollection(page, "available");

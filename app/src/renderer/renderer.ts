@@ -201,6 +201,7 @@ import {
   getTandaGenerationPhaseRules,
   groupGenerationSeedsByArtist,
   hasFineGrainedStyleCapacity,
+  orderTandaTracksByBpm,
   scoreTandaTrackCohesion,
   TANDA_GENERATION_PHASES,
 } from "../shared/playlist-auto-generation.js";
@@ -8536,6 +8537,15 @@ const renderTandaRow = (
         ),
       );
     }
+    if (!options?.locked) {
+      menu.appendChild(
+        buildActionButton(
+          "actionRemovePlaylist",
+          "actionRemovePlaylistShort",
+          "remove-playlist-tanda",
+        ),
+      );
+    }
   }
   const badge = document.createElement("div");
   badge.className = "tanda-style-badge";
@@ -11121,6 +11131,11 @@ const pickGeneratedTandaForSlot = (
       if (chosen.length < targetCount) {
         continue;
       }
+      chosen.splice(
+        0,
+        chosen.length,
+        ...orderTandaTracksByBpm(chosen, (track) => track.bpm),
+      );
       const generatedTrackIds = chosen
         .filter((track) => !anchorIds.has(track.id))
         .map((track) => track.id);
@@ -11278,7 +11293,10 @@ const generateDesignerTanda = async () => {
         generatedIndex += 1;
       }
     }
-    activeTanda.trackSlots = nextSlots;
+    activeTanda.trackSlots = orderTandaTracksByBpm(
+      nextSlots,
+      (trackId) => trackId ? trackCache.get(trackId)?.bpm : null,
+    );
     activeTanda.generatedTrackIds = generatedIds;
     activeTanda.triedGeneratedCombinations = [
       ...(activeTanda.triedGeneratedCombinations ?? []),

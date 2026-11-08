@@ -5,9 +5,42 @@ import {
   getTandaGenerationPhaseRules,
   groupGenerationSeedsByArtist,
   hasFineGrainedStyleCapacity,
+  orderTandaTracksByBpm,
   scoreTandaTrackCohesion,
   TANDA_GENERATION_PHASES,
 } from "../app/src/shared/playlist-auto-generation";
+
+describe("orderTandaTracksByBpm", () => {
+  it("puts the fastest known-BPM track last", () => {
+    const tracks = [
+      { id: "fast", bpm: 68 },
+      { id: "slow", bpm: 62 },
+      { id: "middle", bpm: 64 },
+      { id: "near", bpm: 63 },
+    ];
+    expect(orderTandaTracksByBpm(tracks, (track) => track.bpm).map((track) => track.id))
+      .toEqual(["slow", "near", "middle", "fast"]);
+  });
+
+  it("keeps unknown-BPM tracks in their existing positions", () => {
+    const tracks = [
+      { id: "fast", bpm: 68 as number | null },
+      { id: "unknown", bpm: null },
+      { id: "slow", bpm: 62 },
+    ];
+    expect(orderTandaTracksByBpm(tracks, (track) => track.bpm).map((track) => track.id))
+      .toEqual(["slow", "unknown", "fast"]);
+  });
+
+  it("preserves selection order when BPM values are equal", () => {
+    const tracks = [
+      { id: "first", bpm: 64 },
+      { id: "second", bpm: 64 },
+    ];
+    expect(orderTandaTracksByBpm(tracks, (track) => track.bpm).map((track) => track.id))
+      .toEqual(["first", "second"]);
+  });
+});
 
 describe("fine-grained generation style capacity", () => {
   const tracks = [

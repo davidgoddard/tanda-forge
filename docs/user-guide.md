@@ -653,6 +653,11 @@ the order sent. The **P** action remains the separate playlist-building path.
 
 Deleting or removing a tanda depends on where you are looking at it:
 
+In a playlist tanda's compact menu, **C** copies the tanda to the active
+clipboard collection and leaves the playlist unchanged. The localized remove
+letter (for example **R** in English) removes the tanda without copying it and
+leaves an empty playlist slot.
+
 - **Delete a saved tanda itself**: open it in the Tanda Designer with **T**, then click **Delete**. This removes the tanda record, so it disappears from collections and can no longer be used in playlists.
 - **Remove a tanda from a clipboard collection only**: use **R** on the tanda in that collection. This removes it from that collection view, but does not delete the tanda from the library if it still exists elsewhere.
 - **Remove or delete from the playlist editor**: click **Delete tanda** to choose

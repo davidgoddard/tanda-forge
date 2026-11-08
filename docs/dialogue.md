@@ -7445,3 +7445,30 @@ live availability/digest/content checks for both pinned archives, and
 - Package and lockfile versions advance from `0.4.10` to `0.4.11`; this is a
   SemVer patch release covering exact-style Search Similar, fine-grained tanda
   completion, fixed `T`/`P` destinations, and safe playlist-only deletion.
+
+## 2026-11-06 — Separate playlist tanda copy and remove actions
+
+- The playlist tanda menu must expose copying and removal as distinct actions
+  (`UI-014.R7`, `UI-014.R17`, `UI-014.R17.a`).
+- `C` copies the tanda to the clipboard while retaining it in its playlist slot.
+  The localized remove action clears the slot without copying, preserving the
+  playlist hole.
+- The compact removal letter is derived from the locale's removal verb rather
+  than being fixed to English `R`; the affected UI, controller, locale maps,
+  user guide, and workflow coverage were updated.
+
+## 2026-11-08 — Progressive BPM order for automatic tanda construction
+
+- The user requested that automatically created or completed tandas keep tempo
+  roughly level or rising, with the fastest songs last.
+- Track-based playlist generation and Designer completion now sequence known
+  BPM values from slowest to fastest. Unknown-BPM tracks retain their positions,
+  and saved tandas chosen by auto-fill retain their authored order
+  (`UI-014.R35`, `app/src/shared/playlist-auto-generation.ts`).
+
+## 2026-11-08 — Version 0.4.12 release preparation
+
+- The user requested a version bump and publication of all current source and
+  documentation changes. Package metadata advances from `0.4.11` to `0.4.12`.
+- Release scope is the separate playlist tanda copy/remove workflow and
+  progressive known-BPM ordering for automatically constructed tandas.

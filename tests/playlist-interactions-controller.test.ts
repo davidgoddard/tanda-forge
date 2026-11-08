@@ -325,4 +325,81 @@ describe("playlist interactions controller", () => {
     expect(renderPlaylist).toHaveBeenCalled();
     expect(closeRowMenus).toHaveBeenCalled();
   });
+
+  it("copies a playlist tanda to the clipboard without clearing its slot", async () => {
+    const { playlistListEl, playlistItems, deps } = createBaseDeps();
+    playlistItems[0] = { kind: "tanda", tandaId: "tg1" };
+    const addTandaToActiveCollection = vi.fn(() => true);
+    const setPlaylistItem = vi.fn();
+    const normalizePlaylist = vi.fn();
+    const renderPlaylist = vi.fn();
+    const renderClipboard = vi.fn();
+    deps.actions.addTandaToActiveCollection = addTandaToActiveCollection;
+    deps.actions.setPlaylistItem = setPlaylistItem;
+    deps.actions.normalizePlaylist = normalizePlaylist;
+    deps.actions.renderPlaylist = renderPlaylist;
+    deps.actions.renderClipboard = renderClipboard;
+    const row = {
+      dataset: { index: "0", tandaId: "tg1" },
+      classList: { contains: () => false },
+      closest: () => null,
+    } as unknown as HTMLElement;
+    const actionButton = { dataset: { action: "send-playlist-tanda" } };
+    const target = {
+      closest: (selector: string) => {
+        if (selector === ".list-row") return row;
+        if (selector === "button[data-action]") return actionButton;
+        return null;
+      },
+      classList: { contains: () => false },
+    };
+
+    const controller = createPlaylistInteractionsController(deps as any);
+    controller.initialize();
+    await (playlistListEl as unknown as FakeClickable).dispatch("click", { target });
+
+    expect(addTandaToActiveCollection).toHaveBeenCalledWith("tg1");
+    expect(renderClipboard).toHaveBeenCalledOnce();
+    expect(setPlaylistItem).not.toHaveBeenCalled();
+    expect(normalizePlaylist).not.toHaveBeenCalled();
+    expect(renderPlaylist).not.toHaveBeenCalled();
+    expect(playlistItems[0]).toEqual({ kind: "tanda", tandaId: "tg1" });
+  });
+
+  it("removes a playlist tanda without copying it to the clipboard", async () => {
+    const { playlistListEl, playlistItems, deps } = createBaseDeps();
+    playlistItems[0] = { kind: "tanda", tandaId: "tg1" };
+    const addTandaToActiveCollection = vi.fn(() => true);
+    const normalizePlaylist = vi.fn();
+    const renderPlaylist = vi.fn();
+    const renderClipboard = vi.fn();
+    deps.actions.addTandaToActiveCollection = addTandaToActiveCollection;
+    deps.actions.normalizePlaylist = normalizePlaylist;
+    deps.actions.renderPlaylist = renderPlaylist;
+    deps.actions.renderClipboard = renderClipboard;
+    const row = {
+      dataset: { index: "0", tandaId: "tg1" },
+      classList: { contains: () => false },
+      closest: () => null,
+    } as unknown as HTMLElement;
+    const actionButton = { dataset: { action: "remove-playlist-tanda" } };
+    const target = {
+      closest: (selector: string) => {
+        if (selector === ".list-row") return row;
+        if (selector === "button[data-action]") return actionButton;
+        return null;
+      },
+      classList: { contains: () => false },
+    };
+
+    const controller = createPlaylistInteractionsController(deps as any);
+    controller.initialize();
+    await (playlistListEl as unknown as FakeClickable).dispatch("click", { target });
+
+    expect(playlistItems[0]).toBeNull();
+    expect(normalizePlaylist).toHaveBeenCalledOnce();
+    expect(renderPlaylist).toHaveBeenCalledOnce();
+    expect(addTandaToActiveCollection).not.toHaveBeenCalled();
+    expect(renderClipboard).not.toHaveBeenCalled();
+  });
 });

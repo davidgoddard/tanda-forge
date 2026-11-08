@@ -377,7 +377,7 @@ Interactions:
 - UI-014.R4: Search results provide add buttons and drag-and-drop into clipboard/playlist.
 - UI-014.R5: Clicking a clipboard item then a playlist slot swaps the two.
 - UI-014.R6: Clipboard tandas can be selected and swapped into playlist slots.
-- UI-014.R7: Playlist tandas include a send-to-clipboard control (no remove-only action).
+- UI-014.R7: Playlist tandas provide separate copy-to-clipboard and remove-only controls.
 - UI-014.R8: Clicking a track row plays it (Preparation mode only).
 - UI-014.R9: Search includes a submit control and displays result counts.
 - UI-014.R10: Track/tanda tabs stretch to fill the column width.
@@ -388,7 +388,11 @@ Interactions:
 - UI-014.R15: When items are added to clipboard or playlist, the corresponding tab becomes
   active so the DJ can see the result immediately.
 - UI-014.R16: Lists scroll within their column while tab bars remain visible.
-- UI-014.R17: Playlist tandas include a "Send to clipboard" action that clears the slot.
+- UI-014.R17: Playlist tandas include a "Send to clipboard" action that copies the tanda
+  without changing its playlist slot.
+- UI-014.R17.a: Playlist tandas include a localized remove action that clears the slot
+  without copying the tanda. Its compact menu letter is based on the translated word for
+  remove.
 - UI-014.R18: Adding a tanda to the playlist targets the first available empty slot.
 - UI-014.R19: Playlist tracks include a "Send to clipboard" action that clears the slot.
 - UI-014.R20: Clipboard tracks/tandas can only be added to the playlist when at least one empty slot exists.
@@ -438,6 +442,12 @@ Interactions:
   not select a tanda containing a repeated orchestra while a valid tanda using
   only unrepresented orchestras exists, and it prefers a single orchestra among
   candidates with equal repeat status.
+- UI-014.R35: Tandas automatically constructed from individual library tracks
+  sequence tracks with known BPM from slowest to fastest, so tempo remains level
+  or rises and the fastest known-BPM recording comes last among those tracks.
+  Tracks without a usable BPM retain their existing positions. The same
+  sequencing applies when completing a manually anchored tanda; saved tandas
+  selected by auto-fill keep their saved order.
 
 ## UI-015 — Now Playing Strip
 
