@@ -190,3 +190,39 @@ describe("search refresh concurrency", () => {
     expect(state.isLoading).toBe(false);
   });
 });
+
+describe("search domain loading", () => {
+  it("does not hydrate tanda results while the track tab is active", async () => {
+    let state = baseState();
+    let tandaLoads = 0;
+    const controller = createSearchController<Track>({
+      searchPageSize: 2,
+      getWindowApi: () => ({
+        searchTracks: async () => [],
+        searchTrackCount: async () => 0,
+        searchJumpIndex: async () => [],
+        searchJumpToPrefix: async () => ({ offset: 0 }),
+      }),
+      getState: () => state,
+      setState: (next) => { state = next; },
+      patchState: (patch) => { state = { ...state, ...patch }; },
+      getSearchParams: () => ({ query: "Miguel Calo" }),
+      applySearchUiState: () => {},
+      getRefreshVersion: () => 1,
+      incrementRefreshVersion: () => 1,
+      setTrackInCache: () => {},
+      renderSearchResults: () => {},
+      updateSearchSortDefaults: () => {},
+      updateTabCount: () => {},
+      updateJumpIndex: async () => {},
+      loadTandaSearchResults: async () => { tandaLoads += 1; },
+      getActiveSearchTab: () => "search-tracks",
+      getSearchListBody: () => null,
+      getSearchListMetrics: () => null,
+      setSearchListScrollTop: () => {},
+    });
+
+    await controller.refreshSearch();
+    expect(tandaLoads).toBe(0);
+  });
+});

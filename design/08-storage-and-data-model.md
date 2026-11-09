@@ -161,9 +161,21 @@ Fields:
 
 ## DATA-007 — Migrations
 
-- DATA-007.R1: No versioned migration system yet.
-- DATA-007.R2: Schema changes are applied with best-effort `alter table` statements in
-  `app/src/main/db.ts`.
+- DATA-007.R1: Database-wide structural migrations use SQLite `user_version` and
+  run automatically and transactionally during database initialization.
+- DATA-007.R2: Search schema version 3 creates and populates token/prefix FTS5
+  indexes, normalized boundary-aware bigram/trigram tables for tracks and tanda
+  names, a denormalized tanda FTS5 index, and supporting relational indexes.
+  Existing tracks and tandas are indexed on the first start after upgrade.
+- DATA-007.R3: Database triggers maintain track and tanda search documents after
+  inserts, metadata updates, relationship/style changes and deletions, so scan,
+  import and editor write paths cannot leave the indexes stale.
+- DATA-007.R4: Search-index migration failure must roll back without preventing
+  application startup. Search then uses the compatible full-library path and
+  the migration is retried on a later start.
+- DATA-007.R5: Older additive columns still use the established idempotent
+  `alter table` compatibility statements in `app/src/main/db.ts`; new structural
+  migrations must use the versioned transaction mechanism.
 
 ## DATA-008 — Legacy Import
 
@@ -173,3 +185,32 @@ Fields:
   normalized relative path, with tolerant handling for slash/case/Unicode
   differences and unique suffix matches when needed.
 - DATA-008.R4: Unmatched items are surfaced as missing and can be resolved by the user.
+
+## DATA-009 — Search Projection
+
+- DATA-009.R1: `track_search_fts` indexes normalized title, artist, singer,
+  notes and supporting metadata with Unicode tokenization, diacritic removal and
+  two-to-four-character prefixes.
+- DATA-009.R2: `track_search_ngrams` stores deduplicated N=2 and N=3 grams after
+  search normalization and per-token padding. Bigrams use one boundary marker
+  and trigrams use two markers at each end; trigram coverage has twice the
+  candidate weight of bigram coverage.
+- DATA-009.R3: `tanda_search_fts` denormalizes tanda name, styles and current
+  child-track metadata for indexed candidate selection without loading every
+  tanda detail.
+- DATA-009.R4: Indexed search is two-stage: SQLite retrieves candidates and the
+  existing field-aware scorer applies final thresholds and ordering. Broad
+  exact-token result sets remain complete; fuzzy expansion is bounded.
+- DATA-009.R5: A minimum normalized coverage gate and bounded candidate count
+  protect performance and reject incidental common bigrams. Mixed boundary
+  n-grams preserve recall when a substitution destroys most ordinary trigrams,
+  such as `anibel` versus `Aníbal`, without a full-library scan.
+- DATA-009.R6: N-gram storage is a recall index, not a result set. Candidate
+  evidence below `0.75` is discarded before detailed scoring; final lookup
+  quality gates independently prevent incidental short metadata fragments from
+  producing large displayed result sets.
+- DATA-009.R7: N-gram rows retain their normalized source token. Candidate
+  evidence groups by track/tanda and source token, never across a concatenated
+  metadata document, and applies a source/query token-length coverage gate.
+  Multi-token queries evaluate fuzzy candidates once per query token; duplicate
+  qualifying source tokens collapse to the best evidence per result.

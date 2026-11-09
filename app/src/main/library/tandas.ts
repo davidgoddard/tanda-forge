@@ -10,12 +10,14 @@ import {
   normalizeOrchestraText,
 } from "../../shared/orchestra-registry";
 import { parseScopedSearchQuery } from "./fuzzy-search";
+import { findIndexedTandaCandidateIds } from "./search-index";
 
 type TandaSearchParams = {
   rating?: RatingFilter;
   query: string;
   styles: string[];
   size: number | null;
+  candidateIds?: string[] | null;
 };
 
 const ORCHESTRA_REGISTRY = convertSeedToRegistry(ORCHESTRA_SEED_DATA);
@@ -109,8 +111,16 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
   const values: unknown[] = [];
 
   if (query) {
-    if (scoped.scope === "artist") {
-      const candidates = resolveArtistScopedCandidates(query);
+    const artistCandidates = resolveArtistScopedCandidates(query);
+    const recognizedArtist = artistCandidates.some((candidate) =>
+      /\b(?:orquesta|orchestra)\b/i.test(candidate)
+    );
+    const indexedTextMatch = params.candidateIds !== null
+      && params.candidateIds !== undefined
+      && scoped.scope === "all"
+      && !recognizedArtist;
+    if (scoped.scope === "artist" || recognizedArtist) {
+      const candidates = artistCandidates;
       if (candidates.length > 0) {
         const artistConditions = candidates
           .map(() => "(lower(coalesce(t.artist_summary, '')) like ? or lower(coalesce(t.artist, '')) like ?)")
@@ -128,7 +138,7 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
           values.push(like, like);
         });
       }
-    } else {
+    } else if (!indexedTextMatch) {
       const tokenPredicates = queryTokens.map(
         () => `(lower(coalesce(tandas.name, '')) like ?
           or exists (
@@ -153,6 +163,15 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
         const like = `%${token.toLowerCase()}%`;
         values.push(like, like, like, like, like, like, like, like, like, like);
       });
+    }
+  }
+
+  if (params.candidateIds) {
+    if (params.candidateIds.length === 0) {
+      where.push("0 = 1");
+    } else {
+      where.push("tandas.id in (select value from json_each(?))");
+      values.push(JSON.stringify(params.candidateIds));
     }
   }
 
@@ -219,9 +238,7 @@ export const listTandas = (db: Database.Database): TandaDetail[] => {
     legacy_source_id: string | null;
     legacy_source_path: string | null;
   }[];
-  return rows
-    .map((row) => loadTandaDetail(db, row.id))
-    .filter((row): row is TandaDetail => row !== null);
+  return getTandasByIds(db, rows.map((row) => row.id));
 };
 
 export const listRecentTandaIds = (
@@ -244,15 +261,146 @@ export const getTandasByIds = (
   db: Database.Database,
   ids: string[],
 ): TandaDetail[] => {
-  const filteredIds = ids.filter(
+  const filteredIds = Array.from(new Set(ids.filter(
     (id): id is string => typeof id === "string" && id.trim().length > 0,
-  );
+  )));
   if (filteredIds.length === 0) {
     return [];
   }
-  return filteredIds
-    .map((id) => loadTandaDetail(db, id))
-    .filter((row): row is TandaDetail => row !== null);
+  const idsJson = JSON.stringify(filteredIds);
+  const rows = db.prepare(
+    `select id, name, rating, instrumental, total_duration_ms, slot_count,
+            legacy_source_id, legacy_source_path
+     from tandas
+     where id in (select value from json_each(?))
+       and coalesce(invalid, 0) = 0
+       and not exists (
+         select 1 from tanda_tracks deleted_tt
+         join tracks deleted_t on deleted_t.id = deleted_tt.track_id
+         where deleted_tt.tanda_id = tandas.id and deleted_t.deleted_at is not null
+       )`,
+  ).all(idsJson) as Array<{
+    id: string;
+    name: string;
+    rating: number | null;
+    instrumental: number | null;
+    total_duration_ms: number | null;
+    slot_count: number | null;
+    legacy_source_id: string | null;
+    legacy_source_path: string | null;
+  }>;
+  const stylesByTanda = new Map<string, string[]>();
+  (db.prepare(
+    `select tanda_id, style_name from tanda_styles
+     where tanda_id in (select value from json_each(?))
+     order by tanda_id, style_name`,
+  ).all(idsJson) as Array<{ tanda_id: string; style_name: string }>).forEach((style) => {
+    const values = stylesByTanda.get(style.tanda_id) ?? [];
+    values.push(style.style_name);
+    stylesByTanda.set(style.tanda_id, values);
+  });
+  const tracksByTanda = new Map<string, Array<{
+    track_id: string;
+    position: number;
+    title: string;
+    artist: string;
+    artist_summary: string;
+    album: string;
+    singer: string;
+    genre: string;
+    year: string;
+    bpm: number | null;
+    notes: string;
+    full_path: string;
+    relative_path: string;
+    instrumental: number | null;
+    duration_ms: number;
+    start_offset_ms: number;
+    end_trim_ms: number;
+    loudness_db: number | null;
+    gain_db: number | null;
+  }>>();
+  (db.prepare(
+    `select tt.tanda_id, tt.track_id, tt.position, t.title, t.artist, t.artist_summary,
+            t.album, t.genre, t.year, t.bpm, t.notes, t.full_path, t.relative_path,
+            t.singer, t.instrumental, t.duration_ms, t.start_offset_ms, t.end_trim_ms,
+            t.loudness_db, t.gain_db
+     from tanda_tracks tt
+     join tracks t on t.id = tt.track_id
+     where tt.tanda_id in (select value from json_each(?)) and t.deleted_at is null
+     order by tt.tanda_id, tt.position`,
+  ).all(idsJson) as Array<{
+    tanda_id: string;
+    track_id: string;
+    position: number;
+    title: string;
+    artist: string;
+    artist_summary: string;
+    album: string;
+    singer: string;
+    genre: string;
+    year: string;
+    bpm: number | null;
+    notes: string;
+    full_path: string;
+    relative_path: string;
+    instrumental: number | null;
+    duration_ms: number;
+    start_offset_ms: number;
+    end_trim_ms: number;
+    loudness_db: number | null;
+    gain_db: number | null;
+  }>).forEach((track) => {
+    const values = tracksByTanda.get(track.tanda_id) ?? [];
+    values.push(track);
+    tracksByTanda.set(track.tanda_id, values);
+  });
+  const details = new Map(rows.map((row) => {
+    const trackRows = tracksByTanda.get(row.id) ?? [];
+    const slotCount = Math.max(
+      row.slot_count ?? 0,
+      trackRows.length > 0 ? Math.max(...trackRows.map((track) => track.position)) + 1 : 0,
+    );
+    const slots = Array.from({ length: slotCount }, () => null as string | null);
+    trackRows.forEach((track) => { slots[track.position] = track.track_id; });
+    const detail: TandaDetail = {
+      id: row.id,
+      name: row.name,
+      styles: stylesByTanda.get(row.id) ?? [],
+      rating: row.rating ?? 0,
+      instrumental: Boolean(row.instrumental),
+      total_duration_ms: row.total_duration_ms ?? 0,
+      slot_count: slotCount,
+      legacy_source_id: row.legacy_source_id,
+      legacy_source_path: row.legacy_source_path,
+      track_slots: slots,
+      tracks: trackRows.map((track) => ({
+        id: track.track_id,
+        title: track.title,
+        artist: track.artist,
+        artist_summary: track.artist_summary,
+        album: track.album,
+        singer: track.singer,
+        genre: track.genre,
+        year: track.year,
+        bpm: track.bpm,
+        notes: track.notes,
+        full_path: track.full_path,
+        relative_path: track.relative_path,
+        instrumental: track.instrumental === null ? null : Boolean(track.instrumental),
+        duration_ms: track.duration_ms,
+        start_offset_ms: track.start_offset_ms,
+        end_trim_ms: track.end_trim_ms,
+        loudness_db: track.loudness_db,
+        gain_db: track.gain_db,
+      })),
+    };
+    return [row.id, detail] as const;
+  }));
+  return filteredIds.flatMap((id) => {
+    const detail = details.get(id);
+    return detail ? [detail] : [];
+  });
 };
 
 export const getTrackTandaUsage = (
@@ -319,10 +467,23 @@ export const searchTandas = (
   db: Database.Database,
   params: TandaSearchParams,
 ): TandaSearchRow[] => {
-  const { whereSql, values } = buildTandaSearchWhere(params);
+  const candidateIds = params.query.trim()
+    ? findIndexedTandaCandidateIds(db, params.query.replace(/^artist\s*:\s*/i, ""))
+    : null;
+  const { whereSql, values } = buildTandaSearchWhere({ ...params, candidateIds });
   const rows = db
     .prepare(
-      `select tandas.id, tandas.name, tandas.rating, tandas.instrumental, tandas.total_duration_ms, tandas.slot_count
+      `select tandas.id, tandas.name, tandas.rating, tandas.instrumental,
+              tandas.total_duration_ms, tandas.slot_count,
+              coalesce((
+                select group_concat(style_name, char(31)) from (
+                  select style_name from tanda_styles
+                  where tanda_id = tandas.id order by style_name
+                )
+              ), '') as styles_text,
+              (select count(*) from tanda_tracks tt
+                join tracks t on t.id = tt.track_id
+                where tt.tanda_id = tandas.id) as track_count
        from tandas
        ${whereSql}
        order by tandas.updated_at desc`,
@@ -334,28 +495,19 @@ export const searchTandas = (
     instrumental: number | null;
     total_duration_ms: number | null;
     slot_count: number | null;
+    styles_text: string;
+    track_count: number;
   }[];
-  return rows.map((row) => {
-    const styles = db
-      .prepare(
-        "select style_name from tanda_styles where tanda_id = ? order by style_name",
-      )
-      .all(row.id)
-      .map((style) => (style as { style_name: string }).style_name);
-    const trackCount = db
-      .prepare("select count(*) as count from tanda_tracks tt join tracks t on t.id = tt.track_id where tt.tanda_id = ?")
-      .get(row.id) as { count: number };
-    return {
+  return rows.map((row) => ({
       id: row.id,
       name: row.name,
-      styles,
+      styles: row.styles_text ? row.styles_text.split(String.fromCharCode(31)) : [],
       rating: row.rating ?? 0,
       instrumental: Boolean(row.instrumental),
       total_duration_ms: row.total_duration_ms ?? 0,
-      slot_count: row.slot_count ?? trackCount.count,
-      track_count: trackCount.count,
-    };
-  });
+      slot_count: row.slot_count ?? row.track_count,
+      track_count: row.track_count,
+    }));
 };
 
 export const saveTanda = (

@@ -1,5 +1,70 @@
 ## Handoff
 
+### Large-library search and live responsiveness
+- Branch `fix/search-live-performance` makes registered orchestra-name queries
+  such as `Miguel Calo` exact, accent-insensitive artist lookups for both tracks
+  and tandas, excluding remote fuzzy matches while retaining every visible
+  recording by the resolved orchestra (`FR-091.4.R19`).
+- Track search now reuses scored results across page, count and navigation IPC
+  requests until the database or parameters change. Search hydrates only its
+  active Tracks or Tandas domain and refreshes when the user switches domains,
+  avoiding the previous all-tanda detail load during every track search
+  (`FR-091.5.R1`–`FR-091.5.R3`).
+- Audio outputs are enumerated immediately after the renderer connects to the
+  main process, before optional library/diagnostics startup work, so mode/output
+  controls do not remain blank behind large-library initialization.
+- Verification: `npm run preflight` passed (116 test files and 675 tests passed,
+  5 native-SQLite tests skipped under the host Node ABI, plus the
+  production build). The skipped migration tests passed separately under the
+  packaged Electron SQLite runtime (7 tests total with portable boundary/cutoff
+  tests), including version-2 upgrade and the 7,001-track case.
+- Follow-up replaces the cold-query full-library scan with SQLite FTS5
+  token/prefix and boundary-aware bigram/trigram candidate indexes while retaining the existing scorer
+  for final relevance. Tandas have a maintained denormalized FTS document, BPM
+  uses an indexed tolerance range, and common library filters have supporting
+  relational indexes (`FR-091.5.R4`–`FR-091.5.R6`, `DATA-007`, `DATA-009`).
+- Search schema version 3 is detected through SQLite `user_version`, built
+  transactionally on first start, populated from all existing tracks/tandas and
+  kept current by database triggers. Failure rolls back and leaves the previous
+  compatibility search operational for retry on the next start.
+- Electron-native migration tests cover existing-row conversion, idempotence,
+  trigger synchronization and a 7,001-track bounded-candidate scenario.
+- Tanda search summaries now aggregate styles and track counts in the indexed
+  result query, while requested tanda headers, styles and tracks hydrate in
+  three batch queries instead of the previous per-tanda query loop
+  (`FR-091.5.R7`).
+- Focused Playwright workflows 04, 05, 06 and 08 could not launch Electron in
+  this shell (`Process failed to launch!`) before reaching application behavior.
+  `git diff --check` passed.
+- A reported `anibel` query exposed a candidate-recall edge: the substitution
+  changed three of four ordinary trigrams. Schema version 2 replaces the draft
+  trigram/prefix fallback with normalized, per-token boundary bigrams and
+  trigrams (`^…$` / `^^…$$`), weighting trigram coverage 2:1 and enforcing a
+  coverage floor. Track metadata, tanda names and tanda child tracks use the
+  bounded model; regressions cover substitution, omission and transposition
+  candidates plus `anibel` → `Aníbal Troilo` (`FR-091.5.R8`, `DATA-009.R5`).
+- Follow-up screenshots showed that final ranking still promoted an album token
+  such as `ani` above the close edit `anibel` → `Aníbal`, and field-wide trigram
+  accumulation admitted hundreds of weak rows. Single-token lookup now uses
+  token-to-token edit evidence, ranks similarity before field purity, rejects
+  distant edits and low-coverage shorter metadata fragments, and applies a
+  separate quality floor after the `0.75` candidate-evidence cutoff. A 250-row
+  noise regression returns only the Troilo match (`FR-091.5.R9`, `DATA-009.R6`).
+- The reported `cumpasita` deletion case is now a direct regression at both
+  index and scorer layers: it retrieves/ranks `La Cumparsita` and its containing tanda,
+  while 50 unrelated `Así` title rows are rejected as insufficient short-token
+  evidence.
+- Search schema version 3 retains the normalized source word on every n-gram
+  row. Candidate evidence is grouped per source word, each query word is
+  evaluated separately, and a token-length coverage gate prevents grams from
+  short or scattered words pooling into a false whole-word match
+  (`FR-091.5.R10`, `DATA-009.R7`). Version-2 indexes upgrade transactionally on
+  first start.
+
+### Version 0.4.12 user-test preparation — search and responsiveness
+- Package and lockfile versions remain at the current `0.4.12` release version
+  on `main` for user testing of the search and responsiveness changes.
+
 ### Version 0.4.12 playlist tanda polish
 - Package and lockfile versions are `0.4.12` for the playlist tanda copy/remove
   separation and progressive BPM ordering described below.

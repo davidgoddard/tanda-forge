@@ -65,11 +65,10 @@ import {
 } from "./search-config";
 import {
   countFuzzyTracks,
-  fetchSearchCandidates,
   fuzzySearchTracks,
+  getScoredSearchTracks,
 } from "./library/search";
 import type { CortinaTrackRow, DisplayUpdatePayload, E2ESeedPayload } from "../shared/types";
-import { filterAndScoreTracks } from "./library/fuzzy-search";
 import {
   DEFAULT_CORTINA_SET_ID,
   getCortinaSetName,
@@ -1665,7 +1664,7 @@ const registerIpc = () => {
     "tracks:searchCount",
     async (
       _event,
-      params: { rating?: RatingFilter; query: string; styles: string[]; minScore?: number; bpmRange?: number },
+      params: { rating?: RatingFilter; query: string; styles: string[]; sortBy?: string; sortDir?: string; minScore?: number; bpmRange?: number },
     ) => {
       const db = getDb();
       const query = params.query?.trim() ?? "";
@@ -1683,7 +1682,17 @@ const registerIpc = () => {
         return row.count;
       }
       const { minScore, bpmRange } = normalizeSearchConfig(params);
-      return countFuzzyTracks(db, { query, styles, minScore, bpmRange, rating: params.rating });
+      const sortByRaw = params.sortBy?.toLowerCase() ?? "score";
+      const sortBy: SearchSortColumn = sortByRaw === "score"
+        ? "score"
+        : normalizeSortColumn(params.sortBy);
+      const sortDir = normalizeSortDirection(params.sortDir);
+      return countFuzzyTracks(
+        db,
+        { query, styles, minScore, bpmRange, rating: params.rating },
+        sortBy,
+        sortDir,
+      );
     },
   );
 
@@ -1696,6 +1705,7 @@ const registerIpc = () => {
         query: string;
         styles: string[];
         sortBy?: string;
+        sortDir?: string;
         minScore?: number;
         bpmRange?: number;
       },
@@ -1707,16 +1717,15 @@ const registerIpc = () => {
       const sortBy: SearchSortColumn = isScoreSort
         ? "score"
         : normalizeSortColumn(params.sortBy);
+      const sortDir = normalizeSortDirection(params.sortDir);
       if (query) {
         const { minScore, bpmRange } = normalizeSearchConfig(params);
-        const candidates = fetchSearchCandidates(db, params.styles ?? [], params.rating);
-        const scored = filterAndScoreTracks(candidates, {
-          query,
-          minScore,
-          bpmRange,
+        const scored = getScoredSearchTracks(
+          db,
+          { query, styles: params.styles ?? [], minScore, bpmRange, rating: params.rating },
           sortBy,
-          sortDir: "asc",
-        });
+          sortDir,
+        );
         if (isScoreSort) {
           return buildJumpIndex([]);
         }
@@ -1766,14 +1775,12 @@ const registerIpc = () => {
       const sortDir = normalizeSortDirection(params.sortDir);
       if (query) {
         const { minScore, bpmRange } = normalizeSearchConfig(params);
-        const candidates = fetchSearchCandidates(db, params.styles ?? [], params.rating);
-        const scored = filterAndScoreTracks(candidates, {
-          query,
-          minScore,
-          bpmRange,
+        const scored = getScoredSearchTracks(
+          db,
+          { query, styles: params.styles ?? [], minScore, bpmRange, rating: params.rating },
           sortBy,
           sortDir,
-        });
+        );
         if (isScoreSort) {
           return { offset: 0 };
         }

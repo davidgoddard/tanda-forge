@@ -60,6 +60,19 @@ describe("tanda search helpers", () => {
     expect(result.values.length).toBeGreaterThanOrEqual(2);
   });
 
+  it("treats a registered orchestra name as an artist-only query", () => {
+    const result = buildTandaSearchWhere({
+      query: "Miguel Calo",
+      styles: [],
+      size: null,
+    });
+    expect(result.whereSql).toContain("t.artist_summary");
+    expect(result.whereSql).toContain("t.artist");
+    expect(result.whereSql).not.toContain("lower(coalesce(tandas.name, '')) like ?");
+    expect(result.values).toContain("%miguel caló%");
+    expect(result.values).toContain("%miguel calo%");
+  });
+
   it("filters out invalid tandas and matches requested actual track count", () => {
     const result = buildTandaSearchWhere({
       query: "",

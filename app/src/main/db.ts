@@ -6,6 +6,10 @@ import {
   ensureAudioSimilaritySchema,
   recoverInterruptedAudioSimilarityRuns,
 } from "./audio-similarity/store";
+import {
+  ensureSearchSchema,
+  registerSearchSqlFunctions,
+} from "./library/search-index";
 
 let db: Database.Database | null = null;
 let dbPath: string | null = null;
@@ -140,6 +144,7 @@ export const initDb = () => {
 
   dbPath = path.join(getDataRoot(), "tanda-player.db");
   db = new Database(dbPath);
+  registerSearchSqlFunctions(db);
   createSchema(db);
   ensureAudioSimilaritySchema(db);
   recoverInterruptedAudioSimilarityRuns(db);
@@ -160,6 +165,9 @@ export const initDb = () => {
   } catch {}
   try {
     db.exec("alter table tracks add column artist_summary text");
+  } catch {}
+  try {
+    db.exec("alter table tracks add column album_artist text");
   } catch {}
   try {
     db.exec("alter table tracks add column singer text");
@@ -253,6 +261,10 @@ export const initDb = () => {
   try {
     db.exec("create index if not exists idx_style_aliases_style_name on style_aliases (style_name)");
   } catch {}
+  const searchMigration = ensureSearchSchema(db);
+  if ("error" in searchMigration) {
+    console.warn(`Search index migration failed; using compatibility search: ${searchMigration.error}`);
+  }
   return db;
 };
 

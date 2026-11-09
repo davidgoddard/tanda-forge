@@ -64,6 +64,105 @@ describe("fuzzy search helpers", () => {
     expect(result[0].score).toBeGreaterThan(0.2);
   });
 
+  it("matches a one-letter substitution in a six-letter artist token", () => {
+    const troilo = buildTrack({ artist: "Aníbal Troilo", title: "Toda mi vida" });
+    const result = filterAndScoreTracks([troilo], {
+      query: "anibel",
+      minScore: 0.19,
+      bpmRange: 5,
+    });
+    expect(result.map((entry) => entry.track.artist)).toEqual(["Aníbal Troilo"]);
+  });
+
+  it("ranks a close artist typo above incidental short and scattered metadata fragments", () => {
+    const troilo = buildTrack({
+      id: "troilo",
+      artist: "Aníbal Troilo",
+      title: "Toda mi vida",
+    });
+    const shortAlbumFragment = buildTrack({
+      id: "ani-album",
+      artist: "Alberto Castillo y su Orquesta",
+      title: "La Vieja Serenata",
+      album: "Ani Tango 1",
+    });
+    const titleFragment = buildTrack({
+      id: "marisabel",
+      artist: "Ricardo Tanturi",
+      title: "Marisabel",
+    });
+    const result = filterAndScoreTracks(
+      [shortAlbumFragment, titleFragment, troilo],
+      {
+        query: "anibel",
+        minScore: 0.19,
+        bpmRange: 5,
+        sortBy: "score",
+        sortDir: "desc",
+      },
+    );
+    expect(result[0]?.track.id).toBe("troilo");
+    expect(result.map((entry) => entry.track.id)).not.toContain("ani-album");
+    expect(result.map((entry) => entry.track.id)).not.toContain("marisabel");
+  });
+
+  it("does not turn a single-token typo into hundreds of weak metadata matches", () => {
+    const troilo = buildTrack({
+      id: "troilo",
+      artist: "Aníbal Troilo",
+      title: "Toda mi vida",
+    });
+    const noise = Array.from({ length: 250 }, (_, index) => buildTrack({
+      id: `noise-${index}`,
+      artist: `Unrelated Orchestra ${index}`,
+      title: `Unrelated title ${index}`,
+      album: `Ani compilation ${index}`,
+      notes: index % 2 === 0 ? "interesting tanda" : "bright tango",
+    }));
+    const result = filterAndScoreTracks([...noise, troilo], {
+      query: "anibel",
+      minScore: 0.19,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result.map((entry) => entry.track.id)).toEqual(["troilo"]);
+  });
+
+  it("treats cumpasita as a close Cumparsita deletion without admitting Así fragments", () => {
+    const cumparsita = buildTrack({
+      id: "cumparsita",
+      title: "La Cumparsita",
+      artist: "Rodolfo Biagi",
+    });
+    const weakAsiRows = Array.from({ length: 50 }, (_, index) => buildTrack({
+      id: `asi-${index}`,
+      title: index % 2 === 0 ? "Si Soy Así" : "Déjame así",
+      artist: `Unrelated Orchestra ${index}`,
+    }));
+    const result = filterAndScoreTracks([...weakAsiRows, cumparsita], {
+      query: "cumpasita",
+      minScore: 0.19,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result.map((entry) => entry.track.id)).toEqual(["cumparsita"]);
+  });
+
+  it("treats a known orchestra name as an exact artist lookup", () => {
+    const calo = buildTrack({ id: "calo", artist: "Miguel Caló", title: "Al compás del corazón" });
+    const remote = buildTrack({ id: "remote", artist: "Miguel Criso", title: "Calo en la noche" });
+    const results = filterAndScoreTracks([remote, calo], {
+      query: "Miguel Calo",
+      minScore: 0.19,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(results.map((entry) => entry.track.id)).toEqual(["calo"]);
+  });
+
   it("matches notes text in search", () => {
     const track = buildTrack({ notes: "Great for early milonga set" });
     const result = filterAndScoreTracks([track], {

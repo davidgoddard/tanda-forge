@@ -432,6 +432,7 @@ export type AppApi = {
     query: string;
     styles: string[];
     sortBy?: string;
+    sortDir?: string;
     minScore?: number;
     bpmRange?: number;
   }) => Promise<string[]>;

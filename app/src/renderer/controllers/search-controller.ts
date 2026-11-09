@@ -109,7 +109,12 @@ export const createSearchController = <TTrack extends { id: string }>(
     if (!api) {
       return;
     }
-    const total = await api.searchTrackCount(params);
+    const currentSort = deps.getState();
+    const total = await api.searchTrackCount({
+      ...params,
+      sortBy: currentSort.sortBy,
+      sortDir: currentSort.sortDir,
+    });
     if (refreshVersion !== deps.getRefreshVersion()) {
       return;
     }
@@ -126,7 +131,9 @@ export const createSearchController = <TTrack extends { id: string }>(
         return;
       }
     }
-    await deps.loadTandaSearchResults();
+    if (deps.getActiveSearchTab() === "search-tandas") {
+      await deps.loadTandaSearchResults();
+    }
     if (refreshVersion !== deps.getRefreshVersion()) return;
     deps.applySearchUiState("idle", refreshVersion, deps.getState().total);
   };

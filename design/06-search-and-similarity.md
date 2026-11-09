@@ -182,6 +182,51 @@ Victoria`, while a one-token result represents only half of that two-token query
   near title/artist/singer matches. Imported album and album-artist metadata are
   searchable but lower-weight supporting metadata because they are often generic
   or less intentional.
+- FR-091.4.R19: A query that resolves to a registered orchestra name or alias is
+  treated as an exact artist lookup. It must return every visible recording by
+  that orchestra and must not admit remotely similar artist, title or metadata
+  matches. This applies consistently to track and tanda search.
+
+### FR-091.5 Large-library responsiveness
+
+- FR-091.5.R1: A search refresh must score a given track candidate set at most
+  once for page, count and navigation operations while the database and search
+  parameters remain unchanged.
+- FR-091.5.R2: Search must load and hydrate results only for the active Tracks or
+  Tandas tab. Switching tabs starts a refresh for the newly active result type.
+- FR-091.5.R3: Search and metadata editing work must not unnecessarily occupy the
+  main process while live playback is preparing its next item.
+- FR-091.5.R4: Non-empty track queries use persistent token/prefix and normalized
+  boundary-aware bigram/trigram indexes to select candidates before applying
+  the established field-aware relevance scorer. Exact-token candidates are
+  complete; fuzzy-only expansion is bounded independently of library size.
+- FR-091.5.R5: Numeric-only BPM search uses an indexed range candidate query so
+  the configured tolerance remains exact without scanning unrelated tracks.
+- FR-091.5.R6: Tanda search uses a persistent denormalized index containing the
+  tanda name, styles and current child-track metadata. Full tanda details are
+  loaded only after indexed filtering.
+- FR-091.5.R7: Tanda result summaries and detail hydration use bounded batch
+  queries rather than issuing style, count and track queries once per tanda.
+- FR-091.5.R8: Indexed candidate retrieval must preserve one-character
+  substitution, omission and transposition recall for ordinary search tokens.
+  After shared query/index normalization, N=2 grams use one leading/trailing
+  boundary marker and N=3 grams use two; normalized trigram coverage is weighted
+  twice as strongly as bigram coverage. Low-coverage coincidences are rejected
+  before the bounded candidate set reaches the detailed track scorer. Tanda
+  names and child-track lookup use the same boundary-aware evidence.
+- FR-091.5.R9: Candidate recall and displayed-result acceptance are separate
+  thresholds. Boundary n-gram candidates require at least `0.75` normalized
+  weighted evidence. For single-token lookup results, close fuzzy tokens require
+  at least `0.72` token similarity; typed prefixes may use the established
+  partial tier, but a much shorter metadata token must not make a longer query
+  pass. Exact tokens, normalized collapsed forms and registered artist aliases
+  retain their stronger tiers.
+- FR-091.5.R10: Fuzzy evidence is evaluated independently for each normalized
+  query token against each normalized source token. N-grams from separate
+  source words must not accumulate into a synthetic whole-field match. Each
+  query token retains its best eligible source-token match, with source/query
+  length coverage contributing to acceptance; final ranking then prefers more
+  query tokens matched with stronger whole-token similarity.
 
 ## FR-092 — Similarity Search Shortcuts
 

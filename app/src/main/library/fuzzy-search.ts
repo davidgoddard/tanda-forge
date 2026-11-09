@@ -499,16 +499,22 @@ const scoreTokenPair = (queryToken: string, candidateToken: string) => {
       return 1;
     }
     if (queryToken.length >= 5 && queryToken.includes(candidateToken)) {
-      return candidateToken.length / queryToken.length;
+      const coverage = candidateToken.length / queryToken.length;
+      return coverage >= 0.75 ? coverage : 0;
     }
     if (candidateToken.length >= 5 && candidateToken.includes(queryToken)) {
-      return queryToken.length / candidateToken.length;
+      const coverage = queryToken.length / candidateToken.length;
+      return coverage >= 0.75 ? coverage : 0;
     }
     return 0;
   }
+  const distance = levenshtein(queryToken, candidateToken);
+  const longest = Math.max(queryToken.length, candidateToken.length);
+  const allowedEdits = longest <= 6 ? 1 : longest <= 10 ? 2 : Math.max(2, Math.floor(longest * 0.2));
+  if (distance > allowedEdits) return 0;
   const similarity = Math.max(
     scoreText(queryToken, candidateToken),
-    bestTokenSimilarity(queryToken, [candidateToken]),
+    1 - distance / Math.max(1, longest),
   );
   return similarity >= 0.55 ? similarity : 0;
 };
@@ -546,21 +552,23 @@ const compareLexicalRank = (left: LexicalRank, right: LexicalRank) =>
   right.tier - left.tier ||
   right.queryCoverage - left.queryCoverage ||
   right.exactTokenCount - left.exactTokenCount ||
+  right.tokenSimilarity - left.tokenSimilarity ||
   right.fieldPurity - left.fieldPurity ||
   right.fieldPriority - left.fieldPriority ||
-  right.tokenSimilarity - left.tokenSimilarity ||
   left.fieldLength - right.fieldLength;
 
 const classifyLexicalTokenPair = (queryToken: string, fieldToken: string) => {
   if (queryToken === fieldToken) return { kind: 3, similarity: 1 };
   const shorter = Math.min(queryToken.length, fieldToken.length);
   const longer = Math.max(queryToken.length, fieldToken.length);
-  if (
-    shorter >= 3 &&
-    (fieldToken.startsWith(queryToken) || queryToken.startsWith(fieldToken)
-      || fieldToken.includes(queryToken) || queryToken.includes(fieldToken))
-  ) {
-    return { kind: 2, similarity: shorter / Math.max(1, longer) };
+  const containmentSimilarity = shorter / Math.max(1, longer);
+  const queryInsideField = fieldToken.includes(queryToken);
+  const fieldInsideQuery = queryToken.includes(fieldToken);
+  if (shorter >= 3 && (
+    (queryInsideField && containmentSimilarity >= 0.5) ||
+    (fieldInsideQuery && containmentSimilarity >= 0.75)
+  )) {
+    return { kind: 2, similarity: containmentSimilarity };
   }
   const similarity = scoreTokenPair(queryToken, fieldToken);
   return similarity > 0 ? { kind: 1, similarity } : { kind: 0, similarity: 0 };
@@ -654,6 +662,19 @@ const buildTokenMatchMetrics = (
     };
   }
   const uniqueQueryTokens = Array.from(new Set(queryTokens));
+  if (
+    uniqueQueryTokens.length === 1 &&
+    normalizeNgramText(field).includes(uniqueQueryTokens[0]!)
+  ) {
+    return {
+      matchedCount: 1,
+      unmatchedFieldTokens: Math.max(0, fieldTokens.length - 1),
+      averageSimilarity: 1,
+      queryCoverage: 1,
+      fieldPurity: 1 / fieldTokens.length,
+      score: 1 / fieldTokens.length,
+    };
+  }
   const candidates: Array<{ queryIndex: number; fieldIndex: number; similarity: number }> = [];
   uniqueQueryTokens.forEach((queryToken, queryIndex) => {
     fieldTokens.forEach((candidateToken, fieldIndex) => {
@@ -702,7 +723,14 @@ const scoreTermsAgainstField = (terms: string[], field: string) => {
   if (terms.length === 0 || !field) {
     return null;
   }
-  const values = terms.map((term) => scoreFieldText(term, field));
+  const values = terms.map((term) => {
+    const termTokens = getTokens(term);
+    if (termTokens.length !== 1) return scoreFieldText(term, field);
+    const compactTerm = normalizeNgramText(term);
+    const compactField = normalizeNgramText(field);
+    const compactExact = compactTerm && compactField.includes(compactTerm) ? 1 : 0;
+    return Math.max(compactExact, bestTokenSimilarity(term, [field]));
+  });
   if (values.length === 0) {
     return null;
   }
@@ -802,6 +830,17 @@ const scoreTrackWithBreakdown = (
     };
   }
   const parsed = parseQuery(trimmed);
+  const directOrchestraId = ORCHESTRA_ALIAS_INDEX.get(normalizeOrchestraText(trimmed));
+  const resolvedOrchestra = directOrchestraId
+    ? ORCHESTRA_BY_ID.get(directOrchestraId) ?? null
+    : null;
+  const isExplicitOrchestra = resolvedOrchestra
+    ? resolvedOrchestra.aliases.some((alias) =>
+        /\b(?:orquesta|orchestra)\b/.test(normalizeSearchText(alias)))
+    : false;
+  if (parsed.mode === "lookup" && isExplicitOrchestra) {
+    return scoreArtistScopedQuery(trimmed, track);
+  }
   const components: Array<{ score: number; weight: number }> = [];
   const lookupWeights = {
     title: 0.3,
@@ -1054,12 +1093,35 @@ export const filterAndScoreTracks = (
   tracks: TrackRow[],
   config: FuzzySearchConfig,
 ) => {
+  const scopedQuery = parseScopedSearchQuery(config.query);
+  const parsedQuery = parseQuery(scopedQuery.query);
+  const singleTokenLookup = parsedQuery.mode === "lookup"
+    && parsedQuery.phraseTokens.length === 0
+    && parsedQuery.textTokens.length === 1;
+  const passesSingleTokenQualityFloor = (breakdown: ScoreBreakdown) => {
+    if (!singleTokenLookup) return true;
+    if (breakdown.lexicalRank.tier >= 3) return true;
+    if (breakdown.lexicalRank.tier === 2) {
+      return breakdown.lexicalRank.tokenSimilarity >= 0.5;
+    }
+    if (breakdown.lexicalRank.tier === 1) {
+      return breakdown.lexicalRank.tokenSimilarity >= 0.72;
+    }
+    return Math.max(
+      breakdown.artistScore,
+      breakdown.titleScore,
+      breakdown.notesScore ?? 0,
+    ) >= 0.8;
+  };
   const scored = tracks
     .map((track) => ({
       track,
       breakdown: scoreTrackWithBreakdown(config.query, track, config.bpmRange),
     }))
-    .filter((entry) => entry.breakdown.score >= config.minScore)
+    .filter((entry) =>
+      entry.breakdown.score >= config.minScore &&
+      passesSingleTokenQualityFloor(entry.breakdown),
+    )
     .map((entry) => ({ track: entry.track, score: entry.breakdown.score, breakdown: entry.breakdown }));
   const sortBy = config.sortBy?.toLowerCase() ?? "score";
   const sortDir = config.sortDir ?? "desc";
