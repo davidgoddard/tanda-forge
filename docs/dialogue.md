@@ -7393,6 +7393,119 @@ live availability/digest/content checks for both pinned archives, and
     `macos-14` retires on 2026-11-02. Release CI now uses the native ARM64
     `macos-15` runner while retaining `macos-15-intel` for x64, with a regression
     assertion preserving both architecture-specific labels.
+### 2026-11-09 — User report: search certainty and large-library live stalls
+
+**User report:** A Windows 11 DJ using 7,000 tracks and 800 tandas reported that
+artist searches such as Miguel Calo appeared incomplete and included remote
+matches. Startup, output selectors, playlist starts and track changes could take
+30 seconds to several minutes, with playback stopping after editing a track.
+
+**Implementation response:** Created `fix/search-live-performance` from `main`
+in an isolated worktree to preserve unrelated calibration changes. Registered
+orchestra-name queries now use exact accent-insensitive artist semantics for
+tracks and tandas. Scored track-search results are reused across page/count/jump
+requests, inactive tanda results are no longer searched and fully hydrated on
+every track refresh, tab changes refresh the selected domain, and audio output
+enumeration now precedes optional startup work (`FR-091.4.R19`,
+`FR-091.5.R1`–`FR-091.5.R3`).
+
+### 2026-11-09 — Indexed search database migration
+
+**User request:** Replace library-size-dependent search with an improved database
+structure, automatically detecting and migrating existing installations on the
+first start of the next version.
+
+**Implementation response:** Added transactional search schema version 1 using
+SQLite `user_version`. The migration builds token/prefix and trigram track FTS5
+indexes, a denormalized tanda FTS5 index and supporting relational indexes from
+existing data. Database triggers maintain all projections across scans, imports,
+edits and tanda relationship changes. Search now retrieves indexed candidates
+before applying the existing detailed scorer; BPM uses an indexed tolerance
+range. Migration failure rolls back and preserves compatibility search for a
+later retry (`FR-091.5.R4`–`FR-091.5.R6`, `DATA-007`, `DATA-009`).
+
+### 2026-11-09 — One-letter artist typo missing from indexed candidates
+
+**User report:** Searching `anibel` did not show Aníbal Troilo and instead
+returned hundreds of weak results.
+
+**Implementation response:** Identified a candidate-stage recall failure: the
+single substitution changed three of the four query trigrams, so the correct
+artist could be removed before edit-distance scoring. Added bounded
+three-character token-prefix recovery for track and tanda candidate lookup and
+regressions proving `anibel` reaches and matches `Aníbal Troilo`
+(`FR-091.5.R8`, `DATA-009.R5`).
+
+### 2026-11-09 — Boundary-aware bigram and trigram candidate model
+
+**User decision:** Search and indexed metadata share Spanish-oriented
+normalization before fuzzy processing. Replace the temporary prefix recovery
+with both N=2 and N=3 grams, using the full N−1 leading and trailing boundary
+markers for each token.
+
+**Implementation response:** Advanced automatic search migration to schema
+version 2. It replaces trigram FTS candidate expansion with deduplicated
+boundary-aware bigram/trigram tables, applies `^…$` and `^^…$$` padding after
+normalization, weights normalized trigram coverage twice as strongly, and gates
+low-coverage coincidences. Track metadata and tanda-name indexes are maintained
+by triggers; tanda child-track typo lookup reuses track n-gram evidence. Added
+schema-1 upgrade, Spanish normalization, boundary generation, substitution,
+omission and transposition regressions (`FR-091.5.R8`, `DATA-009.R2`,
+`DATA-009.R5`).
+
+### 2026-11-09 — Search result cutoff and intuitive single-token ranking
+
+**User report:** Exact `anibal` and misspelled `anibel` searches still displayed
+hundreds of unintuitive rows; experience indicated that n-gram results need a
+substantive cutoff.
+
+**Implementation response:** Separated candidate evidence from final result
+acceptance. Boundary n-gram candidates now require `0.75` normalized weighted
+coverage. Single-token lookup compares tokens rather than accumulating grams
+across a whole metadata field, requires `0.72` similarity for fuzzy lexical
+matches, prevents a short token such as `ani` from satisfying `anibel`, and
+ranks edit closeness before field compactness. A regression with 250 incidental
+`Ani compilation` rows returns only `Aníbal Troilo` (`FR-091.5.R9`,
+`DATA-009.R6`).
+
+### 2026-11-09 — Cumpasita deletion versus unrelated Así results
+
+**User report:** `cumpasita` returned 239 largely unrelated tracks and no
+tandas, while the correctly spelled `cumparsita` returned the expected title
+and 21 tandas. This is a single-character deletion of `r`, not a substitution.
+
+**Implementation response:** Corrected the initially misread query and added the
+exact `cumpasita` → `La Cumparsita` deletion case at candidate, containing-tanda
+and final-ranking levels. The missing character shifts the following n-grams,
+but the combined boundary-aware bigram/trigram evidence remains strong. The
+regression also proves 50 unrelated `Así` titles are rejected while the intended
+track remains.
+
+### 2026-11-09 — Token-local n-gram evidence
+
+**User clarification:** Each query word should be scored against individual
+source words. Weak n-gram fragments spread across a long metadata string must
+not add together and outrank one strong longer-word match.
+
+**Implementation response:** Search schema version 3 adds `source_token` to the
+track and tanda n-gram projections and migrates version-2 indexes automatically.
+Candidate SQL now groups evidence by result and source token, applies a
+source/query length-coverage gate, evaluates multi-word queries one query token
+at a time, and collapses qualifying source words to their best evidence. Final
+ranking continues to use one-to-one query/source token matching. Native
+regressions prove that `cumpasita` retrieves `Cumparsita` while grams scattered
+across `Cum pas ita` do not form a candidate (`FR-091.5.R10`, `DATA-009.R7`).
+
+### 2026-11-09 — Search user-test version
+
+**User decision:** Prepare the search/live-performance branch as a pull request
+for user testing, with its application version one increment above `main`.
+
+**Implementation response:** After refreshing the remote release state,
+advanced package and lockfile versions from released `0.4.11` on `main` to
+patch version `0.4.12`. The earlier local comparison against `0.4.10` used a
+stale `main` ref and was corrected before merge. No release or tag was created.
+
 - 2026-11-04 — Visible T-entry destination and exact-style completion
   - The user required Search/Clipboard `T` actions to reveal their destination
     unless the same tanda is already open in Playlist.

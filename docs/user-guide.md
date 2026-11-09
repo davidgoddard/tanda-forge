@@ -1198,3 +1198,10 @@ overlap. Reimporting the same source updates its deterministic records rather
 than adding another copy, and it does not delete older imported tandas. Existing
 imports made before source tracking remain valid. If an external source later
 becomes unavailable, already imported tandas are retained.
+
+## Search-index upgrade
+
+The first start after upgrading to the indexed-search database automatically
+builds local search indexes for existing tracks and tandas. No library rescan or
+manual conversion is required, and audio files are not modified. Subsequent
+track edits, scans, imports and tanda changes keep the indexes current.

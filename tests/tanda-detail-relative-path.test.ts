@@ -5,25 +5,28 @@ describe("tanda detail loading", () => {
   it("preserves track relative_path for renderer consumers", () => {
     const db = {
       prepare: (sql: string) => {
-        if (sql.includes("from tandas") && sql.includes("where id = ?")) {
+        if (sql.includes("from tandas") && sql.includes("json_each")) {
           return {
-            get: () => ({
+            all: () => [{
               id: "t1",
               name: "Test Tanda",
               rating: 4,
               instrumental: 0,
               total_duration_ms: 123000,
               slot_count: 3,
-            }),
+              legacy_source_id: null,
+              legacy_source_path: null,
+            }],
           };
         }
-        if (sql.includes("from tanda_styles where tanda_id = ?")) {
-          return { all: () => [{ style_name: "Tango" }] };
+        if (sql.includes("from tanda_styles") && sql.includes("json_each")) {
+          return { all: () => [{ tanda_id: "t1", style_name: "Tango" }] };
         }
         if (sql.includes("from tanda_tracks tt")) {
           return {
             all: () => [
               {
+                tanda_id: "t1",
                 track_id: "track-a",
                 position: 0,
                 title: "Song A",

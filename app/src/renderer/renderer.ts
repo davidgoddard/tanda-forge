@@ -15482,6 +15482,7 @@ const updateJumpIndex = async (
   const available = await window.tanda.searchJumpIndex({
     ...params,
     sortBy: searchState.sortBy,
+    sortDir: searchState.sortDir,
   });
   renderJumpIndex(available);
 };
@@ -17810,6 +17811,7 @@ const init = async () => {
       closeCollectionTargetMenu,
       setActiveSearchTab: (tabId) => {
         setActiveSearchTabState(tabId as SearchTab);
+        void refreshSearch();
       },
       updateSearchTabVisibility,
       setActiveRightTab: (tabId) => {
@@ -18134,6 +18136,7 @@ const init = async () => {
 
   const message = await window.tanda.ping();
   setStatus(t("statusMainProcess", { message }));
+  await ensureAudioOutputs();
   await loadTandaDrafts();
   loadPlayCounts();
   loadOrchestraRegistry();
@@ -19123,7 +19126,6 @@ const init = async () => {
   await renderPlaybackDiagnosticsLog();
   await renderDiagnosticsDataReadiness();
   updateSearchTabVisibility();
-  await ensureAudioOutputs();
   await renderRoots();
   await renderDeletedTracks();
   await renderDataLocation();
