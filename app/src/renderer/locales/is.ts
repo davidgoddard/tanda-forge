@@ -268,7 +268,7 @@ export const is: TranslationMap = {
   actionRemoveClipboard: "Fjarlægja af klemmuspjaldi",
   actionRemoveClipboardShort: "F",
   actionRemovePlaylist: "Fjarlægja af spilunarlista",
-  actionRemovePlaylistShort: "S",
+  actionRemovePlaylistShort: "F",
   actionAddPlaylist: "Bæta við spilunarlista",
   actionAddPlaylistShort: "S",
   actionMoveCollection: "Færa í safn",

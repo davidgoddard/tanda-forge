@@ -72,6 +72,32 @@ export const scoreTandaTrackCohesion = (
   return score;
 };
 
+export const orderTandaTracksByBpm = <T>(
+  tracks: T[],
+  getBpm: (track: T) => number | null | undefined,
+) => {
+  const hasKnownBpm = (track: T) => {
+    const bpm = getBpm(track);
+    return typeof bpm === "number" && Number.isFinite(bpm) && bpm > 0;
+  };
+  const orderedKnownTracks = tracks
+    .map((track, index) => ({ track, index }))
+    .filter(({ track }) => hasKnownBpm(track))
+    .sort((left, right) =>
+      (getBpm(left.track) as number) - (getBpm(right.track) as number)
+        || left.index - right.index)
+    .map(({ track }) => track);
+  let knownIndex = 0;
+  return tracks.map((track) => {
+    if (!hasKnownBpm(track)) {
+      return track;
+    }
+    const ordered = orderedKnownTracks[knownIndex] ?? track;
+    knownIndex += 1;
+    return ordered;
+  });
+};
+
 const orderedTrackIds = (trackIds: (string | null)[]) =>
   trackIds.filter((trackId): trackId is string => Boolean(trackId));
 

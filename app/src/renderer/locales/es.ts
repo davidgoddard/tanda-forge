@@ -195,7 +195,7 @@ export const es: TranslationMap = {
     actionRemoveClipboard: "Quitar del portapapeles",
     actionRemoveClipboardShort: "R",
     actionRemovePlaylist: "Quitar de la lista",
-    actionRemovePlaylistShort: "L",
+    actionRemovePlaylistShort: "Q",
     actionAddPlaylist: "Agregar a la lista",
     actionAddPlaylistShort: "L",
     actionMoveCollection: "Mover a coleccion",

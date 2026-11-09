@@ -478,7 +478,7 @@ export const createPlaylistInteractionsController = (
         deps.actions.closeRowMenus();
         return;
       }
-      if (action === "remove-playlist-tanda" || action === "send-playlist-tanda") {
+      if (action === "send-playlist-tanda") {
         if (isLocked) {
           deps.actions.setStatusPlaylistLocked();
           return;
@@ -491,10 +491,18 @@ export const createPlaylistInteractionsController = (
           deps.actions.closeRowMenus();
           return;
         }
+        deps.actions.renderClipboard();
+        deps.actions.closeRowMenus();
+        return;
+      }
+      if (action === "remove-playlist-tanda") {
+        if (isLocked) {
+          deps.actions.setStatusPlaylistLocked();
+          return;
+        }
         deps.actions.setPlaylistItem(index, null);
         deps.actions.normalizePlaylist();
         deps.actions.renderPlaylist();
-        deps.actions.renderClipboard();
         deps.actions.closeRowMenus();
         return;
       }

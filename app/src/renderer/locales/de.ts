@@ -196,7 +196,7 @@ export const de: TranslationMap = {
     actionRemoveClipboard: "Aus Zwischenablage entfernen",
     actionRemoveClipboardShort: "R",
     actionRemovePlaylist: "Aus Playlist entfernen",
-    actionRemovePlaylistShort: "R",
+    actionRemovePlaylistShort: "E",
     actionAddPlaylist: "Zur Playlist hinzufugen",
     actionAddPlaylistShort: "P",
     actionMoveCollection: "In Sammlung verschieben",

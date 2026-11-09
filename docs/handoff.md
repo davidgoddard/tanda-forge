@@ -1,5 +1,33 @@
 ## Handoff
 
+### Version 0.4.12 playlist tanda polish
+- Package and lockfile versions are `0.4.12` for the playlist tanda copy/remove
+  separation and progressive BPM ordering described below.
+- `npm run preflight` passed at the release version (115 test files, 671 tests,
+  production build); `git diff --check` passed.
+- Release-integrity recheck on 2026-11-08 confirmed that the unchanged official
+  FFmpeg 9.0.2 source, Gyan 8.1.2 Windows package, and retained BtbN Linux asset
+  all still resolve. Their pinned upstream SHA-256 digests and executable-pair
+  checks remain covered by the passing fetch-script tests.
+
+### Progressive BPM order in automatically constructed tandas
+- Playlist track generation and Designer completion now order known-BPM tracks
+  from slowest to fastest, leaving unknown-BPM positions unchanged and placing
+  the fastest known recording last among tracks with BPM metadata
+  (`UI-014.R35`). Saved tandas selected by auto-fill retain their authored order.
+- `npm run preflight` passed (115 test files, 671 tests, production build).
+
+### Separate playlist tanda copy and remove actions
+- A playlist tanda's `C` action now copies it to the active clipboard destination
+  without changing the playlist. A separate localized remove action clears the
+  tanda's slot without copying it (`UI-014.R7`, `UI-014.R17`, `UI-014.R17.a`).
+- The compact remove letter follows the translated removal verb: `R` in English,
+  French, Italian, and Portuguese; `E` in German; `Q` in Spanish; and `F` in
+  Icelandic.
+- `npm run preflight` passed (115 test files, 668 tests, production build).
+  Focused Electron workflow 24 could not launch in this shell (`Process failed
+  to launch!`) before reaching application behavior.
+
 ### Playlist-only tanda deletion
 - The playlist-hosted delete dialog now shows **Delete from database** only when
   the tanda resolves to an ID confirmed in the persisted database set
