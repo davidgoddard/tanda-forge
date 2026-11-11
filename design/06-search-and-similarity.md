@@ -85,6 +85,11 @@ Numeric fields (e.g. BPM, year) may be searchable both:
   their corresponding metadata fields and must not match the same characters
   in titles, notes, artists or albums. An
   ordinary user-entered word such as `instrumental` remains free text.
+- FR-090.2.R13: For a machine-generated Search Similar query containing explicit
+  field intent, the combined weighted similarity score must determine relevance
+  before generic lexical tie-breakers. An exact seed metadata match must not be
+  displaced by a looser text match with less-similar BPM, year, singer, or
+  instrumental metadata.
 
 ---
 

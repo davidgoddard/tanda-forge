@@ -1,5 +1,26 @@
 ## Handoff
 
+### Version 0.4.14 — Search Similar ranking fix
+- Package and lockfile versions are `0.4.14` for the Search Similar seed-ranking
+  correction below.
+- Release-integrity recheck on 2026-11-11 confirmed that all three unchanged
+  pinned FFmpeg assets resolve and match their upstream-published SHA-256
+  digests. The Windows and Linux archives contain compatible `ffmpeg` and
+  `ffprobe` pairs; the BtbN month-end pin remains covered by its two-year
+  retention policy. Fetch-script tests and the full build are covered by the
+  preflight result below.
+
+### Search Similar seed ranking
+- Machine-generated Search Similar queries with explicit metadata intents now
+  rank by the combined weighted similarity score before lexical text tiers.
+  Consequently, an exact artist/BPM seed match stays above looser artist-text
+  matches with more distant tempo or other similarity metadata
+  (`FR-090.2.R13`). Ordinary typed lookup and implicit mixed queries retain
+  their existing lexical-first ordering.
+- Verification: `npm run preflight` passed (117 test files, 691 tests passed,
+  6 native-SQLite tests skipped under the host Node ABI, plus the production
+  build).
+
 ### BPM in tanda editor track rows
 - Populated track rows in the Tanda Designer and playlist-hosted editor append
   rounded BPM metadata at the end when it is defined (`UI-016.R29`).

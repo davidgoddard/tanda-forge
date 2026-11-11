@@ -802,6 +802,33 @@ describe("fuzzy search helpers", () => {
     ]);
   });
 
+  it("ranks the Search Similar seed above looser artist matches with more distant BPM", () => {
+    const seed = buildTrack({
+      id: "seed",
+      title: "Estrellita del sur",
+      artist: "Alberto Castillo",
+      artist_summary: "Alberto Castillo",
+      bpm: 61,
+      genre: "Waltz - Traditional",
+    });
+    const expandedArtist = buildTrack({
+      id: "expanded-artist",
+      title: "Recuerdo",
+      artist: "Enrique Alessio canta Alberto Castillo",
+      artist_summary: "Enrique Alessio canta Alberto Castillo",
+      bpm: 69,
+      genre: "Waltz - Traditional",
+    });
+    const result = filterAndScoreTracks([expandedArtist, seed], {
+      query: "Alberto Castillo bpm:61",
+      minScore: 0.19,
+      bpmRange: 5,
+      sortBy: "score",
+      sortDir: "desc",
+    });
+    expect(result.map((entry) => entry.track.id)).toEqual(["seed", "expanded-artist"]);
+  });
+
   it("keeps generated instrumental intent separate from ordinary text", () => {
     const metadataMatch = buildTrack({
       id: "metadata-match",

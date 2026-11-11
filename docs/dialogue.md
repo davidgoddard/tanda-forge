@@ -5,6 +5,13 @@ Code diffs are omitted; only intent and outcomes are captured.
 
 ## Timeline Highlights
 
+- 2026-11-11 — FR-090.2.R13: User reported that Clipboard **Search similar**
+  for `Alberto Castillo bpm:61` placed the selected track below looser artist
+  matches at 69–71 BPM. The machine-generated explicit-metadata ranking now
+  uses the combined similarity score before generic lexical tie-breakers,
+  while ordinary typed search retains lexical-first ordering. See
+  `app/src/main/library/fuzzy-search.ts` and `tests/library-search.test.ts`.
+
 - User: Asked for a Tanda Forge README note near the cortina features describing
   the optional simple DMX controller and linking to the Lighting repository.
   Assistant: Added the GitHub link and described automatic lights up for

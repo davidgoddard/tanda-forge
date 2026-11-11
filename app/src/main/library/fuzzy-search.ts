@@ -253,6 +253,7 @@ type ParsedQuery = {
   tempoTokens: number[];
   instrumentalIntent: boolean | null;
   singerIntent: string | null;
+  hasExplicitSimilarityIntent: boolean;
 };
 
 const extractQuotedPhrases = (query: string) => {
@@ -283,10 +284,12 @@ export const parseScopedSearchQuery = (query: string): ScopedSearchQuery => {
 
 const parseQuery = (query: string): ParsedQuery => {
   let metadataText = query;
+  let hasExplicitSimilarityIntent = false;
   let singerIntent: string | null = null;
   metadataText = metadataText.replace(
     /\bsinger\s*:\s*(?:"([^"]+)"|([^\s]+))/gi,
     (_match, quoted: string | undefined, unquoted: string | undefined) => {
+      hasExplicitSimilarityIntent = true;
       singerIntent = normalizeSearchText(quoted ?? unquoted ?? "") || null;
       return " ";
     },
@@ -295,6 +298,7 @@ const parseQuery = (query: string): ParsedQuery => {
   metadataText = metadataText.replace(
     /\binstrumental\s*:\s*(true|false)\b/gi,
     (_match, value: string) => {
+      hasExplicitSimilarityIntent = true;
       instrumentalIntent = value.toLowerCase() === "true";
       return " ";
     },
@@ -303,6 +307,7 @@ const parseQuery = (query: string): ParsedQuery => {
   metadataText = metadataText.replace(
     /\byear\s*:\s*(\d{4})(?:\s*-\s*(\d{4}))?\b/gi,
     (_match, first: string, second?: string) => {
+      hasExplicitSimilarityIntent = true;
       yearTokens.push(Number.parseInt(first, 10));
       if (second) yearTokens.push(Number.parseInt(second, 10));
       return " ";
@@ -310,6 +315,7 @@ const parseQuery = (query: string): ParsedQuery => {
   );
   const tempoTokens: number[] = [];
   metadataText = metadataText.replace(/\bbpm\s*:\s*(\d{2,3})\b/gi, (_match, bpm: string) => {
+    hasExplicitSimilarityIntent = true;
     tempoTokens.push(Number.parseInt(bpm, 10));
     return " ";
   });
@@ -345,6 +351,7 @@ const parseQuery = (query: string): ParsedQuery => {
     tempoTokens,
     instrumentalIntent,
     singerIntent,
+    hasExplicitSimilarityIntent,
   };
 };
 
@@ -1106,6 +1113,8 @@ export const filterAndScoreTracks = (
   const singleTokenLookup = parsedQuery.mode === "lookup"
     && parsedQuery.phraseTokens.length === 0
     && parsedQuery.textTokens.length === 1;
+  const explicitSimilarityRanking = parsedQuery.mode === "similarity"
+    && parsedQuery.hasExplicitSimilarityIntent;
   const passesSingleTokenQualityFloor = (breakdown: ScoreBreakdown) => {
     if (!singleTokenLookup) return true;
     if (breakdown.lexicalRank.tier >= 3) return true;
@@ -1150,6 +1159,9 @@ export const filterAndScoreTracks = (
   };
   scored.sort((a, b) => {
     if (sortBy === "score") {
+      if (explicitSimilarityRanking && b.breakdown.score !== a.breakdown.score) {
+        return b.breakdown.score - a.breakdown.score;
+      }
       const lexicalComparison = compareLexicalRank(a.breakdown.lexicalRank, b.breakdown.lexicalRank);
       if (lexicalComparison !== 0) {
         return lexicalComparison;
