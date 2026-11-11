@@ -7,6 +7,18 @@ const styles = fs.readFileSync(path.join(process.cwd(), "app/src/renderer/styles
 const html = fs.readFileSync(path.join(process.cwd(), "app/src/renderer/index.html"), "utf8");
 
 describe("audio similarity report UI", () => {
+  it("does not load or render the report until its Setup button is clicked", () => {
+    expect(renderer).not.toContain(
+      "applyTranslations();\n  await loadAudioSimilarityReport();",
+    );
+    const openHandler = renderer.slice(
+      renderer.indexOf('openAudioSimilarityBtn?.addEventListener("click"'),
+      renderer.indexOf('closeAudioSimilarityBtn?.addEventListener("click"'),
+    );
+    expect(openHandler).toContain('audioSimilarityPage?.classList.add("open")');
+    expect(openHandler).toContain("await loadAudioSimilarityReport()");
+  });
+
   it("places report access in post-setup maintenance after metadata refresh", () => {
     const metadata = html.indexOf('id="refresh-stored-metadata-result"');
     const similarity = html.indexOf('id="open-audio-similarity"');

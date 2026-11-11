@@ -619,6 +619,8 @@ Requirements:
   fine-grained style (for example Traditional or Alternative) whenever enough
   distinct tracks can fill the tanda. It may mix styles from the permitted broad
   family (for example Tango) only when the exact style cannot fill it.
+- UI-016.R29: Populated track rows in the Tanda Designer and playlist-hosted
+  tanda editor append the rounded BPM value when valid BPM metadata is present.
 
 Filtering:
 - UI-016.R13: When a tanda is selected, the clipboard (and search results, when enabled)

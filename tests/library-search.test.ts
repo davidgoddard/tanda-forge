@@ -193,6 +193,45 @@ describe("fuzzy search helpers", () => {
     expect(result).toHaveLength(1);
   });
 
+  it("does not dilute exact multi-word title matches with populated metadata", () => {
+    const tracks = ["La Cumparsita", "El distinguido ciudadano"].map((title, index) =>
+      buildTrack({
+        id: `title-${index}`,
+        title,
+        artist: "Orquesta típica con cantor invitado",
+        artist_summary: "Orquesta típica",
+        singer: "Cantor Invitado",
+        album: "Complete collection",
+        album_artist: "Various artists",
+        genre: "Tango",
+        notes: "Restored historical recording",
+      }));
+    for (const track of tracks) {
+      const result = filterAndScoreTracks(tracks, {
+        query: track.title,
+        minScore: 0.5,
+        bpmRange: 5,
+      });
+      expect(result.map((entry) => entry.track.id)).toContain(track.id);
+    }
+  });
+
+  it("keeps a full singer name found inside the artist field", () => {
+    const track = buildTrack({
+      artist: "Francisco Canaro con Roberto Maida",
+      singer: "",
+      title: "Poema",
+      album: "Complete collection",
+      notes: "Restored historical recording",
+    });
+    const result = filterAndScoreTracks([track], {
+      query: "Roberto Maida",
+      minScore: 0.5,
+      bpmRange: 5,
+    });
+    expect(result).toHaveLength(1);
+  });
+
   it("ranks an exact single-word title above longer title and fuzzy metadata matches", () => {
     const exactTitle = buildTrack({
       id: "exact-title",

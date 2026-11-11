@@ -537,6 +537,7 @@ export const is: TranslationMap = {
   playlistTransferSummary: "Vistaðu núverandi spilunarlista sem JSON eða hopað M3U/M3U8, eða flyttu inn hvort sem er.",
   playlistTransferHelp: "Hopaður M3U inn- og útflutningur er aðeins besta tilraun. Samfelld group-title eða EXTGRP svæði verða að töndum við innflutning, en full Tanda Forge lysigogn krefjast enn JSON.",
   playlistSaveButton: "Vista spilunarlista",
+  playlistSaveCortinas: "Hafa cortínur með",
   playlistImportButton: "Flytja inn spilunarlista",
   playlistExportRunning: "Vista spilunarlista...",
   playlistExportDone: "Spilunarlisti vistaður i {path}",

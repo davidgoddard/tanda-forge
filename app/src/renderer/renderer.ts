@@ -278,6 +278,7 @@ import {
   trackEditorDraftDiffers,
   type TrackEditorDraft,
 } from "./modules/track-editor-view.js";
+import { buildTandaTrackLabel } from "./modules/tanda-track-view.js";
 import {
   buildClipboardTandaFilterText,
   normalizeClipboardFilter,
@@ -755,6 +756,8 @@ const playlistEndTimeInput =
   document.querySelector<HTMLInputElement>("#playlist-end-time");
 const playlistSaveBtn =
   document.querySelector<HTMLButtonElement>("#playlist-save-button");
+const playlistSaveCortinasInput =
+  document.querySelector<HTMLInputElement>("#playlist-save-cortinas");
 const playlistImportBtn =
   document.querySelector<HTMLButtonElement>("#playlist-import-button");
 const playlistTransferResult =
@@ -9255,7 +9258,7 @@ const buildPortableTrackRefForExport = (track: TrackRow): PortableTrackRef => ({
   artist: track.artist ?? "",
 });
 
-const buildPlaylistExportManifest = (): PlaylistExportManifest => {
+const buildPlaylistExportManifest = (includeCortinas = true): PlaylistExportManifest => {
   const createdAt = new Date().toISOString();
   const validCortinaIndices = new Set(getCortinaRowIndices(playlistItems));
   return {
@@ -9263,14 +9266,14 @@ const buildPlaylistExportManifest = (): PlaylistExportManifest => {
     version: PLAYLIST_EXPORT_VERSION,
     createdAt,
     appVersion: "renderer",
-    cortinaSet: getCortinaSet() || undefined,
-    cortinaAssignments: [...validCortinaIndices]
+    cortinaSet: includeCortinas ? getCortinaSet() || undefined : undefined,
+    cortinaAssignments: includeCortinas ? [...validCortinaIndices]
       .map((index) => {
         const track = getCortinaRowTrack(index);
         return track ? { index, track: buildPortableTrackRefForExport(track) } : null;
       })
       .filter((entry): entry is { index: number; track: PortableTrackRef } => Boolean(entry))
-      .sort((a, b) => a.index - b.index),
+      .sort((a, b) => a.index - b.index) : [],
     items: playlistItems.map((item) => {
       if (!item) {
         return null;
@@ -12014,7 +12017,9 @@ const renderTandaDesigner = () => {
       const label = document.createElement("span");
       if (trackId) {
         const track = trackCache.get(trackId);
-        label.textContent = track ? resolveNowPlayingTrackLabel(track) : t("tandaPlaceholder");
+        label.textContent = track
+          ? buildTandaTrackLabel(resolveNowPlayingTrackLabel(track), track.bpm)
+          : t("tandaPlaceholder");
       } else {
         label.textContent = t("tandaPlaceholder");
       }
@@ -18913,7 +18918,8 @@ const init = async () => {
     });
   });
   libraryWorkflowStepMarkers.forEach((marker) => {
-    marker.addEventListener("click", () => {
+    marker.addEventListener("click", (event) => {
+      event.stopPropagation();
       const stepKey = (marker.dataset.stepExpand ?? "") as LibraryWorkflowStepKey;
       if (!stepKey) {
         return;
@@ -19016,7 +19022,9 @@ const init = async () => {
       return;
     }
     playlistTransferResult.textContent = t("playlistExportRunning");
-    const result = await window.tanda.exportPlaylistData(buildPlaylistExportManifest());
+    const result = await window.tanda.exportPlaylistData(
+      buildPlaylistExportManifest(playlistSaveCortinasInput?.checked !== false),
+    );
     if (result.cancelled) {
       playlistTransferResult.textContent = t("playlistTransferCancelled");
       return;
@@ -19115,7 +19123,6 @@ const init = async () => {
   });
 
   applyTranslations();
-  await loadAudioSimilarityReport();
   if (orchestraFilterInput) {
     orchestraFilterInput.value = orchestraFilterText;
   }

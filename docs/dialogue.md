@@ -7585,3 +7585,9 @@ stale `main` ref and was corrected before merge. No release or tag was created.
   documentation changes. Package metadata advances from `0.4.11` to `0.4.12`.
 - Release scope is the separate playlist tanda copy/remove workflow and
   progressive known-BPM ordering for automatically constructed tandas.
+## 2026-11-11 — BPM in tanda editor track rows
+
+- The user requested that tracks shown within the Tanda Designer include BPM at
+  the end when it is defined. Populated Designer and playlist-hosted editor rows
+  now append the rounded value as `<value> bpm`; tracks without valid positive
+  BPM metadata remain unchanged (`UI-016.R29`).

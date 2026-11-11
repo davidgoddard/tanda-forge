@@ -510,6 +510,7 @@ export const de: TranslationMap = {
     playlistTransferHelp:
       "Gruppierter M3U-Import/-Export ist nur Best-Effort. Zusammenhaengende group-title- oder EXTGRP-Abschnitte werden beim Import zu Tandas, vollstaendige Tanda-Forge-Metadaten bleiben aber JSON vorbehalten.",
     playlistSaveButton: "Playlist speichern",
+    playlistSaveCortinas: "Cortinas einbeziehen",
     playlistImportButton: "Playlist importieren",
     playlistExportRunning: "Playlist wird gespeichert...",
     playlistExportDone: "Playlist gespeichert unter {path}",

@@ -1,5 +1,9 @@
 ## Handoff
 
+### BPM in tanda editor track rows
+- Populated track rows in the Tanda Designer and playlist-hosted editor append
+  rounded BPM metadata at the end when it is defined (`UI-016.R29`).
+
 ### Large-library search and live responsiveness
 - Branch `fix/search-live-performance` makes registered orchestra-name queries
   such as `Miguel Calo` exact, accent-insensitive artist lookups for both tracks
