@@ -192,6 +192,42 @@ describe("search refresh concurrency", () => {
 });
 
 describe("search domain loading", () => {
+  it("loads only tanda results while the tanda tab is active", async () => {
+    let state = baseState();
+    let trackLoads = 0;
+    let tandaLoads = 0;
+    const controller = createSearchController<Track>({
+      searchPageSize: 2,
+      getWindowApi: () => ({
+        searchTracks: async () => { trackLoads += 1; return []; },
+        searchTrackCount: async () => { trackLoads += 1; return 0; },
+        searchJumpIndex: async () => { trackLoads += 1; return []; },
+        searchJumpToPrefix: async () => ({ offset: 0 }),
+      }),
+      getState: () => state,
+      setState: (next) => { state = next; },
+      patchState: (patch) => { state = { ...state, ...patch }; },
+      getSearchParams: () => ({ query: "Trio" }),
+      applySearchUiState: () => {},
+      getRefreshVersion: () => 1,
+      incrementRefreshVersion: () => 1,
+      setTrackInCache: () => {},
+      renderSearchResults: () => {},
+      updateSearchSortDefaults: () => {},
+      updateTabCount: () => {},
+      updateJumpIndex: async () => {},
+      loadTandaSearchResults: async () => { tandaLoads += 1; },
+      getActiveSearchTab: () => "search-tandas",
+      getSearchListBody: () => null,
+      getSearchListMetrics: () => null,
+      setSearchListScrollTop: () => {},
+    });
+
+    await controller.refreshSearch();
+    expect(tandaLoads).toBe(1);
+    expect(trackLoads).toBe(0);
+  });
+
   it("does not hydrate tanda results while the track tab is active", async () => {
     let state = baseState();
     let tandaLoads = 0;

@@ -507,6 +507,7 @@ export const es: TranslationMap = {
     playlistTransferHelp:
       "La importacion y exportacion M3U agrupada es de mejor esfuerzo. Las secciones contiguas con group-title o EXTGRP se convierten en tandas al importar, pero los metadatos completos siguen requiriendo JSON.",
     playlistSaveButton: "Guardar playlist",
+    playlistSaveCortinas: "Incluir cortinas",
     playlistImportButton: "Importar playlist",
     playlistExportRunning: "Guardando playlist...",
     playlistExportDone: "Playlist guardada en {path}",

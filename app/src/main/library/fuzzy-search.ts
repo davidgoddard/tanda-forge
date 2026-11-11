@@ -1071,7 +1071,15 @@ const scoreTrackWithBreakdown = (
     (combinedTextMetrics?.queryCoverage ?? 0) >= 0.999
       ? 0.3 * (combinedTextMetrics?.averageSimilarity ?? 0)
       : 0;
-  const rawScore = Math.max(weighted, titleCoverageBoost);
+  const normalizedLookupPhrase = normalizeSearchText(textTerms.join(" "));
+  const exactPrimaryFieldBoost =
+    parsed.mode === "lookup" &&
+    normalizedLookupPhrase.length > 0 &&
+    [titleField, artistField, singerField]
+      .some((field) => containsWholePhrase(normalizeSearchText(field), normalizedLookupPhrase))
+      ? 1
+      : 0;
+  const rawScore = Math.max(weighted, titleCoverageBoost, exactPrimaryFieldBoost);
   return {
     score: Math.min(
       1,

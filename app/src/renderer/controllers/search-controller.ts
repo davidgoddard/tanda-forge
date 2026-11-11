@@ -94,6 +94,12 @@ export const createSearchController = <TTrack extends { id: string }>(
   const refreshSearch = async () => {
     const refreshVersion = deps.incrementRefreshVersion();
     deps.applySearchUiState("loading", refreshVersion, 0);
+    if (deps.getActiveSearchTab() === "search-tandas") {
+      await deps.loadTandaSearchResults();
+      if (refreshVersion !== deps.getRefreshVersion()) return;
+      deps.applySearchUiState("idle", refreshVersion, deps.getState().total);
+      return;
+    }
     const params = deps.getSearchParams();
     deps.updateSearchSortDefaults();
     deps.patchState({ total: 0 });
@@ -130,9 +136,6 @@ export const createSearchController = <TTrack extends { id: string }>(
       if (refreshVersion !== deps.getRefreshVersion()) {
         return;
       }
-    }
-    if (deps.getActiveSearchTab() === "search-tandas") {
-      await deps.loadTandaSearchResults();
     }
     if (refreshVersion !== deps.getRefreshVersion()) return;
     deps.applySearchUiState("idle", refreshVersion, deps.getState().total);

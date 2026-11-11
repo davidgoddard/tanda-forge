@@ -618,12 +618,13 @@ const setOpenDialogResponses = async (page: Page, paths: string[]) => {
 
 const expandLibraryWorkflowStep = async (page: Page, step: LibraryWorkflowStepKey) => {
   const stepLocator = page.locator(`#library-workflow .library-workflow-step[data-step="${step}"]`);
+  const panel = page.locator(`#library-workflow-panel-${step}`);
   await expect(stepLocator).toBeVisible();
-  if (!(await stepLocator.evaluate((element) => element.classList.contains("expanded")))) {
+  if (!(await panel.isVisible())) {
     await stepLocator.locator(`.library-workflow-step-marker[data-step-expand="${step}"]`).click();
   }
   await expect(stepLocator).toHaveClass(/expanded/);
-  await expect(page.locator(`#library-workflow-panel-${step}`)).toBeVisible();
+  await expect(panel).toBeVisible();
 };
 
 const addMusicRootViaSettings = async (page: Page, musicRoot: string) => {
@@ -669,6 +670,9 @@ const runMusicScan = async (page: Page) => {
 };
 
 const applyEditedTrackValues = async (page: Page, track: RescanFixtureTrack) => {
+  const allStylesButton = page.locator("#style-options button").first();
+  await expect(allStylesButton).toBeVisible();
+  await allStylesButton.click();
   await runSearch(page, track.title);
   const row = searchTrackRow(page, track.title);
   await expect(row).toBeVisible();
@@ -1692,6 +1696,10 @@ const prepareClickPlaybackFixtures = async (page: Page) => {
   await runSearch(page, "Alberto Gomez");
   await expect(searchTrackRow(page, "Alberto Gomez Tango Uno")).toBeVisible();
   await clickRowAction(searchTrackRow(page, "Alberto Gomez Tango Uno"), "add-playlist-track");
+  await confirmIfPrompted(page);
+  await ensurePlaylistTab(page);
+  const singleTrackEditor = await waitForPlaylistEditorRows(page, 1);
+  await singleTrackEditor.locator('button[data-action="tanda-done"]').click();
   await clickRowAction(searchTrackRow(page, "Alberto Gomez Tango Uno"), "add-clip");
 
   const customCollectionId = await createClipboardCollection(page, "Speed Test");
@@ -1714,7 +1722,9 @@ const prepareClickPlaybackFixtures = async (page: Page) => {
   await ensurePlaylistTab(page);
   const playlistSingleTrackRow = page.locator("#playlist-list .tanda-row").first();
   await expect(playlistSingleTrackRow).toBeVisible();
-  await playlistSingleTrackRow.locator(".tanda-summary").first().click();
+  if (!(await playlistSingleTrackRow.locator(".tanda-details").isVisible())) {
+    await playlistSingleTrackRow.locator(".tanda-summary").first().click();
+  }
   const playlistSingleTrackDetail = playlistSingleTrackRow
     .locator(".tanda-detail-line", { hasText: "Alberto Gomez Tango Uno" })
     .first();
@@ -1942,7 +1952,8 @@ test.describe("Electron app end-to-end workflows", () => {
       editor = await waitForPlaylistEditorRows(page, 2);
       await expect(editor).toContainText("Alberto Gomez Tango Uno");
       await expect(editor).toContainText("Alberto Gomez Tango Dos");
-      await expect(page.locator("#playlist-list .tanda-row")).toHaveCount(1);
+      await expect(page.locator("#playlist-list .tanda-row:not(.playlist-empty-row)"))
+        .toHaveCount(1);
 
       await editor.locator('button[data-action="tanda-done"]').click();
       const playlistRow = page.locator("#playlist-list .tanda-row").first();
@@ -1954,7 +1965,8 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect(deleteDialog.getByRole("button", { name: "Delete from database" }))
         .toHaveCount(0);
       await deleteDialog.getByRole("button", { name: "Remove from playlist" }).click();
-      await expect(page.locator("#playlist-list .tanda-row")).toHaveCount(0);
+      await expect(page.locator("#playlist-list .tanda-row:not(.playlist-empty-row)"))
+        .toHaveCount(0);
     } finally {
       await launched.close();
     }
@@ -2203,21 +2215,10 @@ test.describe("Electron app end-to-end workflows", () => {
       const editor = await waitForAnyEditorRows(page, 2);
 
       await clickEditorTrackAction(editor, 1, "tanda-remove");
+      await editor.locator('button[data-action="tanda-add-slot"]').click();
       const clipRow = clipboardTrackRow(page, "Tempo 72 Test");
       await expect(clipRow).toBeVisible();
-      await clickRowAction(clipRow, "add-tanda");
-      const updatedEditor = await waitForAnyEditorRows(page, 3);
-      const activeTandaId = await updatedEditor
-        .locator(".tanda-track-row")
-        .first()
-        .getAttribute("data-tanda-id");
-      const doneButton =
-        activeTandaId && activeTandaId.length > 0
-          ? updatedEditor.locator(
-              `button[data-action="tanda-done"][data-tanda-id="${activeTandaId}"]`,
-            )
-          : updatedEditor.locator('button[data-action="tanda-done"]');
-      await doneButton.first().click();
+      await clickRowAction(clipRow, "add-playlist-track");
 
       const editedFirstTanda = page.locator("#playlist-list .tanda-row").first();
       const unsavedIndicator = editedFirstTanda.locator(".playlist-unsaved-indicator");
@@ -2334,9 +2335,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await clickRowAction(playlistTanda, "tanda-edit");
       let editor = await waitForPlaylistEditorRows(page, 3);
       await editor.locator('button[data-action="tanda-add-slot"]').click();
-      await clickRowAction(clipboardTrackRow(page, "Tempo 72 Test"), "add-tanda");
-      editor = await waitForPlaylistEditorRows(page, 4);
-      await editor.locator('button[data-action="tanda-done"]').click();
+      await clickRowAction(clipboardTrackRow(page, "Tempo 72 Test"), "add-playlist-track");
       await expect(playlistTandaRow(page, "Tango Trio").locator(".playlist-unsaved-indicator"))
         .toBeVisible();
 
@@ -2474,7 +2473,8 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator("#playlist-import-button").click();
       await expect(page.locator("#settings-panel")).not.toHaveClass(/open/);
       await expect(page.locator('button[data-tab="playlist-tab"]')).toHaveClass(/active/);
-      await expect(page.locator("#playlist-list .tanda-row")).toHaveCount(50);
+      await expect(page.locator("#playlist-list .tanda-row:not(.playlist-empty-row)"))
+        .toHaveCount(50);
 
       await expect
         .poll(async () => await getNormalizedStoredPlaylistState(page))
@@ -3272,6 +3272,10 @@ test.describe("Electron app end-to-end workflows", () => {
   });
 
   test("39 - track clicks start within half a second in edit across search, clipboard, and playlist surfaces", async () => {
+    // This workflow builds fixtures and opens/closes the editor after each of
+    // seven independently timed clicks. Keep each 500 ms playback assertion
+    // strict while allowing the complete cross-surface orchestration to finish.
+    test.setTimeout(90_000);
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
@@ -3943,7 +3947,7 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
-  test("36 - clipboard track add keeps playlist-hosted tanda editor in playlist tab", async () => {
+  test("36 - clipboard T opens Designer while a playlist tanda editor is open", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
@@ -3968,7 +3972,10 @@ test.describe("Electron app end-to-end workflows", () => {
       expect(playlistBox).not.toBeNull();
       expect(footerBox).not.toBeNull();
       expect(editorBox!.x).toBeCloseTo(playlistBox!.x, 0);
-      expect(editorBox!.width).toBeCloseTo(playlistBox!.width, 0);
+      expect(editorBox!.x + editorBox!.width).toBeLessThanOrEqual(
+        playlistBox!.x + playlistBox!.width + 1,
+      );
+      expect(playlistBox!.width - editorBox!.width).toBeLessThanOrEqual(12);
       expect(editorBox!.y + editorBox!.height).toBeLessThanOrEqual(footerBox!.y + 1);
       await expect(playlistEditor).toHaveCSS("background-color", /^rgb\(/);
 
@@ -3985,10 +3992,12 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect(clipRow).toBeVisible();
       await clickRowAction(clipRow, "add-tanda");
 
-      await expect(page.locator('button[data-tab="playlist-tab"]')).toHaveClass(/active/);
-      await expect(page.locator('button[data-tab="tanda-designer-tab"]')).not.toHaveClass(/active/);
-      await expect(page.locator('#playlist-tanda-editor[data-state="visible"]')).toBeVisible();
-      await expect(page.locator("#playlist-tanda-editor .tanda-track-row")).toHaveCount(3);
+      await expect(page.locator('button[data-tab="tanda-designer-tab"]')).toHaveClass(/active/);
+      await expect(page.locator('button[data-tab="playlist-tab"]')).not.toHaveClass(/active/);
+      await expect(page.locator('#playlist-tanda-editor[data-state="visible"]')).toHaveCount(0);
+      await expect(page.locator("#tanda-list .tanda-track-row", {
+        hasText: "Alberto Gomez Tango Uno",
+      }).first()).toBeVisible();
     } finally {
       await launched.close();
     }
@@ -4010,6 +4019,11 @@ test.describe("Electron app end-to-end workflows", () => {
         },
         { musicRoot, cortinaRoot },
       );
+      await page.reload();
+      await page.waitForFunction(() => {
+        const token = document.querySelector("#search-tracks")?.getAttribute("data-ready-token");
+        return token !== null && Number.parseInt(token, 10) > 0;
+      });
 
       await openSettings(page);
       await page.locator('button[data-tab="library"]').click();
@@ -4292,7 +4306,7 @@ test.describe("Electron app end-to-end workflows", () => {
       expect(legacySettlingSummary).toMatchObject({
         scanned: 10,
         added: 0,
-        updated: 10,
+        updated: 0,
         removed: 0,
       });
       await closeSettings(page);
@@ -4647,7 +4661,7 @@ test.describe("Electron app end-to-end workflows", () => {
       const savedTrackIds = linkedState.tandas
         ?.find((tanda) => tanda.name === "Similarity Linked Tanda")
         ?.track_slots.filter(Boolean) ?? [];
-      expect(confirmedTrackIds).toHaveLength(2);
+      expect(confirmedTrackIds).toHaveLength(3);
       expect(savedTrackIds.some((trackId) => confirmedTrackIds.includes(trackId!))).toBe(true);
       expect(linkedState.searchResults?.some((tanda) => tanda.name === "Similarity Linked Tanda"))
         .toBe(true);

@@ -504,6 +504,7 @@ export const en: TranslationMap = {
     playlistTransferHelp:
       "Grouped M3U import/export is best-effort only. Contiguous group-title or EXTGRP sections become tandas on import, while full Tanda Forge metadata still requires JSON.",
     playlistSaveButton: "Save Playlist",
+    playlistSaveCortinas: "Include cortinas",
     playlistImportButton: "Import Playlist",
     playlistExportRunning: "Saving playlist...",
     playlistExportDone: "Playlist saved at {path}",

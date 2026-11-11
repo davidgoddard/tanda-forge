@@ -25,9 +25,15 @@ export const generateBoundaryNgrams = (value: unknown, size: 2 | 3) => {
   return [...grams];
 };
 
-const generateTokenBoundaryNgrams = (value: unknown, size: 2 | 3) =>
-  normalizeIndexedSearchText(value).split(" ").filter(Boolean).flatMap((token) =>
-    generateBoundaryNgrams(token, size).map((gram) => ({ token, gram })));
+const generateTokenBoundaryNgrams = (value: unknown, size: 2 | 3) => {
+  const entries = new Map<string, { token: string; gram: string }>();
+  normalizeIndexedSearchText(value).split(" ").filter(Boolean).forEach((token) => {
+    generateBoundaryNgrams(token, size).forEach((gram) => {
+      entries.set(`${token}\u0000${gram}`, { token, gram });
+    });
+  });
+  return [...entries.values()];
+};
 
 const TRACK_SEARCH_VALUES = `
   new.id,

@@ -93,7 +93,18 @@ const buildM3uExtinfLine = (track: PortableTrackRef, groupTitle?: string) => {
 
 export const serializePlaylistExportAsM3u = (manifest: PlaylistExportManifest) => {
   const lines = ["#EXTM3U"];
+  const cortinasByIndex = new Map(
+    (manifest.cortinaAssignments ?? []).map((assignment) => [assignment.index, assignment.track]),
+  );
+  const appendCortina = (index: number) => {
+    const cortina = cortinasByIndex.get(index);
+    if (!cortina) return;
+    lines.push(buildM3uExtinfLine(cortina));
+    lines.push(cortina.relativePath || cortina.fullPath);
+    lines.push("");
+  };
   manifest.items.forEach((item, index) => {
+    appendCortina(index);
     if (!item) {
       return;
     }
@@ -116,6 +127,7 @@ export const serializePlaylistExportAsM3u = (manifest: PlaylistExportManifest) =
     });
     lines.push("");
   });
+  appendCortina(manifest.items.length);
   return `${lines.join("\n").trimEnd()}\n`;
 };
 

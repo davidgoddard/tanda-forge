@@ -599,6 +599,8 @@ There are several ways a tanda can be created or filled:
 
 Once a tanda is open in the **Tanda Designer** or the playlist-hosted tanda editor, it can be changed in several ways:
 
+Each populated track row shows its BPM at the end when BPM metadata is available.
+
 Unsaved tandas sent to a clipboard collection display a pencil warning. The
 collection remembers its reference, but the unsaved tanda itself is not stored
 in the database and will be lost when the app closes. The app asks for

@@ -12,21 +12,28 @@ export type LaunchedApp = {
   close: (options?: { cleanup?: boolean }) => Promise<void>;
 };
 
+const waitForRendererReady = async (page: Page) => {
+  await page.waitForSelector("#search-input");
+  await page.waitForFunction(() => {
+    const token = document.querySelector("#search-tracks")?.getAttribute("data-ready-token");
+    return token !== null && Number.parseInt(token, 10) > 0;
+  });
+};
+
 const launchWithRoots = async (
   tempRoot: string,
   dataRoot: string,
   userDataRoot: string,
 ): Promise<LaunchedApp> => {
   fs.mkdirSync(userDataRoot, { recursive: true });
-  delete process.env.ELECTRON_RUN_AS_NODE;
   const launchEnv = {
     ...process.env,
     NODE_ENV: "test",
     TANDA_DATA_ROOT: dataRoot,
     TANDA_USER_DATA_ROOT: userDataRoot,
     ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
-    ELECTRON_RUN_AS_NODE: "",
   } as NodeJS.ProcessEnv;
+  delete launchEnv.ELECTRON_RUN_AS_NODE;
 
   const app = await electron.launch({
     args: ["."],
@@ -34,7 +41,7 @@ const launchWithRoots = async (
   });
 
   const page = await app.firstWindow();
-  await page.waitForSelector("#search-input");
+  await waitForRendererReady(page);
 
   const close = async (options?: { cleanup?: boolean }) => {
     await app.close();
@@ -57,7 +64,7 @@ export const launchSeededApp = async (kind: SeedKind): Promise<LaunchedApp> => {
       await window.tanda?.seedE2eData(payload);
     }, seeded.payload);
     await launched.page.reload();
-    await launched.page.waitForSelector("#search-input");
+    await waitForRendererReady(launched.page);
   }
   return launched;
 };

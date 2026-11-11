@@ -570,4 +570,28 @@ describe("playlist file import", () => {
     );
     expect(serializePlaylistExportAsM3u(manifest)).toContain("Tango/song-b.mp3");
   });
+
+  it("interleaves included cortinas in m3u output", () => {
+    const track = (relativePath: string, title: string) => ({
+      fullPath: `/music/${relativePath}`,
+      relativePath,
+      title,
+      artist: "",
+    });
+    const manifest: PlaylistExportManifest = {
+      format: "tanda-forge-playlist",
+      version: PLAYLIST_EXPORT_VERSION,
+      createdAt: "2026-11-11T10:11:12.345Z",
+      appVersion: "0.4.12",
+      items: [{ kind: "track", track: track("music/tango.mp3", "Tango") }],
+      cortinaAssignments: [
+        { index: 0, track: track("cortinas/open.mp3", "Opening cortina") },
+        { index: 1, track: track("cortinas/close.mp3", "Closing cortina") },
+      ],
+    };
+
+    const output = serializePlaylistExportAsM3u(manifest);
+    expect(output.indexOf("cortinas/open.mp3")).toBeLessThan(output.indexOf("music/tango.mp3"));
+    expect(output.indexOf("cortinas/close.mp3")).toBeGreaterThan(output.indexOf("music/tango.mp3"));
+  });
 });

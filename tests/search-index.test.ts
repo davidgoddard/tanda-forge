@@ -151,6 +151,17 @@ describe.runIf(nativeSqliteAvailable)("versioned search schema", () => {
     expect(findIndexedTandaCandidateIds(db, "Modern rhythm")).not.toContain("tanda");
   });
 
+  it("indexes repeated metadata tokens during an outer replace upsert", () => {
+    const db = createDatabase();
+    ensureSearchSchema(db);
+    expect(() => db.prepare(`insert or replace into tracks
+      (id, title, artist, artist_summary, singer, notes, album, album_artist, genre, year, bpm)
+      values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      "repeat", "Tango Tango", "Same Orchestra", "Same Orchestra", "", "", "", "", "Tango", "1940", 62,
+    )).not.toThrow();
+    expect(findIndexedTrackCandidateIds(db, "Same Orchestra")).toContain("repeat");
+  });
+
   it("bounds fuzzy candidate work as the library grows", () => {
     const db = createDatabase();
     const insert = db.prepare(`insert into tracks
