@@ -192,14 +192,14 @@ describe("search refresh concurrency", () => {
 });
 
 describe("search domain loading", () => {
-  it("loads only tanda results while the tanda tab is active", async () => {
+  it("loads tanda results and only the track count while the tanda tab is active", async () => {
     let state = baseState();
     let trackLoads = 0;
     let tandaLoads = 0;
     const controller = createSearchController<Track>({
       searchPageSize: 2,
       getWindowApi: () => ({
-        searchTracks: async () => { trackLoads += 1; return []; },
+        searchTracks: async () => { trackLoads += 100; return []; },
         searchTrackCount: async () => { trackLoads += 1; return 0; },
         searchJumpIndex: async () => { trackLoads += 1; return []; },
         searchJumpToPrefix: async () => ({ offset: 0 }),
@@ -225,7 +225,7 @@ describe("search domain loading", () => {
 
     await controller.refreshSearch();
     expect(tandaLoads).toBe(1);
-    expect(trackLoads).toBe(0);
+    expect(trackLoads).toBe(1);
   });
 
   it("does not hydrate tanda results while the track tab is active", async () => {
@@ -259,6 +259,44 @@ describe("search domain loading", () => {
     });
 
     await controller.refreshSearch();
+    expect(tandaLoads).toBe(0);
+  });
+
+  it("updates the tanda count without hydrating tanda results while tracks are active", async () => {
+    let state = baseState();
+    let displayedTandaCount = -1;
+    let tandaLoads = 0;
+    const controller = createSearchController<Track>({
+      searchPageSize: 2,
+      getWindowApi: () => ({
+        searchTracks: async () => [],
+        searchTrackCount: async () => 0,
+        searchTandaCount: async () => 7,
+        searchJumpIndex: async () => [],
+        searchJumpToPrefix: async () => ({ offset: 0 }),
+      }),
+      getState: () => state,
+      setState: (next) => { state = next; },
+      patchState: (patch) => { state = { ...state, ...patch }; },
+      getSearchParams: () => ({ query: "Troilo" }),
+      applySearchUiState: () => {},
+      getRefreshVersion: () => 1,
+      incrementRefreshVersion: () => 1,
+      setTrackInCache: () => {},
+      renderSearchResults: () => {},
+      updateSearchSortDefaults: () => {},
+      updateTabCount: () => {},
+      updateTandaTabCount: (count) => { displayedTandaCount = count; },
+      updateJumpIndex: async () => {},
+      loadTandaSearchResults: async () => { tandaLoads += 1; },
+      getActiveSearchTab: () => "search-tracks",
+      getSearchListBody: () => null,
+      getSearchListMetrics: () => null,
+      setSearchListScrollTop: () => {},
+    });
+
+    await controller.refreshSearch();
+    expect(displayedTandaCount).toBe(7);
     expect(tandaLoads).toBe(0);
   });
 });

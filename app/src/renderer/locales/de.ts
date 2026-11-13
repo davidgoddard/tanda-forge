@@ -794,6 +794,10 @@ export const de: TranslationMap = {
     playlistTandaDeleteMessage: "Diese Tanda nur aus der aktuellen Playlist entfernen oder ihre gespeicherte Vorlage dauerhaft aus der Datenbank loschen? Beim Loschen wird sie aus Sammlungen und allen Vorkommen in der aktuellen Playlist entfernt.",
     playlistTandaDeleteUnsavedMessage: "Diese Tanda existiert nur in der aktuellen Playlist und hat keinen gespeicherten Datenbankeintrag.",
     playlistTandaRemoveOnly: "Aus Playlist entfernen",
+    playlistTandaRemoveTitle: "Tanda entfernen?",
+    playlistTandaRemoveMessage:
+      "Diese Tanda vor dem Entfernen in die aktive Zwischenablage-Sammlung senden, nur aus der Playlist entfernen oder abbrechen?",
+    playlistTandaRemoveToClipboard: "In Zwischenablage senden und entfernen",
     playlistTandaDeleteSaved: "Aus Datenbank loschen",
     rootAvailable: "Verfugbar",
     rootMissing: "Fehlt",

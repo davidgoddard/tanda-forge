@@ -19,6 +19,8 @@ type ActiveCollection = {
   tandaIds: string[];
 };
 
+type PlaylistTandaRemoveChoice = "clipboard" | "remove" | null;
+
 type PlaylistInteractionsElements = {
   playlistPanel?: HTMLElement | null;
   playlistListEl?: HTMLElement | null;
@@ -77,6 +79,7 @@ export type PlaylistInteractionsControllerDeps = {
     runSearchForTanda: (tanda: TandaDraft, preferredStyles?: string[]) => void;
     runSearchForTrack: (track: RendererTrack, preferredStyles?: string[]) => void;
     runFindTandasForTrack: (track: RendererTrack) => Promise<void>;
+    confirmPlaylistTandaRemoval: () => Promise<PlaylistTandaRemoveChoice>;
     toggleRowMenu: (row: HTMLElement) => void;
     clearPlaylistTarget: () => void;
     retainPlaylistTargetAtIndex: (index: number) => number | null;
@@ -515,6 +518,22 @@ export const createPlaylistInteractionsController = (
         if (isLocked) {
           deps.actions.setStatusPlaylistLocked();
           return;
+        }
+        const tandaId = row.dataset.tandaId;
+        if (!tandaId) {
+          return;
+        }
+        const choice = await deps.actions.confirmPlaylistTandaRemoval();
+        if (choice === null) {
+          deps.actions.closeRowMenus();
+          return;
+        }
+        if (choice === "clipboard") {
+          if (!deps.actions.addTandaToActiveCollection(tandaId)) {
+            deps.actions.closeRowMenus();
+            return;
+          }
+          deps.actions.renderClipboard();
         }
         deps.actions.setPlaylistItem(index, null);
         deps.actions.normalizePlaylist();

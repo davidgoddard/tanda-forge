@@ -7670,3 +7670,17 @@ stale `main` ref and was corrected before merge. No release or tag was created.
   Lighting controller was unavailable. `MAL-TF-005` now specifies exponential
   retry backoff from 10 to 60 seconds and discarding stale queued snapshots;
   Lighting failures remain isolated from playback.
+
+## 2026-11-13 — Search tab counts and playlist tanda removal choice
+
+- User reported that the Tanda result count remained stale until its tab was
+  opened and that startup misleadingly showed zero tandas beside populated
+  Track results. Search now requests lightweight totals for both domains while
+  retaining active-domain-only row hydration. A real-database Electron probe
+  confirmed 279 matching tandas and identified a later cached-list redraw as
+  the operation that overwrote the correct startup badge (`UI-014.R14.a`,
+  `FR-091.5.R2.a`).
+- The accumulated playlist removal change now asks whether to copy a tanda to
+  the active clipboard collection before clearing its playlist slot, remove it
+  only, or cancel. The separate copy action remains non-destructive to the
+  playlist (`UI-014.R17.a`).

@@ -878,6 +878,10 @@ export const is: TranslationMap = {
   playlistTandaDeleteMessage: "Remove this tanda only from the current playlist, or permanently delete its saved master from the database? Deleting removes it from collections and every occurrence in the current playlist.",
   playlistTandaDeleteUnsavedMessage: "This tanda exists only in the current playlist and has no saved database record to delete.",
   playlistTandaRemoveOnly: "Remove from playlist",
+  playlistTandaRemoveTitle: "Fjarlægja töndu?",
+  playlistTandaRemoveMessage:
+    "Senda þessa töndu í virka klippiborðssafnið áður en hún er fjarlægð, aðeins fjarlægja hana af spilunarlistanum eða hætta við?",
+  playlistTandaRemoveToClipboard: "Senda á klippiborð og fjarlægja",
   playlistTandaDeleteSaved: "Delete from database",
   rootAvailable: "Available",
   rootMissing: "Missing",

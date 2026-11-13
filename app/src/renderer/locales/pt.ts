@@ -794,6 +794,10 @@ export const pt: TranslationMap = {
     playlistTandaDeleteMessage: "Remover esta tanda apenas da playlist atual ou excluir permanentemente o original salvo da base de dados? A exclusão remove-a das coleções e de todas as ocorrências na playlist atual.",
     playlistTandaDeleteUnsavedMessage: "Esta tanda existe apenas na playlist atual e não tem registo salvo para excluir.",
     playlistTandaRemoveOnly: "Remover da playlist",
+    playlistTandaRemoveTitle: "Remover tanda?",
+    playlistTandaRemoveMessage:
+      "Enviar esta tanda para a coleção ativa da área de transferência antes de a remover, removê-la apenas da playlist ou cancelar?",
+    playlistTandaRemoveToClipboard: "Enviar para a área de transferência e remover",
     playlistTandaDeleteSaved: "Excluir da base de dados",
     rootAvailable: "Disponivel",
     rootMissing: "Indisponivel",

@@ -1,5 +1,18 @@
 ## Handoff
 
+### Search counts and safe playlist-tanda removal
+- Search refreshes lightweight Track and Tanda totals together while hydrating
+  only the active tab. Startup list redraws no longer overwrite the correct
+  inactive Tanda count with zero (`UI-014.R14.a`, `FR-091.5.R2.a`).
+- The playlist tanda remove action now offers send-to-active-clipboard-and-remove,
+  remove-only, or cancel; the existing copy action still leaves the playlist
+  unchanged (`UI-014.R17.a`).
+- Verification: the real-database Electron probe returned 279 tandas through
+  both count and result APIs and reproduced the former zero badge before the
+  fix. `npm run preflight` passed (119 test files, 707 tests passed, 6 native
+  SQLite tests skipped, plus the production build); the startup-count and
+  affected playlist Electron workflows also passed.
+
 ### Playlist Find Tandas and optional Lighting retry safety
 - **FT** on a track inside an expanded Playlist tanda now routes to the exact
   saved-tanda Search workflow instead of falling through to the track playback

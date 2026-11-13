@@ -791,6 +791,10 @@ export const es: TranslationMap = {
     playlistTandaDeleteMessage: "¿Quitar esta tanda solo de la lista actual o borrar permanentemente su original guardado de la base de datos? Al borrarla, se quita de las colecciones y de toda aparición en la lista actual.",
     playlistTandaDeleteUnsavedMessage: "Esta tanda solo existe en la lista actual y no tiene ningún registro guardado que borrar.",
     playlistTandaRemoveOnly: "Quitar de la lista",
+    playlistTandaRemoveTitle: "¿Quitar tanda?",
+    playlistTandaRemoveMessage:
+      "¿Enviar esta tanda a la colección activa del portapapeles antes de quitarla, quitarla solo de la lista o cancelar?",
+    playlistTandaRemoveToClipboard: "Enviar al portapapeles y quitar",
     playlistTandaDeleteSaved: "Borrar de la base de datos",
     rootAvailable: "Disponible",
     rootMissing: "No disponible",

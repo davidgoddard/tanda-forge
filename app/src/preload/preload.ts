@@ -170,6 +170,7 @@ const api: AppApi = {
   saveTanda: async (payload) => ipcRenderer.invoke("tandas:save", payload),
   deleteTanda: async (id) => ipcRenderer.invoke("tandas:delete", id),
   searchTandas: async (params) => ipcRenderer.invoke("tandas:search", params),
+  searchTandaCount: async (params) => ipcRenderer.invoke("tandas:searchCount", params),
   listCortinaSets: async () => ipcRenderer.invoke("cortinas:listSets"),
   listCortinas: async (setName) =>
     ipcRenderer.invoke("cortinas:listTracks", setName),

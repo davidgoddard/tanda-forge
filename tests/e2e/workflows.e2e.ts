@@ -1812,6 +1812,17 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  test("02b - shows both search-domain counts on startup", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await expect(page.locator('button[data-tab="search-tracks"]')).not.toContainText("(0)");
+      await expect(page.locator('button[data-tab="search-tandas"]')).not.toContainText("(0)");
+    } finally {
+      await launched.close();
+    }
+  });
+
   test("03 - track search excludes cortina-root tracks", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
@@ -2731,6 +2742,13 @@ test.describe("Electron app end-to-end workflows", () => {
       await clickRowAction(milongaRow, "send-playlist-tanda");
       await expect(playlistTandaRow(page, "Canaro Milonga Pack A")).toBeVisible();
       await clickRowAction(milongaRow, "remove-playlist-tanda");
+      const removeModal = page.locator(".playlist-tanda-remove-modal");
+      await expect(removeModal).toBeVisible();
+      await expect(removeModal.locator(".playlist-tanda-remove-clipboard")).toBeVisible();
+      await removeModal.locator(".confirm-cancel").click();
+      await expect(playlistTandaRow(page, "Canaro Milonga Pack A")).toBeVisible();
+      await clickRowAction(milongaRow, "remove-playlist-tanda");
+      await removeModal.locator(".playlist-tanda-remove-only").click();
       await expect(playlistTandaRow(page, "Canaro Milonga Pack A")).toHaveCount(0);
 
       await selectClipboardCollection(page, "available");
