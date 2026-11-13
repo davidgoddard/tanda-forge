@@ -8,7 +8,11 @@ Status: implemented for the first DMX-only milestone on the `music-aware-lightin
 - **MAL-TF-002:** Each play occurrence has a unique session ID and monotonically increasing sequence. Reusing the same active element for pause/resume preserves its session.
 - **MAL-TF-003:** Events contain schema version, tango/cortina kind, absolute original source path, effective media position, duration, rate, state, and send time. They contain no queue or next-track data.
 - **MAL-TF-004:** Start, play, pause, seek, rate change, stop, and end publish immediately; playing state is refreshed every 750 ms.
-- **MAL-TF-005:** Delivery uses the existing optional loopback Lighting connection, with at most one active request and one latest queued snapshot. Requests time out after 500 ms; throttled failures never fail playback.
+- **MAL-TF-005:** Delivery uses the existing optional loopback Lighting connection,
+  with at most one active request and one latest queued snapshot. Requests time
+  out after 500 ms; failures never fail playback. An unavailable endpoint uses
+  exponential retry backoff starting at 10 seconds and capped at 60 seconds,
+  discarding stale snapshots accumulated during a failed request.
 - **MAL-TF-006:** Cortina events are identified as `cortina`, allowing Lighting to preserve its higher-priority lights-up behavior without analysing them as tango music.
 
 ## Contract

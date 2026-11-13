@@ -2319,6 +2319,37 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  test("21d - expanded playlist track Find Tandas does not start playback", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await clearPlaylistViaUi(page);
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+      await ensurePlaylistTab(page);
+
+      const playlistRow = playlistTandaRow(page, "Tango Trio");
+      const detailLine = await getExpandedTandaDetailLine(
+        playlistRow,
+        "Alberto Gomez Tango Uno",
+      );
+      await clickDetailMenuUntilOpen(detailLine);
+      await detailLine
+        .locator('.tanda-detail-menu button[data-action="find-track-tandas"]')
+        .click();
+
+      await expect(page.locator('button[data-tab="search-tandas"]')).toHaveClass(/active/);
+      await expect(playlistRow).toHaveAttribute("aria-expanded", "true");
+      await expect(page.locator("#now-playing-track")).not.toContainText(
+        "Alberto Gomez Tango Uno",
+      );
+    } finally {
+      await launched.close();
+    }
+  });
+
   test("22 - playlist header keeps clear button inside bounds", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;

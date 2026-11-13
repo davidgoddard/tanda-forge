@@ -42,17 +42,28 @@ export const createLightingPlaybackNotifier = (
   let pending: { method: string; headers: Record<string, string>; body: string } | null = null;
   let sending = false;
   let lastWarningAt = -Infinity;
+  let consecutiveFailures = 0;
+  let retryAfter = -Infinity;
 
   const pump = () => {
-    if (sending || !pending) return;
+    if (sending || !pending || Date.now() < retryAfter) return;
     const request = pending;
     pending = null;
     sending = true;
     const controller = new AbortController();
     const timeout = globalThis.setTimeout(() => controller.abort(), 500);
     void send(endpoint, { ...request, signal: controller.signal })
+      .then(() => {
+        consecutiveFailures = 0;
+        retryAfter = -Infinity;
+      })
       .catch(error => {
         const now = Date.now();
+        consecutiveFailures += 1;
+        retryAfter = now + Math.min(60_000, 10_000 * 2 ** (consecutiveFailures - 1));
+        // Discard snapshots accumulated while the failed request was active.
+        // A later interval/event will provide a current snapshot after backoff.
+        pending = null;
         if (now - lastWarningAt >= 10_000) {
           lastWarningAt = now;
           console.warn("Could not notify Lighting of playback:", error);

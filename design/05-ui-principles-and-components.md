@@ -363,6 +363,9 @@ Behavior:
 - UI-011.R24: Tanda track action buttons align to the far right edge of the tanda row.
 - UI-011.R25: In expanded search results, tanda track detail menus include a localized
   search action (label uses the current language) to launch a similar-track search.
+- UI-011.R26: In expanded tanda rows, a track's conditional **Find tandas** action
+  runs the exact saved-tanda lookup in Search without triggering the row's
+  playback behavior. This applies in Playlist as well as Search and Clipboard.
 
 ---
 

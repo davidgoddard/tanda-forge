@@ -75,6 +75,7 @@ const createBaseDeps = () => {
         playOnChannel: async () => true,
         runSearchForTanda: () => {},
         runSearchForTrack: () => {},
+        runFindTandasForTrack: async () => {},
         toggleRowMenu: () => {},
         clearPlaylistTarget: () => {},
         retainPlaylistTargetAtIndex: () => 0,
@@ -190,6 +191,44 @@ describe("playlist interactions controller", () => {
     await (playlistListEl as unknown as FakeClickable).dispatch("click", { target });
 
     expect(startPlaylistFrom).toHaveBeenCalledWith(0, "track-2");
+  });
+
+  it("finds tandas from an expanded playlist track without starting playback", async () => {
+    const track = { id: "track-2", full_path: "/music/track-2.mp3" } as any;
+    const runFindTandasForTrack = vi.fn(async () => {});
+    const startPlaylistFrom = vi.fn();
+    const { playlistListEl, deps } = createBaseDeps();
+    deps.readers.getPlaylistItems = () => [{ kind: "tanda", tandaId: "tg1" }];
+    deps.readers.getTrackFromCache = () => track;
+    deps.actions.runFindTandasForTrack = runFindTandasForTrack;
+    deps.actions.startPlaylistFrom = startPlaylistFrom;
+    const row = {
+      dataset: { index: "0", tandaId: "tg1" },
+      classList: { contains: () => false },
+      closest: () => null,
+    } as unknown as HTMLElement;
+    const detailLine = {
+      dataset: { trackId: "track-2", slotIndex: "1" },
+      classList: { contains: () => false, add: () => {}, remove: () => {} },
+    } as unknown as HTMLElement;
+    const target = {
+      closest: (selector: string) => {
+        if (selector === ".list-row") return row;
+        if (selector === "#playlist-tanda-editor") return null;
+        if (selector === ".tanda-detail-line") return detailLine;
+        if (selector === "button[data-action]") return { dataset: { action: "find-track-tandas" } };
+        if (selector === ".tanda-summary") return null;
+        return null;
+      },
+      classList: { contains: () => false },
+    };
+
+    const controller = createPlaylistInteractionsController(deps as any);
+    controller.initialize();
+    await (playlistListEl as unknown as FakeClickable).dispatch("click", { target });
+
+    expect(runFindTandasForTrack).toHaveBeenCalledWith(track);
+    expect(startPlaylistFrom).not.toHaveBeenCalled();
   });
 
   it("starts playlist playback from a live-idle playlist track click instead of one-off playback", async () => {

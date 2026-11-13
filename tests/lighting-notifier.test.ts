@@ -77,4 +77,23 @@ describe("createLightingPlaybackNotifier", () => {
     notifier.stop();
     vi.useRealTimers();
   });
+
+  it("backs off after an unavailable playback endpoint", async () => {
+    vi.useFakeTimers();
+    const send = vi.fn().mockRejectedValue(new Error("offline"));
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const audio = { currentTime: 1, duration: 100, paused: false, ended: false, playbackRate: 1,
+      addEventListener: vi.fn(), removeEventListener: vi.fn() } as unknown as HTMLAudioElement;
+    const notifier = createLightingPlaybackNotifier(send);
+
+    notifier.start(audio, "/music/tango.mp3");
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(send).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1_001);
+    expect(send).toHaveBeenCalledTimes(2);
+
+    notifier.stop();
+    warning.mockRestore();
+    vi.useRealTimers();
+  });
 });

@@ -18032,6 +18032,7 @@ const init = async () => {
       playOnChannel,
       runSearchForTanda,
       runSearchForTrack,
+      runFindTandasForTrack,
       toggleRowMenu,
       clearPlaylistTarget,
       retainPlaylistTargetAtIndex,

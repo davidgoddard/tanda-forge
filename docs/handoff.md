@@ -1,5 +1,18 @@
 ## Handoff
 
+### Playlist Find Tandas and optional Lighting retry safety
+- **FT** on a track inside an expanded Playlist tanda now routes to the exact
+  saved-tanda Search workflow instead of falling through to the track playback
+  click handler (`UI-011.R26`).
+- Playback notices to an unavailable optional Lighting controller back off from
+  10 seconds to a 60-second cap and discard stale queued snapshots, preventing
+  continuous loopback requests without affecting audio (`MAL-TF-005`).
+- Release-checkpoint verification passed: `npm run preflight` completed with
+  119 test files, 704 tests passed, 6 native-SQLite tests skipped under the host
+  Node ABI, and the production build. The focused Electron workflow could not
+  launch Electron in this shell (`Process failed to launch!`) before exercising
+  application behavior; `git diff --check` passed.
+
 ### Version 0.4.16 release preparation
 - Package and lockfile versions are `0.4.16`, advancing from the already
   published `v0.4.15` tag for the tanda editor action, contextual `T`, display

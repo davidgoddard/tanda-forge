@@ -7658,3 +7658,15 @@ stale `main` ref and was corrected before merge. No release or tag was created.
 - Because the remote already publishes `v0.4.15`, the requested release
   checkpoint advances package and lock metadata to `0.4.16` before commit and
   push.
+
+## 2026-11-13 — Playlist FT routing and Lighting retry backoff
+
+- User reported that **FT** on a track inside an expanded Playlist tanda
+  restarted the track and redrew the playlist instead of finding tandas. The
+  Playlist controller lacked the action handler, so the click fell through to
+  row playback. `UI-011.R26` now requires the action to run the exact saved-tanda
+  lookup without triggering playback in every expanded-tanda context.
+- User also reported continuous failed loopback requests while the optional
+  Lighting controller was unavailable. `MAL-TF-005` now specifies exponential
+  retry backoff from 10 to 60 seconds and discarding stale queued snapshots;
+  Lighting failures remain isolated from playback.

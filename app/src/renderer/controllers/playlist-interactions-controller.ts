@@ -76,6 +76,7 @@ export type PlaylistInteractionsControllerDeps = {
     ) => Promise<unknown>;
     runSearchForTanda: (tanda: TandaDraft, preferredStyles?: string[]) => void;
     runSearchForTrack: (track: RendererTrack, preferredStyles?: string[]) => void;
+    runFindTandasForTrack: (track: RendererTrack) => Promise<void>;
     toggleRowMenu: (row: HTMLElement) => void;
     clearPlaylistTarget: () => void;
     retainPlaylistTargetAtIndex: (index: number) => number | null;
@@ -344,6 +345,21 @@ export const createPlaylistInteractionsController = (
               ? deps.readers.resolveSearchStylesForPlaylistIndex(playlistIndex)
               : undefined;
           deps.actions.runSearchForTrack(track, preferredStyles);
+        }
+        deps.actions.closeRowMenus();
+        return;
+      }
+      if (action === "find-track-tandas") {
+        const detailTrackId =
+          target.closest<HTMLElement>(".tanda-detail-line")?.dataset.trackId ?? null;
+        const data = deps.readers.getTrackDataFromRow(row);
+        const track = detailTrackId
+          ? deps.readers.getTrackFromCache(detailTrackId) ?? deps.readers.getTrackById(detailTrackId)
+          : data
+            ? deps.readers.getTrackById(data.trackId)
+            : null;
+        if (track) {
+          await deps.actions.runFindTandasForTrack(track);
         }
         deps.actions.closeRowMenus();
         return;
