@@ -252,7 +252,7 @@ const applyBackgroundMode = async () => {
       : [];
   if (overlayLayer) {
     const hasNormalImages = useBackgroundImages && normalImages.length > 0;
-    const strong = hasNormalImages ? imageDimOpacity : 0.38;
+    const strong = hasNormalImages ? imageDimOpacity : 0.28;
     const soft = hasNormalImages ? Math.max(0, imageDimOpacity * 0.22) : 0.08;
     overlayLayer.style.setProperty("--display-overlay-strong", strong.toFixed(3));
     overlayLayer.style.setProperty("--display-overlay-soft", soft.toFixed(3));

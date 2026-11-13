@@ -785,6 +785,8 @@ export const it: TranslationMap = {
     tandaSaveAsNew: "Salva come nuova",
     tandaReplaceExisting: "Sostituisci esistente",
     tandaRemoveTrack: "Invia agli appunti",
+    tandaDiscardTrack: "Rimuovi dalla tanda",
+    tandaDiscardTrackShort: "R",
     tandaMoveUp: "Sposta su",
     tandaMoveDown: "Sposta giu",
     tandaRemoveTrackShort: "C",

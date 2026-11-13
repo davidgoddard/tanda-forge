@@ -519,12 +519,15 @@ Requirements:
 - UI-016.R4: Each tanda has Save and Delete actions.
 - UI-016.R5: Tandas are selectable; the selected tanda is the target for incoming tracks.
 - UI-016.R6: Tracks can be added from search/clipboard via the add action or drag/drop.
-- UI-016.R6.a: Adding a track with `T` targets the open Tanda Designer draft and
-  brings the Tanda Designer into focus.
+- UI-016.R6.a: Adding a track with `T` targets the currently visible
+  playlist-hosted tanda editor when one is open and leaves that editor visible.
+  Otherwise it targets the open Tanda Designer draft and brings Designer into
+  focus.
 - UI-016.R6.b: Sending a Search or Clipboard track with `T` appends it to the
-  currently open Designer tanda in order. If no Designer draft can be resolved,
-  the first `T` action creates and opens an empty default-sized draft; subsequent
-  `T` actions continue filling it.
+  context-resolved tanda in order. If no playlist-hosted editor is open and no
+  Designer draft can be resolved, the first `T` action creates and opens an
+  empty default-sized Designer draft; subsequent `T` actions continue filling
+  the same visible destination.
 - UI-016.R6.c: Sending a Search or Clipboard track with `P` appends it to the
   tanda open in the playlist-hosted editor. If none is open, it creates the next
   tanda in the trailing playlist slot and opens that editor; subsequent `P`
@@ -611,16 +614,22 @@ Requirements:
   localized auto-generated badge is shown. Saving the tanda removes its
   auto-generated/unsaved state together, so a simultaneous pencil adds no useful
   information.
-- UI-016.R27: Sending a track with `T` from Search or Clipboard reveals the
-  destination tanda in Designer. Sending it with `P` reveals the destination in
-  the playlist-hosted editor. The two actions never redirect based on whichever
-  right-hand view happens to be active.
+- UI-016.R27: Sending a track with `T` from Search or Clipboard preserves and
+  targets a currently visible playlist-hosted tanda editor; without one, it
+  reveals the destination in Designer. Sending it with `P` explicitly targets
+  the playlist and reveals the destination in the playlist-hosted editor.
 - UI-016.R28: Automatic tanda construction exhausts a seed or anchor's exact,
   fine-grained style (for example Traditional or Alternative) whenever enough
   distinct tracks can fill the tanda. It may mix styles from the permitted broad
   family (for example Tango) only when the exact style cannot fill it.
 - UI-016.R29: Populated track rows in the Tanda Designer and playlist-hosted
   tanda editor append the rounded BPM value when valid BPM metadata is present.
+- UI-016.R30: Populated track rows in both editors retain direct headphone and
+  up/down controls while edit, Search Similar, conditional Find Tandas,
+  send-to-clipboard, and discard-only removal are grouped in the standard
+  ellipsis menu. Find Tandas is shown only when another saved tanda contains the
+  track. Menu actions leave the edited tanda open, and all compact labels and
+  tooltips are localized.
 
 Filtering:
 - UI-016.R13: When a tanda is selected, the clipboard (and search results, when enabled)
@@ -909,6 +918,8 @@ Features:
   text instead of showing an "idle" placeholder.
 - UI-060.R9: When no background images are available, use a subtle animated abstract
   background with slow color/shape motion that preserves text readability.
+- UI-060.R9.a: The abstract fallback uses a `0.28` strong overlay opacity so its
+  background colours remain more visible without compromising text contrast.
 - UI-060.R10: In cortina mode, content is centered and the "Cortina" headline is
   rendered as large as possible while still fitting on screen.
 - UI-060.R11: Display-board text supports a configurable base font scale (%) from

@@ -53,9 +53,10 @@ describe("renderer i18n", () => {
     ],
     [
       "actionEditTrackShort",
-      "tandaMoveUpShort",
-      "tandaMoveDownShort",
+      "actionSearchShort",
+      "actionFindTandasShort",
       "actionSendClipboardShort",
+      "tandaDiscardTrackShort",
     ],
   ] as const;
 

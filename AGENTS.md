@@ -16,9 +16,10 @@ When the user requests a feature or bug fix:
 2. Locate the relevant requirements, design documents, source files and tests.
 3. Investigate only as far as necessary to understand the affected functionality.
 4. Form a brief internal implementation plan.
-5. Implement the requested change, including appropriate tests, translations and documentation.
-6. Verify the completed work.
-7. Update project continuity records as needed.
+5. Implement the requested change, including appropriate tests and translations.
+6. Verify the completed work with focused checks appropriate to the change.
+7. Defer requirements, design, handoff and dialogue updates until a release
+   checkpoint, unless the user explicitly requests documentation work.
 8. Report the outcome, verification results and any remaining issues.
 
 Work independently through ordinary technical decisions. Do not ask the user to approve routine implementation details.
@@ -35,6 +36,28 @@ Ask for clarification only when:
 When uncertainty is minor, make a reasonable assumption, implement consistently and report it.
 
 Do not silently broaden the requested feature or perform unrelated refactoring.
+
+### Incremental Work and Release Checkpoints
+
+Assume feature requests and bug fixes are part of an ongoing batch of small
+changes. During incremental work:
+- Do not update requirements, design documents, `docs/handoff.md`,
+  `docs/dialogue.md` or other project documentation unless the user explicitly
+  asks for a documentation change.
+- Run focused tests, type checks or builds needed to validate the affected area.
+- Do not run `npm run preflight` merely because an individual change is complete.
+
+Treat a request to **commit** or **push** the current work as an implied release
+checkpoint. At that checkpoint, before committing or pushing:
+- Reconcile and update the affected requirements, design documents, feature
+  status, handoff and significant decision history for the accumulated changes.
+- Run `npm run preflight` and any relevant Playwright or high-risk checks.
+- Resolve failures introduced by the accumulated work and report unrelated or
+  unresolved failures clearly.
+
+An explicit request to prepare, publish or verify a release is also a release
+checkpoint. An explicit request for documentation or full verification applies
+only to the requested scope and does not require a commit or push.
 
 ## 2. Project Knowledge and Continuity
 
@@ -53,7 +76,8 @@ It should contain:
 
 Keep the handoff concise, preferably around 100–200 lines.
 
-Update it once at task completion when material project state has changed, or at a checkpoint when work must be handed over unfinished.
+Update it once at a release checkpoint when material project state has changed,
+or when the user explicitly requests a handoff for unfinished work.
 
 Remove obsolete operational details rather than continually appending history.
 
@@ -106,6 +130,10 @@ Do not silently change established audio-routing or playback safety behaviour.
 
 ## 4. Requirements and Design Documents
 
+Apply these updates at a release checkpoint, during an explicitly requested
+documentation task, or when the user specifically asks for an individual
+document change. Defer them during ordinary incremental feature and bug-fix work.
+
 - Assign document-specific requirement identifiers to new formal requirements.
 - Update relevant design documents when requirements or documented behaviour change.
 - Keep requirements, implementation and feature-status records consistent.
@@ -124,7 +152,7 @@ During implementation:
 - Fix failures introduced by the task.
 - Avoid repeatedly running unchanged checks without a reason.
 
-At completion of a code-change task:
+At a release checkpoint (including a request to commit or push):
 - Run `npm run preflight` to execute the full unit-test suite and production build.
 - Run relevant Playwright tests for affected user workflows when appropriate.
 - Perform additional checks for high-risk audio, data migration, packaging or platform-specific changes.
@@ -199,10 +227,11 @@ Do not change production code during a documentation-only sweep without explicit
 
 Before finishing:
 - Ensure the requested functionality is implemented.
-- Verify relevant behaviour and required checks.
-- Update affected design and requirements documents.
-- Update the handoff if material project state changed.
-- Record significant decisions in the dialogue history.
+- Verify relevant behaviour with focused checks.
+- At a release checkpoint, update affected design and requirements documents,
+  update the handoff if material project state changed, record significant
+  decisions in the dialogue history, and complete the full verification defined
+  in Section 5.
 
 Provide a concise final report containing:
 - What changed.

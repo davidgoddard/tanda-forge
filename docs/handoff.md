@@ -1,5 +1,29 @@
 ## Handoff
 
+### Version 0.4.16 release preparation
+- Package and lockfile versions are `0.4.16`, advancing from the already
+  published `v0.4.15` tag for the tanda editor action, contextual `T`, display
+  background and agent-workflow changes below.
+- Verification: `npm run preflight` passed (119 test files, 702 tests passed,
+  6 native-SQLite tests skipped under the host Node ABI, plus the production
+  build). Five focused Electron workflows covering the changed tanda/editor
+  behavior passed, and `git diff --check` passed.
+
+### Tanda editor actions and context-aware T routing
+- Tanda Designer and playlist-hosted track rows retain headphone and up/down
+  controls directly; edit, Search Similar, conditional Find Tandas,
+  send-to-clipboard and discard-only removal now use the localized ellipsis menu
+  (`UI-016.R30`). Discard removal does not write to the clipboard, and menu
+  actions preserve the open tanda.
+- Track `T` actions from Search or Clipboard append to a currently visible
+  playlist-hosted tanda editor. Without one they retain the Designer fallback,
+  creating a draft when necessary; `P` remains the explicit playlist action
+  (`UI-016.R6.a-b`, `UI-016.R27`).
+- The display board's no-image abstract background uses a lighter `0.28` strong
+  overlay so its colours remain more visible (`UI-060.R9.a`).
+- Agent workflow now batches documentation and full preflight work until an
+  explicit documentation request or commit/push release checkpoint.
+
 ### Version 0.4.15 release preparation
 - Package and lockfile versions are `0.4.15`. This patch release combines the
   M3U cross-root cortina-path correction, full-title variant recall, intact

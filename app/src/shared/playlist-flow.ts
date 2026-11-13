@@ -154,6 +154,20 @@ export const shouldPauseAfterMarkedPerformanceStop = (
   markedForPerformanceStop: boolean,
 ) => itemKind === "tanda" && markedForPerformanceStop;
 
+export const shouldRouteTToOpenPlaylistTanda = (params: {
+  editorHostTab: "playlist-tab" | "tanda-designer-tab";
+  activeRightTab: "playlist-tab" | "tanda-designer-tab";
+  openTandaIndex: number | null;
+  playlistLength: number;
+  openItemKind: "track" | "tanda" | null;
+}) =>
+  params.editorHostTab === "playlist-tab" &&
+  params.activeRightTab === "playlist-tab" &&
+  params.openTandaIndex !== null &&
+  params.openTandaIndex >= 0 &&
+  params.openTandaIndex < params.playlistLength &&
+  params.openItemKind === "tanda";
+
 export const resolveContinuationIndexAfterEndCortina = (
   currentIndex: number,
   playedThroughIndex: number,
