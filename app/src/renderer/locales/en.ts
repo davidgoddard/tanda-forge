@@ -880,6 +880,10 @@ export const en: TranslationMap = {
     playlistTandaDeleteUnsavedMessage:
       "This tanda exists only in the current playlist and has no saved database record to delete.",
     playlistTandaRemoveOnly: "Remove from playlist",
+    playlistTandaRemoveTitle: "Remove tanda?",
+    playlistTandaRemoveMessage:
+      "Send this tanda to the active clipboard collection before removing it, remove it only from the playlist, or cancel?",
+    playlistTandaRemoveToClipboard: "Send to clipboard and remove",
     playlistTandaDeleteSaved: "Delete from database",
     rootAvailable: "Available",
     rootMissing: "Missing",

@@ -84,6 +84,7 @@ import {
   listTandas,
   saveTanda,
   searchTandas,
+  searchTandaCount,
 } from "./library/tandas";
 import { getRootRemovalPreview, removeLibraryRoot } from "./library/root-removal";
 import { listDeletedTracks, logicallyDeleteTrack, restoreDeletedTracks } from "./library/track-deletion";
@@ -2735,6 +2736,25 @@ const registerIpc = () => {
     ) => {
       const db = getDb();
       return searchTandas(db, {
+        rating: params.rating,
+        query: params.query ?? "",
+        styles: params.styles ?? [],
+        size:
+          typeof params.size === "number" && Number.isFinite(params.size) && params.size >= 1
+            ? Math.min(10, Math.floor(params.size))
+            : null,
+      });
+    },
+  );
+
+  ipc.handle(
+    "tandas:searchCount",
+    async (
+      _event,
+      params: { query: string; styles: string[]; size?: number | null; rating?: RatingFilter },
+    ) => {
+      const db = getDb();
+      return searchTandaCount(db, {
         rating: params.rating,
         query: params.query ?? "",
         styles: params.styles ?? [],

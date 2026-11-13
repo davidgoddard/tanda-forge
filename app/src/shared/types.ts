@@ -661,6 +661,12 @@ export type AppApi = {
     styles: string[];
     size?: number | null;
   }) => Promise<TandaSearchRow[]>;
+  searchTandaCount: (params: {
+    rating?: RatingFilter;
+    query: string;
+    styles: string[];
+    size?: number | null;
+  }) => Promise<number>;
   listCortinaSets: () => Promise<string[]>;
   listCortinas: (setName: string) => Promise<CortinaTrackRow[]>;
   searchCortinas: (params: {

@@ -201,6 +201,8 @@ Victoria`, while a one-token result represents only half of that two-token query
   parameters remain unchanged.
 - FR-091.5.R2: Search must load and hydrate results only for the active Tracks or
   Tandas tab. Switching tabs starts a refresh for the newly active result type.
+- FR-091.5.R2.a: A refresh obtains lightweight counts for both result domains so
+  inactive-tab and startup badges remain current without hydrating inactive rows.
 - FR-091.5.R3: Search and metadata editing work must not unnecessarily occupy the
   main process while live playback is preparing its next item.
 - FR-091.5.R4: Non-empty track queries use persistent token/prefix and normalized

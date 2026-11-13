@@ -388,14 +388,17 @@ Interactions:
 - UI-014.R12: Adding tracks to tandas is explicit (T button or drag/drop), not via click.
 - UI-014.R13: Removing a clipboard track is explicit (R button).
 - UI-014.R14: Track/tanda tab labels show entry counts.
+- UI-014.R14.a: Both Search tab counts reflect the current query and filters on
+  startup and after every search, including while the other result tab is active.
 - UI-014.R15: When items are added to clipboard or playlist, the corresponding tab becomes
   active so the DJ can see the result immediately.
 - UI-014.R16: Lists scroll within their column while tab bars remain visible.
 - UI-014.R17: Playlist tandas include a "Send to clipboard" action that copies the tanda
   without changing its playlist slot.
-- UI-014.R17.a: Playlist tandas include a localized remove action that clears the slot
-  without copying the tanda. Its compact menu letter is based on the translated word for
-  remove.
+- UI-014.R17.a: Playlist tandas include a localized remove action whose compact
+  menu letter is based on the translated word for remove. Before clearing the
+  slot, it asks whether to send the tanda to the active clipboard collection,
+  remove it from the playlist only, or cancel.
 - UI-014.R18: Adding a tanda to the playlist targets the first available empty slot.
 - UI-014.R19: Playlist tracks include a "Send to clipboard" action that clears the slot.
 - UI-014.R20: Clipboard tracks/tandas can only be added to the playlist when at least one empty slot exists.

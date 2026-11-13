@@ -793,6 +793,10 @@ export const fr: TranslationMap = {
     playlistTandaDeleteMessage: "Retirer cette tanda uniquement de la playlist actuelle, ou supprimer définitivement son original enregistré de la base de données ? La suppression la retire des collections et de toutes ses occurrences dans la playlist actuelle.",
     playlistTandaDeleteUnsavedMessage: "Cette tanda existe uniquement dans la playlist actuelle et n’a aucun enregistrement sauvegardé à supprimer.",
     playlistTandaRemoveOnly: "Retirer de la playlist",
+    playlistTandaRemoveTitle: "Retirer la tanda ?",
+    playlistTandaRemoveMessage:
+      "Envoyer cette tanda vers la collection active du presse-papiers avant de la retirer, la retirer seulement de la playlist ou annuler ?",
+    playlistTandaRemoveToClipboard: "Envoyer au presse-papiers et retirer",
     playlistTandaDeleteSaved: "Supprimer de la base",
     rootAvailable: "Disponible",
     rootMissing: "Indisponible",

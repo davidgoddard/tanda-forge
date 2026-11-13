@@ -510,6 +510,20 @@ export const searchTandas = (
     }));
 };
 
+export const searchTandaCount = (
+  db: Database.Database,
+  params: TandaSearchParams,
+): number => {
+  const candidateIds = params.query.trim()
+    ? findIndexedTandaCandidateIds(db, params.query.replace(/^artist\s*:\s*/i, ""))
+    : null;
+  const { whereSql, values } = buildTandaSearchWhere({ ...params, candidateIds });
+  const row = db
+    .prepare(`select count(*) as count from tandas ${whereSql}`)
+    .get(...values) as { count: number };
+  return row.count;
+};
+
 export const saveTanda = (
   db: Database.Database,
   payload: TandaSavePayload,

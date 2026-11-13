@@ -14,6 +14,7 @@ export type SearchControllerDeps<TTrack> = {
   getWindowApi: () => {
     searchTracks: (params: any) => Promise<TTrack[]>;
     searchTrackCount: (params: any) => Promise<number>;
+    searchTandaCount?: (params: any) => Promise<number>;
     searchJumpIndex: (params: any) => Promise<string[]>;
     searchJumpToPrefix: (params: any) => Promise<{ offset: number }>;
   } | null;
@@ -28,6 +29,7 @@ export type SearchControllerDeps<TTrack> = {
   renderSearchResults: () => void;
   updateSearchSortDefaults: () => void;
   updateTabCount: (count: number) => void;
+  updateTandaTabCount?: (count: number) => void;
   updateJumpIndex: (params?: Record<string, unknown>) => Promise<void>;
   loadTandaSearchResults: () => Promise<void>;
   getActiveSearchTab: () => "search-tracks" | "search-tandas";
@@ -95,14 +97,27 @@ export const createSearchController = <TTrack extends { id: string }>(
     const refreshVersion = deps.incrementRefreshVersion();
     deps.applySearchUiState("loading", refreshVersion, 0);
     if (deps.getActiveSearchTab() === "search-tandas") {
-      await deps.loadTandaSearchResults();
+      const api = deps.getWindowApi();
+      const params = deps.getSearchParams();
+      const [, trackTotal] = await Promise.all([
+        deps.loadTandaSearchResults(),
+        api?.searchTrackCount(params),
+      ]);
       if (refreshVersion !== deps.getRefreshVersion()) return;
+      if (typeof trackTotal === "number") {
+        deps.patchState({ total: trackTotal });
+        deps.updateTabCount(trackTotal);
+      }
       deps.applySearchUiState("idle", refreshVersion, deps.getState().total);
       return;
     }
     const params = deps.getSearchParams();
     deps.updateSearchSortDefaults();
     deps.patchState({ total: 0 });
+    const api = deps.getWindowApi();
+    const tandaTotalPromise = api?.searchTandaCount && deps.updateTandaTabCount
+      ? api.searchTandaCount(params)
+      : Promise.resolve<number | null>(null);
     await loadSearchPage(0, "replace", params);
     if (refreshVersion !== deps.getRefreshVersion()) {
       return;
@@ -111,21 +126,26 @@ export const createSearchController = <TTrack extends { id: string }>(
     if (listBody) {
       listBody.scrollTop = 0;
     }
-    const api = deps.getWindowApi();
     if (!api) {
       return;
     }
     const currentSort = deps.getState();
-    const total = await api.searchTrackCount({
-      ...params,
-      sortBy: currentSort.sortBy,
-      sortDir: currentSort.sortDir,
-    });
+    const [total, tandaTotal] = await Promise.all([
+      api.searchTrackCount({
+        ...params,
+        sortBy: currentSort.sortBy,
+        sortDir: currentSort.sortDir,
+      }),
+      tandaTotalPromise,
+    ]);
     if (refreshVersion !== deps.getRefreshVersion()) {
       return;
     }
     deps.patchState({ total });
     deps.updateTabCount(total);
+    if (tandaTotal !== null && deps.updateTandaTabCount) {
+      deps.updateTandaTabCount(tandaTotal);
+    }
     await deps.updateJumpIndex(params);
     if (refreshVersion !== deps.getRefreshVersion()) {
       return;

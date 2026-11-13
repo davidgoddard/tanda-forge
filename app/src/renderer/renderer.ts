@@ -5285,6 +5285,51 @@ const showTandaSaveChoiceModal = async (): Promise<TandaSaveChoice> => {
 
 type PlaylistTandaDeleteChoice = "remove" | "delete" | null;
 
+type PlaylistTandaRemoveChoice = "clipboard" | "remove" | null;
+
+const showPlaylistTandaRemoveModal = async (): Promise<PlaylistTandaRemoveChoice> => {
+  const overlay = document.createElement("div");
+  overlay.className = "confirm-modal playlist-tanda-remove-modal";
+  const dialog = document.createElement("div");
+  dialog.className = "confirm-dialog playlist-tanda-remove-dialog";
+  const title = document.createElement("div");
+  title.className = "confirm-title";
+  title.textContent = t("playlistTandaRemoveTitle");
+  const message = document.createElement("div");
+  message.className = "confirm-message";
+  message.textContent = t("playlistTandaRemoveMessage");
+  const actions = document.createElement("div");
+  actions.className = "confirm-actions";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "confirm-cancel";
+  cancel.textContent = t("cancel");
+  const clipboard = document.createElement("button");
+  clipboard.type = "button";
+  clipboard.className = "playlist-tanda-remove-clipboard";
+  clipboard.textContent = t("playlistTandaRemoveToClipboard");
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "danger playlist-tanda-remove-only";
+  remove.textContent = t("playlistTandaRemoveOnly");
+  actions.append(cancel, clipboard, remove);
+  dialog.append(title, message, actions);
+  overlay.append(dialog);
+  document.body.appendChild(overlay);
+  return new Promise((resolve) => {
+    const close = (result: PlaylistTandaRemoveChoice) => {
+      overlay.remove();
+      resolve(result);
+    };
+    cancel.addEventListener("click", () => close(null));
+    clipboard.addEventListener("click", () => close("clipboard"));
+    remove.addEventListener("click", () => close("remove"));
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) close(null);
+    });
+  });
+};
+
 const showPlaylistTandaDeleteModal = async (
   canDeleteSavedTanda: boolean,
 ): Promise<PlaylistTandaDeleteChoice> => {
@@ -8144,6 +8189,20 @@ const getSearchController = () => {
         ? {
             searchTracks: window.tanda.searchTracks,
             searchTrackCount: window.tanda.searchTrackCount,
+            searchTandaCount: async (params) => {
+              const tandaParams = {
+                ...params,
+                size: getTandaSearchSizeFilter(),
+              };
+              const api = window.tanda!;
+              const count = typeof api.searchTandaCount === "function"
+                ? await api.searchTandaCount(tandaParams)
+                : 0;
+              if (count > 0) {
+                return count;
+              }
+              return (await api.searchTandas(tandaParams)).length;
+            },
             searchJumpIndex: window.tanda.searchJumpIndex,
             searchJumpToPrefix: window.tanda.searchJumpToPrefix,
           }
@@ -8160,6 +8219,8 @@ const getSearchController = () => {
     updateSearchSortDefaults,
     updateTabCount: (count) =>
       updateTabCount(searchTracksEl?.closest(".panel") ?? null, "search-tracks", count),
+    updateTandaTabCount: (count) =>
+      updateTabCount(searchTandasEl?.closest(".panel") ?? null, "search-tandas", count),
     updateJumpIndex: (params) => updateJumpIndex(params as ReturnType<typeof getSearchParams>),
     loadTandaSearchResults,
     getActiveSearchTab: () => activeSearchTab,
@@ -8269,7 +8330,7 @@ const runFindTandasForTrack = async (track: TrackRow) => {
     lastQuery: track.title,
   });
   renderSearchResults();
-  renderTandaSearchResults();
+  renderTandaSearchResults(true);
   setActiveSearchTabState("search-tandas");
   updateSearchTabVisibility();
   activatePanelTab(getSearchPanel(), "search-tandas");
@@ -8842,7 +8903,7 @@ const toggleTandaRow = (row: HTMLElement) => {
   summaryEl.title = summaryEl.textContent ?? "";
 };
 
-const renderTandaSearchResults = () => {
+const renderTandaSearchResults = (updateCount = false) => {
   if (!searchTandasEl) {
     return;
   }
@@ -8854,7 +8915,9 @@ const renderTandaSearchResults = () => {
   searchTandasEl.innerHTML = "";
   if (filtered.length === 0) {
     searchTandasEl.textContent = t("tandasEmpty");
-    updateTabCount(searchTandasEl.closest(".panel"), "search-tandas", 0);
+    if (updateCount) {
+      updateTabCount(searchTandasEl.closest(".panel"), "search-tandas", 0);
+    }
     return;
   }
   filtered.forEach((tanda) => {
@@ -8875,11 +8938,13 @@ const renderTandaSearchResults = () => {
       renderTandaRow(draft, "search", tanda.name, { duplicateIndex }),
     );
   });
-  updateTabCount(
-    searchTandasEl.closest(".panel"),
-    "search-tandas",
-    filtered.length,
-  );
+  if (updateCount) {
+    updateTabCount(
+      searchTandasEl.closest(".panel"),
+      "search-tandas",
+      filtered.length,
+    );
+  }
 };
 
 const loadTandaSearchResults = async () => {
@@ -8901,7 +8966,7 @@ const loadTandaSearchResults = async () => {
     if (version !== tandaSearchVersion) return;
     details.forEach(upsertTandaCache);
   }
-  renderTandaSearchResults();
+  renderTandaSearchResults(true);
 };
 
 const resolveCanonicalArtistName = (rawArtist: string) =>
@@ -18033,6 +18098,7 @@ const init = async () => {
       runSearchForTanda,
       runSearchForTrack,
       runFindTandasForTrack,
+      confirmPlaylistTandaRemoval: showPlaylistTandaRemoveModal,
       toggleRowMenu,
       clearPlaylistTarget,
       retainPlaylistTargetAtIndex,
