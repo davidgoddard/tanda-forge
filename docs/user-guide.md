@@ -375,31 +375,53 @@ the required one-off tracks are immediately available.
 
 ### Menus
 
-The application uses single-letter menus on tracks and tandas to make a safe way to work instead of dragging and possibly accidentally dropping causing live playback!
+The application uses compact letter menus on tracks and tandas as a safer
+alternative to dragging and accidentally dropping items during live playback.
 
-The general options are:
-- **S**: Search for similar - fills the search column's search field with the artist, year, tempo, notes etc. from the current track or tanda and starts the search.
-the Search results are scored and ranked.  However, the search results can be quickly navigated using the "Jump to" letters.  By default the letters apply to the title
-but the DJ can choose the artist or year columns instead.
-- **C**: Send to clipboard - sends the song to either the "General" collection if a built-in collection is in focus or to the currently open user collection.
-- **P**: Send to playlist - tandas are sent to the marked target in the playlist or to the end of the playlist if no target.  Style mis-mmatch or size mis-match warnings are given 
-but nothing is blocked.  Sending a track to the playlist will either create a new empty tanda and add the track as the first entry or append the current tanda until that
-tanda has the playlist's preferred track count in which case it will start another tanda.  So the playlist can be built track by track if required or a mix of tandas and tracks.
-- **T**: Send to the currently edited tanda. If a tanda editor is open inside
-  the Playlist, the track is appended there and that editor stays open.
-  Otherwise, Tanda Forge switches to the Tanda Designer and appends to its open
-  draft, creating one when needed.
-- **E**: Edit - used for tracks this pops up a window showing all track data.  Next to each value is a "S" button for searching and each button sends the current fields text to the search
-field in the search column.  Clicking more "S" buttons adds more text allowing the tempo and year and artist to be used for searching for example.
-- **R**: Remove - removes the track or tanda from the named collection or
-  playlist. In a Tanda Designer or playlist-hosted editor track menu, it removes
-  the track and leaves an empty slot without adding the track to the clipboard.
-  Removal of a tanda from a playlist causes an empty placeholder to be added to
-  maintain the playlist sequence.
-- **M**: Context action:
-  - In playlist tandas/tracks: mark as target for replace/swap flows.
-  - In clipboard tandas/tracks: move (or copy, from smart collections) to another collection.
-- **X**: Swap - send the current tanda to the current target and bring that target's tanda to the current position.  Style and size warnings may be given but nothing is blocked.
+The available menu items are:
+
+- **S — Search similar**: available for tracks and tandas outside the Playlist,
+  and for tracks inside expanded tandas and the tanda editor. It fills the Search
+  field with relevant metadata such as artist, year, tempo and notes, then starts
+  the search. Results are scored and ranked, and can be navigated with the
+  **Jump to** letters. These use the title by default, but the DJ can select the
+  artist or year column instead.
+- **FT — Find tandas**: available for a track when it is used in at least one
+  saved tanda. It searches for the tandas containing that track, including
+  tandas containing matching versions of the recording. In the tanda editor it
+  is shown only when the track is also used in another tanda.
+- **C — Add/send to clipboard**: sends a track or tanda to the current clipboard
+  destination: **General** when a built-in collection is in focus, or the open
+  writable user collection. In a tanda editor, **C** removes the track from the
+  tanda and sends it to the clipboard. For Playlist items, **C** copies a tanda,
+  but removes a standalone track or a track inside a tanda from its unlocked
+  playlist position after sending it to the clipboard.
+- **P — Add to playlist**: sends a track or tanda to the marked playlist target,
+  or to the end of the playlist when there is no target. Style or size mismatch
+  warnings may be shown, but do not block the action. A track is appended to the
+  currently open playlist tanda when possible; otherwise Tanda Forge creates or
+  uses the next suitable tanda slot. This allows a playlist to be built from a
+  mixture of complete tandas and individual tracks.
+- **T — Add/edit tanda**: for a track, sends it to the currently edited tanda. If
+  a tanda editor is open inside the Playlist, the track is appended there and
+  that editor stays open. Otherwise, Tanda Forge switches to the Tanda Designer
+  and appends it to the open draft, creating one when needed. For a tanda in
+  Search, Clipboard or Playlist, **T** opens that tanda for editing.
+- **E — Edit track**: opens the track editor. The **S** buttons beside individual
+  values add those fields to Search, allowing searches that combine values such
+  as artist, year and tempo.
+- **R — Remove**: removes a track or tanda from a writable collection or removes
+  a tanda from the Playlist. In a tanda editor it removes the track, leaves an
+  empty slot and does not send the track to the clipboard. Removing a tanda from
+  a playlist leaves an empty placeholder so the playlist sequence is retained.
+- **M — Move/mark**: in Clipboard, moves an item to another writable collection
+  (or copies it when the source is a smart collection). In Playlist, it marks a
+  tanda or track as the target for replacement or swapping. Marking may be
+  unavailable while an item is locked by playback.
+- **X — Cross-swap with marked**: shown on an unlocked playlist tanda when a
+  different tanda is marked. It sends the current tanda to the marked position
+  and brings the marked tanda to the current position. Style and size warnings
+  may be shown, but do not block the swap.
 
 In addition, the menu buttons - circles with the elipsis in it ("...") - can be coloured white which indicates either a full or partial overlap with the current playlist.  Clicking the button 
 opens the menu as normal but also causes the playlist to scroll to the first instance of the track or tanda that overlaps.
