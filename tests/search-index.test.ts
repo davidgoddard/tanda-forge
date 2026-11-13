@@ -67,6 +67,12 @@ describe.runIf(nativeSqliteAvailable)("versioned search schema", () => {
     db.prepare(`insert into tracks
       (id, title, artist, artist_summary, singer, notes, album, album_artist, genre, year, bpm)
       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      "ciudadano-variant", "El distinguido cuidadono", "Osvaldo Fresedo", "Osvaldo Fresedo", "",
+      "", "", "", "Tango", "1933", 62,
+    );
+    db.prepare(`insert into tracks
+      (id, title, artist, artist_summary, singer, notes, album, album_artist, genre, year, bpm)
+      values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       "scattered", "Cum pas ita", "Unrelated Orchestra", "", "",
       "", "", "", "Tango", "1942", 65,
     );
@@ -85,6 +91,8 @@ describe.runIf(nativeSqliteAvailable)("versioned search schema", () => {
     expect(findIndexedTrackCandidateIds(db, "aniabl")).toContain("troilo");
     expect(findIndexedTrackCandidateIds(db, "cumpasita")).toContain("cumparsita");
     expect(findIndexedTrackCandidateIds(db, "cumpasita")).not.toContain("scattered");
+    expect(findIndexedTrackCandidateIds(db, "El distinguido ciudadano"))
+      .toContain("ciudadano-variant");
     expect(findIndexedTandaCandidateIds(db, "Raul Beron")).toContain("t1");
     expect(findIndexedTandaCandidateIds(db, "anibel")).toContain("t1");
     expect(findIndexedTandaCandidateIds(db, "Calu")).toContain("t1");

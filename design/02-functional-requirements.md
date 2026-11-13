@@ -165,6 +165,10 @@ Analysis:
   master, including for older exports without an identity field; otherwise it
   shall preserve the imported contents as a playlist-local snapshot and retain
   any still-valid originating-master link.
+- FR-020.3.R9: Grouped M3U/M3U8 exports that include cortinas shall write every
+  playable entry relative to the saved playlist file when an absolute source
+  path is available, so music and cortina files may reside in separate sibling
+  folders without requiring the playlist to be inside either library root.
 
 ---
 

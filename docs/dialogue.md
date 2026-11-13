@@ -5,6 +5,12 @@ Code diffs are omitted; only intent and outcomes are captured.
 
 ## Timeline Highlights
 
+- 2026-11-11 — FR-090.2.R12: User reported that Search Similar generated an
+  unterminated `singer:"Dante` value for a track whose artist summary already
+  contained `Dante / Martel`. Query de-duplication had split the scoped quoted
+  value and removed its repeated pieces. Scoped quoted values are now atomic,
+  with direct regression coverage in `tests/search-query.test.ts`.
+
 - 2026-11-11 — FR-090.2.R13: User reported that Clipboard **Search similar**
   for `Alberto Castillo bpm:61` placed the selected track below looser artist
   matches at 69–71 BPM. The machine-generated explicit-metadata ranking now
@@ -7598,3 +7604,25 @@ stale `main` ref and was corrected before merge. No release or tag was created.
   the end when it is defined. Populated Designer and playlist-hosted editor rows
   now append the rounded value as `<value> bpm`; tracks without valid positive
   BPM metadata remain unchanged (`UI-016.R29`).
+
+## 2026-11-13 — M3U cortina paths and full-title search recall
+
+- User reported that included cortinas could not be found when an M3U was saved
+  inside the music root, while saving above the root also prevented music files
+  resolving. M3U entries now use paths relative to the actual saved playlist,
+  allowing separate sibling music and cortina roots (`FR-020.3.R9`,
+  `app/src/main/library-transfer.ts`).
+- User also reported that `El distinguido ciudadano` returned seven of nine
+  database tracks although `El distinguido` returned all nine. With the shared
+  database unavailable, regression coverage models the missing rows as a
+  divergent final metadata word. Coverage is now accounted for once rather than
+  compounded, retaining compact two-of-three title matches at the default
+  threshold while exact matches rank first (`FR-091.5.R11`,
+  `app/src/main/library/fuzzy-search.ts`).
+
+## 2026-11-13 — Version 0.4.15 release preparation
+
+- User requested that all current tracked changes be versioned, committed, and
+  pushed on a new branch. Package metadata advances from `0.4.14` to `0.4.15`;
+  generated local audit exports remain outside version control in accordance
+  with repository hygiene requirements.

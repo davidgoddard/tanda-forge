@@ -60,6 +60,8 @@ In the same Playlist settings tab there is now a **Playlist Files** section.  Th
 - The filename extension controls the format:
   - save as `.json` for the native Tanda Forge playlist format
   - save as `.m3u` or `.m3u8` for grouped M3U interchange
+- **Include cortinas** controls whether assigned cortinas are interleaved in the
+  saved playlist. It applies to M3U/M3U8 as well as the native export.
 - **Import Playlist** opens a file picker and loads either format back into the current playlist.
 - For safety, playlist import is only allowed while playlist playback is idle.
 
@@ -100,13 +102,18 @@ How Tanda Forge writes grouped M3U:
 - group information is written using `group-title` and `#EXTGRP`
 - track entries are written using relative paths where possible
 - plain standalone track rows are written as normal ungrouped entries
+- when **Include cortinas** is selected, cortinas are interleaved at their
+  playlist boundaries
+- entry paths are calculated from the folder containing the saved M3U, allowing
+  music and cortina roots to be separate sibling folders
 
 How Tanda Forge reads grouped M3U:
 
 - contiguous entries with the same `group-title` or `#EXTGRP` are treated as one tanda
 - ungrouped entries are imported as standalone track rows
 - tanda boundaries behave like normal tanda gaps after import
-- cortinas are not stored as explicit playlist items in M3U, so the receiving system uses its own normal cortina behavior for those tanda boundaries
+- ungrouped cortina entries are imported like other standalone tracks; M3U does
+  not preserve their Tanda Forge cortina-slot identity
 
 What grouped M3U does **not** fully preserve:
 
@@ -127,6 +134,11 @@ If you are sending a playlist to another laptop, the most reliable arrangement i
 - the absolute root path can differ between laptops
 
 This is why relative paths are preferred for grouped M3U import/export.
+For a library with separate `music` and `cortinas` folders, saving the M3U in
+their common parent folder produces entries such as `music/Tango/...` and
+`cortinas/...`. Saving it inside the music folder also works: cortinas use a
+path such as `../cortinas/...`. The playlist no longer has to reside inside the
+music root.
 
 Things that can still cause warnings or skipped items:
 
@@ -445,6 +457,8 @@ Use this when you want to save or move the current playlist only.
 
 - save as JSON for the highest-fidelity Tanda Forge playlist backup
 - save as grouped M3U/M3U8 for broader interoperability
+- optionally include assigned cortinas in M3U/M3U8; their paths and the music
+  paths are resolved from the folder containing the saved playlist
 - import either format back into the current playlist
 
 After a successful import, Tanda Forge closes Settings and returns to the normal
@@ -816,9 +830,12 @@ For a second laptop with access to the same music library layout:
 
 1. Export the playlist from the first laptop:
    - use JSON for the most faithful Tanda Forge transfer
-   - use grouped M3U/M3U8 for broader compatibility
+   - use grouped M3U/M3U8 for broader compatibility, selecting **Include
+     cortinas** when the receiving player should play them
 2. Copy the playlist file to the second laptop.
-3. Ensure the second laptop has the same music collection available through configured music roots.
+3. Ensure the second laptop has the same relative music and cortina folder
+   layout. Keeping the M3U in the common parent of those folders is the clearest
+   portable arrangement.
 4. Open **Settings > Playlist** on the second laptop.
 5. Use **Import Playlist**.
 6. Review any warnings about missing or ambiguous files.

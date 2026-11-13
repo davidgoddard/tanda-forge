@@ -84,7 +84,9 @@ Numeric fields (e.g. BPM, year) may be searchable both:
   `instrumental:true`, `bpm:<value>` and `year:<value>`. These terms score only
   their corresponding metadata fields and must not match the same characters
   in titles, notes, artists or albums. An
-  ordinary user-entered word such as `instrumental` remains free text.
+  ordinary user-entered word such as `instrumental` remains free text. Quoted
+  field values must remain syntactically complete during query de-duplication,
+  including when their words also occur in artist or summary text.
 - FR-090.2.R13: For a machine-generated Search Similar query containing explicit
   field intent, the combined weighted similarity score must determine relevance
   before generic lexical tie-breakers. An exact seed metadata match must not be
@@ -232,6 +234,11 @@ Victoria`, while a one-token result represents only half of that two-token query
   query token retains its best eligible source-token match, with source/query
   length coverage contributing to acceptance; final ranking then prefers more
   query tokens matched with stronger whole-token similarity.
+- FR-091.5.R11: Multi-token lookup scoring shall apply query and field coverage
+  once rather than compounding both penalties at multiple scoring layers. A
+  compact title that exactly matches two words of a three-word query remains
+  eligible at the default threshold when its remaining word is a metadata
+  variant, while complete and closer matches continue to rank first.
 
 ## FR-092 — Similarity Search Shortcuts
 

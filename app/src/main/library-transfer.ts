@@ -91,8 +91,17 @@ const buildM3uExtinfLine = (track: PortableTrackRef, groupTitle?: string) => {
   return `#EXTINF:-1${groupAttribute},${formatTrackDisplayName(track)}`;
 };
 
-export const serializePlaylistExportAsM3u = (manifest: PlaylistExportManifest) => {
+export const serializePlaylistExportAsM3u = (
+  manifest: PlaylistExportManifest,
+  playlistDirectory?: string,
+) => {
   const lines = ["#EXTM3U"];
+  const locationFor = (track: PortableTrackRef) => {
+    if (playlistDirectory && path.isAbsolute(track.fullPath)) {
+      return normalizeSlashes(path.relative(playlistDirectory, track.fullPath)) || path.basename(track.fullPath);
+    }
+    return track.relativePath || track.fullPath;
+  };
   const cortinasByIndex = new Map(
     (manifest.cortinaAssignments ?? []).map((assignment) => [assignment.index, assignment.track]),
   );
@@ -100,7 +109,7 @@ export const serializePlaylistExportAsM3u = (manifest: PlaylistExportManifest) =
     const cortina = cortinasByIndex.get(index);
     if (!cortina) return;
     lines.push(buildM3uExtinfLine(cortina));
-    lines.push(cortina.relativePath || cortina.fullPath);
+    lines.push(locationFor(cortina));
     lines.push("");
   };
   manifest.items.forEach((item, index) => {
@@ -110,7 +119,7 @@ export const serializePlaylistExportAsM3u = (manifest: PlaylistExportManifest) =
     }
     if (item.kind === "track") {
       lines.push(buildM3uExtinfLine(item.track));
-      lines.push(item.track.relativePath || item.track.fullPath);
+      lines.push(locationFor(item.track));
       return;
     }
     const groupTitle =
@@ -123,7 +132,7 @@ export const serializePlaylistExportAsM3u = (manifest: PlaylistExportManifest) =
         return;
       }
       lines.push(buildM3uExtinfLine(trackRef, groupTitle));
-      lines.push(trackRef.relativePath || trackRef.fullPath);
+      lines.push(locationFor(trackRef));
     });
     lines.push("");
   });

@@ -714,7 +714,7 @@ const buildTokenMatchMetrics = (
     averageSimilarity,
     queryCoverage,
     fieldPurity,
-    score: queryCoverage * fieldPurity * averageSimilarity,
+    score: Math.min(queryCoverage, fieldPurity) * averageSimilarity,
   };
 };
 
@@ -1066,10 +1066,6 @@ const scoreTrackWithBreakdown = (
       (titleCoverageMetrics?.queryCoverage ?? 0) >= 0.999
     ? Math.max(titleScore, tempoScore ?? 0, yearScore ?? 0)
     : 0;
-  const lookupTokenCoverage =
-    parsed.mode === "lookup" && queryCoverageTokens.length > 0
-      ? combinedTextMetrics?.queryCoverage ?? 0
-      : 1;
   const lookupCrossFieldCoverageBoost =
     parsed.mode === "lookup" &&
     queryCoverageTokens.length >= 2 &&
@@ -1090,7 +1086,7 @@ const scoreTrackWithBreakdown = (
   return {
     score: Math.min(
       1,
-      Math.max(0, rawScore * lookupTokenCoverage, lookupCrossFieldCoverageBoost),
+      Math.max(0, rawScore, lookupCrossFieldCoverageBoost),
     ),
     mode: parsed.mode,
     artistScore,

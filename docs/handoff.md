@@ -1,5 +1,40 @@
 ## Handoff
 
+### Version 0.4.15 release preparation
+- Package and lockfile versions are `0.4.15`. This patch release combines the
+  M3U cross-root cortina-path correction, full-title variant recall, intact
+  quoted Search Similar values, and the associated user documentation.
+- Release-integrity recheck on 2026-11-13 confirmed all three unchanged pinned
+  FFmpeg inputs still resolve and match their pinned/upstream SHA-256 digests.
+  The Windows and Linux archives contain compatible `ffmpeg`/`ffprobe` pairs;
+  the official macOS source contains both tools' sources and configure input.
+  The BtbN month-end Linux pin remains covered by its two-year retention policy.
+- Verification: `npm run preflight` passed at version 0.4.15 (117 test files,
+  695 tests passed, 6 native-SQLite tests skipped under the host Node ABI, plus
+  the production build). `git diff --check` passed.
+
+### M3U cross-root paths and full-title variant recall
+- M3U/M3U8 export now derives every track and included-cortina location from the
+  saved playlist directory. A playlist above or inside sibling music/cortina
+  roots therefore resolves both sets of files (`FR-020.3.R9`). The README and
+  user guide feature the option, recommended placement, and path examples.
+- Multi-token lookup no longer compounds the same query/field coverage penalty
+  in both token metrics and final score. A compact three-word title with two
+  exact words and a divergent final metadata variant remains visible at the
+  default threshold, while the exact title ranks first (`FR-091.5.R11`).
+- Verification: `npm run preflight` passed (117 test files, 695 tests passed,
+  6 native-SQLite tests skipped under the host Node ABI, plus the production
+  build). The skipped index suite includes the new candidate-recall assertion.
+
+### Intact quoted singer values in Search Similar
+- Search-query de-duplication now treats scoped quoted values as atomic, so an
+  artist/summary containing singer names cannot corrupt a generated value such
+  as `singer:"Dante / Martel"` into an unterminated partial value
+  (`FR-090.2.R12`). Ordinary token de-duplication remains unchanged.
+- Verification: `npm run preflight` passed (117 test files, 693 tests passed,
+  6 native-SQLite tests skipped under the host Node ABI, plus the production
+  build).
+
 ### Version 0.4.14 — Search Similar ranking fix
 - Package and lockfile versions are `0.4.14` for the Search Similar seed-ranking
   correction below.

@@ -64,6 +64,19 @@ describe("fuzzy search helpers", () => {
     expect(result[0].score).toBeGreaterThan(0.2);
   });
 
+  it("keeps title variants in a full three-word lookup", () => {
+    const tracks = [
+      buildTrack({ id: "exact", title: "El distinguido ciudadano" }),
+      buildTrack({ id: "variant", title: "El distinguido cuidadono" }),
+    ];
+    const result = filterAndScoreTracks(tracks, {
+      query: "El distinguido ciudadano",
+      minScore: 0.19,
+      bpmRange: 5,
+    });
+    expect(result.map((entry) => entry.track.id)).toEqual(["exact", "variant"]);
+  });
+
   it("matches a one-letter substitution in a six-letter artist token", () => {
     const troilo = buildTrack({ artist: "Aníbal Troilo", title: "Toda mi vida" });
     const result = filterAndScoreTracks([troilo], {

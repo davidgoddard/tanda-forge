@@ -1105,7 +1105,11 @@ const registerIpc = () => {
     };
     const ext = path.extname(result.filePath).toLowerCase();
     if (ext === ".m3u" || ext === ".m3u8") {
-      fs.writeFileSync(result.filePath, serializePlaylistExportAsM3u(exportManifest), "utf-8");
+      fs.writeFileSync(
+        result.filePath,
+        serializePlaylistExportAsM3u(exportManifest, path.dirname(result.filePath)),
+        "utf-8",
+      );
     } else {
       writePlaylistExport(result.filePath, exportManifest);
     }
