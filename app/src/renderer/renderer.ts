@@ -170,6 +170,7 @@ import {
   resolveScheduledTransitionTimeSeconds,
   shouldEnablePlaylistStart,
   shouldPauseAfterMarkedPerformanceStop,
+  shouldRouteTToOpenPlaylistTanda,
   shouldEnablePlaylistStop,
   shouldPlayStandaloneTrackFromClick,
   shouldPreservePausedPerformanceResumeOnStop,
@@ -3378,6 +3379,14 @@ const handleTandaAction = async (event: Event) => {
   if (!action || !tandaId) {
     return;
   }
+  if (action === "tanda-track-menu") {
+    const row = button.closest<HTMLElement>(".tanda-track-row");
+    if (!row) return;
+    const wasOpen = row.classList.contains("track-menu-open");
+    closeDetailMenus();
+    row.classList.toggle("track-menu-open", !wasOpen);
+    return;
+  }
   const resolved = resolveTandaDraft(tandaId);
   if (!resolved) {
     return;
@@ -3401,6 +3410,21 @@ const handleTandaAction = async (event: Event) => {
     if (trackId) {
       openTrackEditor(trackId);
     }
+    return;
+  }
+  if (action === "tanda-search-track" || action === "tanda-find-track-tandas") {
+    const trackId = target
+      .closest<HTMLElement>(".tanda-track-row")
+      ?.dataset.trackId;
+    const track = trackId ? trackCache.get(trackId) : null;
+    if (track) {
+      if (action === "tanda-search-track") {
+        runSearchForTrack(track);
+      } else {
+        await runFindTandasForTrack(track);
+      }
+    }
+    closeDetailMenus();
     return;
   }
   if (action === "tanda-add-slot") {
@@ -3634,9 +3658,9 @@ const handleTandaAction = async (event: Event) => {
     renderTandaDesigner();
     return;
   }
-  if (action === "tanda-remove") {
+  if (action === "tanda-remove" || action === "tanda-discard-track") {
     const trackId = tanda.trackSlots[slotIndex];
-    if (trackId) {
+    if (trackId && action === "tanda-remove") {
       const track = trackCache.get(trackId);
       if (track) {
         addTrackToClipboard(track);
@@ -6984,6 +7008,9 @@ const closeDetailMenus = () => {
   if (line) {
     line.classList.remove("detail-menu-open");
   }
+  document
+    .querySelector<HTMLElement>(".tanda-track-row.track-menu-open")
+    ?.classList.remove("track-menu-open");
 };
 
 const closeStyleVariantMenu = () => {
@@ -7514,6 +7541,17 @@ const trackTandaUsageCache = new Map<string, TrackTandaUsage>();
 const pendingTrackTandaUsageIds = new Set<string>();
 let trackTandaUsageTimer: number | null = null;
 
+const isTrackUsedInOtherTanda = (
+  usage: TrackTandaUsage | undefined,
+  editedTanda: TandaDraft,
+) => {
+  if (!usage) return false;
+  const editedSavedIds = new Set(
+    [editedTanda.id, editedTanda.masterTandaId].filter(Boolean) as string[],
+  );
+  return usage.tandaIds.some((id) => !editedSavedIds.has(id));
+};
+
 const applyTrackTandaUsageToRows = (usage: TrackTandaUsage) => {
   const escape = typeof CSS !== "undefined" && typeof CSS.escape === "function"
     ? CSS.escape
@@ -7555,6 +7593,32 @@ const applyTrackTandaUsageToRows = (usage: TrackTandaUsage) => {
       action.classList.add("detail-search");
       menu.querySelector('[data-action="search-track"]')?.after(action);
     } else if (count === 0) action?.remove();
+  });
+  document.querySelectorAll<HTMLElement>(
+    `.tanda-track-row[data-track-id="${escape(usage.trackId)}"]`,
+  ).forEach((row) => {
+    const editedTanda = row.dataset.tandaId
+      ? resolveTandaDraft(row.dataset.tandaId)
+      : null;
+    const hasOtherTanda = editedTanda
+      ? isTrackUsedInOtherTanda(usage, editedTanda)
+      : count > 0;
+    const menu = row.querySelector<HTMLElement>(".tanda-track-menu");
+    let action = menu?.querySelector<HTMLButtonElement>(
+      '[data-action="tanda-find-track-tandas"]',
+    ) ?? null;
+    if (hasOtherTanda && menu && !action) {
+      action = buildActionButton(
+        "actionFindTandas",
+        "actionFindTandasShort",
+        "tanda-find-track-tandas",
+      );
+      const searchAction = menu.querySelector('[data-action="tanda-search-track"]');
+      action.disabled = (searchAction as HTMLButtonElement | null)?.disabled ?? false;
+      searchAction?.after(action);
+    } else if (!hasOtherTanda) {
+      action?.remove();
+    }
   });
 };
 
@@ -12013,6 +12077,7 @@ const renderTandaDesigner = () => {
       row.dataset.slotIndex = index.toString();
       if (trackId) {
         row.dataset.trackId = trackId;
+        queueTrackTandaUsage(trackId);
       }
       const label = document.createElement("span");
       if (trackId) {
@@ -12043,13 +12108,48 @@ const renderTandaDesigner = () => {
           });
           actions.appendChild(headphoneButton);
         }
+        const menu = document.createElement("div");
+        menu.className = "tanda-track-menu";
         const editButton = buildActionButton(
           "actionEditTrack",
           "actionEditTrackShort",
           "tanda-edit-track",
         );
         editButton.disabled = locked;
-        actions.appendChild(editButton);
+        menu.appendChild(editButton);
+        const searchButton = buildActionButton(
+          "actionSearch",
+          "actionSearchShort",
+          "tanda-search-track",
+        );
+        searchButton.disabled = locked;
+        menu.appendChild(searchButton);
+        if (isTrackUsedInOtherTanda(trackTandaUsageCache.get(trackId), tanda)) {
+          const findTandasButton = buildActionButton(
+            "actionFindTandas",
+            "actionFindTandasShort",
+            "tanda-find-track-tandas",
+          );
+          findTandasButton.disabled = locked;
+          menu.appendChild(findTandasButton);
+        }
+        const clipboardButton = buildActionButton(
+          "tandaRemoveTrack",
+          "actionSendClipboardShort",
+          "tanda-remove",
+        );
+        clipboardButton.disabled = locked;
+        menu.appendChild(clipboardButton);
+        const discardButton = buildActionButton(
+          "tandaDiscardTrack",
+          "tandaDiscardTrackShort",
+          "tanda-discard-track",
+        );
+        discardButton.disabled = locked;
+        menu.appendChild(discardButton);
+        const menuButton = buildDetailMenuButton();
+        menuButton.dataset.action = "tanda-track-menu";
+        actions.append(menu, menuButton);
       }
       const upButton = buildActionButton(
         "tandaMoveUp",
@@ -12063,13 +12163,7 @@ const renderTandaDesigner = () => {
         "tanda-down",
       );
       downButton.disabled = locked;
-      const removeButton = buildActionButton(
-        "tandaRemoveTrack",
-        "actionSendClipboardShort",
-        "tanda-remove",
-      );
-      removeButton.disabled = locked;
-      actions.append(upButton, downButton, removeButton);
+      actions.append(upButton, downButton);
       row.append(label, document.createElement("span"), actions);
       trackList.appendChild(row);
     });
@@ -13334,7 +13428,11 @@ const activatePanelTab = (panel: Element | null, tabId: string) => {
   button?.click();
 };
 
-const addTrackToTanda = (tandaId: string | null, track: TrackRow) => {
+const addTrackToTanda = (
+  tandaId: string | null,
+  track: TrackRow,
+  options?: { hostTab?: RightPanelTab },
+) => {
   const tanda = tandaDrafts.find((item) => item.id === tandaId);
   if (!tanda) {
     return false;
@@ -13371,7 +13469,7 @@ const addTrackToTanda = (tandaId: string | null, track: TrackRow) => {
   }
   renderTandaDesigner();
   renderClipboard();
-  activateRightTab("tanda-designer-tab");
+  activateRightTab(options?.hostTab ?? "tanda-designer-tab");
   return true;
 };
 
@@ -13525,6 +13623,38 @@ const addTrackToActiveTanda = async (requestedTrack: TrackRow) => {
     return false;
   }
   if (!track) return true;
+  const hostedPlaylistIndex = shouldRouteTToOpenPlaylistTanda({
+    editorHostTab: tandaEditorHostTab,
+    activeRightTab,
+    openTandaIndex: playlistOpenTandaIndex,
+    playlistLength: playlistItems.length,
+    openItemKind:
+      playlistOpenTandaIndex !== null
+        ? playlistItems[playlistOpenTandaIndex]?.kind ?? null
+        : null,
+  })
+      ? playlistOpenTandaIndex
+      : null;
+  if (hostedPlaylistIndex !== null) {
+    const hostedItem = playlistItems[hostedPlaylistIndex];
+    if (hostedItem?.kind === "tanda") {
+      const hostedTanda = ensurePlaylistEditableTanda(
+        hostedItem.tandaId,
+        hostedPlaylistIndex,
+      );
+      if (hostedTanda) {
+        playlistOpenTandaIndex = hostedPlaylistIndex;
+        tandaEditorHostTab = "playlist-tab";
+        const added = addTrackToTanda(hostedTanda.id, track, {
+          hostTab: "playlist-tab",
+        });
+        if (added) {
+          renderPlaylist();
+        }
+        return added;
+      }
+    }
+  }
   let activeTanda = getActiveTanda();
   if (activeTanda?.origin === "playlist") {
     activeTanda = tandaDrafts.find(

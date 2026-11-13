@@ -10,6 +10,7 @@ import {
   resolveScheduledTransitionTimeSeconds,
   shouldEnablePlaylistStart,
   shouldPauseAfterMarkedPerformanceStop,
+  shouldRouteTToOpenPlaylistTanda,
   shouldPlayStandaloneTrackFromClick,
   shouldPreservePausedPerformanceResumeOnStop,
   shouldContinueAfterEndCortina,
@@ -21,6 +22,43 @@ import {
   shouldTreatClickStartAsIdle,
   shouldUseOverlapForGapMs,
 } from "../app/src/shared/playlist-flow.js";
+
+describe("shouldRouteTToOpenPlaylistTanda", () => {
+  const playlistContext = {
+    editorHostTab: "playlist-tab" as const,
+    activeRightTab: "playlist-tab" as const,
+    openTandaIndex: 2,
+    playlistLength: 3,
+    openItemKind: "tanda" as const,
+  };
+
+  it("routes T to the playlist while its hosted tanda editor is open", () => {
+    expect(shouldRouteTToOpenPlaylistTanda(playlistContext)).toBe(true);
+  });
+
+  it("falls back to Designer without an open playlist-hosted tanda", () => {
+    expect(shouldRouteTToOpenPlaylistTanda({
+      ...playlistContext,
+      editorHostTab: "tanda-designer-tab",
+    })).toBe(false);
+    expect(shouldRouteTToOpenPlaylistTanda({
+      ...playlistContext,
+      openTandaIndex: null,
+      openItemKind: null,
+    })).toBe(false);
+  });
+
+  it("rejects stale or non-tanda playlist targets", () => {
+    expect(shouldRouteTToOpenPlaylistTanda({
+      ...playlistContext,
+      openTandaIndex: 3,
+    })).toBe(false);
+    expect(shouldRouteTToOpenPlaylistTanda({
+      ...playlistContext,
+      openItemKind: "track",
+    })).toBe(false);
+  });
+});
 
 describe("resolveTandaPlaylistDestination", () => {
   it("prefers an explicitly marked target", () => {

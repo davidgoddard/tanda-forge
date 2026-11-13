@@ -154,7 +154,14 @@ const waitForPlaylistEditorRows = async (page: Page, minRows: number, timeout = 
 const clickEditorTrackAction = async (
   editor: Locator,
   rowIndex: number,
-  action: "tanda-up" | "tanda-down" | "tanda-remove",
+  action:
+    | "tanda-up"
+    | "tanda-down"
+    | "tanda-edit-track"
+    | "tanda-search-track"
+    | "tanda-find-track-tandas"
+    | "tanda-remove"
+    | "tanda-discard-track",
 ) => {
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -162,7 +169,11 @@ const clickEditorTrackAction = async (
       await waitForEditorRows(editor, rowIndex + 1, 5_000);
       const row = editor.locator(".tanda-track-row").nth(rowIndex);
       await expect(row).toBeVisible({ timeout: 5_000 });
-      await row.locator(`button[data-action="${action}"]`).click({ timeout: 5_000, force: true });
+      if (action !== "tanda-up" && action !== "tanda-down") {
+        await row.locator('button[data-action="tanda-track-menu"]').click();
+      }
+      await expect(row.locator(`button[data-action="${action}"]`)).toBeVisible();
+      await row.locator(`button[data-action="${action}"]`).click({ timeout: 5_000 });
       return;
     } catch (error) {
       lastError = error;
@@ -1972,6 +1983,37 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  test("12b - search T appends to an open playlist-hosted tanda", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await clearPlaylistViaUi(page);
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+      await ensurePlaylistTab(page);
+      await clickRowAction(playlistTandaRow(page, "Tango Trio"), "tanda-edit");
+
+      let editor = await waitForPlaylistEditorRows(page, 3);
+      await expect(editor).not.toContainText("Tempo 72 Test");
+      await page.locator('button[data-tab="search-tracks"]').click();
+      await runSearch(page, "Tempo 72 Test");
+      await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "add-tanda");
+
+      editor = await waitForPlaylistEditorRows(page, 4);
+      await expect(editor).toContainText("Tempo 72 Test");
+      await expect(page.locator('button[data-tab="playlist-tab"]')).toHaveClass(/active/);
+      await expect(editor).toBeVisible();
+      await expect(page.locator("#tanda-list .tanda-card.selected")).not.toContainText(
+        "Tempo 72 Test",
+      );
+      await expect(page.locator("#playlist-list .playlist-unsaved-indicator")).toBeVisible();
+    } finally {
+      await launched.close();
+    }
+  });
+
   test("13 - consecutive search T actions open and fill the same tanda designer draft", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
@@ -2157,6 +2199,121 @@ test.describe("Electron app end-to-end workflows", () => {
 
       await clickEditorTrackAction(editor, 0, "tanda-down");
       await waitForPlaylistEditorRows(page, 3);
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("21b - Designer track overflow actions search, find, edit, copy, and discard without closing", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await selectClipboardCollection(page, "general");
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Canaro Milonga Pack A");
+      await clickRowAction(
+        searchTandaRow(page, "Canaro Milonga Pack A"),
+        "tanda-edit",
+      );
+
+      const designerTab = page.locator('button[data-tab="tanda-designer-tab"]');
+      const designer = page.locator('#tanda-list[data-state="visible"]');
+      await expect(designerTab).toHaveClass(/active/);
+      await waitForEditorRows(designer, 3);
+
+      let firstRow = designer.locator('.tanda-track-row[data-track-id="t13"]');
+      await expect(firstRow.locator('button[data-action="tanda-up"]')).toBeVisible();
+      await expect(firstRow.locator('button[data-action="tanda-down"]')).toBeVisible();
+      await expect(firstRow.locator('button[data-action="tanda-edit-track"]')).toBeHidden();
+      await firstRow.locator('button[data-action="tanda-track-menu"]').click();
+      await expect(firstRow.locator('button[data-action="tanda-edit-track"]')).toBeVisible();
+      await expect(firstRow.locator('button[data-action="tanda-search-track"]')).toBeVisible();
+      await expect(firstRow.locator('button[data-action="tanda-find-track-tandas"]'))
+        .toBeVisible();
+      await expect(firstRow.locator('button[data-action="tanda-remove"]')).toBeVisible();
+      await expect(firstRow.locator('button[data-action="tanda-discard-track"]')).toBeVisible();
+
+      const onlyCurrentTandaRow = designer.locator('.tanda-track-row[data-track-id="t15"]');
+      await onlyCurrentTandaRow.locator('button[data-action="tanda-track-menu"]').click();
+      await expect(
+        onlyCurrentTandaRow.locator('button[data-action="tanda-find-track-tandas"]'),
+      ).toHaveCount(0);
+
+      await clickEditorTrackAction(designer, 0, "tanda-edit-track");
+      await expect(page.locator("#track-editor")).toHaveAttribute("aria-hidden", "false");
+      await closeTrackEditorIfOpen(page);
+      await expect(designerTab).toHaveClass(/active/);
+      await expect(designer).toBeVisible();
+
+      firstRow = designer.locator('.tanda-track-row[data-track-id="t13"]');
+      await clickEditorTrackAction(designer, 0, "tanda-search-track");
+      await expect(page.locator('button[data-tab="search-tracks"]')).toHaveClass(/active/);
+      await expect(designerTab).toHaveClass(/active/);
+      await expect(firstRow).toBeVisible();
+
+      await clickEditorTrackAction(designer, 0, "tanda-find-track-tandas");
+      await expect(page.locator('button[data-tab="search-tandas"]')).toHaveClass(/active/);
+      await expect(searchTandaRow(page, "Canaro Milonga Pack B")).toBeVisible();
+      await expect(designerTab).toHaveClass(/active/);
+      await expect(firstRow).toBeVisible();
+
+      await clickEditorTrackAction(designer, 0, "tanda-remove");
+      await expect(designer.locator('.tanda-track-row[data-slot-index="0"]'))
+        .toHaveClass(/placeholder/);
+      await expect(designerTab).toHaveClass(/active/);
+
+      await page.locator('button[data-tab="clip-tracks"]').click();
+      await selectClipboardCollection(page, "general");
+      await expect(clipboardTrackRow(page, "Canaro Milonga Uno")).toBeVisible();
+
+      await clickEditorTrackAction(designer, 1, "tanda-discard-track");
+      await expect(designer.locator('.tanda-track-row[data-slot-index="1"]'))
+        .toHaveClass(/placeholder/);
+      await expect(clipboardTrackRow(page, "Canaro Milonga Dos")).toHaveCount(0);
+      await expect(designerTab).toHaveClass(/active/);
+      await expect(designer).toBeVisible();
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("21c - playlist-hosted track overflow actions keep its editor open", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await clearPlaylistViaUi(page);
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+      await ensurePlaylistTab(page);
+      await clickRowAction(playlistTandaRow(page, "Tango Trio"), "tanda-edit");
+
+      const editor = await waitForPlaylistEditorRows(page, 3);
+      let firstRow = editor.locator('.tanda-track-row[data-track-id="t1"]');
+      await firstRow.locator('button[data-action="tanda-track-menu"]').click();
+      await expect(firstRow.locator('button[data-action="tanda-search-track"]')).toBeVisible();
+      await expect(firstRow.locator('button[data-action="tanda-find-track-tandas"]'))
+        .toBeVisible();
+      await expect(firstRow.locator('button[data-action="tanda-discard-track"]')).toBeVisible();
+
+      await firstRow.locator('button[data-action="tanda-search-track"]').click();
+      await expect(page.locator('button[data-tab="search-tracks"]')).toHaveClass(/active/);
+      await expect(editor).toBeVisible();
+
+      firstRow = editor.locator('.tanda-track-row[data-track-id="t1"]');
+      await firstRow.locator('button[data-action="tanda-track-menu"]').click();
+      await firstRow.locator('button[data-action="tanda-find-track-tandas"]').click();
+      await expect(page.locator('button[data-tab="search-tandas"]')).toHaveClass(/active/);
+      await expect(editor).toBeVisible();
+
+      const secondRow = editor.locator('.tanda-track-row[data-track-id="t2"]');
+      await secondRow.locator('button[data-action="tanda-track-menu"]').click();
+      await secondRow.locator('button[data-action="tanda-discard-track"]').click();
+      await expect(editor.locator('.tanda-track-row[data-slot-index="1"]'))
+        .toHaveClass(/placeholder/);
+      await expect(editor).toBeVisible();
+      await expect(page.locator('button[data-tab="playlist-tab"]')).toHaveClass(/active/);
     } finally {
       await launched.close();
     }
@@ -3947,7 +4104,7 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
-  test("36 - clipboard T opens Designer while a playlist tanda editor is open", async () => {
+  test("36 - clipboard T restores a track to the open playlist tanda", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
     try {
@@ -3992,12 +4149,14 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect(clipRow).toBeVisible();
       await clickRowAction(clipRow, "add-tanda");
 
-      await expect(page.locator('button[data-tab="tanda-designer-tab"]')).toHaveClass(/active/);
-      await expect(page.locator('button[data-tab="playlist-tab"]')).not.toHaveClass(/active/);
-      await expect(page.locator('#playlist-tanda-editor[data-state="visible"]')).toHaveCount(0);
-      await expect(page.locator("#tanda-list .tanda-track-row", {
+      await expect(page.locator('button[data-tab="playlist-tab"]')).toHaveClass(/active/);
+      await expect(page.locator('button[data-tab="tanda-designer-tab"]')).not.toHaveClass(/active/);
+      const restoredEditor = page.locator('#playlist-tanda-editor[data-state="visible"]');
+      await expect(restoredEditor).toBeVisible();
+      await expect(restoredEditor.locator(".tanda-track-row", {
         hasText: "Alberto Gomez Tango Uno",
       }).first()).toBeVisible();
+      await expect(clipboardTrackRow(page, "Alberto Gomez Tango Uno")).toBeVisible();
     } finally {
       await launched.close();
     }
@@ -4861,8 +5020,14 @@ test.describe("Electron app end-to-end workflows", () => {
       const card = page.locator("#tanda-list .tanda-card.selected");
       await expect(card.locator(".tanda-style-options button", { hasText: "Milonga" }))
         .toHaveClass(/active/);
-      const headphonePreview = card.locator('.tanda-track-row[data-track-id="t13"] .headphone-button');
+      const previewRow = card.locator('.tanda-track-row[data-track-id="t13"]');
+      const headphonePreview = previewRow.locator(".headphone-button");
       await expect(headphonePreview).toBeVisible();
+      await previewRow.locator('button[data-action="tanda-track-menu"]').click();
+      await expect(headphonePreview).toBeVisible();
+      await expect(previewRow.locator('button[data-action="tanda-up"]')).toBeVisible();
+      await expect(previewRow.locator('button[data-action="tanda-down"]')).toBeVisible();
+      await card.locator("input.tanda-name").click();
       await headphonePreview.click();
       await expect(headphonePreview).toHaveClass(/active/);
       await headphonePreview.click();

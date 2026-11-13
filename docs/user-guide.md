@@ -218,7 +218,10 @@ To build tandas, the DJ can pick ready made tandas from one of the built-in coll
 
 In the top right the DJ can click the display board button and a pop-out window will appear which shows the current playing track information and tanda information from the main output only. Headphone preview is never shown on the audience-facing display board. This can
 be dragged to another window to show on a connected TV or Projector.  Background images for this can be configured using the background images folder set in the library tab.
-If no images are set up then a simple set of coloured dots will come and go on the screen in the background instead.  Images work better.
+If no images are set up then a simple set of coloured dots will come and go on
+the screen in the background instead. The fallback uses a lighter dark overlay
+so its colours remain visible while the display text stays readable. Images
+work better.
 Some amplifiers and DSP processors buffer audio before playing it, and network
 outputs such as AirPlay/Shairport can add several more seconds. Without
 compensation, the audience screen may announce the next track or cortina before
@@ -382,10 +385,17 @@ but the DJ can choose the artist or year columns instead.
 - **P**: Send to playlist - tandas are sent to the marked target in the playlist or to the end of the playlist if no target.  Style mis-mmatch or size mis-match warnings are given 
 but nothing is blocked.  Sending a track to the playlist will either create a new empty tanda and add the track as the first entry or append the current tanda until that
 tanda has the playlist's preferred track count in which case it will start another tanda.  So the playlist can be built track by track if required or a mix of tandas and tracks.
-- **T**: Send to the tanda designer - as for sending to the playlist except the target is in the tanda designer and has nothing to do with the playlist's contents.
+- **T**: Send to the currently edited tanda. If a tanda editor is open inside
+  the Playlist, the track is appended there and that editor stays open.
+  Otherwise, Tanda Forge switches to the Tanda Designer and appends to its open
+  draft, creating one when needed.
 - **E**: Edit - used for tracks this pops up a window showing all track data.  Next to each value is a "S" button for searching and each button sends the current fields text to the search
 field in the search column.  Clicking more "S" buttons adds more text allowing the tempo and year and artist to be used for searching for example.
-- **R**: Remove - removes the track or tanda from the named collection or playlist.  Removal of a tanda from a playlist causes an empty placeholder to be added to maintain the playlist sequence.
+- **R**: Remove - removes the track or tanda from the named collection or
+  playlist. In a Tanda Designer or playlist-hosted editor track menu, it removes
+  the track and leaves an empty slot without adding the track to the clipboard.
+  Removal of a tanda from a playlist causes an empty placeholder to be added to
+  maintain the playlist sequence.
 - **M**: Context action:
   - In playlist tandas/tracks: mark as target for replace/swap flows.
   - In clipboard tandas/tracks: move (or copy, from smart collections) to another collection.
@@ -556,8 +566,11 @@ There are several ways a tanda can be created or filled:
 - **Use an existing tanda from a clipboard collection**: click **P** to place it in the playlist, or **T** to open it in the Tanda Designer.
 - **Build a tanda from individual tracks**:
   - from **Search**, use **P** on a track to add it into the playlist. The app will create or continue a tanda there as needed.
-  - from **Search**, use **T** on a track to send it into the Tanda Designer.
-  - from a **clipboard track**, use **P** to add it into the playlist or **T** to send it into the Tanda Designer.
+  - from **Search**, use **T** on a track to append it to the tanda currently
+    open in Playlist, or to the Tanda Designer when no playlist tanda is open.
+  - from a **clipboard track**, use **P** to add it into the playlist or **T**
+    to append it to the currently open playlist tanda, falling back to Tanda
+    Designer when no playlist-hosted editor is open.
   - from a **playlist tanda**, use the per-track send actions to move a track out to the clipboard or into another tanda slot.
 - **Auto-fill can create tandas automatically** when rebuilding a playlist and no saved tanda fits the required slot.
 - **Generate Tanda** in the Tanda Designer builds a fresh draft from tracks and
@@ -573,10 +586,11 @@ There are several ways a tanda can be created or filled:
   available, your tracks remain and the app reports **No similar tracks found**.
   The action remains **Complete Tanda** after the slots are filled because the
   draft still combines your manual anchors with generated suggestions.
-- Use **T** from Search or Clipboard to add to the open Tanda Designer draft;
-  if none exists, Tanda Forge creates one and opens Designer. Use **P** to add
-  to the tanda open in Playlist; if none is open, Tanda Forge creates the next
-  tanda in the trailing playlist slot and opens its playlist-hosted editor.
+- Use **T** from Search or Clipboard to add to the tanda open in the
+  playlist-hosted editor. If no playlist tanda is open, **T** adds to the open
+  Tanda Designer draft, creating and opening one when needed. Use **P** as the
+  explicit playlist destination; if no playlist tanda is open, Tanda Forge
+  creates the next tanda in the trailing playlist slot and opens its editor.
 - Generation keeps fine-grained styles together when possible: a Traditional
   seed is completed with Traditional tracks, and an Alternative seed with
   Alternative tracks. The broader family is used only when the exact style does
@@ -621,7 +635,11 @@ in the database and will be lost when the app closes. The app asks for
 confirmation before closing while any unsaved tanda remains.
 
 - click tracks to audition them in Preparation or Edit mode
-- use the per-track menu to remove a track from the tanda
+- open the per-track **…** menu to edit the track, search for similar tracks,
+  or use **Find tandas** when the track also belongs to another saved tanda
+- use the menu's clipboard action to send a track to the clipboard and leave an
+  empty slot, or its remove action to leave an empty slot without changing the
+  clipboard; compact action letters and tooltips follow the selected language
 - use the track move buttons in the editor to re-order tracks inside the tanda
 - use the headphone button beside a populated track to audition it through the
   configured secondary output without changing the tanda

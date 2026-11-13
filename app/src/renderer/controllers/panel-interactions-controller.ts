@@ -91,7 +91,11 @@ export const createPanelInteractionsController = (
 
     deps.elements.documentBody.addEventListener("click", (event) => {
       const target = event.target as HTMLElement | null;
-      if (target?.closest(".row-actions") || target?.closest(".tanda-detail-actions-right")) {
+      if (
+        target?.closest(".row-actions") ||
+        target?.closest(".tanda-detail-actions-right") ||
+        target?.closest(".tanda-track-actions")
+      ) {
         return;
       }
       deps.actions.closeRowMenus();

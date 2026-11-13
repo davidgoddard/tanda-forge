@@ -780,6 +780,8 @@ export const pt: TranslationMap = {
     tandaSaveAsNew: "Guardar como nova",
     tandaReplaceExisting: "Substituir existente",
     tandaRemoveTrack: "Enviar ao bloco",
+    tandaDiscardTrack: "Remover da tanda",
+    tandaDiscardTrackShort: "R",
     tandaMoveUp: "Subir",
     tandaMoveDown: "Descer",
     tandaRemoveTrackShort: "C",

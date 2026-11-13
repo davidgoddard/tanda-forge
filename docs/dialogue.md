@@ -7640,3 +7640,21 @@ stale `main` ref and was corrected before merge. No release or tag was created.
   9 for both `El distinguido` and `El distinguido ciudadano`, 95 for
   `La cumparsita`, 14 for `Quejas de bandoneon`, and 70 for `Jose Garcia`
   (52 José García-labelled tracks plus 18 incidental matches).
+
+## 2026-11-13 — Batched release checks, tanda row menus and contextual T
+
+- The user requested that incremental changes defer documentation and full
+  preflight work until an explicit documentation request or a commit/push
+  release checkpoint; `AGENTS.md` now records that workflow.
+- Tanda Designer and playlist-hosted editor rows now keep headphone and movement
+  controls visible while localized edit, Search Similar, conditional Find
+  Tandas, clipboard-send and discard-only actions use the ellipsis menu.
+- Track `T` now targets a currently open playlist-hosted tanda; without that
+  context it falls back to the open/new Designer draft. `P` remains the explicit
+  playlist destination (`UI-016.R6.a-b`, `UI-016.R27`, `UI-016.R30`).
+- The display board abstract fallback's strong overlay was reduced from `0.38`
+  to `0.28` so background colours are more visible while retaining readable
+  text (`UI-060.R9.a`).
+- Because the remote already publishes `v0.4.15`, the requested release
+  checkpoint advances package and lock metadata to `0.4.16` before commit and
+  push.

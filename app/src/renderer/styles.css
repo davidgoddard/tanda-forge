@@ -2038,7 +2038,24 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
 
 .tanda-track-actions {
   display: flex;
+  align-items: center;
   gap: 0.3rem;
+}
+
+.tanda-track-menu {
+  display: none;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tanda-track-row.track-menu-open .tanda-track-menu {
+  display: flex;
+}
+
+.tanda-track-row.track-menu-open
+  .tanda-track-actions
+  > .action-button[data-action="tanda-track-menu"] {
+  display: none;
 }
 
 .tanda-meta {

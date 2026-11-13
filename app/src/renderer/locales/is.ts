@@ -865,6 +865,8 @@ export const is: TranslationMap = {
   tandaSaveAsNew: "Vista sem nýja",
   tandaReplaceExisting: "Skipta út núverandi",
   tandaRemoveTrack: "Send to clipboard",
+  tandaDiscardTrack: "Fjarlægja úr töndu",
+  tandaDiscardTrackShort: "F",
   tandaMoveUp: "Move up",
   tandaMoveDown: "Move down",
   tandaRemoveTrackShort: "A",
