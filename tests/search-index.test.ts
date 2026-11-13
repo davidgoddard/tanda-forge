@@ -67,7 +67,7 @@ describe.runIf(nativeSqliteAvailable)("versioned search schema", () => {
     db.prepare(`insert into tracks
       (id, title, artist, artist_summary, singer, notes, album, album_artist, genre, year, bpm)
       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      "ciudadano-variant", "El distinguido cuidadono", "Osvaldo Fresedo", "Osvaldo Fresedo", "",
+      "ciudadano-variant", "El distinguido ciuidadano (1932)", "Osvaldo Fresedo", "Osvaldo Fresedo", "",
       "", "", "", "Tango", "1933", 62,
     );
     db.prepare(`insert into tracks

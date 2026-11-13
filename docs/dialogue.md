@@ -7626,3 +7626,17 @@ stale `main` ref and was corrected before merge. No release or tag was created.
   pushed on a new branch. Package metadata advances from `0.4.14` to `0.4.15`;
   generated local audit exports remain outside version control in accordance
   with repository hygiene requirements.
+
+## 2026-11-13 — Supplied database confirms full-title spelling variants
+
+- Read-only testing against `tanda-player x1-12nóv.db` showed that the initial
+  provisional full-title adjustment still returned seven rows. The two missing
+  active titles contain the distinct spellings `ciuidadano` and `cuidadano`.
+- Lookup scoring now gives a bounded eligibility floor only when the title
+  matches every query token, including eligible fuzzy spellings. Normal partial
+  query/field coverage penalties remain in place; this avoids admitting two
+  unrelated `Mal de amores` rows for `Quejas de bandoneon`.
+- Electron-runtime results against the unchanged database now match the report:
+  9 for both `El distinguido` and `El distinguido ciudadano`, 95 for
+  `La cumparsita`, 14 for `Quejas de bandoneon`, and 70 for `Jose Garcia`
+  (52 José García-labelled tracks plus 18 incidental matches).

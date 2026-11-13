@@ -714,7 +714,7 @@ const buildTokenMatchMetrics = (
     averageSimilarity,
     queryCoverage,
     fieldPurity,
-    score: Math.min(queryCoverage, fieldPurity) * averageSimilarity,
+    score: queryCoverage * fieldPurity * averageSimilarity,
   };
 };
 
@@ -1066,6 +1066,15 @@ const scoreTrackWithBreakdown = (
       (titleCoverageMetrics?.queryCoverage ?? 0) >= 0.999
     ? Math.max(titleScore, tempoScore ?? 0, yearScore ?? 0)
     : 0;
+  const lookupTitleCoverageBoost = parsed.mode === "lookup" &&
+      queryCoverageTokens.length >= 2 &&
+      (titleCoverageMetrics?.queryCoverage ?? 0) >= 0.999
+    ? 0.22 * (titleCoverageMetrics?.averageSimilarity ?? 0)
+    : 0;
+  const lookupTokenCoverage =
+    parsed.mode === "lookup" && queryCoverageTokens.length > 0
+      ? combinedTextMetrics?.queryCoverage ?? 0
+      : 1;
   const lookupCrossFieldCoverageBoost =
     parsed.mode === "lookup" &&
     queryCoverageTokens.length >= 2 &&
@@ -1082,11 +1091,16 @@ const scoreTrackWithBreakdown = (
       .some((field) => containsWholePhrase(normalizeSearchText(field), normalizedLookupPhrase))
       ? 1
       : 0;
-  const rawScore = Math.max(weighted, titleCoverageBoost, exactPrimaryFieldBoost);
+  const rawScore = Math.max(
+    weighted,
+    titleCoverageBoost,
+    lookupTitleCoverageBoost,
+    exactPrimaryFieldBoost,
+  );
   return {
     score: Math.min(
       1,
-      Math.max(0, rawScore, lookupCrossFieldCoverageBoost),
+      Math.max(0, rawScore * lookupTokenCoverage, lookupCrossFieldCoverageBoost),
     ),
     mode: parsed.mode,
     artistScore,

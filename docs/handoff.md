@@ -19,9 +19,15 @@
   roots therefore resolves both sets of files (`FR-020.3.R9`). The README and
   user guide feature the option, recommended placement, and path examples.
 - Multi-token lookup no longer compounds the same query/field coverage penalty
-  in both token metrics and final score. A compact three-word title with two
-  exact words and a divergent final metadata variant remains visible at the
-  default threshold, while the exact title ranks first (`FR-091.5.R11`).
+  for complete fuzzy title coverage with unrelated metadata fields. A bounded
+  title floor retains the real `ciuidadano` and `cuidadano` spellings for a
+  `ciudadano` query while partial cross-field matches keep the established
+  coverage penalties (`FR-091.5.R11`).
+- Read-only Electron-runtime validation against the supplied 260 MB database
+  returns the reported targets exactly: `El distinguido` 9, full
+  `El distinguido ciudadano` 9, `La cumparsita` 95, and
+  `Quejas de bandoneon` 14. `Jose Garcia` returns 70 rows: all 52 rows whose
+  artist label contains José García plus the reported 18 incidental matches.
 - Verification: `npm run preflight` passed (117 test files, 695 tests passed,
   6 native-SQLite tests skipped under the host Node ABI, plus the production
   build). The skipped index suite includes the new candidate-recall assertion.

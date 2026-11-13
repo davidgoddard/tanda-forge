@@ -234,11 +234,11 @@ Victoria`, while a one-token result represents only half of that two-token query
   query token retains its best eligible source-token match, with source/query
   length coverage contributing to acceptance; final ranking then prefers more
   query tokens matched with stronger whole-token similarity.
-- FR-091.5.R11: Multi-token lookup scoring shall apply query and field coverage
-  once rather than compounding both penalties at multiple scoring layers. A
-  compact title that exactly matches two words of a three-word query remains
-  eligible at the default threshold when its remaining word is a metadata
-  variant, while complete and closer matches continue to rank first.
+- FR-091.5.R11: A title matching every query token, including an eligible fuzzy
+  spelling such as `ciuidadano` or `cuidadano` for `ciudadano`, receives a
+  bounded title-coverage floor so unrelated artist/supporting metadata cannot
+  suppress it. Partial matches retain the established query and field coverage
+  penalties, and complete and closer matches continue to rank first.
 
 ## FR-092 — Similarity Search Shortcuts
 

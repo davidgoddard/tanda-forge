@@ -67,14 +67,19 @@ describe("fuzzy search helpers", () => {
   it("keeps title variants in a full three-word lookup", () => {
     const tracks = [
       buildTrack({ id: "exact", title: "El distinguido ciudadano" }),
-      buildTrack({ id: "variant", title: "El distinguido cuidadono" }),
+      buildTrack({ id: "extra-letter", title: "El distinguido ciuidadano (1932)" }),
+      buildTrack({ id: "transposed", title: "El distinguido cuidadano (1946) EU" }),
     ];
     const result = filterAndScoreTracks(tracks, {
       query: "El distinguido ciudadano",
       minScore: 0.19,
       bpmRange: 5,
     });
-    expect(result.map((entry) => entry.track.id)).toEqual(["exact", "variant"]);
+    expect(result.map((entry) => entry.track.id)).toEqual([
+      "exact",
+      "extra-letter",
+      "transposed",
+    ]);
   });
 
   it("matches a one-letter substitution in a six-letter artist token", () => {
