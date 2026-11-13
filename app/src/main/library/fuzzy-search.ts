@@ -1066,6 +1066,11 @@ const scoreTrackWithBreakdown = (
       (titleCoverageMetrics?.queryCoverage ?? 0) >= 0.999
     ? Math.max(titleScore, tempoScore ?? 0, yearScore ?? 0)
     : 0;
+  const lookupTitleCoverageBoost = parsed.mode === "lookup" &&
+      queryCoverageTokens.length >= 2 &&
+      (titleCoverageMetrics?.queryCoverage ?? 0) >= 0.999
+    ? 0.22 * (titleCoverageMetrics?.averageSimilarity ?? 0)
+    : 0;
   const lookupTokenCoverage =
     parsed.mode === "lookup" && queryCoverageTokens.length > 0
       ? combinedTextMetrics?.queryCoverage ?? 0
@@ -1086,7 +1091,12 @@ const scoreTrackWithBreakdown = (
       .some((field) => containsWholePhrase(normalizeSearchText(field), normalizedLookupPhrase))
       ? 1
       : 0;
-  const rawScore = Math.max(weighted, titleCoverageBoost, exactPrimaryFieldBoost);
+  const rawScore = Math.max(
+    weighted,
+    titleCoverageBoost,
+    lookupTitleCoverageBoost,
+    exactPrimaryFieldBoost,
+  );
   return {
     score: Math.min(
       1,

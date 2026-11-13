@@ -97,6 +97,19 @@ describe("buildTrackSimilarityQuery", () => {
     });
     expect(query).toBe('Aníbal Troilo singer:"Francisco Fiorentino" bpm:66');
   });
+
+  it("preserves a quoted singer that repeats words from the artist summary", () => {
+    const query = dedupeQueryTokens(buildTrackSimilarityQuery({
+      artist: "Alfredo De Angelis, Dante / Martel",
+      artist_summary: "Alfredo De Angelis Dante/ Martel",
+      singer: "Dante / Martel",
+      bpm: 76,
+      year: "1945",
+    }));
+    expect(query).toContain('singer:"Dante / Martel"');
+    expect(query).toContain("bpm:76");
+    expect(query).toContain("year:1945");
+  });
 });
 
 describe("dedupeQueryTokens", () => {
@@ -120,6 +133,11 @@ describe("dedupeQueryTokens", () => {
   it("normalizes diacritics and punctuation before token de-duplication", () => {
     const query = dedupeQueryTokens("D'Ar\u00edenzo Darienzo d\u00e1rienzo");
     expect(query).toBe("D'Ar\u00edenzo");
+  });
+
+  it("treats scoped quoted values as indivisible tokens", () => {
+    expect(dedupeQueryTokens('Dante Martel singer:"Dante / Martel" bpm:76'))
+      .toBe('Dante Martel singer:"Dante / Martel" bpm:76');
   });
 });
 

@@ -153,6 +153,10 @@ Shape the night, not just the next tanda.
 * Build full playlists from tandas
 * Reorder and adapt during play
 * Clear visual indicators of tanda style
+* Save and import native Tanda Forge JSON playlists or grouped M3U/M3U8 files
+* Optionally include cortinas in M3U/M3U8 exports; paths are written relative
+  to the saved playlist so separate sibling music and cortina folders resolve
+  correctly in compatible players
 * See **start times for every tanda** at a glance
 * Detect the same recording or composition even when title, orchestra, file
   format, or transfer metadata differs

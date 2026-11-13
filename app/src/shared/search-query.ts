@@ -33,8 +33,10 @@ const normalizeTokenKey = (token: string) => {
 };
 
 export const dedupeQueryTokens = (query: string) => {
-  const tokens = query
-    .split(/\s+/)
+  // Keep quoted phrases and scoped quoted values atomic. Splitting a generated
+  // value such as singer:"Dante / Martel" on whitespace lets artist-token
+  // de-duplication remove pieces of the value and leave malformed syntax.
+  const tokens = (query.match(/[a-z][a-z0-9_-]*:"[^"]*"|"[^"]*"|\S+/gi) ?? [])
     .map((token) => token.trim())
     .filter((token) => token.length > 0);
   const seen = new Set<string>();
