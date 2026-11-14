@@ -796,6 +796,9 @@ Any track data can be modified by using the **E** menu option which opens the ed
 
 Each field can be modified and can also be used to add to a search for similar items using the **S** button next to each field - the current field value is appended to the search
 
+For entered BPM, automatic estimates and confirmed tap-tempo corrections, see
+[BPM values in the track editor](#bpm-values-in-the-track-editor).
+
 To remove an unwanted track, open it in the editor and choose **Delete track**.
 After confirmation the track is logically removed: it no longer appears in
 searches, restored collections, tanda building, playlist playback, or auto-fill,
@@ -812,6 +815,123 @@ tandas and playlists become usable again only when none of their tracks remain
 deleted or missing. This cannot recover an audio file that was deleted from disk.
 
 <img src="../images/user-guide/16-editor.png" width="400px">
+
+## Automatic BPM measurement
+
+Automatic BPM analysis is optional and off by default. It estimates a tempo for
+music in your library and for tracks added by later imports or **Scan Music**.
+It uses local audio processing; no separate plugin installation or cloud service
+is needed. Cortinas are excluded from the automatic BPM queue.
+
+### Enable and choose which BPM to use
+
+1. Open **Settings → System** and find the **BPM** panel just above **Data**.
+2. Check **Enable automatic BPM analysis**.
+3. On first activation, choose **Prefer my entered BPM; otherwise use derived
+   BPM** or **Always use derived BPM**, then confirm.
+
+Your existing entered/imported BPM values are retained separately from the
+analyser result. All music tracks are eligible for analysis, including tracks
+that already have an entered BPM. You can change the preference later in the
+same settings section without reanalysing the audio.
+
+The following rules select the **effective BPM** used by the app:
+
+| Setting | BPM used |
+|---|---|
+| Disabled | Your entered BPM only; no figure if none is entered. |
+| Enabled, with a confirmed correction | Your correction, taking priority over either preference below. |
+| Enabled, prefer entered BPM, no correction | Your entered BPM if available; otherwise the derived figure. |
+| Enabled, always use derived BPM, no correction | The derived figure, even when an entered value exists. |
+
+With **Always use derived BPM**, a track waiting for analysis or without a usable
+result has no effective BPM unless you have confirmed a correction. It does not
+silently fall back to your entered figure.
+
+### Where the selected BPM is used
+
+The effective BPM is used for numbers beside tracks, the BPM ranges shown for
+tandas, BPM searches and tempo matching, track-based **S — Search Similar**
+hints, tempo summaries, and the tempo comparisons used in tanda/playlist
+suggestions and ordering. Changing the preference or saving a correction updates
+the value used throughout these workflows. BPM values are shown and used as whole numbers; the number is not a measure
+of certainty.
+
+BPM analysis does not change the recording, playback speed or pitch. It does not
+create beat grids or synchronise two tracks. The editor's field-specific **S**
+button searches the value in that field, which can differ from the effective BPM.
+
+### Background progress, pause and retry
+
+The System section shows analysed and unsuccessful track counts. New analyses
+start in Preparation or Edit mode while main playback is stopped, and wait
+during library scanning. An analysis already running may finish after playback
+starts or you pause the queue.
+
+Use **Pause analysis** to stop starting new analyses while continuing to use the
+selected BPM values. **Resume analysis** continues the queue. Pending work is
+picked up after restarting the app, provided analysis is enabled and not paused.
+Use **Retry unsuccessful tracks** after resolving a missing or unreadable file,
+or to try a track for which no usable tempo was found. New files must first be
+added to the library through an import or scan.
+
+### Disable automatic BPM analysis
+
+Uncheck **Enable automatic BPM analysis** in **Settings → System**. The app
+returns to **your entered BPM only**, including in displays and searches. Tracks
+without an entered value have no BPM. Derived values and confirmed corrections
+are retained, but are not used while the feature is disabled.
+
+Re-enabling restores your saved preference and corrections for unchanged audio.
+If the queue was paused, use **Resume analysis** to continue processing. This is
+different from pausing: pausing leaves the current BPM selection policy active.
+
+### BPM values in the track editor
+
+Open a track through **E — Edit track**, or select it in Edit mode. With automatic
+analysis enabled, the editor shows:
+
+- **Your entered BPM**: your editable original value, including values imported
+  from an existing library.
+- **Derived BPM / correction**: the analyser result, or your confirmed replacement
+  if you have made one.
+- **Analyser** and **Used in app**: the original calculated figure and the current
+  effective BPM. A saved replacement is marked **Confirmed correction**.
+
+To correct the derived figure, listen to a representative passage and use
+**Tap**. While analysis is enabled, tapping changes **Derived BPM / correction**;
+it leaves **Your entered BPM** alone. You can also type a corrected value into
+the derived/correction field.
+
+Choose **Save**. If that field has changed, the app asks you to confirm the
+replacement before saving. Cancelling the confirmation leaves the saved value
+unchanged and lets you continue editing. Confirming gives the correction priority
+under either enabled preference. The analyser's original result is still
+available alongside it.
+
+To remove a correction, clear **Derived BPM / correction**, save and confirm.
+The app returns to the normal selection rule: the entered value if preferred and
+available, otherwise the analyser result. In derived-only mode it uses the
+analyser result. Editing **Your entered BPM** changes the preserved value, but
+does not remove a confirmed correction.
+
+When analysis is disabled, the derived/correction section is hidden and **Tap**
+updates **Your entered BPM** as usual. Corrections survive ordinary disabling
+and re-enabling; replacing a track's audio can invalidate its old analysis and
+correction.
+
+### Accuracy and listening checks
+
+**Automatic BPM measurement is not 100% accurate.** Musicians are human and can
+vary the tempo slightly across a song; a short tapped passage and a whole-track
+estimate may reasonably differ. The analyser can also choose the wrong pulse
+or subdivision. Half- and double-time ambiguity is a recognised issue across
+current tempo-estimation and beat-tracking research, so compare counting levels
+as well as numbers. Listen before relying on a surprising result, and use a
+confirmed override when needed.
+
+For the musical reasoning, relevant diagrams and research references, read
+[How Tanda Forge measures BPM](bpm-measurement.md).
 
 ## Initial Setup
 
@@ -915,8 +1035,12 @@ For all three controls:
 
 ### 5) Configure Playlist Defaults (Optional)
 
-1. In **Playlist**, set your default tanda size and start time.
+1. In **Settings → Playlist**, set **Default tanda size** beside **Tanda sequence**,
+   and set your start time in **Schedule**.
 2. Choose a **Cortina Set** and **Duration** if you use cortinas.
+
+To reset playback counters, use **Settings → System → Collections → Clear play
+counts**. This control is separate from playlist sequence and tanda size.
 
 ### 6) Manage Styles (Optional)
 
@@ -927,6 +1051,14 @@ Use **Styles** in **Settings -> Library** to add or remove style labels used for
 - The first value (`Waltz`) is the canonical style pill.
 - Other values are aliases used to map imported/scanned genres back to the canonical style.
 - Click an existing style row to load it into the input for editing.
+
+### 7) Automatic BPM Measurement (Optional)
+
+Open **Settings → System → BPM** to enable it and choose
+whether entered or derived BPM values should be used. See
+[Automatic BPM measurement](#automatic-bpm-measurement) for disabling, progress
+and track-editor overrides, or [how the measurement works](bpm-measurement.md)
+for the illustrated explanation.
 
 ## Importing legacy data
 

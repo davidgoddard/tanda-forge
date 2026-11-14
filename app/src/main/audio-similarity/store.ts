@@ -571,11 +571,12 @@ export const replicateAudioSimilarityMetadata = (
   if (!REPLICABLE_FIELDS.has(field)) throw new Error("That metadata field cannot be replicated.");
   const targets = [...new Set(targetTrackIds)].filter((id) => id && id !== sourceTrackId);
   if (!sourceTrackId || targets.length === 0) return { updated: 0, conflicts: [], changes: [] };
-  const source = database.prepare(`select ${field} as value from tracks where id = ?`)
+  const column = field === "bpm" ? "user_bpm" : field;
+  const source = database.prepare(`select ${column} as value from tracks where id = ?`)
     .get(sourceTrackId) as { value: AudioSimilarityMetadataChange["newValue"] } | undefined;
   if (!source) throw new Error("The source track is no longer available.");
-  const readTarget = database.prepare(`select ${field} as value from tracks where id = ?`);
-  const update = database.prepare(`update tracks set ${field} = ?, updated_at = ? where id = ?`);
+  const readTarget = database.prepare(`select ${column} as value from tracks where id = ?`);
+  const update = database.prepare(`update tracks set ${column} = ?, updated_at = ? where id = ?`);
   const now = new Date().toISOString();
   const changes: AudioSimilarityMetadataChange[] = [];
   for (const target of targets) {
@@ -604,7 +605,8 @@ export const undoAudioSimilarityMetadata = (
     if (!change?.trackId || !REPLICABLE_FIELDS.has(change.field)) {
       throw new Error("That metadata field cannot be restored.");
     }
-    const current = database.prepare(`select ${change.field} as value from tracks where id = ?`)
+    const column = change.field === "bpm" ? "user_bpm" : change.field;
+    const current = database.prepare(`select ${column} as value from tracks where id = ?`)
       .get(change.trackId) as { value: AudioSimilarityMetadataChange["newValue"] } | undefined;
     const normalized = change.field === "instrumental" && current?.value !== null
       ? Boolean(current?.value) : current?.value;
@@ -615,7 +617,7 @@ export const undoAudioSimilarityMetadata = (
     const restoredValue = change.field === "instrumental" && typeof change.oldValue === "boolean"
       ? (change.oldValue ? 1 : 0)
       : change.oldValue;
-    database.prepare(`update tracks set ${change.field} = ?, updated_at = ? where id = ?`)
+    database.prepare(`update tracks set ${column} = ?, updated_at = ? where id = ?`)
       .run(restoredValue, now, change.trackId);
     restored.push(change);
   }

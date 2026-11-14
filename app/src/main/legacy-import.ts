@@ -815,12 +815,12 @@ const applyLegacyOverrides = (
 ) => {
   const db = getDb();
   const selectStmt = db.prepare(
-    `select title, artist, album, year, genre, bpm, notes
+    `select title, artist, album, year, genre, user_bpm as bpm, notes
      from tracks where root_id = ? and relative_path = ?`,
   );
   const updateStmt = db.prepare(
     `update tracks set title = ?, artist = ?, album = ?, year = ?, genre = ?,
-        bpm = ?, notes = ?, artist_summary = ?, updated_at = ?
+        user_bpm = ?, notes = ?, artist_summary = ?, updated_at = ?
      where root_id = ? and relative_path = ?`,
   );
   const now = new Date().toISOString();

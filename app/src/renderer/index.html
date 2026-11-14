@@ -660,13 +660,14 @@
               </div>
             </div>
             <div class="modal-field">
-              <label for="track-editor-bpm" data-i18n="trackEditorBpmLabel">
+              <label for="track-editor-bpm" data-i18n="bpmUserLabel">
                 BPM
               </label>
               <div class="modal-bpm-row">
                 <input id="track-editor-bpm" type="number" min="0" step="1" />
                 <button
                   id="track-editor-tap"
+                  aria-describedby="track-editor-tap-hint"
                   data-i18n="trackEditorTapTempo"
                   data-i18n-attr="title"
                 >
@@ -680,9 +681,15 @@
                 >
                   S
                 </button>
+                <div id="track-editor-tap-hint" class="modal-hint" data-i18n="trackEditorTapHint">
+                  Tap to set BPM · Wait 3 seconds to reset
+                </div>
               </div>
-              <div class="modal-hint" data-i18n="trackEditorTapHint">
-                Tap to set BPM
+              <div id="track-editor-derived-section" hidden>
+                <label for="track-editor-derived-bpm" data-i18n="bpmDerivedLabel">Derived BPM / correction</label>
+                <input id="track-editor-derived-bpm" type="number" min="1" max="1000" step="1" />
+                <p id="track-editor-bpm-details" class="modal-hint"></p>
+                <p data-i18n="bpmCorrectionHelp">Tap updates the derived BPM above. Saving asks you to confirm a correction. Clear it to use the analyser result again.</p>
               </div>
               <div id="track-editor-path" class="modal-hint track-editor-path"></div>
               <div id="track-editor-compressed-path" class="modal-hint track-editor-path"></div>
@@ -1362,7 +1369,7 @@
                   </div>
                 </div>
               </section>
-              <div class="settings-field wide">
+              <div class="settings-field">
                 <label for="playlist-sequence" data-i18n="playlistSequenceLabel">
                   Tanda sequence
                 </label>
@@ -1376,6 +1383,18 @@
                 <p data-i18n="playlistSequenceHelp">
                   Example: 3t 3t 3w 3t 3t (2c 3m). Group alternatives in brackets.
                 </p>
+              </div>
+              <div class="settings-field">
+                <label for="tanda-size-input" data-i18n="defaultTandaSize">
+                  Default tanda size
+                </label>
+                <input
+                  id="tanda-size-input"
+                  type="number"
+                  min="1"
+                  max="10"
+                  step="1"
+                />
               </div>
               <section class="settings-subgroup settings-field wide">
                 <h4 data-i18n="playlistTransferTitle">Playlist Files</h4>
@@ -1521,24 +1540,6 @@
                       step="1"
                     />
                   </div>
-                </div>
-              </section>
-
-              <section class="settings-group">
-                <h4 data-i18n="systemGroupCounts">Counts</h4>
-                <div class="settings-group-grid">
-                  <div class="settings-field">
-                    <label for="tanda-size-input" data-i18n="defaultTandaSize">
-                      Default tanda size
-                    </label>
-                    <input
-                      id="tanda-size-input"
-                      type="number"
-                      min="1"
-                      max="10"
-                      step="1"
-                    />
-                  </div>
                   <div class="settings-field">
                     <label for="clear-play-counts" data-i18n="clearPlayCountsLabel">
                       Playback counters
@@ -1566,6 +1567,31 @@
                         Pre-compute compressed songs
                       </button>
                     </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group settings-group-wide" id="bpm-settings">
+                <h4 data-i18n="systemGroupBpm">BPM</h4>
+                <div class="settings-group-grid">
+                  <div class="settings-field wide">
+                    <label class="settings-checkbox" for="bpm-enabled">
+                      <input type="checkbox" id="bpm-enabled" />
+                      <span data-i18n="bpmEnable">Enable automatic BPM analysis</span>
+                    </label>
+                    <p data-i18n="bpmHelp">Analyses existing and newly imported music. Disabling restores your entered BPM values.</p>
+                  </div>
+                  <div class="settings-field wide">
+                    <label for="bpm-preference" data-i18n="bpmPreference">Which BPM should Tanda Forge use?</label>
+                    <select id="bpm-preference">
+                      <option value="prefer-user" data-i18n="bpmPreferUser">Prefer my entered BPM; otherwise use derived BPM</option>
+                      <option value="derived-only" data-i18n="bpmDerivedOnly">Always use derived BPM</option>
+                    </select>
+                    <div class="settings-inline">
+                      <button id="bpm-pause" data-i18n="bpmPause">Pause analysis</button>
+                      <button id="bpm-retry" data-i18n="bpmRetry">Retry unsuccessful tracks</button>
+                    </div>
+                    <p id="bpm-status" role="status" aria-live="polite"></p>
                   </div>
                 </div>
               </section>

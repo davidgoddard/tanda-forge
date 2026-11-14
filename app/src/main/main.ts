@@ -22,6 +22,10 @@ import {
   RENDERER_ERROR_LOG,
   verifyCachedFiles,
 } from "./diagnostics";
+import { BpmService } from "./bpm/service";
+import { setBpmConfig, getTrackBpm, saveTrackBpm } from "./bpm/store";
+import { getResolvedFfmpegPath as bpmFfmpegPath } from "./library/analysis";
+import type { BpmConfig } from "../shared/bpm";
 import { scanLibraryRoots } from "./library/scan";
 import type { LibraryRoot } from "./library/scan";
 import {
@@ -160,6 +164,7 @@ if (forcedUserDataRoot) {
 }
 
 let scanInProgress = false;
+const bpmService = new BpmService(getDb, bpmFfmpegPath, () => scanInProgress);
 let legacyOverridesByRootId = new Map<string, Map<string, LegacyTrackOverride>>();
 const LEGACY_OVERRIDES_STATE_KEY = "legacy-overrides-v1";
 const FFMPEG_TOOLS_DIR_STATE_KEY = "ffmpeg-tools-dir-v1";
@@ -744,11 +749,10 @@ const setDockIcon = () => {
   if (!fs.existsSync(iconPath)) {
     return;
   }
-  app.dock.setIcon(nativeImage.createFromPath(iconPath));
+  app.dock?.setIcon(nativeImage.createFromPath(iconPath));
 };
 
 const createWindow = () => {
-  setDockIcon();
   const mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -778,6 +782,9 @@ const createWindow = () => {
     }
     mainWindow.webContents.setZoomFactor(DEFAULT_MAIN_WINDOW_ZOOM_FACTOR);
     mainWindow.show();
+    // Apply branding after the native window is shown: development Electron
+    // launches can restore their bundle icon during initial window creation.
+    setDockIcon();
   });
 
   const windowId = mainWindow.webContents.id;
@@ -855,6 +862,15 @@ const ensureDisplayWindow = () => {
 
 const registerIpc = () => {
   const ipc = createDomainIpcRegistrar(ipcMain);
+  ipc.handle("bpm:status", () => bpmService.status());
+  ipc.handle("bpm:configure", (_event, config: BpmConfig) => {
+    setBpmConfig(getDb(), config);
+    bpmService.revision++;
+    return bpmService.status();
+  });
+  ipc.handle("bpm:track", (_event, id: string) => getTrackBpm(getDb(), id));
+  ipc.handle("bpm:retry", () => { bpmService.retry(); return bpmService.status(); });
+  ipc.handle("bpm:permit", (_event, allowed: boolean) => { bpmService.permit(allowed === true); });
   ipc.handle("app:close-response", async (event, allowed: boolean) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     const closeState = closeStateByWebContentsId.get(event.sender.id);
@@ -2149,6 +2165,7 @@ const registerIpc = () => {
         year?: string | null;
         genre?: string | null;
         bpm?: number | null;
+        derivedBpm?: number | null;
         notes?: string | null;
         instrumental?: boolean | null;
       },
@@ -2192,25 +2209,28 @@ const registerIpc = () => {
           : payload.instrumental
             ? 1
             : 0;
-      db.prepare(
-        `update tracks
-          set title = ?, artist = ?, artist_summary = ?, singer = ?, album = ?,
-              year = ?, genre = ?, bpm = ?, notes = ?, instrumental = ?, updated_at = ?
-          where id = ?`,
-      ).run(
-        title || null,
-        artist || null,
-        artistSummary || null,
-        singer || null,
-        album || null,
-        year || null,
-        genre || null,
-        bpm,
-        notes || null,
-        instrumental,
-        updatedAt,
-        payload.id,
-      );
+      db.transaction(() => {
+        saveTrackBpm(db, payload.id, bpm && bpm > 0 ? bpm : null, payload.derivedBpm);
+        db.prepare(
+          `update tracks
+            set title = ?, artist = ?, artist_summary = ?, singer = ?, album = ?,
+                year = ?, genre = ?, notes = ?, instrumental = ?, updated_at = ?
+            where id = ?`,
+        ).run(
+          title || null,
+          artist || null,
+          artistSummary || null,
+          singer || null,
+          album || null,
+          year || null,
+          genre || null,
+          notes || null,
+          instrumental,
+          updatedAt,
+          payload.id,
+        );
+      })();
+      bpmService.revision++;
       const row = db
         .prepare(
           `select id, full_path, relative_path, title, artist, artist_summary, singer, album,
@@ -3027,7 +3047,10 @@ app.whenReady().then(() => {
   registerIpc();
   createWindow();
   schedulePlayableWarmup();
+  bpmService.start();
 });
+
+app.on("before-quit", () => bpmService.stop());
 
 app.on("activate", () => {
   if (!mainAppWindow || mainAppWindow.isDestroyed()) {

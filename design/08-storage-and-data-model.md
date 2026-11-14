@@ -214,3 +214,8 @@ Fields:
   metadata document, and applies a source/query token-length coverage gate.
   Multi-token queries evaluate fuzzy candidates once per query token; duplicate
   qualifying source tokens collapse to the best evidence per result.
+
+
+## DATA-BPM-001 — BPM sources and background analysis
+
+`tracks.user_bpm` preserves entered/imported values; `derived_bpm` stores the local estimate and `bpm_override` a confirmed correction. `tracks.bpm` remains the effective value consumed by existing search/index/display paths. `bpm_config` persists enablement, source preference and pause state. SQLite triggers maintain the effective value and invalidate analysis on file changes. Analysis keys, errors, timestamps and warnings retain processing state. The worker loads the bundled ESM analyser from real files outside ASAR; no cloud or model service is required. See [algorithm explanation](../docs/bpm-measurement.md).

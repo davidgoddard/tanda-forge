@@ -131,6 +131,24 @@ Fix common audio issues before they reach the floor.
 
 ---
 
+### Optional automatic BPM measurement
+
+Enable **Automatic BPM analysis** in **Settings → System** to measure BPM for
+existing music and newly imported tracks. The analyser was developed against
+tango music and runs locally in the background.
+
+Choose whether to prefer your entered BPM or use derived values. You can override
+a derived figure with a confirmed tap-tempo correction in the track editor;
+your original entered data is retained. Disabling the feature returns the app
+to entered BPM only.
+
+BPM is an estimate, not a guarantee: human performances vary in tempo, and
+half/double-time interpretations can differ. See the
+[enable, disable and override instructions](docs/user-guide.md#automatic-bpm-measurement)
+and [illustrated explanation for technically interested DJs](docs/bpm-measurement.md).
+
+---
+
 ### 🎶 Smart Cortina Control
 
 Handle cortinas without breaking flow.
