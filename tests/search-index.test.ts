@@ -170,6 +170,8 @@ describe.runIf(nativeSqliteAvailable)("versioned search schema", () => {
     expect(findIndexedTrackCandidateIds(db, "Same Orchestra")).toContain("repeat");
   });
 
+  // Building the 7,001-track index can exceed the default timeout on shared CI
+  // runners. This checks candidate bounds, not migration or query elapsed time.
   it("bounds fuzzy candidate work as the library grows", () => {
     const db = createDatabase();
     const insert = db.prepare(`insert into tracks
@@ -193,7 +195,7 @@ describe.runIf(nativeSqliteAvailable)("versioned search schema", () => {
     const candidates = findIndexedTrackCandidateIds(db, "Miguel Calo") ?? [];
     expect(candidates).toContain("target");
     expect(candidates.length).toBeLessThanOrEqual(1001);
-  });
+  }, 30_000);
 
   it("upgrades search schema 1 from trigram FTS to boundary n-grams", () => {
     const db = createDatabase();

@@ -34,7 +34,6 @@
   "build": {
     "productName": "Tanda Forge",
     "icon": "app/resources/icons/icon.png",
-    "electronDist": "node_modules/electron/dist",
     "asarUnpack": [
       "dist/main/bpm/**/*"
     ],
