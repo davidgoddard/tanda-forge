@@ -1,3 +1,4 @@
+import { createBpmController } from "./controllers/bpm-controller.js";
 import { matchesRating, normalizeRatingFilter, type RatingFilter, type RatingSnapshot } from "../shared/rating-filter.js";
 import {
   buildTandaArtistSortKey,
@@ -2127,6 +2128,8 @@ const clearTrackEditorState = () => {
   resetTapTempo();
 };
 
+let bpmController: ReturnType<typeof createBpmController> | null = null;
+
 const getTrackEditorDraftPayload = (): TrackEditorDraft | null => {
   if (!trackEditorState.track) {
     return null;
@@ -2143,14 +2146,14 @@ const getTrackEditorDraftPayload = (): TrackEditorDraft | null => {
     year: trackEditorYearInput?.value ?? "",
     genre: trackEditorGenreInput?.value ?? "",
     notes: trackEditorNotesInput?.value ?? "",
-    bpm: Number.isFinite(bpmValue ?? Number.NaN) ? bpmValue : null,
+    bpm: Number.isFinite(bpmValue ?? Number.NaN) ? Math.round(bpmValue!) : null,
   };
 };
 
 const isTrackEditorDirty = () => {
   const original = trackEditorState.baselineDraft;
   const draft = getTrackEditorDraftPayload();
-  return trackEditorDraftDiffers(original, draft);
+  return trackEditorDraftDiffers(original, draft) || Boolean(bpmController?.dirty());
 };
 
 const confirmTrackEditorDiscardIfDirty = async () => {
@@ -2236,7 +2239,7 @@ const fillTrackEditorFields = (track: TrackRow) => {
   trackEditorYearInput.value = track.year ?? "";
   trackEditorGenreInput.value = track.genre ?? "";
   trackEditorNotesInput.value = track.notes ?? "";
-  trackEditorBpmInput.value = formatTrackEditorBpm(track.bpm);
+  trackEditorBpmInput.value = formatTrackEditorBpm(bpmController ? bpmController.fill() : track.bpm);
   trackEditorState.baselineDraft = getTrackEditorDraftPayload();
   renderTrackEditorPathHints(
     track,
@@ -2260,6 +2263,7 @@ const openTrackEditor = async (trackId: string) => {
   ) {
     return;
   }
+  await bpmController?.load(track.id);
   trackEditorState.track = { ...track };
   fillTrackEditorFields(track);
   setTrackEditorOpen(true);
@@ -2297,7 +2301,7 @@ const handleTapTempo = () => {
   trackEditorState.taps.push(now);
   const bpm = computeTapTempoBpm(trackEditorState.taps);
   if (bpm !== null) {
-    trackEditorBpmInput.value = `${bpm}`;
+    if (!bpmController?.tap(bpm)) trackEditorBpmInput.value = `${bpm}`;
   }
   if (trackEditorState.tapTimeoutId !== null) {
     window.clearTimeout(trackEditorState.tapTimeoutId);
@@ -3240,6 +3244,7 @@ const updateExternalDisplay = () => {
 };
 
 const updateNowPlayingDisplay = () => {
+  bpmController?.permissionChanged();
   if (!nowPlayingTrack || !nowPlayingTime || !nowPlayingSource) {
     return;
   }
@@ -17834,6 +17839,7 @@ const init = async () => {
       applyModeChange: (nextMode, previousMode) => {
         const next = resolveOutputModeValue(nextMode);
         setAppModeState(next);
+        bpmController?.permissionChanged();
         document.body.classList.toggle("mode-live", appMode === "live");
         if (previousMode !== "live" && appMode === "live") {
           attachActivePlaylistTrackToRun();
@@ -18843,7 +18849,11 @@ const init = async () => {
       return;
     }
     try {
-      const updated = await window.tanda.updateTrack(payload);
+      const correction = await bpmController?.correction();
+      if (correction?.cancelled) return;
+      const updated = await window.tanda.updateTrack({ ...payload,
+        ...(correction && "derivedBpm" in correction ? { derivedBpm: correction.derivedBpm } : {}),
+      });
       if (!updated) {
         setStatus(t("statusTrackUpdateFailed"));
         return;
@@ -18851,6 +18861,7 @@ const init = async () => {
       updateTrackCaches(updated);
       setStatus(t("statusTrackUpdated"));
       if (appMode === "edit") {
+        await bpmController?.load(updated.id);
         trackEditorState.track = { ...updated };
         fillTrackEditorFields(updated);
       } else {
@@ -19343,6 +19354,18 @@ const init = async () => {
   window.setTimeout(() => {
     void maybeShowReleaseUpdatePopup();
   }, 300);
+  bpmController = createBpmController({
+    api: window.tanda, t, confirm: showConfirmModal,
+    permitted: () => appMode !== "live" && !isMainPlaybackActive(),
+    error: setStatus,
+    refresh: async () => {
+      const ids = [...trackCache.keys()];
+      if (ids.length) (await window.tanda!.getTracksByIds(ids)).forEach(updateTrackCaches);
+      await refreshSearch();
+      renderAllLists();
+    },
+  });
+  await bpmController.start();
   window.setInterval(updateNowPlayingDisplay, 200);
   window.setInterval(maybeAutoCenterPlaylist, 5000);
 };

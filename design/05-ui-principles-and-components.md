@@ -1126,3 +1126,10 @@ it must look different.
 - UI-RATING-001.R3: Rating and Tanda size share one horizontal row to preserve vertical space for results. Expanding Rating keeps Tanda size aligned with the disclosure header.
 
 - UI-RATING-001.R4: Clear rating uses a localized Clear button immediately after the rating summary stars, separated by a 1rem left margin; its accessible label remains Clear rating. The hidden button retains its space. Expanded comparison and star controls span the full filter row, with the comparison label visually hidden, so activating a condition does not add lines.
+
+
+- UI-RATING-001.R5: Reserve a content-sized column for Clear, separate from flexible spacing and Tanda size. The native details-content wrapper spans the full expanded row so changing the rating does not narrow the controls or obstruct Clear.
+
+## UI-BPM-001 — BPM configuration and correction
+
+System settings provide localized opt-in, source preference, progress, pause/resume and retry controls. First enablement asks which source policy to use. The track editor preserves entered BPM and exposes derived BPM correction with confirmation for tap-based changes. System and Playlist settings group related controls and share dropdown styling.

@@ -7684,3 +7684,8 @@ stale `main` ref and was corrected before merge. No release or tag was created.
   the active clipboard collection before clearing its playlist slot, remove it
   only, or cancel. The separate copy action remains non-destructive to the
   playlist (`UI-014.R17.a`).
+
+
+## 2026-11-14 — Version 0.5.0 BPM feature checkpoint
+
+The user requested publishing all current feature work on a feature branch at version 0.5.0, including optional local BPM measurement, dependency updates and the rating-filter overlap fix. BPM keeps entered values separate from estimates and corrections, supports source selection and disable/restore behavior, and documents the analyser's limitations. Clear now receives a content-sized grid column and the native details-content wrapper spans the expanded row; normal pointer clicks are covered by the regression test. Generated test output and Finder metadata are excluded from the commit.

@@ -1,3 +1,24 @@
+## Version 0.5.0 — BPM measurement feature branch (2026-11-14)
+
+- Optional local BPM analysis processes existing and newly scanned music in an
+  Electron worker using bundled FFmpeg. Entered values, derived estimates and
+  confirmed corrections remain separate; disabling restores entered BPM.
+- System settings expose source preference, progress, pause/resume and retry.
+  New work requires a current playback-safe renderer lease and no active scan;
+  an already running analysis can finish. See `docs/bpm-measurement.md` and
+  requirements `FR-BPM-001`, `DATA-BPM-001`, `UI-BPM-001`.
+- Includes localized controls, grouped System/Playlist settings, macOS Dock icon
+  timing, SQLite/Playwright dependency updates, and a rating Clear layout fix
+  (`UI-RATING-001.R5`) with normal-click and non-overlap regression coverage.
+- Verification: all 124 unit files / 731 tests passed under Electron's matching
+  native SQLite runtime with two workers; production build passed; all five
+  focused BPM, app-icon and rating-filter E2E tests passed. Plain npm preflight
+  crashed loading the Electron-targeted SQLite addon under host Node; unrestricted
+  Electron test concurrency exceeded one 5-second test timeout. The matching
+  runtime/two-worker run passed without changing tests or timeouts.
+- Both package versions remain 0.5.0. Feature branch:
+  `feature/bpm-measurement-0.5.0`. Generated test artifacts are not committed.
+
 ## Handoff
 
 ### Search counts and safe playlist-tanda removal

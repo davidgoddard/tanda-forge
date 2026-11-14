@@ -96,3 +96,13 @@ The following items are still Partial or No in the matrix above:
 | Requirement | Status | Behavior |
 |---|---|---|
 | SEARCH-RATING-001 / UI-RATING-001 / IPC-RATING-001 | Implemented | Compact shared Search/Clipboard rating filter, global maximum track rating, fresh collection snapshots, counts/paging/jumps, localized controls and clear action. Playlist excluded. |
+
+
+## BPM measurement and UI fixes — 0.5.0
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| FR-BPM-001 / DATA-BPM-001 / UI-BPM-001 | Implemented | Local worker analysis, separate BPM sources, source policy, confirmed corrections, progress/pause/retry, scan integration and restart persistence. |
+| UI-RATING-001.R5 | Implemented | Clear has reserved width; expanded controls span the row without overlapping Tanda size. |
+
+Includes matching SQLite/Playwright dependency updates and applying the macOS Dock icon after the main window appears.

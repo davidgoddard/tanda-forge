@@ -261,6 +261,11 @@ export type E2ESeedPayload = {
 };
 
 export type AppApi = {
+  getBpmStatus: () => Promise<import("./bpm").BpmStatus>;
+  configureBpm: (config: import("./bpm").BpmConfig) => Promise<import("./bpm").BpmStatus>;
+  getTrackBpm: (id: string) => Promise<import("./bpm").BpmTrack | null>;
+  retryBpm: () => Promise<import("./bpm").BpmStatus>;
+  permitBpm: (allowed: boolean) => Promise<void>;
   ping: () => Promise<string>;
   getAppVersion: () => Promise<string>;
   getReleaseUpdateInfo: () => Promise<ReleaseUpdateInfo | null>;
@@ -459,6 +464,7 @@ export type AppApi = {
     year?: string | null;
     genre?: string | null;
     bpm?: number | null;
+    derivedBpm?: number | null;
     notes?: string | null;
     instrumental?: boolean | null;
   }) => Promise<TrackRow | null>;

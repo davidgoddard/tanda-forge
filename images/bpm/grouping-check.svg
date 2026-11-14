@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1040" viewBox="0 0 1100 1040" role="img" aria-labelledby="title desc">
+  <title id="title">Choosing between competing rhythmic groupings</title>
+  <desc id="desc">After ranking tempo candidates and checking a close 3:2 tie, consult bass evidence only if there is a credible competing 3:2 grouping. Choose that alternative only with strong bass support, or smaller bass support corroborated by overall evidence. Otherwise keep the selected candidate.</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#45685d"/></marker></defs>
+  <rect width="1100" height="1040" fill="#faf9f3"/>
+  <g font-family="Arial, Helvetica, sans-serif" text-anchor="middle" fill="#253b33">
+    <text x="550" y="48" font-size="30" font-weight="700">Which grouping best fits the evidence?</text>
+    <text x="550" y="80" font-size="18">Current selection logic • a tempo estimate, not a beat grid</text>
+    <g fill="#edf3eb" stroke="#a5b7aa" stroke-width="2">
+      <rect x="210" y="115" width="680" height="95" rx="14"/>
+      <rect x="210" y="250" width="680" height="105" rx="14"/>
+      <rect x="210" y="395" width="680" height="85" rx="14"/>
+      <rect x="210" y="535" width="680" height="100" rx="14"/>
+      <rect x="210" y="675" width="680" height="110" rx="14"/>
+      <rect x="55" y="865" width="440" height="100" rx="14"/>
+      <rect x="605" y="865" width="440" height="100" rx="14" fill="#dbece0"/>
+    </g>
+    <g font-size="23" font-weight="700">
+      <text x="550" y="151">Rank the tempo candidates</text>
+      <text x="550" y="286">Check a close 3:2 tie</text>
+      <text x="550" y="431">Credible competing 3:2 grouping?</text>
+      <text x="550" y="573">Consult low-frequency evidence</text>
+      <text x="550" y="712">Enough support to switch?</text>
+      <text x="275" y="904">Keep the selected candidate</text>
+      <text x="825" y="904">Choose the supported alternative</text>
+    </g>
+    <g font-size="18">
+      <text x="550" y="184">Combine passage scores, subdivisions and the tempo preference.</text>
+      <text x="550" y="315">A slower, nearly tied candidate may be preferred</text>
+      <text x="550" y="338">when it lies nearer the preferred counting range.</text>
+      <text x="550" y="461">For example, evidence for both 60 and 90 BPM.</text>
+      <text x="550" y="606">Use the lowest eight onset bands (roughly 32–244 Hz).</text>
+      <text x="550" y="743">Strong bass advantage, OR a smaller advantage supported</text>
+      <text x="550" y="767">by autocorrelation and a close overall candidate score.</text>
+      <text x="275" y="936">Do not force a change.</text>
+      <text x="825" y="936">Use a candidate already present in the evidence.</text>
+      <text x="550" y="1008">The example rates illustrate a ratio; this diagram is not a measured track result.</text>
+    </g>
+    <g fill="none" stroke="#45685d" stroke-width="2.5" marker-end="url(#arrow)">
+      <path d="M550 210 V244"/><path d="M550 355 V389"/>
+      <path d="M550 480 V529"/><path d="M550 635 V669"/>
+      <path d="M210 437 H110 V835 H275 V859"/>
+      <path d="M210 730 H150 V815 H275 V859"/>
+      <path d="M550 785 V825 H825 V859"/>
+    </g>
+    <g font-size="18" font-weight="700">
+      <text x="586" y="513">Yes</text><text x="160" y="423">No</text>
+      <text x="175" y="716">No</text><text x="584" y="817">Yes</text>
+    </g>
+  </g>
+</svg>

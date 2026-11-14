@@ -319,7 +319,7 @@ export const scanLibraryRoots = async (
   const insertStmt = db.prepare(`
     insert into tracks (
       id, root_id, relative_path, full_path, file_hash, file_size, file_mtime_ms,
-      title, artist, artist_summary, singer, album, year, genre, bpm, notes, instrumental, duration_ms,
+      title, artist, artist_summary, singer, album, year, genre, user_bpm, notes, instrumental, duration_ms,
       start_offset_ms, end_trim_ms, loudness_db, gain_db, tag_error, analysis_error, tag_json,
       analysis_json, created_at, updated_at, last_scanned_at
     ) values (
@@ -340,7 +340,7 @@ export const scanLibraryRoots = async (
       album=excluded.album,
       year=excluded.year,
       genre=excluded.genre,
-      bpm=excluded.bpm,
+      user_bpm=excluded.user_bpm,
       notes=excluded.notes,
       instrumental=excluded.instrumental,
       duration_ms=excluded.duration_ms,
@@ -358,7 +358,7 @@ export const scanLibraryRoots = async (
 
   const existsStmt = db.prepare(
     `select id, file_hash, file_size, file_mtime_ms, title, artist, artist_summary, singer,
-      album, year, genre, bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms,
+      album, year, genre, user_bpm as bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms,
       loudness_db, gain_db, tag_error, analysis_error, tag_json, analysis_json
      from tracks where root_id = ? and relative_path = ?`,
   );

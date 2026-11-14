@@ -282,3 +282,11 @@ For overlaps:
 - FR-040.3.R1: Timing is enforced using stored track start/end metadata.
 - FR-040.3.R2: Original files are never altered.
 
+
+
+## FR-BPM-001 — Optional local BPM measurement
+
+- FR-BPM-001.R1: BPM analysis is opt-in and processes existing and newly scanned music locally with bundled FFmpeg and a background worker.
+- FR-BPM-001.R2: Preserve entered/imported BPM separately from derived estimates and confirmed corrections. Support prefer-entered and derived-only policies; disabling analysis restores entered values as effective BPM.
+- FR-BPM-001.R3: Show progress, pause/resume and retry controls. Start new analysis only with a current renderer permission lease outside live mode/main playback and while no library scan is active. An already running analysis may finish.
+- FR-BPM-001.R4: Persist results across restart, invalidate stale audio estimates, and use rounded effective BPM consistently in search and displays. Explain that estimates require listening and may select another rhythmic counting level.

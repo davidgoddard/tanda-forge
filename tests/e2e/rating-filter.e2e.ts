@@ -99,6 +99,11 @@ test("rating filter uses maximum membership, refreshes collections, and leaves t
     });
     await page.locator('#rating-filter-mode').selectOption('atMost');
     await expect(page.locator('#clip-tracks .track-row[data-track-id="t1"]')).toBeVisible();
+    const clearBounds = await page.locator('#rating-filter-clear').boundingBox();
+    const tandaSizeBounds = await page.locator('.search-filter-row .tanda-size-control').boundingBox();
+    expect(clearBounds).not.toBeNull();
+    expect(tandaSizeBounds).not.toBeNull();
+    expect(clearBounds!.x + clearBounds!.width).toBeLessThanOrEqual(tandaSizeBounds!.x);
     await page.locator('#rating-filter-clear').click();
     await expect(page.locator('#clip-tracks .track-row')).toHaveCount(3);
     await expect(page.locator('#rating-filter-clear')).toBeHidden();
