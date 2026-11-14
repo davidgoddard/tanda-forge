@@ -244,10 +244,6 @@ jobs:
         if: startsWith(matrix.target, 'mac-')
         shell: bash
         run: |
-          ELECTRON_BIN=$(find node_modules/electron/dist -type f -path "*Electron.app/Contents/MacOS/Electron" | head -n 1)
-          if [ -n "$ELECTRON_BIN" ]; then
-            file "$ELECTRON_BIN"
-          fi
           APP_BIN=$(find dist -type f -path "*Tanda Forge.app/Contents/MacOS/Tanda Forge" | head -n 1)
           if [ -z "$APP_BIN" ]; then
             echo "App binary not found in dist."
