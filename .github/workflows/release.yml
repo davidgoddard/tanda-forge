@@ -122,12 +122,14 @@ jobs:
             sleep 15
           done
 
+      # CI has no Developer ID certificate. Re-sign the assembled app before
+      # creating the DMG so Electron's original resource seal is not left stale.
       - name: Package
         shell: bash
         run: |
           if [ "${{ matrix.target }}" = "mac-x64" ]; then
             for attempt in 1 2 3; do
-              if npx --no-install electron-builder --publish=never --mac dmg --x64; then
+              if npx --no-install electron-builder --publish=never --mac dmg --x64 -c.mac.identity=- -c.mac.hardenedRuntime=false; then
                 break
               fi
               if [ "$attempt" -eq 3 ]; then
@@ -142,7 +144,7 @@ jobs:
             done
           elif [ "${{ matrix.target }}" = "mac-arm64" ]; then
             for attempt in 1 2 3; do
-              if npx --no-install electron-builder --publish=never --mac dmg --arm64; then
+              if npx --no-install electron-builder --publish=never --mac dmg --arm64 -c.mac.identity=- -c.mac.hardenedRuntime=false; then
                 break
               fi
               if [ "$attempt" -eq 3 ]; then
