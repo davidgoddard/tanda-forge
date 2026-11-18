@@ -965,6 +965,10 @@ Features:
   black circle that briefly flashes red for each five-second audio click. The
   start/stop action, live lag slider, saved value, status, and selected-main-
   output failure state must be explicit.
+- UI-060.R20: The frameless display window provides a generous full-width top
+  drag region so it can be moved reliably between monitors. Double-clicking
+  that region uses the platform's native maximize/restore behavior, allowing
+  the audience display to fill the selected monitor without dedicated chrome.
 - UI-060.R16.a: During normal track playback, the bottom-right "Next tanda"
   text includes both the next tanda style and a localized artist summary:
   `Next tanda: {style} from {artist}`. If the next tanda contains more than one

@@ -216,8 +216,7 @@ on headphones to help choose.
 
 To build tandas, the DJ can pick ready made tandas from one of the built-in collections in the clipboard or start building a tanda, either straight into the playlist or using a tanda designer tab in the right hand column.  
 
-In the top right the DJ can click the display board button and a pop-out window will appear which shows the current playing track information and tanda information from the main output only. Headphone preview is never shown on the audience-facing display board. This can
-be dragged to another window to show on a connected TV or Projector.  Background images for this can be configured using the background images folder set in the library tab.
+In the top right the DJ can click the display board button and a pop-out window will appear which shows the current playing track information and tanda information from the main output only. Headphone preview is never shown on the audience-facing display board. Drag the wide strip along the top of this frameless window to another monitor, then double-click the strip to maximize or restore it. This makes it easy to fill a connected TV or projector without visible window controls. Background images for this can be configured using the background images folder set in the library tab.
 If no images are set up then a simple set of coloured dots will come and go on
 the screen in the background instead. The fallback uses a lighter dark overlay
 so its colours remain visible while the display text stays readable. Images

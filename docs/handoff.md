@@ -1,3 +1,16 @@
+## Version 0.5.1 — Display-board window movement (2026-11-18)
+
+- Restored reliable movement of the frameless display board after the Electron
+  45 upgrade by removing the full-window `no-drag` region that suppressed its
+  nested drag target under Chromium's changed region-cascade behavior.
+- The full-width top drag target is now 64 CSS pixels high and declares both
+  current and legacy Electron drag properties. Native double-click
+  maximize/restore remains the quick path to filling the selected monitor
+  (`UI-060.R20`).
+- Package and lockfile versions are `0.5.1`. `npm run preflight` passed with
+  124 test files, 726 tests passed, 6 native-search tests skipped under the host
+  Node ABI, and a successful production build. `git diff --check` also passed.
+
 ## Version 0.5.0 — BPM measurement feature branch (2026-11-14)
 
 - Optional local BPM analysis processes existing and newly scanned music in an

@@ -7689,3 +7689,15 @@ stale `main` ref and was corrected before merge. No release or tag was created.
 ## 2026-11-14 — Version 0.5.0 BPM feature checkpoint
 
 The user requested publishing all current feature work on a feature branch at version 0.5.0, including optional local BPM measurement, dependency updates and the rating-filter overlap fix. BPM keeps entered values separate from estimates and corrections, supports source selection and disable/restore behavior, and documents the analyser's limitations. Clear now receives a content-sized grid column and the native details-content wrapper spans the expanded row; normal pointer clicks are covered by the regression test. Generated test output and Finder metadata are excluded from the commit.
+
+## 2026-11-18 — Display-board movement regression and v0.5.1
+
+- User reported that the frameless display board could no longer be dragged or
+  double-clicked to fill another monitor after v0.4.10. Investigation found no
+  material display-window code change, but v0.5.0 upgraded Electron 28 to 45;
+  Chromium's changed draggable-region cascading made the full-body `no-drag`
+  region suppress the nested 22px drag strip.
+- The body override was removed, the top strip was enlarged to 64px, and both
+  current and prefixed drag-region properties are declared. Native
+  double-click maximize/restore is retained. The user requested this fix be
+  released directly from `main` as v0.5.1 (`UI-060.R20`).
