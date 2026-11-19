@@ -18,6 +18,14 @@ const api: AppApi = {
   addRoot: async (kind, rootPath) =>
     ipcRenderer.invoke("library:addRoot", kind, rootPath),
   listRoots: async () => ipcRenderer.invoke("library:listRoots"),
+  relocateMusicRoots: async (destination, mode, selectedKinds) =>
+    ipcRenderer.invoke("library:relocateMusicRoots", destination, mode, selectedKinds),
+  onRootRelocationProgress: (handler) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: Parameters<typeof handler>[0]) =>
+      handler(progress);
+    ipcRenderer.on("library:rootRelocationProgress", listener);
+    return () => ipcRenderer.removeListener("library:rootRelocationProgress", listener);
+  },
   getRootRemovalPreview: async (rootId) =>
     ipcRenderer.invoke("library:getRootRemovalPreview", rootId),
   removeRoot: async (rootId) => ipcRenderer.invoke("library:removeRoot", rootId),

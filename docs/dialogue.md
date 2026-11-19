@@ -7701,3 +7701,17 @@ The user requested publishing all current feature work on a feature branch at ve
   current and prefixed drag-region properties are declared. Native
   double-click maximize/restore is retained. The user requested this fix be
   released directly from `main` as v0.5.1 (`UI-060.R20`).
+
+## 2026-11-19 — Isolate experimental library-root copy/move work
+
+- The user requested that the current library-root copy/move implementation be
+  committed and pushed on a separate branch because it does not work well and
+  may be dropped, followed by a fresh branch from synchronized `main` for an
+  unstyled-track smart collection.
+- The relocation prototype is therefore preserved on
+  `feature/library-root-copy-move` without promoting it to an approved
+  functional requirement. It merges selected root kinds into category folders,
+  rewrites roots and track paths, retains sources in copy mode, and attempts
+  source deletion in move mode.
+- This branch is explicitly experimental. Mainline adoption requires a new
+  product decision and a safety/behavior review rather than an automatic merge.

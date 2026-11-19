@@ -276,6 +276,24 @@ export type AppApi = {
   setDataLocation: (path: string | null) => Promise<{ path: string }>;
   addRoot: (kind: "music" | "cortina" | "background", path: string) => Promise<LibraryRoot>;
   listRoots: () => Promise<LibraryRoot[]>;
+  relocateMusicRoots: (
+    destination: string,
+    mode: "copy" | "move",
+    selectedKinds: Array<"music" | "cortina" | "background">,
+  ) => Promise<{
+    ok: boolean;
+    destination: string;
+    rootsMoved: number;
+    tracksMoved: number;
+    warnings: string[];
+    error?: string;
+  }>;
+  onRootRelocationProgress: (handler: (progress: {
+    stage: "preparing" | "copying" | "switching" | "cleanup";
+    completed: number;
+    total: number;
+    currentPath: string;
+  }) => void) => () => void;
   getRootRemovalPreview: (rootId: string) => Promise<RootRemovalPreview | null>;
   removeRoot: (rootId: string) => Promise<(RootRemovalPreview & { removed: boolean }) | null>;
   detectLegacy: (

@@ -1,3 +1,20 @@
+## Experimental branch — library-root copy/move (2026-11-19)
+
+- Branch `feature/library-root-copy-move` preserves an experimental Library
+  settings action that copies or moves selected music, cortina and background
+  roots into merged `Music`, `Cortinas` and `Images` folders, then rewrites the
+  stored roots and track paths.
+- This work is **not an approved mainline feature**. User testing found the
+  workflow unsatisfactory and it may be dropped. Keep it isolated from `main`
+  unless its behavior and safety model are reconsidered.
+- Copy mode retains the source folders but switches Tanda Forge to the copied
+  destination; move mode additionally attempts to delete the source folders.
+  Playback blocks the operation, destinations must be empty, and overlapping
+  selected/unselected roots are rejected.
+- Verification: focused relocation tests pass (8 tests), and `npm run preflight`
+  passes with 125 test files, 734 tests passed, 6 native-search tests skipped,
+  and a successful production build. `git diff --check` also passes.
+
 ## Version 0.5.1 — Display-board window movement (2026-11-18)
 
 - Restored reliable movement of the frameless display board after the Electron
