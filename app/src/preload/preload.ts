@@ -38,6 +38,7 @@ const api: AppApi = {
   refreshStoredMetadata: async () => ipcRenderer.invoke("library:refreshStoredMetadata"),
   runStartupFlow: async (params) => ipcRenderer.invoke("library:runStartupFlow", params),
   listTracks: async () => ipcRenderer.invoke("library:listTracks"),
+  listUnstyledTrackIds: async () => ipcRenderer.invoke("library:listUnstyledTrackIds"),
   getAudioSimilarityReport: async () => ipcRenderer.invoke("audio-similarity:report"),
   generateAudioSimilarityReport: async (options) =>
     ipcRenderer.invoke("audio-similarity:generate", options),

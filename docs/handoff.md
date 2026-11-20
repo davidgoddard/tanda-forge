@@ -1,19 +1,42 @@
-## Experimental branch — library-root copy/move (2026-11-19)
+## Version 0.5.3 — Library root copy, move and merge (2026-11-20)
 
-- Branch `feature/library-root-copy-move` preserves an experimental Library
-  settings action that copies or moves selected music, cortina and background
-  roots into merged `Music`, `Cortinas` and `Images` folders, then rewrites the
-  stored roots and track paths.
-- This work is **not an approved mainline feature**. User testing found the
-  workflow unsatisfactory and it may be dropped. Keep it isolated from `main`
-  unless its behavior and safety model are reconsidered.
-- Copy mode retains the source folders but switches Tanda Forge to the copied
-  destination; move mode additionally attempts to delete the source folders.
-  Playback blocks the operation, destinations must be empty, and overlapping
-  selected/unselected roots are rejected.
-- Verification: focused relocation tests pass (8 tests), and `npm run preflight`
-  passes with 125 test files, 734 tests passed, 6 native-search tests skipped,
-  and a successful production build. `git diff --check` also passes.
+- Library settings can copy or move selected music, cortina and background
+  roots into merged `Music`, `Cortinas` and `Images` folders, preserving track
+  identities while rewriting configured roots and track paths.
+- Copy mode retains the source folders; move mode additionally attempts to
+  remove them. Playback blocks relocation, the destination must be empty, and
+  overlapping selected/unselected roots are rejected.
+- After relocation, users restart Tanda Forge and run a rescan or Startup Flow
+  before resuming playlist or tanda work, then verify library readiness.
+- Package and lockfile versions are `0.5.3`. `npm run preflight` passed with
+  127 test files, 748 tests passed, 6 native-search tests skipped under the host
+  ABI, and a successful production build. The focused relocation suite passed
+  all 8 tests; no relocation-specific Playwright workflow currently exists.
+- Windows packaging uses Gyan's immutable GitHub release mirror for the 9.0.2
+  essentials ZIP after the old 8.1.2 package aged out of the provider's primary
+  archive. The upstream SHA-256 and local digest both match `60f467…47ba`, and
+  the verified archive contains compatible `ffmpeg.exe` and `ffprobe.exe`.
+
+## Version 0.5.2 — Display, collection, and workflow fixes (2026-11-20)
+
+- Display-board text can now measure and shrink each field independently,
+  defaults automatic fitting on, compacts avoidable wraps, preserves serif
+  glyph bounds, and retains bounded truncation for extreme text (`UI-060.R21-22`,
+  `CFG-DSP-012`). Playlist and Display Board settings use compact readable grids.
+- Clipboard adds a read-only **Unstyled** smart collection for visible music
+  with blank/`?` genre metadata. It is a database view only and performs no
+  style derivation or audio analysis.
+- Track-editor vocal searches now use explicit instrumental metadata intent;
+  SQLite `0`/`1` values score correctly. Completed current-pipeline analysis is
+  reused when loudness is genuinely unmeasurable instead of rescanning forever.
+- Audio-similarity tanda context tracks expose Edit and Search Similar actions.
+  Tanda variant selection no longer lets the pointer gesture fall through and
+  close a playlist-hosted editor. Added-track styles survive Designer activation.
+- Cortina Picker rows are transparent and separated instead of using the muddy
+  playlist fill. Package and lockfile versions are `0.5.2`.
+- Release verification: the user reported the full E2E suite passed. Local
+  `npm run preflight` passed with 126 test files, 740 tests passed, 6 native-search
+  tests skipped under the host ABI, and a successful production build.
 
 ## Version 0.5.1 — Display-board window movement (2026-11-18)
 

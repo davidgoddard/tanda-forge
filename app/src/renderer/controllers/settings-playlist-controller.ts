@@ -12,6 +12,7 @@ type PlaylistSettingsElements = {
   displayUseImagesInput?: HTMLInputElement | null;
   displayImageDimInput?: HTMLInputElement | null;
   displayBaseFontSizeInput?: HTMLInputElement | null;
+  displayAutoFitTextInput?: HTMLInputElement | null;
   displayCortinaFontSizeInput?: HTMLInputElement | null;
   displayEdgePaddingInput?: HTMLInputElement | null;
   playlistStartTimeInput?: HTMLInputElement | null;
@@ -33,6 +34,7 @@ export type SettingsPlaylistControllerDeps = {
     displayUseImages: string;
     displayImageDim: string;
     displayFontScale: string;
+    displayAutoFitText?: string;
     displayCortinaFontScale: string;
     displayEdgePadding: string;
     playlistStartTime: string;
@@ -48,6 +50,7 @@ export type SettingsPlaylistControllerDeps = {
     getDisplayUseBackgroundImages: () => boolean;
     getDisplayImageDimOpacity: () => number;
     getDisplayFontScale: () => number;
+    getDisplayAutoFitText?: () => boolean;
     getDisplayCortinaFontScale: () => number;
     getDisplayEdgePaddingVmin: () => number;
     getPlaylistStartTimeInput: () => string;
@@ -140,6 +143,7 @@ export const createSettingsPlaylistController = (deps: SettingsPlaylistControlle
       displayUseImagesInput,
       displayImageDimInput,
       displayBaseFontSizeInput,
+      displayAutoFitTextInput,
       displayCortinaFontSizeInput,
       displayEdgePaddingInput,
       playlistStartTimeInput,
@@ -272,6 +276,17 @@ export const createSettingsPlaylistController = (deps: SettingsPlaylistControlle
       parse: (raw) => Number.parseInt(raw, 10),
       afterWrite: deps.actions.updateExternalDisplay,
     });
+
+    if (displayAutoFitTextInput) {
+      displayAutoFitTextInput.checked = deps.readers.getDisplayAutoFitText?.() ?? true;
+      displayAutoFitTextInput.addEventListener("change", () => {
+        deps.storage.setItem(
+          deps.keys.displayAutoFitText ?? "tanda-display-auto-fit-text",
+          displayAutoFitTextInput.checked ? "1" : "0",
+        );
+        deps.actions.updateExternalDisplay();
+      });
+    }
 
     bindNumberInput(displayCortinaFontSizeInput, {
       read: () => Math.round(deps.readers.getDisplayCortinaFontScale() * 100),

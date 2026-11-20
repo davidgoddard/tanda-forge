@@ -3,6 +3,7 @@ import {
   appendQueryTokens,
   buildTrackSimilarityQuery,
   buildTrackSearchQuery,
+  buildVocalSearchQuery,
   dedupeQueryTokens,
 } from "../app/src/shared/search-query";
 
@@ -145,5 +146,16 @@ describe("appendQueryTokens", () => {
   it("appends and de-duplicates new field fragments", () => {
     const next = appendQueryTokens("Canaro 1935", "1935 Canaro Alberto");
     expect(next).toBe("Canaro 1935 Alberto");
+  });
+});
+
+describe("buildVocalSearchQuery", () => {
+  it("builds explicit metadata filters for both vocal choices", () => {
+    expect(buildVocalSearchQuery("instrumental")).toBe("instrumental:true");
+    expect(buildVocalSearchQuery("sung")).toBe("instrumental:false");
+  });
+
+  it("ignores unknown vocal values", () => {
+    expect(buildVocalSearchQuery("unknown")).toBe("");
   });
 });

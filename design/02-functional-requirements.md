@@ -15,6 +15,20 @@ identified as `FR-<section>.R<n>` in order under each section. Sub-bullets use
 - FR-001.1.R4: Added, removed, and changed files are detected incrementally where possible.
 - FR-001.1.R5: File identity must be stable across rescans (e.g. path + content hash).
 - FR-001.1.R6: Configured library roots may be removed explicitly by the user, but removal must require confirmation and must delete that root's tracks from the library database while marking dependent tandas and playlists invalid.
+- FR-001.1.R7: Users may copy or move selected Music, Cortina, and Background
+  roots into a new empty destination. Multiple roots of the same kind are merged
+  into a single category folder while track identities and tanda/playlist
+  references remain stable; filename collisions receive deterministic suffixes.
+- FR-001.1.R7.a: Copy retains the source folders while switching the configured
+  library to the destination. Move switches the library and then attempts to
+  remove the sources, reporting any cleanup failures without reverting the
+  usable destination.
+- FR-001.1.R7.b: Relocation is unavailable during playback, rejects destinations
+  that overlap selected roots, and requires every overlapping configured root to
+  be selected together.
+- FR-001.1.R7.c: After relocation the supported recovery workflow is to restart
+  the application, rescan the relocated Music/Cortina roots or run Startup Flow,
+  and verify library readiness before resuming playlist or tanda work.
 
 ### FR-001.2 Background Analysis (Per Track)
 During discovery or re-analysis, the system performs background tasks:

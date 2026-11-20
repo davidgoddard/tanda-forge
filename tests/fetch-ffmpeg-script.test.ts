@@ -60,7 +60,9 @@ describe("FFmpeg fetch script", () => {
   it("pins and verifies the archived Windows package", () => {
     expect(script).toContain('WINDOWS_FFMPEG_ARCHIVE="ffmpeg-${WINDOWS_FFMPEG_VERSION}-essentials_build.zip"');
     expect(script).toContain('verify_sha256 "$TMP_DIR/ffmpeg-win.zip" "$WINDOWS_FFMPEG_SHA256"');
-    expect(script).toContain("https://www.gyan.dev/ffmpeg/builds/packages/${WINDOWS_FFMPEG_ARCHIVE}");
+    expect(script).toContain("https://github.com/GyanD/codexffmpeg/releases/download/${WINDOWS_FFMPEG_VERSION}/${WINDOWS_FFMPEG_ARCHIVE}");
+    expect(script).toContain('WINDOWS_FFMPEG_VERSION="9.0.2"');
+    expect(script).toContain('WINDOWS_FFMPEG_SHA256="60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba"');
     expect(script).not.toContain("ffmpeg-release-essentials.zip");
   });
 });

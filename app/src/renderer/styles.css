@@ -2730,6 +2730,16 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   overflow: auto;
 }
 
+#cortina-modal .list-row.cortina-result {
+  background: transparent;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+#cortina-modal .list-row.cortina-result:hover {
+  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -3623,11 +3633,31 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   grid-template-columns: repeat(2, minmax(260px, 1fr));
 }
 
+.settings-tab .settings-compact-grid {
+  width: min(100%, 1040px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-right: auto;
+}
+
+.settings-tab .settings-display-board-grid {
+  width: min(100%, 920px);
+}
+
+.settings-compact-grid .settings-field p {
+  max-width: 62ch;
+  line-height: 1.45;
+}
+
 @media (max-width: 900px) {
   .settings-tab[data-tab="system"] .settings-grid,
   .settings-tab[data-tab="playlist"] .settings-grid,
   .settings-tab[data-tab="display-board"] .settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .settings-tab .settings-compact-grid {
+    width: min(100%, 560px);
   }
 }
 

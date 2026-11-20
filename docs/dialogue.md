@@ -3,6 +3,20 @@
 This is a distilled record of the user’s requests and assistant responses.
 Code diffs are omitted; only intent and outcomes are captured.
 
+## 2026-11-20 — Version 0.5.2 display and workflow release
+
+- The user requested measured display-board text fitting rather than partial
+  extra lines or unconditional truncation. Automatic per-field fitting is now
+  configurable, defaults on, prefers fewer balanced lines above a safe scale,
+  and preserves complete serif glyphs. Display Board and Playlist settings were
+  constrained to readable widths, and Cortina Picker result fills were removed.
+- A read-only Unstyled collection surfaces tracks with blank/`?` genre metadata
+  without deriving style or joining the audio-analysis pipeline.
+- The batch also fixes explicit sung/instrumental searches, repeat scanning when
+  loudness is unmeasurable, audio-similarity context actions, preservation of an
+  added track's style on Designer activation, and variant-menu pointer fallthrough
+  that closed the playlist-hosted tanda editor.
+
 ## Timeline Highlights
 
 - 2026-11-11 — FR-090.2.R12: User reported that Search Similar generated an
@@ -7715,3 +7729,25 @@ The user requested publishing all current feature work on a feature branch at ve
   source deletion in move mode.
 - This branch is explicitly experimental. Mainline adoption requires a new
   product decision and a safety/behavior review rather than an automatic merge.
+
+## 2026-11-20 — Promote library-root relocation for version 0.5.3
+
+- The user approved the isolated library-root copy/move work as a 0.5.3 feature
+  release based on main's 0.5.2 release and requested a pull request.
+- Selected Music, Cortina, and Background roots are consolidated into category
+  folders at a new empty destination. Copy retains the source data; Move also
+  attempts source cleanup. Track IDs remain stable so database tanda and playlist
+  relationships survive the path rewrite (`FR-001.1.R7`, `CFG-LIB-014`).
+- Because live renderer objects can retain pre-relocation paths, the documented
+  supported workflow requires restarting Tanda Forge, rescanning relocated audio
+  roots or running Startup Flow, and verifying readiness before resuming playlist
+  or tanda work (`FR-001.1.R7.c`).
+
+## 2026-11-20 — Repair the retired Windows FFmpeg package pin
+
+- Windows release packaging began returning HTTP 404 because Gyan removed the
+  former 8.1.2 package from the primary archive after newer releases shipped.
+- Windows now uses Gyan's immutable GitHub-mirrored 9.0.2 essentials ZIP, aligned
+  with the macOS and Linux 9.0.2 pins. Gyan's published SHA-256 and the downloaded
+  mirror both resolve to `60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba`;
+  the archive contains both `ffmpeg.exe` and `ffprobe.exe`.

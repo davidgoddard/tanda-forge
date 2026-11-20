@@ -946,8 +946,11 @@ const scoreTrackWithBreakdown = (
     components.push({ score: titleScore, weight: weights.title });
   }
   if (parsed.instrumentalIntent !== null) {
+    const trackInstrumental = track.instrumental === null || track.instrumental === undefined
+      ? null
+      : Boolean(track.instrumental);
     components.push({
-      score: track.instrumental === parsed.instrumentalIntent ? 1 : 0,
+      score: trackInstrumental === parsed.instrumentalIntent ? 1 : 0,
       weight: weights.singer,
     });
   }

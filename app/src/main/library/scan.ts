@@ -103,16 +103,6 @@ export const shouldReuseUnchangedAnalysis = (
   if (!Number.isFinite(durationMs) || durationMs <= 0) {
     return false;
   }
-  const loudnessDb = existing.loudness_db;
-  const gainDb = existing.gain_db;
-  if (
-    typeof loudnessDb !== "number" ||
-    !Number.isFinite(loudnessDb) ||
-    typeof gainDb !== "number" ||
-    !Number.isFinite(gainDb)
-  ) {
-    return false;
-  }
   const startOffsetMs = existing.start_offset_ms ?? 0;
   const endTrimMs = existing.end_trim_ms ?? 0;
   if (
