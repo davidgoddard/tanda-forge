@@ -954,7 +954,11 @@ You need at least one music folder and, for a full DJ setup, a cortina folder.
 > **Copy library folders** and **Move library folders**. This prototype is not a
 > supported mainline workflow and may be removed. Copy keeps the old files but
 > switches Tanda Forge to the new merged location; Move also attempts to delete
-> the old folders. Do not rely on either action without a verified backup.
+> the old folders. Do not rely on either action without a verified backup. When
+> the copy or move finishes, close and restart Tanda Forge before using playlists
+> or tandas. Then rescan each relocated Music or Cortina library (or run
+> **Startup Flow**) and finish with **Verify library readiness** before resuming
+> normal use.
 
 ### 2) Importing Legacy Data
 
