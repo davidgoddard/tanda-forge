@@ -7701,3 +7701,11 @@ The user requested publishing all current feature work on a feature branch at ve
   current and prefixed drag-region properties are declared. Native
   double-click maximize/restore is retained. The user requested this fix be
   released directly from `main` as v0.5.1 (`UI-060.R20`).
+
+## 2026-11-20 — Backport Windows FFmpeg packaging repair to 0.5.1
+
+- The user requested the Windows release fix on a branch based directly on
+  `v0.5.1`, because Gyan's former 8.1.2 primary-archive URL now returns 404.
+- The pin uses Gyan's immutable GitHub-mirrored 9.0.2 essentials ZIP with the
+  upstream and independently verified SHA-256
+  `60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba`.

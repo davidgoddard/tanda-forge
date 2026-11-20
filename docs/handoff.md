@@ -1,5 +1,11 @@
 ## Version 0.5.1 — Display-board window movement (2026-11-18)
 
+- Windows packaging now uses Gyan's immutable GitHub release mirror for the
+  9.0.2 essentials ZIP because the old 8.1.2 primary-archive URL returns 404.
+  The upstream and independently verified SHA-256 is `60f467…47ba`; the archive
+  contains both `ffmpeg.exe` and `ffprobe.exe`. `npm run preflight` passed with
+  124 test files, 726 tests passed, 6 native-search tests skipped, and a
+  successful production build.
 - Restored reliable movement of the frameless display board after the Electron
   45 upgrade by removing the full-window `no-drag` region that suppressed its
   nested drag target under Chromium's changed region-cascade behavior.

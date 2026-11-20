@@ -13,9 +13,9 @@ MACOS_FFMPEG_SOURCE_SHA256="8c3850283eb25fa026482078a04051e0be17347b09ef81a0849b
 LINUX_FFMPEG_TAG="autobuild-2026-09-30-13-08"
 LINUX_FFMPEG_ARCHIVE="ffmpeg-n9.0.2-17-g2a571b6068-linux64-gpl-9.0.tar.xz"
 LINUX_FFMPEG_SHA256="68ee646831adaae2495618346f3bba94ff207ff83bbd34d643e7004730d66269"
-WINDOWS_FFMPEG_VERSION="8.1.2"
+WINDOWS_FFMPEG_VERSION="9.0.2"
 WINDOWS_FFMPEG_ARCHIVE="ffmpeg-${WINDOWS_FFMPEG_VERSION}-essentials_build.zip"
-WINDOWS_FFMPEG_SHA256="db580001caa24ac104c8cb856cd113a87b0a443f7bdf47d8c12b1d740584a2ec"
+WINDOWS_FFMPEG_SHA256="60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba"
 
 mkdir -p "$FFMPEG_DIR/darwin" "$FFMPEG_DIR/win32" "$FFMPEG_DIR/linux" "$TMP_DIR"
 
@@ -138,7 +138,7 @@ fetch_macos() {
 fetch_windows() {
   mkdir -p "$TMP_DIR/ffmpeg-win"
   download "$TMP_DIR/ffmpeg-win.zip" \
-    "https://www.gyan.dev/ffmpeg/builds/packages/${WINDOWS_FFMPEG_ARCHIVE}"
+    "https://github.com/GyanD/codexffmpeg/releases/download/${WINDOWS_FFMPEG_VERSION}/${WINDOWS_FFMPEG_ARCHIVE}"
   verify_sha256 "$TMP_DIR/ffmpeg-win.zip" "$WINDOWS_FFMPEG_SHA256"
   validate_zip "$TMP_DIR/ffmpeg-win.zip"
   unzip -o "$TMP_DIR/ffmpeg-win.zip" -d "$TMP_DIR/ffmpeg-win"
