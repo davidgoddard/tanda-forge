@@ -7,6 +7,7 @@ import {
   buildSilenceDetectFilter,
   deriveTrimOffsetsFromSilence,
   formatCommandAttemptErrors,
+  parseAudioCodec,
   parseSilenceDetectOutput,
 } from "../app/src/main/library/analysis";
 
@@ -39,6 +40,13 @@ describe("buildCommandLine", () => {
   it("uses a conservative silence threshold for end-trim detection", () => {
     expect(SILENCE_DETECT_NOISE_DB).toBe(-40);
     expect(buildSilenceDetectFilter()).toBe("silencedetect=noise=-40dB:d=0.2");
+  });
+
+  it("reads the selected audio codec from ffprobe JSON", () => {
+    expect(parseAudioCodec('{"streams":[{"codec_name":"alac","codec_type":"audio"}]}')).toBe("alac");
+    expect(parseAudioCodec('{"streams":[{"codec_name":"AAC","codec_type":"audio"}]}')).toBe("aac");
+    expect(parseAudioCodec('{"streams":[]}')).toBeNull();
+    expect(parseAudioCodec("not json")).toBeNull();
   });
 
   it("builds one decode graph for analysis and the existing waveform output", () => {

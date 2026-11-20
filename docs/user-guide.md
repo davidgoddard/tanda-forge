@@ -1159,12 +1159,20 @@ In **Settings -> Library**, the controls are grouped by purpose and tied togethe
 
 The legacy migration card is shown separately from the resumable startup flow, and the remaining scan/cache/maintenance/backup tools sit inside one shared manual-tools area so their optional/manual role is clear.
 
-AIFF/AIF files are supported, but Electron/Chromium cannot always play those source files directly. When one is played, Tanda Forge uses FFmpeg to create a transparent WAV copy in the playable-audio cache and plays that cached copy. The original file is not modified.
+AIFF/AIF and Apple Lossless (ALAC) M4A files are supported even when
+Electron/Chromium cannot play the source directly. Tanda Forge uses FFmpeg to
+create a transparent WAV copy in the playable-audio cache and plays that cached
+copy. The original file and its tanda references are not modified. M4A files
+are checked first: directly playable AAC remains unchanged, while ALAC uses the
+compatibility cache.
 
 After startup and after library scans or restores, Tanda Forge also warms that
 playable cache in the background for known AIFF/AIF tracks that do not already
 have a cached WAV. This reduces first-play delays over time, while the existing
-on-demand conversion path remains available as a fallback.
+on-demand conversion path remains available as a fallback. M4A files are not
+included in background warming: an ALAC WAV is created only when playback first
+requests that track, then retained for subsequent playback until cached files
+are erased.
 
 If **compression** (dynamic range reduction) is enabled, the system can generate compressed files on demand when a track starts, but this may cause a short delay or CPU spike. Clicking **Precompute compressed cache** renders those compressed companions in advance. This takes a long time, but it is optional and only needed if compression will be used.
 

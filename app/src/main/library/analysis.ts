@@ -27,6 +27,24 @@ export type TrackMetadataResult = {
   error?: string;
 };
 
+export const parseAudioCodec = (payload: string): string | null => {
+  try {
+    const jsonPayload = extractJsonPayload(payload) ?? payload;
+    const data = JSON.parse(jsonPayload) as {
+      streams?: Array<{ codec_name?: unknown; codec_type?: unknown }>;
+    };
+    const audioStream = data.streams?.find(
+      (stream) => stream.codec_type === undefined || stream.codec_type === "audio",
+    );
+    const codecName = audioStream?.codec_name;
+    return typeof codecName === "string" && codecName.trim()
+      ? codecName.trim().toLowerCase()
+      : null;
+  } catch {
+    return null;
+  }
+};
+
 export const SILENCE_DETECT_NOISE_DB = -40;
 export const SILENCE_DETECT_MIN_DURATION_SECONDS = 0.2;
 export const buildSilenceDetectFilter = () =>
@@ -479,6 +497,27 @@ export const readTrackMetadata = async (filePath: string): Promise<TrackMetadata
       durationMs: 0,
       error: error instanceof Error ? error.message : "Metadata read failed",
     };
+  }
+};
+
+export const readAudioCodec = async (filePath: string): Promise<string | null> => {
+  const { binary, fallback } = resolveFfprobe();
+  const args = [
+    "-v",
+    "error",
+    "-print_format",
+    "json",
+    "-select_streams",
+    "a:0",
+    "-show_entries",
+    "stream=codec_name,codec_type",
+    filePath,
+  ];
+  try {
+    const { stdout } = await runCommandWithFallback(binary, fallback, args);
+    return parseAudioCodec(stdout);
+  } catch {
+    return null;
   }
 };
 

@@ -7751,3 +7751,17 @@ The user requested publishing all current feature work on a feature branch at ve
   with the macOS and Linux 9.0.2 pins. Gyan's published SHA-256 and the downloaded
   mirror both resolve to `60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba`;
   the archive contains both `ffmpeg.exe` and `ffprobe.exe`.
+
+## 2026-11-20 — Add on-demand ALAC playback compatibility
+
+- A Windows 0.5.0 user reported that ALAC-in-M4A tracks imported and analysed
+  successfully through FFmpeg but did not start playback through Chromium;
+  equivalent decoded WAV files played correctly.
+- The compatibility path previously recognized only AIFF/AIF by extension.
+  M4A playback now probes the first audio stream with FFprobe: ALAC and an
+  inconclusive probe use the existing transparent PCM WAV cache, while AAC
+  retains its original source (`FR-052.R7`, `AUD-003.R8`).
+- The user selected an on-demand retained-cache policy. M4A files are excluded
+  from background warming, so an ALAC collection is not duplicated
+  automatically; a requested track is converted once and reused until the user
+  erases cached files (`AUD-003.R8.b`).
