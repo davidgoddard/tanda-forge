@@ -772,6 +772,25 @@
                 </button>
               </div>
               <div id="root-list" class="root-list"></div>
+              <div class="library-relocation-panel">
+                <h4 data-i18n="relocateMusicTitle">Copy or move library folders</h4>
+                <p class="settings-note" data-i18n="relocateMusicHelp">
+                  Copy or move all configured music folders into one new, empty location while preserving tandas and playlists.
+                </p>
+                <div class="settings-actions">
+                  <button id="copy-music-roots" data-i18n="copyMusicButton">
+                    Copy library folders
+                  </button>
+                  <button id="relocate-music-roots" data-i18n="relocateMusicButton">
+                    Move library folders
+                  </button>
+                </div>
+                <div id="root-relocation-progress" class="root-relocation-progress hidden" aria-live="polite">
+                  <div id="root-relocation-progress-label"></div>
+                  <progress id="root-relocation-progress-bar" value="0" max="1"></progress>
+                  <div id="root-relocation-progress-path" class="path"></div>
+                </div>
+              </div>
               <div class="settings-actions">
                 <button id="library-roots-done" data-i18n="libraryWorkflowRootsDone">
                   Done configuring roots

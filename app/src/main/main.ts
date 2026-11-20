@@ -91,6 +91,7 @@ import {
   searchTandaCount,
 } from "./library/tandas";
 import { getRootRemovalPreview, removeLibraryRoot } from "./library/root-removal";
+import { relocateLibraryRoots, type RelocatableRootKind } from "./library/root-relocation";
 import { listUnstyledTrackIds } from "./library/unstyled-tracks";
 import { listDeletedTracks, logicallyDeleteTrack, restoreDeletedTracks } from "./library/track-deletion";
 import {
@@ -1192,6 +1193,31 @@ const registerIpc = () => {
       ...root,
       available: fs.existsSync(root.path),
     }));
+  });
+
+  ipc.handle("library:relocateMusicRoots", async (
+    _event,
+    destination: string,
+    mode: "copy" | "move" = "move",
+    selectedKinds: RelocatableRootKind[] = ["music"],
+  ) => {
+    if (!destination?.trim()) {
+      return {
+        ok: false,
+        destination: "",
+        rootsMoved: 0,
+        tracksMoved: 0,
+        warnings: [],
+        error: "No destination selected.",
+      };
+    }
+    const result = await relocateLibraryRoots(getDb(), destination, mode, selectedKinds, (progress) => {
+      BrowserWindow.getAllWindows().forEach((window) => {
+        window.webContents.send("library:rootRelocationProgress", progress);
+      });
+    });
+    if (result.ok) schedulePlayableWarmup(5000);
+    return result;
   });
 
   ipc.handle("library:getRootRemovalPreview", async (_event, rootId: string) => {

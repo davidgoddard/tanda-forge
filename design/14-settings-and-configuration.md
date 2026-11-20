@@ -22,7 +22,9 @@ Board, Diagnostics, System).
 - CFG-LIB-010: Users can optionally add one or more Background roots used by the
   external display board image rotation.
 - CFG-LIB-002: Each root shows availability status (connected/missing).
-- CFG-LIB-003: Changes to roots are applied immediately and do not require a restart.
+- CFG-LIB-003: Ordinary root additions and removals are applied immediately.
+  Copy/move relocation follows the explicit restart, rescan, and readiness-check
+  recovery workflow in `FR-001.1.R7.c`.
 - CFG-LIB-004: Library scanning is initiated from the Library tab.
 - CFG-LIB-005: Scan progress is shown in the Library tab, with a shortcut to Diagnostics
   beside the scan-issue count. The main screen remains uncluttered for day-to-day use.
@@ -75,6 +77,12 @@ Board, Diagnostics, System).
 - CFG-LIB-012: Library tab section order is: library roots first, guided setup
   flow second, style families third, legacy import fourth, setup/verification
   cards fifth, and manual maintenance controls at the bottom.
+- CFG-LIB-014: Library roots provide Copy and Move actions that allow the user to
+  choose the configured root kinds to consolidate under category folders in a
+  new empty destination.
+- CFG-LIB-014.a: Relocation shows file-level progress and a completion or failure
+  summary, blocks while either playback channel is active, and documents the
+  required restart/rescan/readiness workflow.
 
 ## System Configuration
 

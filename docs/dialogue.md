@@ -7715,3 +7715,39 @@ The user requested publishing all current feature work on a feature branch at ve
   current and prefixed drag-region properties are declared. Native
   double-click maximize/restore is retained. The user requested this fix be
   released directly from `main` as v0.5.1 (`UI-060.R20`).
+
+## 2026-11-19 — Isolate experimental library-root copy/move work
+
+- The user requested that the current library-root copy/move implementation be
+  committed and pushed on a separate branch because it does not work well and
+  may be dropped, followed by a fresh branch from synchronized `main` for an
+  unstyled-track smart collection.
+- The relocation prototype is therefore preserved on
+  `feature/library-root-copy-move` without promoting it to an approved
+  functional requirement. It merges selected root kinds into category folders,
+  rewrites roots and track paths, retains sources in copy mode, and attempts
+  source deletion in move mode.
+- This branch is explicitly experimental. Mainline adoption requires a new
+  product decision and a safety/behavior review rather than an automatic merge.
+
+## 2026-11-20 — Promote library-root relocation for version 0.5.3
+
+- The user approved the isolated library-root copy/move work as a 0.5.3 feature
+  release based on main's 0.5.2 release and requested a pull request.
+- Selected Music, Cortina, and Background roots are consolidated into category
+  folders at a new empty destination. Copy retains the source data; Move also
+  attempts source cleanup. Track IDs remain stable so database tanda and playlist
+  relationships survive the path rewrite (`FR-001.1.R7`, `CFG-LIB-014`).
+- Because live renderer objects can retain pre-relocation paths, the documented
+  supported workflow requires restarting Tanda Forge, rescanning relocated audio
+  roots or running Startup Flow, and verifying readiness before resuming playlist
+  or tanda work (`FR-001.1.R7.c`).
+
+## 2026-11-20 — Repair the retired Windows FFmpeg package pin
+
+- Windows release packaging began returning HTTP 404 because Gyan removed the
+  former 8.1.2 package from the primary archive after newer releases shipped.
+- Windows now uses Gyan's immutable GitHub-mirrored 9.0.2 essentials ZIP, aligned
+  with the macOS and Linux 9.0.2 pins. Gyan's published SHA-256 and the downloaded
+  mirror both resolve to `60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba`;
+  the archive contains both `ffmpeg.exe` and `ffprobe.exe`.

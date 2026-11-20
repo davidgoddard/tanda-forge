@@ -318,6 +318,18 @@ import {
 
 const statusEl = document.querySelector<HTMLParagraphElement>("#status");
 const addMusicBtn = document.querySelector<HTMLButtonElement>("#add-music");
+const copyMusicRootsBtn =
+  document.querySelector<HTMLButtonElement>("#copy-music-roots");
+const relocateMusicRootsBtn =
+  document.querySelector<HTMLButtonElement>("#relocate-music-roots");
+const rootRelocationProgress =
+  document.querySelector<HTMLDivElement>("#root-relocation-progress");
+const rootRelocationProgressLabel =
+  document.querySelector<HTMLDivElement>("#root-relocation-progress-label");
+const rootRelocationProgressBar =
+  document.querySelector<HTMLProgressElement>("#root-relocation-progress-bar");
+const rootRelocationProgressPath =
+  document.querySelector<HTMLDivElement>("#root-relocation-progress-path");
 const addCortinaBtn = document.querySelector<HTMLButtonElement>("#add-cortina");
 const addBackgroundsBtn =
   document.querySelector<HTMLButtonElement>("#add-backgrounds");
@@ -5436,6 +5448,74 @@ const showDeleteTrackModal = async (): Promise<boolean | null> => {
     cancel.addEventListener("click", () => close(null));
     confirm.addEventListener("click", () => close(checkbox.checked));
     overlay.addEventListener("click", (event) => { if (event.target === overlay) close(null); });
+  });
+};
+
+type RelocatableRootKind = "music" | "cortina" | "background";
+
+const showRootRelocationOptionsModal = async (
+  mode: "copy" | "move",
+  destination: string,
+): Promise<RelocatableRootKind[] | null> => {
+  const overlay = document.createElement("div");
+  overlay.className = "confirm-modal";
+  const dialog = document.createElement("div");
+  dialog.className = "confirm-dialog";
+  const title = document.createElement("div");
+  title.className = "confirm-title";
+  title.textContent = t(mode === "copy" ? "copyMusicButton" : "relocateMusicButton");
+  const message = document.createElement("div");
+  message.className = "confirm-message";
+  message.textContent = `${t("rootRelocationOptionsMessage", { path: destination })}\n\n${
+    t(mode === "copy" ? "rootRelocationCopyNotice" : "rootRelocationMoveNotice")
+  }`;
+  const options = document.createElement("div");
+  options.className = "root-relocation-options";
+  const definitions: Array<{ kind: RelocatableRootKind; key: string }> = [
+    { kind: "music", key: "rootRelocationOptionMusic" },
+    { kind: "cortina", key: "rootRelocationOptionCortinas" },
+    { kind: "background", key: "rootRelocationOptionImages" },
+  ];
+  const checkboxes = definitions.map(({ kind, key }) => {
+    const label = document.createElement("label");
+    label.className = "confirm-checkbox";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = libraryWorkflowRoots.some((root) => root.kind === kind);
+    input.disabled = !input.checked;
+    const text = document.createElement("span");
+    text.textContent = t(key);
+    label.append(input, text);
+    options.append(label);
+    return { kind, input };
+  });
+  const actions = document.createElement("div");
+  actions.className = "confirm-actions";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "confirm-cancel";
+  cancel.textContent = t("cancel");
+  const confirm = document.createElement("button");
+  confirm.type = "button";
+  confirm.className = "confirm-ok";
+  confirm.textContent = t(mode === "copy" ? "copyMusicButton" : "relocateMusicButton");
+  actions.append(cancel, confirm);
+  dialog.append(title, message, options, actions);
+  overlay.append(dialog);
+  document.body.appendChild(overlay);
+  return new Promise((resolve) => {
+    const close = (result: RelocatableRootKind[] | null) => {
+      overlay.remove();
+      resolve(result);
+    };
+    cancel.addEventListener("click", () => close(null));
+    confirm.addEventListener("click", () => {
+      const selected = checkboxes.filter(({ input }) => input.checked).map(({ kind }) => kind);
+      if (selected.length > 0) close(selected);
+    });
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) close(null);
+    });
   });
 };
 
@@ -16148,6 +16228,12 @@ const renderRoots = async () => {
   }
   const roots = await window.tanda.listRoots();
   libraryWorkflowRoots = roots;
+  if (relocateMusicRootsBtn) {
+    relocateMusicRootsBtn.disabled = !roots.some((root) => root.kind === "music");
+  }
+  if (copyMusicRootsBtn) {
+    copyMusicRootsBtn.disabled = !roots.some((root) => root.kind === "music");
+  }
   if (!roots.some((root) => root.kind === "music") || !roots.some((root) => root.kind === "cortina")) {
     libraryWorkflowLegacyStylesReviewed = false;
     libraryWorkflowLegacyImported = false;
@@ -18992,6 +19078,34 @@ const init = async () => {
     settingsLibraryController.handleScanProgress(progress);
   });
 
+  window.tanda.onRootRelocationProgress((progress) => {
+    rootRelocationProgress?.classList.remove("hidden");
+    if (rootRelocationProgressLabel) {
+      rootRelocationProgressLabel.textContent =
+        progress.stage === "copying"
+          ? t("rootRelocationProgressCopying", {
+              completed: progress.completed,
+              total: progress.total,
+              percent: progress.total > 0
+                ? Math.round((progress.completed / progress.total) * 100)
+                : 0,
+            })
+          : t(`rootRelocationProgress${progress.stage[0].toUpperCase()}${progress.stage.slice(1)}`);
+    }
+    if (rootRelocationProgressBar) {
+      if (progress.total > 0) {
+        rootRelocationProgressBar.max = progress.total;
+        rootRelocationProgressBar.value = progress.completed;
+      } else {
+        rootRelocationProgressBar.removeAttribute("value");
+      }
+    }
+    if (rootRelocationProgressPath) {
+      rootRelocationProgressPath.textContent = progress.currentPath;
+      rootRelocationProgressPath.title = progress.currentPath;
+    }
+  });
+
   window.tanda.onStartupFlowProgress((progress) => {
     settingsLibraryController.handleStartupFlowProgress(progress);
   });
@@ -19104,6 +19218,96 @@ const init = async () => {
     setStatus(t("statusAddedMusic", { path: selected }));
     await renderRoots();
     await updateLegacyImport(selected);
+  });
+
+  const runMusicRootRelocation = async (mode: "copy" | "move") => {
+    if (!window.tanda) return;
+    const isHeadphonePlaying = Boolean(
+      playback.headphone.active && !playback.headphone.active.paused,
+    );
+    const isMainPlaying = Boolean(
+      playback.main.active && !playback.main.active.paused,
+    );
+    if (isHeadphonePlaying || isMainPlaying) {
+      setStatus(t("relocateMusicPlaybackBlocked"));
+      return;
+    }
+    const selected = await window.tanda.pickRoot("music");
+    if (!selected) return;
+    const selectedKinds = await showRootRelocationOptionsModal(mode, selected);
+    if (!selectedKinds) return;
+    if (relocateMusicRootsBtn) relocateMusicRootsBtn.disabled = true;
+    if (copyMusicRootsBtn) copyMusicRootsBtn.disabled = true;
+    rootRelocationProgress?.classList.remove("hidden");
+    if (rootRelocationProgressLabel) {
+      rootRelocationProgressLabel.textContent = t("rootRelocationProgressPreparing");
+    }
+    rootRelocationProgressBar?.removeAttribute("value");
+    if (rootRelocationProgressPath) rootRelocationProgressPath.textContent = "";
+    setStatus(t(mode === "copy" ? "copyMusicRunning" : "relocateMusicRunning"));
+    try {
+      const result = await window.tanda.relocateMusicRoots(selected, mode, selectedKinds);
+      if (!result.ok) {
+        const message = result.error ?? t("statusUnknownError");
+        if (rootRelocationProgressLabel) {
+          rootRelocationProgressLabel.textContent = t("relocateMusicFailed", {
+            message,
+          });
+        }
+        if (rootRelocationProgressBar) {
+          rootRelocationProgressBar.max = 1;
+          rootRelocationProgressBar.value = 0;
+        }
+        if (rootRelocationProgressPath) {
+          rootRelocationProgressPath.textContent = message;
+          rootRelocationProgressPath.title = message;
+        }
+        setStatus(
+          t("relocateMusicFailed", {
+            message,
+          }),
+        );
+        return;
+      }
+      trackCache.clear();
+      tandaCache.clear();
+      await renderRoots();
+      await refreshSearch();
+      await loadTandaDrafts();
+      if (selectedKinds.includes("cortina")) await loadCortinaSets();
+      renderPlaylist();
+      renderAllLists();
+      if (rootRelocationProgressLabel) {
+        rootRelocationProgressLabel.textContent = t("rootRelocationProgressComplete");
+      }
+      if (rootRelocationProgressBar) {
+        rootRelocationProgressBar.value = rootRelocationProgressBar.max;
+      }
+      if (rootRelocationProgressPath) rootRelocationProgressPath.textContent = "";
+      setStatus(
+        result.warnings.length > 0
+          ? t("relocateMusicCompleteWarning", {
+              roots: result.rootsMoved,
+              tracks: result.tracksMoved,
+              message: result.warnings.join(" "),
+            })
+          : t(mode === "copy" ? "copyMusicComplete" : "relocateMusicComplete", {
+              roots: result.rootsMoved,
+              tracks: result.tracksMoved,
+              path: result.destination,
+            }),
+      );
+    } finally {
+      if (relocateMusicRootsBtn) relocateMusicRootsBtn.disabled = false;
+      if (copyMusicRootsBtn) copyMusicRootsBtn.disabled = false;
+    }
+  };
+
+  copyMusicRootsBtn?.addEventListener("click", () => {
+    void runMusicRootRelocation("copy");
+  });
+  relocateMusicRootsBtn?.addEventListener("click", () => {
+    void runMusicRootRelocation("move");
   });
 
   addCortinaBtn?.addEventListener("click", async () => {

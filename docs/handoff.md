@@ -1,3 +1,22 @@
+## Version 0.5.3 — Library root copy, move and merge (2026-11-20)
+
+- Library settings can copy or move selected music, cortina and background
+  roots into merged `Music`, `Cortinas` and `Images` folders, preserving track
+  identities while rewriting configured roots and track paths.
+- Copy mode retains the source folders; move mode additionally attempts to
+  remove them. Playback blocks relocation, the destination must be empty, and
+  overlapping selected/unselected roots are rejected.
+- After relocation, users restart Tanda Forge and run a rescan or Startup Flow
+  before resuming playlist or tanda work, then verify library readiness.
+- Package and lockfile versions are `0.5.3`. `npm run preflight` passed with
+  127 test files, 748 tests passed, 6 native-search tests skipped under the host
+  ABI, and a successful production build. The focused relocation suite passed
+  all 8 tests; no relocation-specific Playwright workflow currently exists.
+- Windows packaging uses Gyan's immutable GitHub release mirror for the 9.0.2
+  essentials ZIP after the old 8.1.2 package aged out of the provider's primary
+  archive. The upstream SHA-256 and local digest both match `60f467…47ba`, and
+  the verified archive contains compatible `ffmpeg.exe` and `ffprobe.exe`.
+
 ## Version 0.5.2 — Display, collection, and workflow fixes (2026-11-20)
 
 - Display-board text can now measure and shrink each field independently,
