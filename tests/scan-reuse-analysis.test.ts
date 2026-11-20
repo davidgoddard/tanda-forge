@@ -45,7 +45,7 @@ describe("shouldReuseUnchangedAnalysis", () => {
     ).toBe(false);
   });
 
-  it("forces re-analysis when loudness and gain are incomplete", () => {
+  it("reuses a completed current-pipeline analysis when loudness is not measurable", () => {
     expect(
       shouldReuseUnchangedAnalysis(
         {
@@ -63,7 +63,7 @@ describe("shouldReuseUnchangedAnalysis", () => {
         },
         stat,
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("forces re-analysis for legacy import placeholders", () => {

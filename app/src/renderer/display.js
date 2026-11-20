@@ -30,6 +30,7 @@ let imageDimOpacity = 0.35;
 let fontScale = 1;
 let cortinaFontScale = 1;
 let edgePaddingVmin = 5;
+let autoFitText = false;
 let pointerDown = null;
 let ambientTimer = null;
 let activeOrbIndex = 0;
@@ -45,6 +46,79 @@ const setFitScale = (nextScale, isCortina) => {
   );
 };
 
+const fittedTextFields = [
+  [titleEl, 2],
+  [artistEl, 2],
+  [singerEl, 2],
+  [nextHintEl, 2],
+  [nextEl, 3],
+];
+
+const fieldTextFits = (element, lineLimit, scale) => {
+  const width = element.clientWidth;
+  if (width <= 0) {
+    return true;
+  }
+  const probe = element.cloneNode(true);
+  probe.removeAttribute("id");
+  probe.style.setProperty("--display-field-fit-scale", scale.toFixed(4));
+  probe.style.position = "fixed";
+  probe.style.inset = "0 auto auto -100000px";
+  probe.style.width = `${width}px`;
+  probe.style.maxWidth = "none";
+  probe.style.height = "auto";
+  probe.style.maxHeight = "none";
+  probe.style.overflow = "visible";
+  probe.style.display = "block";
+  probe.style.webkitLineClamp = "unset";
+  probe.style.visibility = "hidden";
+  probe.style.pointerEvents = "none";
+  contentEl.appendChild(probe);
+  const styles = window.getComputedStyle(probe);
+  const lineHeight = Number.parseFloat(styles.lineHeight);
+  const fits = Number.isFinite(lineHeight) && probe.scrollHeight <= lineHeight * lineLimit + 1;
+  probe.remove();
+  return fits;
+};
+
+const applyPerFieldTextFit = () => {
+  fittedTextFields.forEach(([element, lineLimit]) => {
+    if (!element) {
+      return;
+    }
+    element.style.setProperty("--display-field-fit-scale", "1");
+    if (!autoFitText || !element.textContent?.trim()) {
+      return;
+    }
+    const compactMinScale = 0.72;
+    let targetLines = lineLimit;
+    for (let lines = 1; lines < lineLimit; lines += 1) {
+      if (fieldTextFits(element, lines, compactMinScale)) {
+        targetLines = lines;
+        break;
+      }
+    }
+    if (fieldTextFits(element, targetLines, 1)) {
+      return;
+    }
+    let low = 0.5;
+    let high = 1;
+    if (!fieldTextFits(element, targetLines, low)) {
+      element.style.setProperty("--display-field-fit-scale", low.toFixed(4));
+      return;
+    }
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const candidate = (low + high) / 2;
+      if (fieldTextFits(element, targetLines, candidate)) {
+        low = candidate;
+      } else {
+        high = candidate;
+      }
+    }
+    element.style.setProperty("--display-field-fit-scale", low.toFixed(4));
+  });
+};
+
 const applyDisplayTextFit = () => {
   if (!contentEl) {
     return;
@@ -52,6 +126,7 @@ const applyDisplayTextFit = () => {
   const isCortina = mode === "cortina";
   const minScale = isCortina ? 0.68 : 0.72;
   setFitScale(1, isCortina);
+  applyPerFieldTextFit();
   let nextScale = 1;
   for (let attempt = 0; attempt < 12; attempt += 1) {
     if (contentEl.scrollHeight <= contentEl.clientHeight + 2) {
@@ -375,6 +450,9 @@ const applyDisplayUpdate = (payload) => {
       contentEl.style.setProperty("--display-edge-padding-vmin", nextPadding.toFixed(2));
     }
   }
+  if (typeof payload.autoFitText === "boolean") {
+    autoFitText = payload.autoFitText;
+  }
   if (typeof payload.useBackgroundImages === "boolean") {
     const nextUseBackgroundImages = payload.useBackgroundImages;
     if (nextUseBackgroundImages !== useBackgroundImages) {
@@ -431,3 +509,4 @@ window.addEventListener("resize", () => {
 });
 
 void refreshImages();
+document.fonts?.ready.then(scheduleDisplayTextFit).catch(() => {});

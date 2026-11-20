@@ -36,6 +36,7 @@ import {
   appendQueryTokens,
   buildTrackSimilarityQuery,
   buildTrackSearchQuery,
+  buildVocalSearchQuery,
   dedupeQueryTokens,
 } from "../shared/search-query.js";
 import {
@@ -792,6 +793,8 @@ const displayImageDimInput =
   document.querySelector<HTMLInputElement>("#display-image-dim");
 const displayBaseFontSizeInput =
   document.querySelector<HTMLInputElement>("#display-base-font-size");
+const displayAutoFitTextInput =
+  document.querySelector<HTMLInputElement>("#display-auto-fit-text");
 const displayCortinaFontSizeInput =
   document.querySelector<HTMLInputElement>("#display-cortina-font-size");
 const displayEdgePaddingInput =
@@ -954,6 +957,7 @@ const DISPLAY_IMAGE_DIM_KEY = "tanda-display-image-dim";
 const DEFAULT_DISPLAY_IMAGE_DIM = 0.35;
 const DISPLAY_FONT_SCALE_KEY = "tanda-display-font-scale";
 const DEFAULT_DISPLAY_FONT_SCALE = 1.15;
+const DISPLAY_AUTO_FIT_TEXT_KEY = "tanda-display-auto-fit-text";
 const DISPLAY_CORTINA_FONT_SCALE_KEY = "tanda-display-cortina-font-scale";
 const DEFAULT_DISPLAY_CORTINA_FONT_SCALE = 1;
 const DISPLAY_EDGE_PADDING_KEY = "tanda-display-edge-padding-vmin";
@@ -1151,11 +1155,13 @@ const CLIPBOARD_NEW_ID = "new";
 const CLIPBOARD_TOP_ID = "top";
 const CLIPBOARD_LEAST_ID = "least";
 const CLIPBOARD_AVAILABLE_ID = "available";
+const CLIPBOARD_UNSTYLED_ID = "unstyled";
 const READ_ONLY_CLIPBOARD_COLLECTION_IDS = [
   CLIPBOARD_NEW_ID,
   CLIPBOARD_TOP_ID,
   CLIPBOARD_LEAST_ID,
   CLIPBOARD_AVAILABLE_ID,
+  CLIPBOARD_UNSTYLED_ID,
 ] as const;
 const DEFAULT_NEW_LIMIT = 100;
 const SMART_COLLECTION_LIMIT = 100;
@@ -1183,6 +1189,7 @@ type PlayCounts = {
 let playCounts: PlayCounts = { tracks: {}, tandas: {} };
 let allTracksForSmartCollections: TrackRow[] | null = null;
 let allTandasForSmartCollections: TandaDraft[] | null = null;
+let unstyledTrackIds: string[] = [];
 let orchestraRegistry: OrchestraRegistryEntry[] = [];
 let orchestraAliasIndex = new Map<string, string>();
 let orchestraFilterText = "";
@@ -3155,6 +3162,7 @@ const updateExternalDisplay = () => {
       fontScale: getDisplayFontScale(),
       cortinaFontScale: getDisplayCortinaFontScale(),
       edgePaddingVmin: getDisplayEdgePaddingVmin(),
+      autoFitText: getDisplayAutoFitText(),
       mode: "cortina",
     };
     setE2eDisplaySnapshot(payload);
@@ -3182,6 +3190,7 @@ const updateExternalDisplay = () => {
         fontScale: getDisplayFontScale(),
         cortinaFontScale: getDisplayCortinaFontScale(),
         edgePaddingVmin: getDisplayEdgePaddingVmin(),
+        autoFitText: getDisplayAutoFitText(),
         mode: "cortina",
       };
       setE2eDisplaySnapshot(payload);
@@ -3200,6 +3209,7 @@ const updateExternalDisplay = () => {
       fontScale: getDisplayFontScale(),
       cortinaFontScale: getDisplayCortinaFontScale(),
       edgePaddingVmin: getDisplayEdgePaddingVmin(),
+      autoFitText: getDisplayAutoFitText(),
       mode: "normal",
     };
     setE2eDisplaySnapshot(payload);
@@ -3232,6 +3242,7 @@ const updateExternalDisplay = () => {
     fontScale: getDisplayFontScale(),
     cortinaFontScale: getDisplayCortinaFontScale(),
     edgePaddingVmin: getDisplayEdgePaddingVmin(),
+    autoFitText: getDisplayAutoFitText(),
     mode: "normal",
   };
   setE2eDisplaySnapshot(payload);
@@ -7174,38 +7185,14 @@ const openTandaStyleVariantMenu = (
     item.className = "style-variant-menu-item";
     item.setAttribute("role", "menuitem");
     item.textContent = variant;
-    let applied = false;
-    const applyOnce = () => {
-      if (applied) {
-        return;
-      }
-      applied = true;
-      closeStyleVariantMenu();
-      // Applying a tanda style rebuilds the designer (and therefore the button
-      // that opened this menu). Let the native pointer gesture finish before
-      // replacing that DOM; doing it from pointerdown can leave Electron/macOS
-      // stuck dispatching the remainder of the gesture to detached controls.
-      window.setTimeout(() => onSelectVariant(styleValue), 0);
-    };
-    item.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      applyOnce();
-    });
-    item.addEventListener("pointerup", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      applyOnce();
-    });
-    item.addEventListener("mouseup", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      applyOnce();
-    });
     item.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      applyOnce();
+      closeStyleVariantMenu();
+      // Keep the menu mounted through pointerup/click. Removing it during
+      // pointerdown can retarget the rest of the gesture to the playlist below,
+      // closing a playlist-hosted tanda editor.
+      window.setTimeout(() => onSelectVariant(styleValue), 0);
     });
     menu.appendChild(item);
   });
@@ -7258,7 +7245,7 @@ const moveTrackBetweenClipboardCollections = (
     clipboardCollections,
     trackId,
     targetCollectionId,
-    [CLIPBOARD_NEW_ID, CLIPBOARD_TOP_ID, CLIPBOARD_LEAST_ID, CLIPBOARD_AVAILABLE_ID],
+    [...READ_ONLY_CLIPBOARD_COLLECTION_IDS],
   );
   activeClipboardCollectionId = targetCollectionId;
   includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
@@ -7293,7 +7280,7 @@ const moveTandaBetweenClipboardCollections = (
     clipboardCollections,
     tandaId,
     targetCollectionId,
-    [CLIPBOARD_NEW_ID, CLIPBOARD_TOP_ID, CLIPBOARD_LEAST_ID, CLIPBOARD_AVAILABLE_ID],
+    [...READ_ONLY_CLIPBOARD_COLLECTION_IDS],
   );
   activeClipboardCollectionId = targetCollectionId;
   includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
@@ -8371,7 +8358,7 @@ const getTrackEditorFieldQueryValue = (field: string) => {
     case "singer":
       return trackEditorSingerInput?.value ?? "";
     case "vocal":
-      return trackEditorVocalInput?.selectedOptions[0]?.textContent ?? "";
+      return buildVocalSearchQuery(trackEditorVocalInput?.value ?? "");
     case "album":
       return trackEditorAlbumInput?.value ?? "";
     case "year":
@@ -9136,6 +9123,9 @@ const getCollectionContentIds = async (collectionId: string) => {
   }
   if (collectionId === CLIPBOARD_LEAST_ID) {
     return buildTopOrLeastCollectionIds(true);
+  }
+  if (collectionId === CLIPBOARD_UNSTYLED_ID) {
+    return { trackIds: unstyledTrackIds, tandaIds: [] };
   }
   return buildAvailableCollectionIds();
 };
@@ -12430,6 +12420,7 @@ const refreshNewCollectionTracks = async () => {
   const tandaIds = await window.tanda.listRecentTandas(limit);
   collection.trackIds = ids;
   collection.tandaIds = tandaIds;
+  await refreshUnstyledCollection();
   invalidateSmartCollectionsCache();
   saveClipboardCollections();
 };
@@ -12977,6 +12968,8 @@ const getDisplayFontScale = () => {
   }
   return Math.min(2, Math.max(0.7, value / 100));
 };
+
+const getDisplayAutoFitText = () => localStorage.getItem(DISPLAY_AUTO_FIT_TEXT_KEY) !== "0";
 
 const getDisplayCortinaFontScale = () => {
   const raw = localStorage.getItem(DISPLAY_CORTINA_FONT_SCALE_KEY);
@@ -13539,7 +13532,11 @@ const addTrackToTanda = (
   }
   renderTandaDesigner();
   renderClipboard();
-  activateRightTab(options?.hostTab ?? "tanda-designer-tab");
+  const hostTab = options?.hostTab ?? "tanda-designer-tab";
+  if (hostTab === "tanda-designer-tab") {
+    preserveDesignerSourceStylesOnNextTabActivation = true;
+  }
+  activateRightTab(hostTab);
   return true;
 };
 
@@ -13987,19 +13984,22 @@ const getNewCollectionName = () => t("clipboardCollectionNew");
 const getTopCollectionName = () => t("clipboardCollectionTop");
 const getLeastCollectionName = () => t("clipboardCollectionLeast");
 const getAvailableCollectionName = () => t("clipboardCollectionAvailable");
+const getUnstyledCollectionName = () => t("clipboardCollectionUnstyled");
 
 const isReadOnlyCollectionId = (id: string) =>
   id === CLIPBOARD_NEW_ID ||
   id === CLIPBOARD_TOP_ID ||
   id === CLIPBOARD_LEAST_ID ||
-  id === CLIPBOARD_AVAILABLE_ID;
+  id === CLIPBOARD_AVAILABLE_ID ||
+  id === CLIPBOARD_UNSTYLED_ID;
 
 const isPinnedCollectionId = (id: string) =>
   id === "general" ||
   id === CLIPBOARD_NEW_ID ||
   id === CLIPBOARD_TOP_ID ||
   id === CLIPBOARD_LEAST_ID ||
-  id === CLIPBOARD_AVAILABLE_ID;
+  id === CLIPBOARD_AVAILABLE_ID ||
+  id === CLIPBOARD_UNSTYLED_ID;
 
 const defaultCollectionNames = () =>
   (Object.keys(translations) as LanguageKey[]).map(
@@ -14024,6 +14024,11 @@ const leastCollectionNames = () =>
 const availableCollectionNames = () =>
   (Object.keys(translations) as LanguageKey[]).map(
     (lang) => translations[lang].clipboardCollectionAvailable,
+  );
+
+const unstyledCollectionNames = () =>
+  (Object.keys(translations) as LanguageKey[]).map(
+    (lang) => translations[lang].clipboardCollectionUnstyled,
   );
 
 const normalizeCollectionName = (name: string) => name.trim();
@@ -14116,6 +14121,49 @@ const ensureAvailableCollection = () => {
   }
 };
 
+const ensureUnstyledCollection = () => {
+  const existing = clipboardCollections.find((item) => item.id === CLIPBOARD_UNSTYLED_ID);
+  if (!existing) {
+    const availableIndex = clipboardCollections.findIndex(
+      (item) => item.id === CLIPBOARD_AVAILABLE_ID,
+    );
+    const insertIndex = availableIndex >= 0 ? availableIndex + 1 : clipboardCollections.length;
+    clipboardCollections.splice(insertIndex, 0, {
+      id: CLIPBOARD_UNSTYLED_ID,
+      name: getUnstyledCollectionName(),
+      trackIds: [],
+      tandaIds: [],
+    });
+    return;
+  }
+  if (unstyledCollectionNames().includes(existing.name)) {
+    existing.name = getUnstyledCollectionName();
+  }
+};
+
+const refreshUnstyledCollection = async () => {
+  if (!window.tanda) return;
+  try {
+    unstyledTrackIds = await window.tanda.listUnstyledTrackIds();
+  } catch {
+    return;
+  }
+  if (unstyledTrackIds.length > 0) {
+    ensureUnstyledCollection();
+  } else {
+    clipboardCollections = clipboardCollections.filter(
+      (collection) => collection.id !== CLIPBOARD_UNSTYLED_ID,
+    );
+    includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
+      (id) => id !== CLIPBOARD_UNSTYLED_ID,
+    );
+    if (activeClipboardCollectionId === CLIPBOARD_UNSTYLED_ID) {
+      activeClipboardCollectionId = getGeneralCollection()?.id ?? "general";
+    }
+  }
+  saveClipboardCollections();
+};
+
 const getNewCollectionLimit = () => {
   const raw = localStorage.getItem(CLIPBOARD_NEW_LIMIT_KEY);
   const parsed = raw ? Number.parseInt(raw, 10) : DEFAULT_NEW_LIMIT;
@@ -14195,7 +14243,8 @@ const ensureSmartCollectionCaches = async () => {
 const collectionIsSmart = (collectionId: string) =>
   collectionId === CLIPBOARD_TOP_ID ||
   collectionId === CLIPBOARD_LEAST_ID ||
-  collectionId === CLIPBOARD_AVAILABLE_ID;
+  collectionId === CLIPBOARD_AVAILABLE_ID ||
+  collectionId === CLIPBOARD_UNSTYLED_ID;
 
 const saveClipboardCollections = () => {
   localStorage.setItem(
@@ -14356,6 +14405,10 @@ const renderClipboardCollections = () => {
     button.dataset.collectionId = collection.id;
     button.draggable = !isPinnedCollectionId(collection.id);
     button.addEventListener("click", () => {
+      if (collection.id === CLIPBOARD_UNSTYLED_ID && selectedStyles.length > 0) {
+        selectedStyles = [];
+        void loadStyles();
+      }
       activeClipboardCollectionId = collection.id;
       includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
         (id) => id !== collection.id,
@@ -14436,7 +14489,7 @@ const renderClipboardCollections = () => {
         clipboardCollections,
         fromId,
         collection.id,
-        ["general", CLIPBOARD_NEW_ID, CLIPBOARD_TOP_ID, CLIPBOARD_LEAST_ID, CLIPBOARD_AVAILABLE_ID],
+        ["general", ...READ_ONLY_CLIPBOARD_COLLECTION_IDS],
       );
       if (reordered === clipboardCollections) {
         return;
@@ -17112,10 +17165,13 @@ const renderAudioSimilarityReport = () => {
         for (const contextTrack of usage.contextTracks) {
           const context = document.createElement("div");
           context.className = "tanda-detail-line audio-similarity-tanda-track";
+          context.dataset.trackId = contextTrack.trackId;
           if (matchedIds.has(contextTrack.trackId)) context.classList.add("audio-similarity-context-match");
           const identity = document.createElement("span");
           identity.textContent = [contextTrack.artist, contextTrack.title, contextTrack.album]
             .filter(Boolean).join(" · ");
+          const actions = document.createElement("div");
+          actions.className = "tanda-detail-actions-right";
           const preview = document.createElement("button");
           preview.textContent = t("audioSimilarityPlay");
           preview.title = t("audioSimilarityPreviewContextTrack", { track: contextTrack.title });
@@ -17127,7 +17183,48 @@ const renderAudioSimilarityReport = () => {
               preview,
             );
           });
-          context.append(identity, preview);
+          const menuButton = buildDetailMenuButton();
+          menuButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const wasOpen = context.classList.contains("detail-menu-open");
+            closeDetailMenus();
+            context.classList.toggle("detail-menu-open", !wasOpen);
+          });
+          const menu = document.createElement("div");
+          menu.className = "tanda-detail-menu";
+          const loadContextTrack = async () => {
+            const cached = trackCache.get(contextTrack.trackId);
+            if (cached) return cached;
+            const [loaded] = await window.tanda!.getTracksByIds([contextTrack.trackId]);
+            if (loaded) updateTrackCaches(loaded);
+            return loaded ?? null;
+          };
+          const edit = buildActionButton(
+            "actionEditTrack",
+            "actionEditTrackShort",
+            "audio-similarity-edit-context-track",
+          );
+          edit.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            await loadContextTrack();
+            closeDetailMenus();
+            await openTrackEditor(contextTrack.trackId);
+          });
+          menu.appendChild(edit);
+          const search = buildActionButton(
+            "actionSearch",
+            "actionSearchShort",
+            "audio-similarity-search-context-track",
+          );
+          search.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            const track = await loadContextTrack();
+            closeDetailMenus();
+            if (track) runSearchForTrack(track);
+          });
+          menu.appendChild(search);
+          actions.append(preview, menuButton, menu);
+          context.append(identity, actions);
           contextActions.appendChild(context);
         }
         usageRow.appendChild(contextActions);
@@ -17640,6 +17737,7 @@ const init = async () => {
       displayUseImagesInput,
       displayImageDimInput,
       displayBaseFontSizeInput,
+      displayAutoFitTextInput,
       displayCortinaFontSizeInput,
       displayEdgePaddingInput,
       playlistStartTimeInput,
@@ -17657,6 +17755,7 @@ const init = async () => {
       displayUseImages: DISPLAY_USE_IMAGES_KEY,
       displayImageDim: DISPLAY_IMAGE_DIM_KEY,
       displayFontScale: DISPLAY_FONT_SCALE_KEY,
+      displayAutoFitText: DISPLAY_AUTO_FIT_TEXT_KEY,
       displayCortinaFontScale: DISPLAY_CORTINA_FONT_SCALE_KEY,
       displayEdgePadding: DISPLAY_EDGE_PADDING_KEY,
       playlistStartTime: "tanda-playlist-start-time",
@@ -17672,6 +17771,7 @@ const init = async () => {
       getDisplayUseBackgroundImages,
       getDisplayImageDimOpacity,
       getDisplayFontScale,
+      getDisplayAutoFitText,
       getDisplayCortinaFontScale,
       getDisplayEdgePaddingVmin,
       getPlaylistStartTimeInput,
@@ -18412,6 +18512,7 @@ const init = async () => {
           CLIPBOARD_TOP_ID,
           CLIPBOARD_LEAST_ID,
           CLIPBOARD_AVAILABLE_ID,
+          CLIPBOARD_UNSTYLED_ID,
         ],
       },
     );
@@ -18828,6 +18929,8 @@ const init = async () => {
         : result.fileRemoved ? t("statusTrackDeletedWithFile") : t("statusTrackDeleted"));
       await refreshSearch();
       await renderDeletedTracks();
+      await refreshUnstyledCollection();
+      renderClipboardCollections();
       renderAllLists();
     } catch {
       setStatus(t("statusTrackDeleteFailed"));
@@ -18870,6 +18973,8 @@ const init = async () => {
       }
       await loadStyles();
       await refreshSearch();
+      await refreshUnstyledCollection();
+      renderClipboardCollections();
       renderAllLists();
       if (audioSimilarityPage?.classList.contains("open")) {
         await loadAudioSimilarityReport();

@@ -1,3 +1,24 @@
+## Version 0.5.2 — Display, collection, and workflow fixes (2026-11-20)
+
+- Display-board text can now measure and shrink each field independently,
+  defaults automatic fitting on, compacts avoidable wraps, preserves serif
+  glyph bounds, and retains bounded truncation for extreme text (`UI-060.R21-22`,
+  `CFG-DSP-012`). Playlist and Display Board settings use compact readable grids.
+- Clipboard adds a read-only **Unstyled** smart collection for visible music
+  with blank/`?` genre metadata. It is a database view only and performs no
+  style derivation or audio analysis.
+- Track-editor vocal searches now use explicit instrumental metadata intent;
+  SQLite `0`/`1` values score correctly. Completed current-pipeline analysis is
+  reused when loudness is genuinely unmeasurable instead of rescanning forever.
+- Audio-similarity tanda context tracks expose Edit and Search Similar actions.
+  Tanda variant selection no longer lets the pointer gesture fall through and
+  close a playlist-hosted editor. Added-track styles survive Designer activation.
+- Cortina Picker rows are transparent and separated instead of using the muddy
+  playlist fill. Package and lockfile versions are `0.5.2`.
+- Release verification: the user reported the full E2E suite passed. Local
+  `npm run preflight` passed with 126 test files, 740 tests passed, 6 native-search
+  tests skipped under the host ABI, and a successful production build.
+
 ## Version 0.5.1 — Display-board window movement (2026-11-18)
 
 - Restored reliable movement of the frameless display board after the Electron

@@ -1285,7 +1285,7 @@
           </div>
           <div class="settings-tab" data-tab="playlist">
             <h3 data-i18n="playlistSettingsTitle">Playlist Settings</h3>
-            <div class="settings-grid">
+            <div class="settings-grid settings-compact-grid settings-playlist-grid">
               <div class="settings-field">
                 <label for="gap-between-tracks" data-i18n="gapBetweenTracks">
                   Gap between tracks (sec)
@@ -1619,7 +1619,7 @@
           </div>
           <div class="settings-tab" data-tab="display-board">
             <h3 data-i18n="tabDisplayBoard">Display Board</h3>
-            <div class="settings-grid">
+            <div class="settings-grid settings-compact-grid settings-display-board-grid">
               <div class="settings-field av-lag-settings-card">
                 <label for="display-av-lag" data-i18n="displayAvLagLabel">
                   Audio/video lag (seconds)
@@ -1654,16 +1654,13 @@
                 <input id="display-use-images" type="checkbox" />
               </div>
               <div class="settings-field">
-                <label for="display-image-dim" data-i18n="displayImageDimLabel">
-                  Display image darken (%)
+                <label for="display-auto-fit-text" data-i18n="displayAutoFitTextLabel">
+                  Shrink long display text to fit
                 </label>
-                <input
-                  id="display-image-dim"
-                  type="number"
-                  min="0"
-                  max="90"
-                  step="1"
-                />
+                <input id="display-auto-fit-text" type="checkbox" />
+                <p data-i18n="displayAutoFitTextHelp">
+                  Keeps the chosen font size when possible, then reduces each field to fit its line limit.
+                </p>
               </div>
               <div class="settings-field">
                 <label for="display-base-font-size" data-i18n="displayBaseFontSizeLabel">
@@ -1679,6 +1676,18 @@
                 <p data-i18n="displayBaseFontSizeHelp">
                   Scales display text for distance readability.
                 </p>
+              </div>
+              <div class="settings-field">
+                <label for="display-image-dim" data-i18n="displayImageDimLabel">
+                  Display image darken (%)
+                </label>
+                <input
+                  id="display-image-dim"
+                  type="number"
+                  min="0"
+                  max="90"
+                  step="1"
+                />
               </div>
               <div class="settings-field">
                 <label for="display-cortina-font-size" data-i18n="displayCortinaFontSizeLabel">

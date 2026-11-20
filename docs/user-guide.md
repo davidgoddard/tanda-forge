@@ -230,6 +230,10 @@ by 0 to 4 seconds without changing audio playback. Select **Calibrate AV lag** t
 the click track and move the slider until each red circle flash coincides with
 the click heard through the selected main output; clicks occur every five
 seconds and each adjustment is saved immediately.
+Display text normally uses the configured base and cortina sizes. The
+default-on **Shrink long display text to fit** option measures each field at
+its real window width and reduces only text that would wrap poorly or exceed
+its line limit. It retains the configured size whenever the text already fits.
 
 In the top right there is a graph button which opens a view that shows the diversity in the collection as a whole. It shows the tanda counts for each artist and style and how many tracks are available and whether more tandas could be made from this to increase the diversity.  There are also years covered by the collection and the tempo/bpm coverage by style.  Less useful but might help understand that a wider set of years should be turned into tandas for example.  From the tables it is possible to click a search button for an artist and it will immediately open the search results with that orchestra/artist ready to start making more tandas.
 
@@ -453,6 +457,9 @@ The built-in collections are:
 - **Available**: Working with the graph of the playlist's diversity, this collection contains tracks and tandas that are by artists and styles not yet included in the playlist.  I.e. if 
 some "Di Sarli" Tango tandas are in the playlist, there will be no "Di Sarli" Tango tandas shown in the available list but his Waltzes and Milongas might be.  This helps offer quick options
 that will increase the artist diversity within the playlist.
+- **Unstyled**: A read-only list of visible music tracks whose current style is
+  blank or `?`. It appears only while such tracks exist and is intended to make
+  manual metadata cleanup easier; it does not analyse or predict musical style.
 
 All are dynamic meaning they change their contents as the DJ works.
 

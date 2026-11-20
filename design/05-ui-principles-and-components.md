@@ -828,6 +828,9 @@ UI-020.R8: The cortina picker modal uses a fixed size; results scroll within
 the modal body without resizing the window as filters change.
 UI-020.R9: Cortina rows align their label column with tanda style badges, and show
 the title/artist to the right of the label area.
+UI-020.R10: Cortina Picker results use transparent rows with simple separators
+and a subtle hover state; the playlist's filled cortina-row treatment must not
+make picker results appear as muddy blocks.
 
 ---
 
@@ -907,6 +910,8 @@ Rules:
 - UI-050.R13: Diagnostics must surface suspicious track-length anomalies,
   including unusually short raw durations and tracks where trims remove a large
   amount of the FFmpeg-reported duration.
+- UI-050.R14: Playlist and Display Board settings use bounded-width responsive
+  grids so controls remain easy to scan on very wide windows.
 
 ---
 
@@ -969,6 +974,14 @@ Features:
   drag region so it can be moved reliably between monitors. Double-clicking
   that region uses the platform's native maximize/restore behavior, allowing
   the audience display to fill the selected monitor without dedicated chrome.
+- UI-060.R21: When automatic text fitting is enabled, each display field retains
+  its configured size when it fits, otherwise measures the rendered text and
+  selects the largest safe scale within its line limit. Avoidable unbalanced
+  wrapping may compact to fewer lines without shrinking below 72%; exceptionally
+  long text retains a bounded truncation fallback. Automatic fitting defaults on.
+- UI-060.R22: Display text line boxes preserve serif ascenders and descenders,
+  and flex layout must not compress fields into clipped glyphs or expose a
+  partial line beyond the configured limit.
 - UI-060.R16.a: During normal track playback, the bottom-right "Next tanda"
   text includes both the next tanda style and a localized artist summary:
   `Next tanda: {style} from {artist}`. If the next tanda contains more than one
@@ -1077,6 +1090,9 @@ Behavior:
 - UI-082.R20: In read-only smart collections (`New`, `Top`, `Least`,
   `Available`), `M` performs copy-to-target semantics (source remains smart).
 - UI-082.R21: In writable collections, `M` performs true move semantics.
+- UI-082.R22: A read-only `Unstyled` smart collection appears while visible
+  music tracks have blank or `?` genre metadata. It performs no audio analysis
+  or style derivation, and selecting it clears incompatible style filters.
 
 ---
 

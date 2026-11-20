@@ -148,6 +148,10 @@ Board, Diagnostics, System).
 - CFG-DSP-011.a: The AV-lag setting, explanation, value, and calibration action
   are grouped in one visually distinct settings container, with the action
   button sized to its localized label rather than stretched to the container.
+- CFG-DSP-012: A localized automatic text-fit checkbox defaults enabled. Its
+  persisted explicit off value is respected, and the control is arranged on the
+  same logical row as the background-image checkbox in the compact Display Board
+  settings grid.
 
 ## Playlist Configuration
 

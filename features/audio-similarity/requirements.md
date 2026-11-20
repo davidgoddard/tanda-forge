@@ -265,6 +265,9 @@ accepted into a group again after preview and confirmation.
   header shall remain fixed and its content shall scroll within a viewport-
   bounded body when many tandas are present; the window shall not grow without
   bound.
+- **ASR-040B — Context-track actions:** Tracks shown inside affected-tanda
+  context shall provide the normal localized Edit and Search Similar actions in
+  addition to preview and replacement controls.
 - **ASR-041 — Per-use replacement:** The DJ shall be able to replace one group
   member with another in a selected tanda without forcing replacement in every
   other tanda or playlist.
