@@ -92,6 +92,10 @@ Numeric fields (e.g. BPM, year) may be searchable both:
   before generic lexical tie-breakers. An exact seed metadata match must not be
   displaced by a looser text match with less-similar BPM, year, singer, or
   instrumental metadata.
+- FR-090.2.R14: Track-editor vocal field searches serialize to explicit
+  `instrumental:true` or `instrumental:false` metadata intent. SQLite integer
+  values `1` and `0` must compare as booleans rather than failing strict-type
+  equality during scoring.
 
 ---
 

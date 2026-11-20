@@ -57,6 +57,13 @@ export const appendQueryTokens = (currentQuery: string, fragment: string) => {
   return dedupeQueryTokens(merged);
 };
 
+export const buildVocalSearchQuery = (vocal: string) =>
+  vocal === "instrumental"
+    ? "instrumental:true"
+    : vocal === "sung"
+      ? "instrumental:false"
+      : "";
+
 export const buildTrackSearchQuery = (track: TrackSearchSource) => {
   const parts: string[] = [];
   // Priority order for similarity hints: style, artist, singer/instrumental,

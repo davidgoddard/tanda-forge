@@ -880,6 +880,22 @@ describe("fuzzy search helpers", () => {
     expect(ordinary[0].track.id).toBe("title-only");
   });
 
+  it("matches SQLite integer values for instrumental metadata filters", () => {
+    const instrumental = buildTrack({ id: "instrumental", instrumental: 1 as unknown as boolean });
+    const sung = buildTrack({ id: "sung", instrumental: 0 as unknown as boolean });
+
+    expect(filterAndScoreTracks([sung, instrumental], {
+      query: "instrumental:true",
+      minScore: 0.19,
+      bpmRange: 5,
+    }).map((entry) => entry.track.id)).toEqual(["instrumental"]);
+    expect(filterAndScoreTracks([instrumental, sung], {
+      query: "instrumental:false",
+      minScore: 0.19,
+      bpmRange: 5,
+    }).map((entry) => entry.track.id)).toEqual(["sung"]);
+  });
+
   it("keeps generated singer intent scoped to singer metadata", () => {
     const singerMatch = buildTrack({
       id: "singer-match",

@@ -91,6 +91,7 @@ import {
   searchTandaCount,
 } from "./library/tandas";
 import { getRootRemovalPreview, removeLibraryRoot } from "./library/root-removal";
+import { listUnstyledTrackIds } from "./library/unstyled-tracks";
 import { listDeletedTracks, logicallyDeleteTrack, restoreDeletedTracks } from "./library/track-deletion";
 import {
   cancelAudioSimilarityAnalysis,
@@ -1502,6 +1503,9 @@ const registerIpc = () => {
       .all();
     return normalizeTrackRows(rows);
   });
+
+  ipc.handle("library:listUnstyledTrackIds", async () =>
+    listUnstyledTrackIds(getDb()));
 
   ipc.handle("audio-similarity:report", async () =>
     getAudioSimilarityReport(getDb()));

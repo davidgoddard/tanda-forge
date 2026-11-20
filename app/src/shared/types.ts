@@ -40,6 +40,7 @@ export type DisplayUpdatePayload = {
   fontScale?: number;
   cortinaFontScale?: number;
   edgePaddingVmin?: number;
+  autoFitText?: boolean;
   mode?: "normal" | "cortina";
 };
 
@@ -340,6 +341,7 @@ export type AppApi = {
       }
   >;
   listTracks: () => Promise<TrackRow[]>;
+  listUnstyledTrackIds: () => Promise<string[]>;
   getAudioSimilarityReport: () => Promise<AudioSimilarityReport>;
   generateAudioSimilarityReport: (
     options?: GenerateAudioSimilarityOptions,

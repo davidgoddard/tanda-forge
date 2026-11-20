@@ -36,4 +36,22 @@ describe("tanda editor track menu", () => {
       'if (action === "tanda-remove" || action === "tanda-discard-track")',
     );
   });
+
+  it("preserves an added track's style when activating the Designer", () => {
+    expect(renderer).toContain(
+      'if (hostTab === "tanda-designer-tab") {\n    preserveDesignerSourceStylesOnNextTabActivation = true;',
+    );
+    expect(renderer).toContain("activateRightTab(hostTab)");
+  });
+
+  it("keeps tanda variant menus mounted until the selection click completes", () => {
+    const start = renderer.indexOf("const openTandaStyleVariantMenu =");
+    const end = renderer.indexOf("const getClipboardMoveTargets =", start);
+    const implementation = renderer.slice(start, end);
+
+    expect(implementation).toContain('item.addEventListener("click"');
+    expect(implementation).not.toContain('item.addEventListener("pointerdown"');
+    expect(implementation).not.toContain('item.addEventListener("pointerup"');
+    expect(implementation).toContain("window.setTimeout(() => onSelectVariant(styleValue), 0)");
+  });
 });

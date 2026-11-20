@@ -126,6 +126,7 @@ body {
   --display-cortina-font-scale: 1;
   --display-fit-scale-normal: 1;
   --display-fit-scale-cortina: 1;
+  --display-field-fit-scale: 1;
 }
 
 .display-content.cortina-mode {
@@ -135,19 +136,23 @@ body {
   gap: 2vmin;
 }
 
+.display-content > * {
+  flex-shrink: 0;
+}
+
 .display-content.cortina-mode .display-title {
   font-size: calc(
     clamp(60px, 23vmin, 560px) * var(--display-cortina-font-scale) *
-      var(--display-fit-scale-cortina)
+      var(--display-fit-scale-cortina) * var(--display-field-fit-scale)
   );
-  line-height: 0.95;
+  line-height: 1.15;
   max-width: 98%;
 }
 
 .display-content.cortina-mode .display-artist {
   font-size: calc(
     clamp(24px, 7.8vmin, 180px) * var(--display-cortina-font-scale) *
-      var(--display-fit-scale-cortina)
+      var(--display-fit-scale-cortina) * var(--display-field-fit-scale)
   );
   max-width: 96%;
   white-space: pre-line;
@@ -163,9 +168,9 @@ body {
 .display-title {
   font-size: calc(
     clamp(40px, 14vmin, 340px) * var(--display-font-scale) *
-      var(--display-fit-scale-normal)
+      var(--display-fit-scale-normal) * var(--display-field-fit-scale)
   );
-  line-height: 0.98;
+  line-height: 1.15;
   letter-spacing: 0.02em;
   max-width: 96%;
   display: -webkit-box;
@@ -174,16 +179,15 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   overflow-wrap: anywhere;
-  padding-bottom: 0.12em;
-  max-height: 2.24em;
+  max-height: 2.3em;
 }
 
 .display-artist {
   font-size: calc(
     clamp(31px, 10.7vmin, 250px) * var(--display-font-scale) *
-      var(--display-fit-scale-normal)
+      var(--display-fit-scale-normal) * var(--display-field-fit-scale)
   );
-  line-height: 1.02;
+  line-height: 1.15;
   opacity: 0.88;
   max-width: 95%;
   display: -webkit-box;
@@ -192,16 +196,15 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   overflow-wrap: anywhere;
-  padding-bottom: 0.14em;
-  max-height: 2.28em;
+  max-height: 2.3em;
 }
 
 .display-singer {
   font-size: calc(
     clamp(20px, 6.5vmin, 156px) * var(--display-font-scale) *
-      var(--display-fit-scale-normal)
+      var(--display-fit-scale-normal) * var(--display-field-fit-scale)
   );
-  line-height: 1.02;
+  line-height: 1.15;
   opacity: 0.8;
   max-width: 95%;
   display: -webkit-box;
@@ -210,8 +213,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   overflow-wrap: anywhere;
-  padding-bottom: 0.12em;
-  max-height: 2.24em;
+  max-height: 2.3em;
 }
 
 .display-progress {
@@ -226,13 +228,14 @@ body {
 .display-next-hint {
   font-size: calc(
     clamp(16px, 3.4vmin, 84px) * var(--display-font-scale) *
-      var(--display-fit-scale-normal)
+      var(--display-fit-scale-normal) * var(--display-field-fit-scale)
   );
   text-align: right;
   opacity: 0.72;
   align-self: flex-end;
   width: 96%;
   max-width: 96%;
+  line-height: 1.15;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -240,20 +243,20 @@ body {
   text-overflow: ellipsis;
   overflow-wrap: break-word;
   white-space: pre-line;
-  padding-bottom: 0.08em;
-  max-height: 2.38em;
+  max-height: 2.3em;
 }
 
 .display-next {
   font-size: calc(
     clamp(20px, 4.8vmin, 124px) * var(--display-font-scale) *
-      var(--display-fit-scale-normal)
+      var(--display-fit-scale-normal) * var(--display-field-fit-scale)
   );
   text-align: right;
   opacity: 0.85;
   align-self: flex-end;
   width: 96%;
   max-width: 96%;
+  line-height: 1.15;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
@@ -261,6 +264,5 @@ body {
   text-overflow: ellipsis;
   overflow-wrap: break-word;
   white-space: pre-line;
-  padding-bottom: 0.12em;
-  max-height: 3.6em;
+  max-height: 3.45em;
 }

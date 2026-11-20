@@ -271,4 +271,11 @@ describe("audio similarity report UI", () => {
     expect(styles).toMatch(/\.audio-similarity-lazy-dialog[\s\S]*?var\(--accent\)/);
     expect(styles).toMatch(/\.audio-similarity-lazy-dialog[\s\S]*?color:\s*var\(--text\)/);
   });
+
+  it("offers edit and Search Similar menus for tracks in tanda usage overlays", () => {
+    expect(renderer).toContain('context.dataset.trackId = contextTrack.trackId');
+    expect(renderer).toContain('"audio-similarity-edit-context-track"');
+    expect(renderer).toContain('"audio-similarity-search-context-track"');
+    expect(renderer).toContain('if (track) runSearchForTrack(track)');
+  });
 });

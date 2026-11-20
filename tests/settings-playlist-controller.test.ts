@@ -9,6 +9,61 @@ class FakeInput extends EventTarget {
 }
 
 describe("settings playlist controller", () => {
+  it("keeps playlist and display-board settings within compact readable grids", () => {
+    const html = fs.readFileSync(
+      path.join(process.cwd(), "app/src/renderer/index.html"),
+      "utf8",
+    );
+    const css = fs.readFileSync(
+      path.join(process.cwd(), "app/src/renderer/styles.css"),
+      "utf8",
+    );
+
+    expect(html).toContain("settings-compact-grid settings-playlist-grid");
+    expect(html).toContain("settings-compact-grid settings-display-board-grid");
+    expect(css).toMatch(/\.settings-tab \.settings-compact-grid\s*\{[^}]*1040px/s);
+    expect(css).toMatch(/\.settings-tab \.settings-display-board-grid\s*\{[^}]*920px/s);
+  });
+
+  it("persists the display text fitting setting", () => {
+    const input = new FakeInput() as unknown as HTMLInputElement;
+    const storage = new Map<string, string>();
+    const updateExternalDisplay = vi.fn();
+    const controller = createSettingsPlaylistController({
+      storage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => void storage.set(key, value),
+      },
+      elements: { displayAutoFitTextInput: input },
+      keys: { displayAutoFitText: "auto-fit" },
+      readers: { getDisplayAutoFitText: () => false },
+      actions: { updateExternalDisplay },
+    } as unknown as Parameters<typeof createSettingsPlaylistController>[0]);
+
+    controller.initialize();
+    expect(input.checked).toBe(false);
+    input.checked = true;
+    input.dispatchEvent(new Event("change"));
+
+    expect(storage.get("auto-fit")).toBe("1");
+    expect(updateExternalDisplay).toHaveBeenCalledOnce();
+  });
+
+  it("defaults display text fitting to enabled when no reader value is available", () => {
+    const input = new FakeInput() as unknown as HTMLInputElement;
+    const controller = createSettingsPlaylistController({
+      storage: { getItem: () => null, setItem: () => {} },
+      elements: { displayAutoFitTextInput: input },
+      keys: {},
+      readers: {},
+      actions: { updateExternalDisplay: () => {} },
+    } as unknown as Parameters<typeof createSettingsPlaylistController>[0]);
+
+    controller.initialize();
+
+    expect(input.checked).toBe(true);
+  });
+
   it("places the hard orchestra repeat interval in the final auto-generation section", () => {
     const html = fs.readFileSync(
       path.join(process.cwd(), "app/src/renderer/index.html"),
