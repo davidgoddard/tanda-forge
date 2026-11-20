@@ -70,14 +70,19 @@ and stores both the measured loudness and gain offset.
   completed renders as reusable cache entries, so interrupted runs can be safely
   resumed by running the same action again.
 - AUD-003.R8: Source formats that are supported by FFmpeg but not reliably
-  decoded by Chromium media elements, including AIFF/AIF, are transcoded
-  transparently to WAV in a separate playable-audio cache before runtime
-  playback. This compatibility render must not apply compression or loudness
-  processing.
+  decoded by Chromium media elements, including AIFF/AIF and ALAC-in-M4A, are
+  transcoded transparently to WAV in a separate playable-audio cache before
+  runtime playback. M4A streams are probed so directly playable AAC sources are
+  not converted. This compatibility render must not apply compression or
+  loudness processing.
 - AUD-003.R8.a: The playable-audio cache may be warmed in the background after
   startup and after library maintenance or restore operations, while on-demand
   rendering remains the fallback source of truth if no playable cache file
   exists yet.
+- AUD-003.R8.b: Background cache warming is limited to known extension-based
+  compatibility formats such as AIFF/AIF. M4A compatibility is resolved on
+  playback and only ALAC or an inconclusive probe creates a retained WAV cache;
+  this prevents automatic duplication of an ALAC collection.
 
 ## AUD-004 — Output Routing
 

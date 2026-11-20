@@ -53,9 +53,11 @@ first track of a tanda.
 FR-052.R6.b: Switching between Preparation and Live modes during active
 playlist playback must not interrupt runtime progression; when the current
 track ends, playlist playback continues to the next track/tanda as normal.
-FR-052.R7: Source formats that Chromium cannot play directly, including AIFF
-and AIF, must be converted on demand to a renderer-compatible WAV cache before
-playback while preserving the original source file unchanged.
+FR-052.R7: Source formats that Chromium cannot play directly, including AIFF,
+AIF, and ALAC audio in an M4A container, must be converted on demand to a
+renderer-compatible WAV cache before playback while preserving the original
+source file unchanged. M4A codec detection must avoid converting directly
+playable AAC audio.
 
 ---
 
@@ -155,8 +157,10 @@ Played tandas are locked and muted in Live mode while playback state is active.
 Track start offsets and end trims are applied to playback and reflected in
 display durations and waveform seeking.
 
-AIFF/AIF source files are scanned as normal library tracks. At playback time the
-renderer asks the main process for a transparent WAV compatibility render from
-the original file, caches it under the active data root, and then plays that WAV
-through the same output-routing, gain, trim, and display pipeline as other
-tracks.
+AIFF/AIF and ALAC-in-M4A source files are scanned as normal library tracks. At
+playback time the renderer asks the main process for a transparent WAV
+compatibility render from the original file, caches it under the active data
+root, and then plays that WAV through the same output-routing, gain, trim, and
+display pipeline as other tracks. M4A streams are probed on demand so AAC keeps
+using its original source. AIFF/AIF files may be warmed in the background;
+M4A compatibility renders are created only when playback requests them.

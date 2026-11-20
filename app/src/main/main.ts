@@ -36,6 +36,7 @@ import {
   getResolvedFfmpegPath,
   getResolvedFfprobeInfo,
   getResolvedFfprobePath,
+  readAudioCodec,
   renderCompressedAudio,
   renderPlayableAudio,
   renderWaveformPng,
@@ -143,7 +144,10 @@ import type {
   SystemBackupStep,
   SystemBackupStepId,
 } from "../shared/types";
-import { requiresPlaybackTranscode } from "../shared/audio-playback-source";
+import {
+  requiresCodecAwarePlaybackTranscode,
+  shouldWarmPlaybackTranscode,
+} from "../shared/audio-playback-source";
 import {
   buildPlaylistExportFileName,
   buildTandasExportFileName,
@@ -319,6 +323,21 @@ const getCompressedCacheOutputPath = (
 const getPlayableCacheOutputPath = (filePath: string, stat: fs.Stats) =>
   buildPlayableCachePath(getPlayableCacheDir(), filePath, stat);
 
+const playableTranscodeDecisionCache = new Map<string, boolean>();
+
+const shouldRenderPlayableTrack = async (filePath: string, cacheKey: string) => {
+  const cached = playableTranscodeDecisionCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const codecName = path.extname(filePath).toLowerCase() === ".m4a"
+    ? await readAudioCodec(filePath)
+    : null;
+  const shouldRender = requiresCodecAwarePlaybackTranscode(filePath, codecName);
+  playableTranscodeDecisionCache.set(cacheKey, shouldRender);
+  return shouldRender;
+};
+
 const broadcastSystemBackupStatus = () => {
   BrowserWindow.getAllWindows().forEach((window) => {
     if (!window.isDestroyed()) {
@@ -351,6 +370,9 @@ const hasRunningSystemBackup = () => systemBackupStatus.state === "running";
 const ensurePlayableTrackRendered = async (filePath: string) => {
   const stat = fs.statSync(filePath);
   const cacheKey = buildPlayableCacheKey(filePath, stat);
+  if (!(await shouldRenderPlayableTrack(filePath, cacheKey))) {
+    return filePath;
+  }
   const cacheDir = getPlayableCacheDir();
   const outputPath = getPlayableCacheOutputPath(filePath, stat);
   fs.mkdirSync(cacheDir, { recursive: true });
@@ -384,7 +406,7 @@ const getPlayableWarmupCandidates = () => {
   return rows
     .map((row) => row.full_path)
     .filter((filePath) => {
-      if (!filePath || !requiresPlaybackTranscode(filePath) || !fs.existsSync(filePath)) {
+      if (!filePath || !shouldWarmPlaybackTranscode(filePath) || !fs.existsSync(filePath)) {
         return false;
       }
       try {

@@ -1,3 +1,18 @@
+## Version 0.5.4 — ALAC playback compatibility (2026-11-20)
+
+- Windows ALAC-in-M4A playback now probes the audio codec on demand and uses
+  the existing lossless playable-WAV cache when Chromium cannot decode ALAC.
+  AAC-in-M4A continues to play from the original source.
+- M4A files are excluded from background playable-cache warming. An ALAC WAV is
+  created only when playback requests it, retained for repeat playback, and
+  remains removable through the existing cached-files controls. Original files,
+  track identities and tanda references are unchanged (`FR-052.R7`,
+  `AUD-003.R8`–`AUD-003.R8.b`).
+- Package and lockfile versions are `0.5.4`. `npm run preflight` passed with
+  127 test files, 751 tests passed, 6 native-search tests skipped under the host
+  ABI, and a successful production build. Focused ALAC/playback/cache coverage
+  passed 19 tests; no codec-specific Playwright workflow currently exists.
+
 ## Version 0.5.3 — Library root copy, move and merge (2026-11-20)
 
 - Library settings can copy or move selected music, cortina and background
