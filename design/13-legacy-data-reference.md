@@ -134,3 +134,21 @@ Global settings including:
   offline source locations do not invalidate already imported data.
 - **LDI-006:** Tanda summaries expose the retained source path so otherwise
   overlapping imported collections remain distinguishable.
+
+
+## Responsive import and root maintenance
+
+- **LDI-007:** Import runs in a worker with one database transaction; a failed
+  import rolls back track and tanda mutations. Progress reaches 100% only after
+  the worker closes its database and exits successfully. Waveform copies are
+  best-effort derived cache files, outside the database rollback guarantee.
+- **LDI-008:** Build each root's normalized exact/suffix path index once per
+  import, reuse it for tracks and tandas, and reject ambiguous matches.
+- **LDI-009:** Reimport after root removal rebuilds the existing source-scoped
+  tanda's slots and clears its invalid marker without duplicating the tanda.
+- **LDI-010:** Root preview/removal and import run off the main event loop.
+  Maintenance drains earlier database operations, active BPM work and backups;
+  new database mutations wait until it finishes. Audited display, status and
+  audio-cache requests remain available. Resolve root paths after draining
+  earlier relocation/data-location operations and invalidate search caches after
+  successful worker writes. Worker readers use SQLite WAL snapshots.

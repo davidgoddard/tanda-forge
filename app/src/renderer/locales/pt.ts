@@ -132,6 +132,9 @@ export const pt: TranslationMap = {
     dataLocationHelp:
       "Os dados sao armazenados em uma pasta _tp_data no local selecionado.",
     legacyImportTitle: "Importacao legada",
+    libraryOperationInProgress: "Aguarde o fim da importação ou remoção da biblioteca antes de iniciar a reprodução principal ou entrar no modo Live.",
+    libraryOperationPlaybackBlocked: "Pare a reprodução principal e saia do modo Live antes de importar ou remover uma biblioteca.",
+    libraryOperationProgress: "A processar — aproximadamente {percent}%",
     legacyImportButton: "Importar tandas legadas",
     legacyStyleReviewDone: "Concluir revisao de estilos",
     legacyReadinessButton: "Verificar prontidao da biblioteca",
@@ -157,6 +160,7 @@ export const pt: TranslationMap = {
       "A biblioteca ainda esta vazia. Importe dados legacy ou execute uma varredura antes da verificacao.",
     legacyReadinessSummary:
       "{status} Faixas {total}; duracao ausente {missingDuration}; loudness+ganho ausentes {missingLoudness}; sem corte aplicado {missingTrimSignals} (informativo); erros de analise {analysisErrors}; formas de onda ausentes {missingWaveforms}; audio comprimido pronto {compressedReady}/{compressedEligible}, ausente {compressedMissing}.",
+    legacyReadinessSummaryCompressionDisabled: "{status} Faixas {total}; duracao ausente {missingDuration}; loudness+ganho ausentes {missingLoudness}; sem corte aplicado {missingTrimSignals} (informativo); erros de analise {analysisErrors}; formas de onda ausentes {missingWaveforms}. Compressão desativada; cache comprimido não necessário.",
     libraryWorkflowBadge: "Caminho recomendado",
     libraryWorkflowTitle: "Fluxo de configuracao da biblioteca",
     libraryWorkflowHelp:

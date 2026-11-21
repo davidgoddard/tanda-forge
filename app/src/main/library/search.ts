@@ -23,6 +23,10 @@ type CachedSearch = {
 
 const scoredSearchCache = new WeakMap<Database.Database, Map<string, CachedSearch>>();
 
+export const invalidateTrackSearchCache = (db: Database.Database) => {
+  scoredSearchCache.delete(db);
+};
+
 const getDatabaseChangeCount = (db: Database.Database) =>
   Number(db.prepare("select total_changes() as count").pluck().get() ?? 0);
 

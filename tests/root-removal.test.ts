@@ -98,7 +98,8 @@ const createFakeDb = (state: FakeState) =>
         }
         throw new Error(`Unexpected get SQL: ${sql}`);
       },
-      all: () => {
+      all: (...args: unknown[]) => {
+        if (sql === "select id from tracks where root_id = ?") return state.tracks.filter(track => track.root_id === args[0]).map(track => ({ id: track.id }));
         if (
           sql.includes("select distinct tanda_id as id") &&
           sql.includes("where track_id not in (select id from tracks)")
@@ -112,6 +113,10 @@ const createFakeDb = (state: FakeState) =>
         throw new Error(`Unexpected all SQL: ${sql}`);
       },
       run: (...args: unknown[]) => {
+        if (sql.startsWith("delete from tracks where id in (")) {
+          state.tracks = state.tracks.filter(track => !args.includes(track.id));
+          return;
+        }
         if (sql === "delete from tracks where root_id = ?") {
           state.tracks = state.tracks.filter((track) => track.root_id !== args[0]);
           return;

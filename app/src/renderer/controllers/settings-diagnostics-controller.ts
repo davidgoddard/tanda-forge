@@ -6,6 +6,7 @@ import type {
 } from "../../shared/types.js";
 
 export type DiagnosticsControllerDeps = {
+  isCompressionEnabled: () => boolean;
   translate: (key: string, params?: Record<string, string | number>) => string;
   pickFfmpegToolsDir: () => Promise<string | null>;
   getFfmpegToolsDir: () => Promise<{ path: string }>;
@@ -264,14 +265,15 @@ export const createSettingsDiagnosticsController = (deps: DiagnosticsControllerD
           message,
         };
       }
-      const decision = evaluateDataReadiness(summary);
+      const compressionEnabled = deps.isCompressionEnabled();
+      const decision = evaluateDataReadiness(summary, compressionEnabled);
       const statusText =
         decision.status === "pass"
           ? deps.translate("legacyReadinessPass")
           : decision.status === "warn"
             ? deps.translate("legacyReadinessWarn")
             : deps.translate("legacyReadinessFail");
-      const message = deps.translate("legacyReadinessSummary", {
+      const message = deps.translate(compressionEnabled ? "legacyReadinessSummary" : "legacyReadinessSummaryCompressionDisabled", {
         status: statusText,
         total: summary.totalTracks,
         missingDuration: summary.missingDuration,

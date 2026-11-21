@@ -132,6 +132,9 @@ export const de: TranslationMap = {
     dataLocationHelp:
       "Daten werden im Ordner _tp_data am gewahlten Ort gespeichert.",
     legacyImportTitle: "Legacy-Import",
+    libraryOperationInProgress: "Warten Sie, bis der Bibliotheksimport oder das Entfernen abgeschlossen ist, bevor Sie die Hauptwiedergabe starten oder den Live-Modus aktivieren.",
+    libraryOperationPlaybackBlocked: "Stoppen Sie die Hauptwiedergabe und verlassen Sie den Live-Modus, bevor Sie eine Bibliothek importieren oder entfernen.",
+    libraryOperationProgress: "In Bearbeitung — ungefähr {percent}%",
     legacyImportButton: "Legacy-Bibliothek importieren",
     legacyStyleReviewDone: "Stilpruefung abschliessen",
     legacyReadinessButton: "Bibliotheksbereitschaft pruefen",
@@ -157,6 +160,7 @@ export const de: TranslationMap = {
       "Die Bibliothek ist noch leer. Importieren Sie Legacy-Daten oder fuehren Sie zuerst einen Scan aus.",
     legacyReadinessSummary:
       "{status} Tracks {total}; fehlende Dauer {missingDuration}; fehlende Lautheit+Gain {missingLoudness}; kein Trim angewendet {missingTrimSignals} (informativ); Analysefehler {analysisErrors}; fehlende Wellenformen {missingWaveforms}; komprimiertes Audio bereit {compressedReady}/{compressedEligible}, fehlend {compressedMissing}.",
+    legacyReadinessSummaryCompressionDisabled: "{status} Tracks {total}; fehlende Dauer {missingDuration}; fehlende Lautheit+Gain {missingLoudness}; kein Trim angewendet {missingTrimSignals} (informativ); Analysefehler {analysisErrors}; fehlende Wellenformen {missingWaveforms}. Kompression deaktiviert; komprimierter Cache nicht erforderlich.",
     libraryWorkflowBadge: "Empfohlener Ablauf",
     libraryWorkflowTitle: "Bibliotheks-Einrichtungsablauf",
     libraryWorkflowHelp:

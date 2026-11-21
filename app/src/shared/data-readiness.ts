@@ -16,12 +16,13 @@ export type DataReadinessDecision = {
 
 export const evaluateDataReadiness = (
   summary: DataReadinessSummary,
+  compressionEnabled = true,
 ): DataReadinessDecision => {
   const blockers =
     summary.missingDuration +
     summary.missingLoudness +
     summary.analysisErrors +
-    (summary.compressedMissing ?? 0);
+    (compressionEnabled ? summary.compressedMissing ?? 0 : 0);
   const warnings = summary.missingWaveforms;
   if (summary.totalTracks <= 0 || blockers > 0) {
     return {

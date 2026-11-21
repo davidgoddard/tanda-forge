@@ -132,6 +132,9 @@ export const it: TranslationMap = {
     dataLocationHelp:
       "I dati sono salvati nella cartella _tp_data nella posizione selezionata.",
     legacyImportTitle: "Import legacy",
+    libraryOperationInProgress: "Attendi il completamento dell’importazione o della rimozione della libreria prima di avviare la riproduzione principale o attivare la modalità Live.",
+    libraryOperationPlaybackBlocked: "Interrompi la riproduzione principale ed esci dalla modalità Live prima di importare o rimuovere una libreria.",
+    libraryOperationProgress: "In corso — circa {percent}%",
     legacyImportButton: "Importa tandas legacy",
     legacyStyleReviewDone: "Concludi revisione stili",
     legacyReadinessButton: "Verifica stato libreria",
@@ -157,6 +160,7 @@ export const it: TranslationMap = {
       "La libreria e ancora vuota. Importa dati legacy oppure esegui una scansione prima della verifica.",
     legacyReadinessSummary:
       "{status} Brani {total}; durata mancante {missingDuration}; loudness+gain mancanti {missingLoudness}; nessun taglio applicato {missingTrimSignals} (informativo); errori di analisi {analysisErrors}; forme d'onda mancanti {missingWaveforms}; audio compresso pronto {compressedReady}/{compressedEligible}, mancante {compressedMissing}.",
+    legacyReadinessSummaryCompressionDisabled: "{status} Brani {total}; durata mancante {missingDuration}; loudness+gain mancanti {missingLoudness}; nessun taglio applicato {missingTrimSignals} (informativo); errori di analisi {analysisErrors}; forme d'onda mancanti {missingWaveforms}. Compressione disattivata; cache compressa non necessaria.",
     libraryWorkflowBadge: "Percorso consigliato",
     libraryWorkflowTitle: "Flusso di configurazione libreria",
     libraryWorkflowHelp:

@@ -132,6 +132,9 @@ export const fr: TranslationMap = {
     dataLocationHelp:
       "Les donnees sont stockees dans un dossier _tp_data a l'emplacement choisi.",
     legacyImportTitle: "Import heritage",
+    libraryOperationInProgress: "Attendez la fin de l’importation ou de la suppression de la bibliothèque avant de lancer la lecture principale ou de passer en mode Live.",
+    libraryOperationPlaybackBlocked: "Arrêtez la lecture principale et quittez le mode Live avant d’importer ou de supprimer une bibliothèque.",
+    libraryOperationProgress: "En cours — environ {percent}%",
     legacyImportButton: "Importer les tandas heritees",
     legacyStyleReviewDone: "Revision des styles terminee",
     legacyReadinessButton: "Verifier l'etat de la bibliotheque",
@@ -157,6 +160,7 @@ export const fr: TranslationMap = {
       "La bibliotheque est encore vide. Importez les donnees legacy ou lancez un scan avant la verification.",
     legacyReadinessSummary:
       "{status} Pistes {total}; duree manquante {missingDuration}; loudness+gain manquants {missingLoudness}; aucun trim applique {missingTrimSignals} (informatif); erreurs d'analyse {analysisErrors}; formes d'onde manquantes {missingWaveforms}; audio compresse pret {compressedReady}/{compressedEligible}, manquant {compressedMissing}.",
+    legacyReadinessSummaryCompressionDisabled: "{status} Pistes {total}; duree manquante {missingDuration}; loudness+gain manquants {missingLoudness}; aucun trim applique {missingTrimSignals} (informatif); erreurs d'analyse {analysisErrors}; formes d'onde manquantes {missingWaveforms}. Compression désactivée ; cache compressé non requis.",
     libraryWorkflowBadge: "Parcours recommande",
     libraryWorkflowTitle: "Flux de configuration de la bibliotheque",
     libraryWorkflowHelp:

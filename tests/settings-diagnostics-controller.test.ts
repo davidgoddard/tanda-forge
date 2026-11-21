@@ -30,6 +30,7 @@ const createFakeElement = (): FakeElement => ({
 });
 
 const createDeps = () => ({
+  isCompressionEnabled: () => true,
   translate: (key: string, params?: Record<string, string | number>) =>
     params ? `${key}:${JSON.stringify(params)}` : key,
   pickFfmpegToolsDir: async () => "/custom/tools",
@@ -144,6 +145,24 @@ describe("settings diagnostics controller", () => {
     expect(target.textContent).toContain('"compressedEligible":2');
     expect(target.textContent).toContain('"compressedReady":1');
     expect(target.textContent).toContain('"compressedMissing":1');
+  });
+
+  it("ignores unfinished compression when disabled and rechecks the current setting", async () => {
+    const target = createFakeElement() as unknown as HTMLElement;
+    let enabled = false;
+    const controller = createSettingsDiagnosticsController({
+      ...createDeps(),
+      isCompressionEnabled: () => enabled,
+      getDiagnosticsDataReadiness: async () => ({
+        ...(await createDeps().getDiagnosticsDataReadiness()),
+        compressedEligible: 1355, compressedReady: 63, compressedMissing: 1292,
+      }),
+    });
+    expect((await controller.verifyLegacyReadiness(target)).status).toBe("pass");
+    expect(target.textContent).toContain("legacyReadinessSummaryCompressionDisabled:");
+    enabled = true;
+    expect((await controller.verifyLegacyReadiness(target)).status).toBe("fail");
+    expect(target.textContent).toContain("legacyReadinessSummary:");
   });
 
   it("renders suspicious track length issues", async () => {

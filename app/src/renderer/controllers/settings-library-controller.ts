@@ -16,7 +16,7 @@ type PrecomputeProgress = Parameters<AppApi["onPrecomputeCompressedProgress"]>[0
   ? T
   : never;
 
-type CompressionConfig = Parameters<AppApi["precomputeCompressedTracks"]>[0];
+type CompressionConfig = Parameters<AppApi["runStartupFlow"]>[0];
 type StartupFlowResult = Awaited<ReturnType<AppApi["runStartupFlow"]>>;
 
 type LibraryMaintenanceElements = {
@@ -153,6 +153,7 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
   let scanRequestInFlight = false;
   let precomputeCompressionInProgress = false;
   let startupFlowInProgress = false;
+  let startupCompressionRan = false;
   let currentStartupPhase: StartupFlowPhase | null = null;
   let lastStartupActivePhase: StartupFlowPhase | null = null;
   let startupPhaseStartedAt = 0;
@@ -603,6 +604,8 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
   };
 
   const setStartupPhase = (phase: StartupFlowPhase | null) => {
+    if (phase === null || phase === "music") startupCompressionRan = false;
+    if (phase === "compression") startupCompressionRan = true;
     currentStartupPhase = phase;
     if (phase && phase !== "failed" && phase !== "complete") {
       lastStartupActivePhase = phase;
@@ -667,7 +670,7 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
         return;
       }
       if (phase === "complete") {
-        item.classList.add("completed");
+        item.classList.add(itemPhase === "compression" && !startupCompressionRan ? "skipped" : "completed");
         return;
       }
       if (currentIndex > itemIndex) {
@@ -718,7 +721,8 @@ export const createSettingsLibraryController = (deps: LibraryMaintenanceControll
       );
     }
     try {
-      const result = await deps.api.runStartupFlow(deps.getCompressionConfig());
+      const config = deps.getCompressionConfig();
+      const result = await deps.api.runStartupFlow(config);
       if (!result.ok) {
         const message = deps.translate("startupFlowFailed", { message: result.error });
         renderStartupFlowResult(message);

@@ -7765,3 +7765,20 @@ The user requested publishing all current feature work on a feature branch at ve
   from background warming, so an ALAC collection is not duplicated
   automatically; a requested track is converted once and reused until the user
   erases cached files (`AUD-003.R8.b`).
+
+
+## 2026-11-21 — Responsive preparation base before analysis integration
+
+- User requested completion of useful local responsiveness changes and a local
+  integration of latest main before revisiting Tango Style Lab derivation.
+- Retain transactional worker-based import/root maintenance and indexed legacy
+  matching (LDI-007–010). Replace the all-IPC gate with default serialization of
+  mutations and an explicit audited bypass for independent display/status/audio
+  requests; prevent main playback/Live entry while maintenance is active
+  (CFG-LIB-014). Drain existing BPM work/backups and read root paths after earlier
+  relocation operations complete.
+- Startup Flow skips compression when disabled; readiness ignores absent
+  compressed companions in that mode (CFG-LIB-015).
+- Base is upstream `58d48eb` / 0.5.4. Preserve the local changes in a named safety
+  stash while integrating; keep Finder metadata locally but untracked as on
+  main. No remote push or Style Lab algorithm integration is part of this step.

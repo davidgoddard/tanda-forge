@@ -59,3 +59,38 @@ export const resolveLegacyPathMatch = (
   });
   return suffixMatches.length === 1 ? suffixMatches[0] : null;
 };
+
+// Normalize once per inventory. Keep ambiguity rejection identical to the resolver.
+export const createLegacyPathResolver = (actualRelativePaths: readonly string[]) => {
+  const exact = new Map<string, string | null>();
+  const suffix = new Map<string, string | null>();
+  const add = (map: Map<string, string | null>, key: string, value: string) => {
+    map.set(key, map.has(key) ? null : value);
+  };
+  for (const relative of actualRelativePaths) {
+    const normalized = normalizeLegacyRelativeForMatch(relative);
+    add(exact, normalized, relative);
+    const parts = normalized.split("/");
+    for (let i = 1; i < parts.length; i++) add(suffix, parts.slice(i).join("/"), relative);
+  }
+  return (legacyPath: string, rootPath: string): string | null => {
+    const candidate = normalizeLegacyRelativeForMatch(mapLegacyPathToRelative(legacyPath, rootPath));
+    if (!candidate) return null;
+    if (exact.has(candidate)) return exact.get(candidate) ?? null;
+    const matches: string[] = [];
+    if (suffix.has(candidate)) {
+      const match = suffix.get(candidate);
+      if (match === null) return null;
+      if (match !== undefined) matches.push(match);
+    }
+    const parts = candidate.split("/");
+    for (let i = 1; i < parts.length; i++) {
+      const key = parts.slice(i).join("/");
+      if (!exact.has(key)) continue;
+      const match = exact.get(key);
+      if (match === null) return null;
+      if (match !== undefined) matches.push(match);
+    }
+    return matches.length === 1 ? matches[0] : null;
+  };
+};

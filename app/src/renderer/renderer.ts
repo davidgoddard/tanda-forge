@@ -4416,7 +4416,16 @@ const ensureMainCompressedCompanion = async (
   track: TrackRow | null,
 ) => playbackCompressionController.ensureMainCompressedCompanion(state, track);
 
-const playOnChannel = async (
+let mainPlaybackRequestsInFlight = 0;
+const playOnChannel = async (...args: Parameters<typeof playOnChannelImpl>): Promise<boolean> => {
+  const isMain = args[0] === "main";
+  if (isMain && blockPlaybackForLibraryMaintenance()) return false;
+  if (isMain) mainPlaybackRequestsInFlight++;
+  try { return await playOnChannelImpl(...args); }
+  finally { if (isMain) mainPlaybackRequestsInFlight--; }
+};
+
+const playOnChannelImpl = async (
   channel: OutputChannel,
   filePath: string,
   trackId: string,
@@ -10908,9 +10917,15 @@ const playlistRuntimeController = createPlaylistRuntimeController({
   renderPlaylist,
 });
 
-const startPlaylistPlayback = () => playlistRuntimeController.startPlaylistPlayback();
+const startPlaylistPlayback = () => {
+  if (blockPlaybackForLibraryMaintenance()) return;
+  return playlistRuntimeController.startPlaylistPlayback();
+};
 
-const resumePlaylistPlayback = () => playlistRuntimeController.resumePlaylistPlayback();
+const resumePlaylistPlayback = () => {
+  if (blockPlaybackForLibraryMaintenance()) return;
+  return playlistRuntimeController.resumePlaylistPlayback();
+};
 
 const stopPlaylistPlayback = async () => playlistRuntimeController.stopPlaylistPlayback();
 
@@ -11821,6 +11836,7 @@ const findPlaylistTrackPosition = (
 };
 
 const startPlaylistFrom = (index: number, trackId?: string | null) => {
+  if (blockPlaybackForLibraryMaintenance()) return;
   const item = playlistItems[index];
   if (!item) {
     return;
@@ -15075,6 +15091,7 @@ const getSettingsDiagnosticsController = () => {
     return null;
   }
   settingsDiagnosticsController = createSettingsDiagnosticsController({
+    isCompressionEnabled: () => getAudioDynamicsConfig().enabled,
     translate: t,
     pickFfmpegToolsDir: window.tanda.pickFfmpegToolsDir,
     getFfmpegToolsDir: window.tanda.getFfmpegToolsDir,
@@ -16222,6 +16239,61 @@ const scrollLibraryWorkflowToTop = () => {
   });
 };
 
+let libraryMaintenanceBusy = false;
+const blockPlaybackForLibraryMaintenance = () => {
+  if (!libraryMaintenanceBusy) return false;
+  setStatus(t("libraryOperationInProgress"));
+  return true;
+};
+const withLibraryMaintenanceProgress = async (
+  button: HTMLButtonElement,
+  operation: "import" | "remove",
+  run: () => Promise<void>,
+  rootId?: string,
+) => {
+  if (libraryMaintenanceBusy) return;
+  if (appMode === "live" || isMainPlaybackActive() || mainPlaybackRequestsInFlight > 0 || playlistPlayback.status === "playing") {
+    setStatus(t("libraryOperationPlaybackBlocked"));
+    return;
+  }
+  libraryMaintenanceBusy = true;
+  const modeWasDisabled = modeSelect?.disabled ?? false;
+  if (modeSelect) modeSelect.disabled = true;
+  button.disabled = true;
+  if (button.nextElementSibling?.classList.contains("library-maintenance-progress")) button.nextElementSibling.remove();
+  const indicator = document.createElement("span");
+  indicator.className = "library-maintenance-progress";
+  indicator.setAttribute("role", "status");
+  indicator.style.marginInlineStart = "0.5em";
+  let lastPercent = 0;
+  let failed = false;
+  const update = (percent: number) => {
+    lastPercent = percent;
+    indicator.textContent = t("libraryOperationProgress", { percent });
+  };
+  update(0);
+  button.after(indicator);
+  const unsubscribe = window.tanda?.onLibraryMaintenanceProgress(progress => {
+    if ((progress.operation === operation || (operation === "remove" && progress.operation === "preview"))
+      && progress.rootId === rootId) update(progress.operation === "preview" ? 0 : progress.percent);
+  });
+  try {
+    await run();
+  } catch (error) {
+    failed = true;
+    indicator.textContent = t("statusRendererErrorDetail", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    setStatus(indicator.textContent);
+  } finally {
+    unsubscribe?.();
+    if (!failed && lastPercent === 0) indicator.remove();
+    button.disabled = false;
+    if (modeSelect) modeSelect.disabled = modeWasDisabled;
+    libraryMaintenanceBusy = false;
+  }
+};
+
 const renderRoots = async () => {
   if (!window.tanda || !rootList || !rootBanner || !rootBannerText) {
     return;
@@ -16276,51 +16348,53 @@ const renderRoots = async () => {
     const removeBtn = document.createElement("button");
     removeBtn.textContent = t("removeRootButton");
     removeBtn.addEventListener("click", async () => {
-      const preview = await window.tanda?.getRootRemovalPreview(root.id);
-      if (!preview) {
-        return;
-      }
-      const confirmed = await showConfirmModal(
-        t("confirmRemoveRoot", {
-          kind:
-            preview.kind === "music"
-              ? t("rootMusic")
-              : preview.kind === "cortina"
-                ? t("rootCortina")
-                : t("rootBackground"),
-          path: preview.path,
-          tracks: preview.trackCount,
-          tandas: preview.tandaCount,
-          playlists: preview.playlistCount,
-        }),
-        t("removeRootButton"),
-      );
-      if (!confirmed) {
-        return;
-      }
-      const result = await window.tanda?.removeRoot(root.id);
-      if (!result?.removed) {
-        return;
-      }
-      trackCache.clear();
-      tandaCache.clear();
-      await renderRoots();
-      await loadStyles();
-      await loadTandaDrafts();
-      await loadCortinaSets();
-      await refreshNewCollectionTracks();
-      await refreshSearch();
-      await renderDiagnosticsDataReadiness();
-      renderClipboard();
-      renderPlaylist();
-      renderAllLists();
-      setStatus(
-        t("statusRootRemoved", {
-          path: result.path,
-          tracks: result.trackCount,
-          tandas: result.tandaCount,
-        }),
-      );
+      await withLibraryMaintenanceProgress(removeBtn, "remove", async () => {
+        const preview = await window.tanda?.getRootRemovalPreview(root.id);
+        if (!preview) {
+          return;
+        }
+        const confirmed = await showConfirmModal(
+          t("confirmRemoveRoot", {
+            kind:
+              preview.kind === "music"
+                ? t("rootMusic")
+                : preview.kind === "cortina"
+                  ? t("rootCortina")
+                  : t("rootBackground"),
+            path: preview.path,
+            tracks: preview.trackCount,
+            tandas: preview.tandaCount,
+            playlists: preview.playlistCount,
+          }),
+          t("removeRootButton"),
+        );
+        if (!confirmed) {
+          return;
+        }
+        const result = await window.tanda?.removeRoot(root.id);
+        if (!result?.removed) {
+          return;
+        }
+        trackCache.clear();
+        tandaCache.clear();
+        await renderRoots();
+        await loadStyles();
+        await loadTandaDrafts();
+        await loadCortinaSets();
+        await refreshNewCollectionTracks();
+        await refreshSearch();
+        await renderDiagnosticsDataReadiness();
+        renderClipboard();
+        renderPlaylist();
+        renderAllLists();
+        setStatus(
+          t("statusRootRemoved", {
+            path: result.path,
+            tracks: result.trackCount,
+            tandas: result.tandaCount,
+          }),
+        );
+      }, root.id);
     });
     row.append(label, kind, status, path, removeBtn);
     rootList.appendChild(row);
@@ -18024,6 +18098,11 @@ const init = async () => {
       },
       applyModeChange: (nextMode, previousMode) => {
         const next = resolveOutputModeValue(nextMode);
+        if (next === "live" && blockPlaybackForLibraryMaintenance()) {
+          if (modeSelect) modeSelect.value = previousMode;
+          localStorage.setItem("tanda-mode", previousMode);
+          return;
+        }
         setAppModeState(next);
         bpmController?.permissionChanged();
         document.body.classList.toggle("mode-live", appMode === "live");
@@ -19388,39 +19467,43 @@ const init = async () => {
     if (!window.tanda || !legacyImportRootPath) {
       return;
     }
-    const confirmed = await showConfirmModal(
-      t("confirmLegacyImport", { path: legacyImportRootPath }),
-    );
-    if (!confirmed) {
-      return;
-    }
-    await applyStoredLegacyStyleMappingsForImport();
-    const result = await window.tanda.importLegacy(legacyImportRootPath);
-    libraryWorkflowLegacyStylesReviewed = true;
-    libraryWorkflowLegacyImported = result.tracksAdded + result.tracksUpdated + result.tandasImported > 0;
-    libraryWorkflowAnalysisCompleted = false;
-    libraryWorkflowReadiness = "idle";
-    const importMessage = t("statusLegacyImportDone", {
-      tandas: result.tandasImported,
-      added: result.tracksAdded,
-      updated: result.tracksUpdated,
-      missing: result.missingTracks,
+    const api = window.tanda;
+    const importRootPath = legacyImportRootPath;
+    await withLibraryMaintenanceProgress(legacyImportButton!, "import", async () => {
+      const confirmed = await showConfirmModal(
+        t("confirmLegacyImport", { path: importRootPath }),
+      );
+      if (!confirmed) {
+        return;
+      }
+      await applyStoredLegacyStyleMappingsForImport();
+      const result = await api.importLegacy(importRootPath);
+      libraryWorkflowLegacyStylesReviewed = true;
+      libraryWorkflowLegacyImported = result.tracksAdded + result.tracksUpdated + result.tandasImported > 0;
+      libraryWorkflowAnalysisCompleted = false;
+      libraryWorkflowReadiness = "idle";
+      const importMessage = t("statusLegacyImportDone", {
+        tandas: result.tandasImported,
+        added: result.tracksAdded,
+        updated: result.tracksUpdated,
+        missing: result.missingTracks,
+      });
+      if (legacyImportResult) {
+        legacyImportResult.textContent = importMessage;
+      }
+      renderLibraryWorkflow();
+      setStatus(importMessage);
+      if (result.missingFiles) {
+        settingsLibraryController.updateScanIssues(result.missingFiles);
+      }
+      await loadTandaDrafts();
+      await refreshNewCollectionTracks();
+      await loadCortinaSets();
+      await updateLegacyImport(result.rootPath);
+      await refreshSearch();
+      await renderDiagnosticsDataReadiness();
+      renderAllLists();
     });
-    if (legacyImportResult) {
-      legacyImportResult.textContent = importMessage;
-    }
-    renderLibraryWorkflow();
-    setStatus(importMessage);
-    if (result.missingFiles) {
-      settingsLibraryController.updateScanIssues(result.missingFiles);
-    }
-    await loadTandaDrafts();
-    await refreshNewCollectionTracks();
-    await loadCortinaSets();
-    await updateLegacyImport(result.rootPath);
-    await refreshSearch();
-    await renderDiagnosticsDataReadiness();
-    renderAllLists();
   });
   legacyReadinessButton?.addEventListener("click", () => {
     void verifyLegacyReadiness();

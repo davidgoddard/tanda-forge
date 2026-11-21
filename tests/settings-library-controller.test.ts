@@ -585,6 +585,16 @@ describe("settings library controller", () => {
     );
   });
 
+  it("marks compression skipped when startup completes without rendering", () => {
+    const elements = createElements();
+    const controller = createController(elements);
+    controller.handleStartupFlowProgress({ phase: "music" });
+    controller.handleStartupFlowProgress({ phase: "cortina" });
+    controller.handleStartupFlowProgress({ phase: "complete" });
+    expect(elements.startupFlowPhaseItems[2].classList.contains("skipped")).toBe(true);
+    expect(elements.startupFlowPhaseItems[2].classList.contains("completed")).toBe(false);
+  });
+
   it("marks startup phases as skipped, current, and completed", () => {
     const elements = createElements();
     const controller = createController(elements);

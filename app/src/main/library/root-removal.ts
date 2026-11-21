@@ -69,12 +69,14 @@ export const getRootRemovalPreview = (
 export const removeLibraryRoot = (
   db: Database.Database,
   rootId: string,
+  progress: (percent: number) => void = () => {},
 ): RootRemovalResult | null => {
   const preview = loadRootPreview(db, rootId);
   if (!preview) {
     return null;
   }
 
+  progress(5);
   const run = db.transaction(() => {
     try {
       const trackIds = (db.prepare("select id from tracks where root_id = ?").all(rootId) as Array<{ id: string }>).map((row) => row.id);
@@ -84,7 +86,13 @@ export const removeLibraryRoot = (
       // schema: root removal must still complete and the schema migration will
       // discard unreachable analysis rows when it next opens.
     }
-    db.prepare("delete from tracks where root_id = ?").run(rootId);
+    progress(20);
+    const ids = db.prepare("select id from tracks where root_id = ?").all(rootId) as Array<{ id: string }>;
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      const batch = ids.slice(offset, offset + 100);
+      db.prepare(`delete from tracks where id in (${batch.map(() => "?").join(",")})`).run(...batch.map(row => row.id));
+      progress(20 + 65 * Math.min(offset + batch.length, ids.length) / ids.length);
+    }
 
     const invalidTandaIds = (
       db
@@ -110,6 +118,7 @@ export const removeLibraryRoot = (
       ).run(...invalidTandaIds);
     }
 
+    progress(95);
     db.prepare("delete from library_roots where id = ?").run(rootId);
   });
 

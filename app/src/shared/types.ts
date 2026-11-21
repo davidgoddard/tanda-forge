@@ -327,6 +327,7 @@ export type AppApi = {
     error?: string;
   }>;
   runStartupFlow: (params: {
+    enabled?: boolean;
     mode: "upward" | "track-leveler";
     liftThresholdDb: number;
     maxLiftDb: number;
@@ -398,6 +399,7 @@ export type AppApi = {
     references: import("./audio-similarity").AudioSimilarityTandaReference[],
     replacementTrackId: string,
   ) => Promise<{ ok: boolean; updated: number }>;
+  onLibraryMaintenanceProgress: (handler: (progress: { operation: "import" | "remove" | "preview"; rootId?: string; percent: number }) => void) => () => void;
   onScanProgress: (handler: (progress: ScanProgress) => void) => () => void;
   onStartupFlowProgress: (handler: (progress: {
     phase: StartupFlowPhase;

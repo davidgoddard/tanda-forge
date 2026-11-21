@@ -67,6 +67,11 @@ const api: AppApi = {
     ipcRenderer.invoke("audio-similarity:replace-tanda-track", tandaId, position, replacementTrackId),
   replaceAudioSimilarityTandaReferences: async (references, replacementTrackId) =>
     ipcRenderer.invoke("audio-similarity:replace-tanda-references", references, replacementTrackId),
+  onLibraryMaintenanceProgress: (handler) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: Parameters<typeof handler>[0]) => handler(progress);
+    ipcRenderer.on("library:maintenanceProgress", listener);
+    return () => { ipcRenderer.removeListener("library:maintenanceProgress", listener); };
+  },
   onScanProgress: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, progress: unknown) => {
       handler(progress as never);

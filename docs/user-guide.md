@@ -950,7 +950,7 @@ You need at least one music folder and, for a full DJ setup, a cortina folder.
 3. (Optional) Click **Add Cortina Folder** and choose a folder.
 4. Follow the **Library setup flow** shown in **Settings > Library**.
 5. If migrating from an older Tanda Player system, review style mappings and use **Legacy Import** first.
-6. Then run **Startup Flow** to scan music/cortinas and build waveform and compressed caches.
+6. If you intend to use compression, first check **Enable live compression control** in **Settings > System**. Then run **Startup Flow** to scan music/cortinas and build waveforms. Compressed cache preparation runs only when compression is enabled.
 7. Finish with **Verify library readiness**.
 8. If you later want to unload a configured folder, use **Remove** beside that root in **Settings -> Library**.
    - Tanda Forge shows a confirmation with the affected track, tanda, and playlist counts first.
@@ -999,7 +999,7 @@ If the database has been erased or corrupted and you do **not** have a full syst
 1. Re-add the music and cortina roots if needed.
 2. If you have old-system data, review style mappings and run **Legacy Import** first.
 3. Run **Startup Flow**.
-4. Wait for music scan, cortina scan, waveform generation, and compressed cache preparation to finish.
+4. Wait for music scan, cortina scan, waveform generation, and (if compression is enabled) compressed cache preparation to finish.
 5. Run **Verify library readiness**.
 
 ### 5) Importing a Playlist Onto Another Laptop
@@ -1117,6 +1117,10 @@ In **Settings -> Library**, the controls are grouped by purpose and tied togethe
 - **Legacy Import** is now a separate one-time migration step.
   - Use it only if you are bringing tandas and metadata across from the old system.
   - It is separate from **Startup Flow** because it replaces existing tanda data rather than behaving like a resumable rebuild step.
+  - Import and root removal run in the background with percentage progress.
+    Stop main playback and leave Live mode first. Main playback and Live mode
+    remain unavailable until the operation (or its confirmation) finishes.
+    Failed imports roll back database changes; errors are shown beside the action.
   - It uses `library.dat` / `cortinas.dat` metadata to prefill the database immediately, including legacy title, artist, singer, vocal/instrumental state, year, BPM, and style-related fields.
   - Re-running **Legacy Import** reloads those metadata values from the legacy files and overwrites the corresponding values already stored in Tanda Forge for matched tracks. In practice, this means edited title / artist / year / style / BPM / notes and related legacy-managed fields are replaced by the legacy values again.
   - Because of that overwrite behavior, **Legacy Import** is normally best treated as a one-time migration step.
@@ -1173,6 +1177,8 @@ on-demand conversion path remains available as a fallback. M4A files are not
 included in background warming: an ALAC WAV is created only when playback first
 requests that track, then retained for subsequent playback until cached files
 are erased.
+
+If you intend to use compression, check **Enable live compression control** in **Settings > System** before running **Startup Flow**. Startup skips compressed cache preparation when this setting is disabled.
 
 If **compression** (dynamic range reduction) is enabled, the system can generate compressed files on demand when a track starts, but this may cause a short delay or CPU spike. Clicking **Precompute compressed cache** renders those compressed companions in advance. This takes a long time, but it is optional and only needed if compression will be used.
 

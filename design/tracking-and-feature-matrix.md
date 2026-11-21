@@ -106,3 +106,15 @@ The following items are still Partial or No in the matrix above:
 | UI-RATING-001.R5 | Implemented | Clear has reserved width; expanded controls span the row without overlapping Tanda size. |
 
 Includes matching SQLite/Playwright dependency updates and applying the macOS Dock icon after the main window appears.
+
+
+## Responsive library preparation — local 0.5.4 integration
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| LDI-007–010 | Implemented | Transactional worker import, indexed matching, reimport after removal, worker root preview/removal and coordinated database access. |
+| CFG-LIB-014–015 | Implemented | Localized progress, mutual exclusion with main playback/Live mode, optional Startup Flow compression and compression-aware readiness. |
+
+Integrated on top of `58d48eb` (0.5.4), retaining ALAC playback, root relocation,
+display fixes and the Unstyled collection. Tango Style Lab derivation is not
+integrated in this base.
