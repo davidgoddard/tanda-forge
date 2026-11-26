@@ -130,6 +130,9 @@ export const en: TranslationMap = {
     dataLocationChoose: "Choose…",
     dataLocationHelp: "Data is stored in a _tp_data folder at the selected location.",
     legacyImportTitle: "Legacy Import",
+    libraryOperationInProgress: "Wait for library import or removal to finish before starting main playback or entering Live mode.",
+    libraryOperationPlaybackBlocked: "Stop main playback and leave Live mode before importing or removing a library.",
+    libraryOperationProgress: "Working — approximately {percent}%",
     legacyImportButton: "Import legacy library",
     legacyStyleReviewDone: "Done reviewing styles",
     legacyReadinessButton: "Verify library readiness",
@@ -155,6 +158,7 @@ export const en: TranslationMap = {
       "Library is still empty. Import legacy data or run a scan before verifying readiness.",
     legacyReadinessSummary:
       "{status} Tracks {total}; missing duration {missingDuration}; missing loudness+gain {missingLoudness}; no trim applied {missingTrimSignals} (informational); analysis errors {analysisErrors}; missing waveforms {missingWaveforms}; compressed audio ready {compressedReady}/{compressedEligible}, missing {compressedMissing}.",
+    legacyReadinessSummaryCompressionDisabled: "{status} Tracks {total}; missing duration {missingDuration}; missing loudness+gain {missingLoudness}; no trim applied {missingTrimSignals} (informational); analysis errors {analysisErrors}; missing waveforms {missingWaveforms}. Compression disabled; compressed cache not required.",
     libraryWorkflowBadge: "Recommended path",
     libraryWorkflowTitle: "Library setup flow",
     libraryWorkflowHelp:

@@ -1,4 +1,3 @@
-import { app } from "electron";
 import fs from "fs";
 import path from "path";
 import { spawn } from "child_process";
@@ -274,6 +273,7 @@ const resolveBinary = (
 };
 
 const resolveFfmpeg = () => {
+  const { app } = require("electron") as typeof import("electron");
   const base = app.isPackaged
     ? path.join(process.resourcesPath, "ffmpeg")
     : path.join(app.getAppPath(), "app", "resources", "ffmpeg");
@@ -293,6 +293,7 @@ const resolveFfmpeg = () => {
 };
 
 const resolveFfprobe = () => {
+  const { app } = require("electron") as typeof import("electron");
   const base = app.isPackaged
     ? path.join(process.resourcesPath, "ffmpeg")
     : path.join(app.getAppPath(), "app", "resources", "ffmpeg");

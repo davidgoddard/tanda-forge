@@ -4988,6 +4988,38 @@ test.describe("Electron app end-to-end workflows", () => {
         .filter((tanda) => tanda.name === "Overlapping Legacy Tanda");
       expect(imported).toHaveLength(2);
       expect(new Set(imported.map((tanda) => tanda.legacy_source_id)).size).toBe(2);
+
+      // Maintenance locks playback/mode changes as soon as confirmation opens,
+      // then releases the controls even when the user cancels.
+      await openSettings(page);
+      await page.locator('button[data-tab="library"]').click();
+      await expandLibraryWorkflowStep(page, "legacy-import");
+      await page.locator("#legacy-import-button").click();
+      await expect(page.locator("#mode-select")).toBeDisabled();
+      const previousMode = await page.locator("#mode-select").inputValue();
+      await page.locator("#mode-select").evaluate((element: HTMLSelectElement) => {
+        element.value = "live";
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      await expect(page.locator("#mode-select")).toHaveValue(previousMode);
+      expect(await page.evaluate(() => localStorage.getItem("tanda-mode"))).toBe(previousMode);
+      await page.locator(".confirm-modal:not(.hidden) .confirm-cancel").click();
+      await expect(page.locator("#mode-select")).toBeEnabled();
+      await expect(page.locator("#legacy-import-button")).toBeEnabled();
+
+      await importLegacyTandasViaSettings(page);
+      await expect(page.locator("#legacy-import-button")).toBeEnabled();
+      await expect(page.locator("#legacy-import-button + .library-maintenance-progress")).toContainText("100%");
+
+      const configuredRoots = await getRootsViaApi(page);
+      const removedRoot = configuredRoots.find(root => root.path === roots[0]);
+      expect(removedRoot).toBeTruthy();
+      await page.evaluate(async id => { await window.tanda?.removeRoot(id); }, removedRoot!.id);
+      await addMusicRootViaSettings(page, roots[0]);
+      await importLegacyTandasViaSettings(page);
+      await expect(page.locator("#legacy-import-button")).toBeEnabled();
+      await expect(page.locator("#legacy-import-button + .library-maintenance-progress")).toContainText("100%");
+      expect((await getTandasViaApi(page)).filter(tanda => tanda.name === "Overlapping Legacy Tanda")).toHaveLength(2);
     } finally {
       await launched.close();
     }

@@ -7,8 +7,8 @@ import {
   summarizeArtistName,
 } from "../shared/tanda-utils";
 import {
+  createLegacyPathResolver,
   normalizeLegacyPath,
-  resolveLegacyPathMatch,
 } from "../shared/legacy-path";
 import type { LibraryRoot } from "./library/scan";
 import type { TandaSavePayload } from "./library/tandas";
@@ -401,6 +401,7 @@ export const loadLegacyLibrary = (libraryPath: string) => {
 };
 
 type RootAudioIndex = {
+  resolve: ReturnType<typeof createLegacyPathResolver>;
   relativePaths: string[];
   fullPathByRelativePath: Map<string, string>;
 };
@@ -432,6 +433,7 @@ const buildRootAudioIndexes = async (roots: LibraryRoot[]) => {
   for (const root of roots) {
     if (!fs.existsSync(root.path)) {
       indexes.set(root.id, {
+        resolve: createLegacyPathResolver([]),
         relativePaths: [],
         fullPathByRelativePath: new Map(),
       });
@@ -440,6 +442,7 @@ const buildRootAudioIndexes = async (roots: LibraryRoot[]) => {
     const files = await walkAudioFiles(root.path);
     const relativePaths = files.map((filePath) => path.relative(root.path, filePath));
     indexes.set(root.id, {
+      resolve: createLegacyPathResolver(relativePaths),
       relativePaths,
       fullPathByRelativePath: new Map(
         relativePaths.map((relativePath, index) => [relativePath, files[index]]),
@@ -454,11 +457,7 @@ const resolveLegacyTrackForRoot = (
   root: LibraryRoot,
   rootAudioIndex: RootAudioIndex | undefined,
 ) => {
-  const relativePath = resolveLegacyPathMatch(
-    legacyPath,
-    root.path,
-    rootAudioIndex?.relativePaths ?? [],
-  );
+  const relativePath = rootAudioIndex?.resolve(legacyPath, root.path);
   if (!relativePath) {
     return null;
   }
@@ -534,11 +533,13 @@ const importLegacyTracks = async (
   roots: LibraryRoot[],
   kind: "music" | "cortina",
   waveformsDir?: string,
+  progress: (fraction: number) => void = () => {},
+  indexes?: Map<string, RootAudioIndex>,
 ) => {
   const db = getDb();
   const now = new Date().toISOString();
   const rootsByKind = roots.filter((root) => root.kind === kind);
-  const rootAudioIndexes = await buildRootAudioIndexes(rootsByKind);
+  const rootAudioIndexes = indexes ?? await buildRootAudioIndexes(rootsByKind);
   if (rootsByKind.length === 0 || entries.size === 0) {
     return { added: 0, updated: 0, missingFiles: [] as { filePath: string; message: string }[] };
   }
@@ -612,7 +613,9 @@ const importLegacyTracks = async (
   let added = 0;
   let updated = 0;
   const missingFiles: { filePath: string; message: string }[] = [];
+  let processed = 0;
   for (const [legacyPath, override] of entries.entries()) {
+    progress(processed++ / entries.size);
     let handled = false;
     for (const root of rootsByKind) {
       const matched = resolveLegacyTrackForRoot(
@@ -777,20 +780,22 @@ const importLegacyTracks = async (
 const buildOverridesForRoots = (
   libraryEntries: Map<string, LegacyTrackOverride>,
   roots: LibraryRoot[],
+  indexes?: Map<string, RootAudioIndex>,
 ) => {
-  return buildOverridesForRootsAsync(libraryEntries, roots);
+  return buildOverridesForRootsAsync(libraryEntries, roots, indexes);
 };
 
 const buildOverridesForRootsAsync = async (
   libraryEntries: Map<string, LegacyTrackOverride>,
   roots: LibraryRoot[],
+  indexes?: Map<string, RootAudioIndex>,
 ) => {
   const overridesByRootId = new Map<string, Map<string, LegacyTrackOverride>>();
   const musicRoots = roots.filter((root) => root.kind === "music");
   if (musicRoots.length === 0) {
     return overridesByRootId;
   }
-  const rootAudioIndexes = await buildRootAudioIndexes(musicRoots);
+  const rootAudioIndexes = indexes ?? await buildRootAudioIndexes(musicRoots);
   for (const [legacyPath, override] of libraryEntries.entries()) {
     for (const root of musicRoots) {
       const matched = resolveLegacyTrackForRoot(
@@ -872,6 +877,8 @@ const importLegacyTandas = async (
   tandasPath: string,
   roots: LibraryRoot[],
   legacyRoot: string,
+  progress: (fraction: number) => void = () => {},
+  indexes?: Map<string, RootAudioIndex>,
 ) => {
   const db = getDb();
   const raw = readLegacyJson<LegacyTandaEntry[]>(tandasPath, []);
@@ -881,13 +888,14 @@ const importLegacyTandas = async (
   }
   const { sourcePath, sourceId } = getLegacySourceIdentity(legacyRoot);
   const preferredRoots = orderLegacyRootsForSource(musicRoots, legacyRoot);
-  const rootAudioIndexes = await buildRootAudioIndexes(preferredRoots);
+  const rootAudioIndexes = indexes ?? await buildRootAudioIndexes(preferredRoots);
   const trackIdStmt = db.prepare(
     "select id from tracks where root_id = ? and relative_path = ?",
   );
   let imported = 0;
   let missingTracks = 0;
   const importTxn = db.transaction(() => raw.forEach((entry, index) => {
+    progress(index / raw.length);
     const rawLabel = entry.label?.trim() ?? "";
     const rawDescription = entry.description?.trim() ?? "";
     const normalizedLabel = normalizeLegacyTandaName(rawLabel);
@@ -903,11 +911,7 @@ const importLegacyTandas = async (
     (entry.tracks ?? []).forEach((legacyTrackPath) => {
       let resolved: string | null = null;
       for (const root of preferredRoots) {
-        const relativePath = resolveLegacyPathMatch(
-          legacyTrackPath,
-          root.path,
-          rootAudioIndexes.get(root.id)?.relativePaths ?? [],
-        );
+        const relativePath = rootAudioIndexes.get(root.id)?.resolve(legacyTrackPath, root.path);
         if (!relativePath) {
           continue;
         }
@@ -937,6 +941,9 @@ const importLegacyTandas = async (
       total_duration_ms: 0,
       track_slots: trackSlots,
     };
+    // Root removal keeps the source tanda marked invalid. Its slots are now
+    // being rebuilt from the new roots, so allow saveTanda to load it again.
+    db.prepare("update tandas set invalid = 0 where id = ?").run(payload.id);
     saveTanda(db, payload);
     db.prepare(
       "update tandas set legacy_source_id = ?, legacy_source_path = ? where id = ?",
@@ -950,7 +957,7 @@ const importLegacyTandas = async (
 export const importLegacyData = async (
   legacyRoot: string,
   roots: LibraryRoot[],
-  options?: { waveformsDir?: string },
+  options?: { waveformsDir?: string; onProgress?: (percent: number) => void },
 ): Promise<LegacyImportResult> => {
   const detected = detectLegacyRoot(legacyRoot);
   if (!detected) {
@@ -964,14 +971,21 @@ export const importLegacyData = async (
       overridesByRootId: new Map(),
     };
   }
+  const progress = options?.onProgress ?? (() => {});
+  progress(2);
+  const indexes = await buildRootAudioIndexes(roots.filter(root => root.kind !== "background"));
+  progress(10);
   const libraryEntries = loadLegacyLibrary(detected.libraryPath);
-  const overridesByRootId = await buildOverridesForRoots(libraryEntries, roots);
+  const overridesByRootId = await buildOverridesForRoots(libraryEntries, roots, indexes);
+  progress(15);
   const waveformsDir = options?.waveformsDir;
   const musicImport = await importLegacyTracks(
     libraryEntries,
     roots,
     "music",
     waveformsDir,
+    fraction => progress(15 + fraction * 55),
+    indexes,
   );
   const cortinaEntries = detected.cortinasPath
     ? loadLegacyLibrary(detected.cortinasPath)
@@ -981,6 +995,8 @@ export const importLegacyData = async (
     roots,
     "cortina",
     waveformsDir,
+    fraction => progress(70 + fraction * 10),
+    indexes,
   );
   const tracksUpdated = musicImport.updated + cortinaImport.updated;
   const tracksAdded = musicImport.added + cortinaImport.added;
@@ -988,6 +1004,8 @@ export const importLegacyData = async (
     detected.tandasPath,
     roots,
     detected.rootPath,
+    fraction => progress(80 + fraction * 19),
+    indexes,
   );
   const missingFiles = [...musicImport.missingFiles, ...cortinaImport.missingFiles];
   return {

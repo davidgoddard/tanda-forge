@@ -246,3 +246,16 @@ Board, Diagnostics, System).
 - CFG-DJ-001: Settings must never interrupt playback.
 - CFG-DJ-002: Missing resources are communicated clearly with specific next actions.
 - CFG-DJ-003: The UI prioritizes clarity and low cognitive load in live contexts.
+
+
+## Responsive library preparation
+
+- CFG-LIB-014: Legacy import and root removal show localized percentage progress
+  and errors. Cancellation of the confirmation restores controls. Main playback
+  and Live mode block these operations; while confirmation/maintenance is open,
+  starting/resuming main playback and entering Live mode are blocked. Pending
+  main playback requests and an active playlist run also block maintenance.
+- CFG-LIB-015: Startup Flow builds compressed companions only when live
+  compression is enabled. Otherwise show that phase as skipped and exclude
+  missing compressed companions from the legacy-readiness failure decision.
+  Explicit manual cache preparation remains available.

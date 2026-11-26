@@ -24,6 +24,9 @@ export class BpmService {
   constructor(private database:()=>Database.Database,private ffmpeg:()=>string,private blocked:()=>boolean) {}
   // Renderer renews this lease only outside live mode/main playback. Missing UI is safe.
   permit(allowed:boolean) { this.permittedUntil=allowed ? Date.now()+5000 : 0; }
+  async waitUntilIdle() {
+    while (this.busy) await new Promise(resolve => setTimeout(resolve, 25));
+  }
   start() { this.timer=setInterval(()=>{void this.tick();},2000); this.timer.unref(); }
   stop() { this.stopped=true; if(this.timer) clearInterval(this.timer); }
   status():BpmStatus {

@@ -64,6 +64,16 @@ describe("evaluateDataReadiness", () => {
     expect(result.blockers).toBe(1);
   });
 
+  it.each([0, 1])("ignores disabled compression but preserves %s analysis errors", (analysisErrors) => {
+    const result = evaluateDataReadiness({
+      totalTracks: 1355, missingDuration: 0, missingLoudness: 0,
+      missingTrimSignals: 0, analysisErrors, missingWaveforms: 0,
+      compressedMissing: 1292,
+    }, false);
+    expect(result.status).toBe(analysisErrors ? "fail" : "pass");
+    expect(result.blockers).toBe(analysisErrors);
+  });
+
   it("passes when no blockers or warnings exist", () => {
     const result = evaluateDataReadiness({
       totalTracks: 10,

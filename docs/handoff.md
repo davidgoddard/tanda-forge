@@ -1,3 +1,26 @@
+## Local responsiveness integration — 2026-11-21
+
+- Branch `integration/responsive-analysis-base` is based on upstream `58d48eb`
+  (0.5.4), retaining ALAC playback, root copy/move, display fixes and Unstyled.
+- Worker-based legacy import/root removal now provides progress and transactional
+  database rollback. Indexed legacy path matching is reused across import stages;
+  removed source tandas can be rebuilt on reimport without duplicate identities.
+- Maintenance serializes database mutations, waits for active BPM work/backups,
+  resolves paths after preceding relocations, and leaves audited display/status/
+  audio-cache requests responsive. Main playback/Live entry is guarded during
+  confirmation and maintenance, including pending playback starts.
+- Startup Flow skips compressed renders when compression is disabled; missing
+  compressed companions then do not fail legacy readiness. See LDI-007–010 in
+  `design/13-legacy-data-reference.md` and CFG-LIB-014–015 in
+  `design/14-settings-and-configuration.md`.
+- Verification: full preflight passed under Electron's matching native SQLite
+  runtime with two workers (130 files / 770 tests plus production build). Four
+  focused Electron workflows passed: prep/edit playback latency, startup rebuild,
+  and multi-source legacy reimport/removal plus maintenance mode guarding.
+- Tango Style Lab derivation remains separate in the sibling `tango-style-lab`
+  directory; this branch is the base for that next integration. The old missing
+  temporary classification worktree contains no saved implementation commits.
+
 ## Version 0.5.4 — ALAC playback compatibility (2026-11-20)
 
 - Windows ALAC-in-M4A playback now probes the audio codec on demand and uses

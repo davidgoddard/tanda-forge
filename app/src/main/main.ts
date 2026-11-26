@@ -1,3 +1,7 @@
+import { MaintenanceCoordinator } from "./library/maintenance-coordinator";
+import { runLibraryMaintenance } from "./library/maintenance";
+import type { LegacyImportResult } from "./legacy-import";
+import { runStartupCompression } from "./library/startup-compression";
 import type { RatingFilter } from "../shared/rating-filter";
 import { getRatingSnapshot } from "./library/rating-filter";
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, session, shell } from "electron";
@@ -69,6 +73,7 @@ import {
   type SearchSortColumn,
 } from "./search-config";
 import {
+  invalidateTrackSearchCache,
   countFuzzyTracks,
   fuzzySearchTracks,
   getScoredSearchTracks,
@@ -117,7 +122,6 @@ import type { ReplicableAudioSimilarityField } from "../shared/audio-similarity"
 import {
   detectLegacyFromRoots,
   detectLegacyRoot,
-  importLegacyData,
   listLegacyStyles,
   type LegacyTrackOverride,
 } from "./legacy-import";
@@ -170,7 +174,8 @@ if (forcedUserDataRoot) {
 }
 
 let scanInProgress = false;
-const bpmService = new BpmService(getDb, bpmFfmpegPath, () => scanInProgress);
+const maintenance = new MaintenanceCoordinator();
+const bpmService = new BpmService(getDb, bpmFfmpegPath, () => scanInProgress || maintenance.busy);
 let legacyOverridesByRootId = new Map<string, Map<string, LegacyTrackOverride>>();
 const LEGACY_OVERRIDES_STATE_KEY = "legacy-overrides-v1";
 const FFMPEG_TOOLS_DIR_STATE_KEY = "ffmpeg-tools-dir-v1";
@@ -419,7 +424,7 @@ const getPlayableWarmupCandidates = () => {
 };
 
 const runPlayableWarmupPass = async () => {
-  if (playableWarmupInFlight) {
+  if (playableWarmupInFlight || maintenance.busy) {
     return;
   }
   playableWarmupInFlight = true;
@@ -885,7 +890,40 @@ const ensureDisplayWindow = () => {
 };
 
 const registerIpc = () => {
-  const ipc = createDomainIpcRegistrar(ipcMain);
+  const ipc = createDomainIpcRegistrar({
+    handle: (channel, handler) => ipcMain.handle(channel, (event, ...args) =>
+      maintenance.request(channel, () => handler(event, ...args))),
+  });
+  const maintain = <T>(
+    event: Electron.IpcMainInvokeEvent,
+    request: Record<string, unknown> | (() => Record<string, unknown>),
+  ): Promise<T> => {
+    if (scanInProgress) return Promise.reject(new Error("SCAN_IN_PROGRESS"));
+    if (getDb().prepare("select 1 from audio_similarity_runs where status in ('running', 'cancelling') limit 1").get()) {
+      return Promise.reject(new Error("Audio similarity analysis is still running"));
+    }
+    return maintenance.exclusive(async () => {
+      await bpmService.waitUntilIdle();
+      // Backup copies must finish before a worker starts changing the database.
+      await systemBackupPromise;
+      if (scanInProgress) throw new Error("SCAN_IN_PROGRESS");
+      if (getDb().prepare("select 1 from audio_similarity_runs where status in ('running', 'cancelling') limit 1").get()) {
+        throw new Error("Audio similarity analysis is still running");
+      }
+      const db = getDb();
+      // Resolve paths only after earlier relocation/data-location requests finish.
+      const data = typeof request === "function" ? request() : request;
+      // Readers (including background cache lookups) keep their old snapshot.
+      db.pragma("journal_mode = WAL");
+      const result = await runLibraryMaintenance<T>({ ...data, filename: db.name }, percent => {
+        if (!event.sender.isDestroyed()) event.sender.send("library:maintenanceProgress", {
+          operation: data.operation, rootId: data.rootId, percent,
+        });
+      });
+      invalidateTrackSearchCache(db);
+      return result;
+    });
+  };
   ipc.handle("bpm:status", () => bpmService.status());
   ipc.handle("bpm:configure", (_event, config: BpmConfig) => {
     setBpmConfig(getDb(), config);
@@ -1242,14 +1280,12 @@ const registerIpc = () => {
     return result;
   });
 
-  ipc.handle("library:getRootRemovalPreview", async (_event, rootId: string) => {
-    const db = getDb();
-    return getRootRemovalPreview(db, rootId);
+  ipc.handle("library:getRootRemovalPreview", async (event, rootId: string) => {
+    return maintain<ReturnType<typeof getRootRemovalPreview>>(event, { operation: "preview", rootId });
   });
 
-  ipc.handle("library:removeRoot", async (_event, rootId: string) => {
-    const db = getDb();
-    const result = removeLibraryRoot(db, rootId);
+  ipc.handle("library:removeRoot", async (event, rootId: string) => {
+    const result = await maintain<ReturnType<typeof removeLibraryRoot>>(event, { operation: "remove", rootId });
     if (result?.kind === "music" || result?.kind === "cortina") {
       schedulePlayableWarmup(5000);
     }
@@ -1273,13 +1309,12 @@ const registerIpc = () => {
       : { available: false, rootPath: "" };
   });
 
-  ipc.handle("legacy:import", async (_event, rootPath: string) => {
-    const db = getDb();
-    const roots = db
-      .prepare("select id, kind, path, label from library_roots")
-      .all() as LibraryRoot[];
-    const { waveformsDir } = getDataPaths();
-    const result = await importLegacyData(rootPath, roots, { waveformsDir });
+  ipc.handle("legacy:import", async (event, rootPath: string) => {
+    const result = await maintain<LegacyImportResult>(event, () => ({
+      operation: "import", rootPath,
+      roots: getDb().prepare("select id, kind, path, label from library_roots").all(),
+      waveformsDir: getDataPaths().waveformsDir,
+    }));
     legacyOverridesByRootId = result.overridesByRootId;
     saveLegacyOverrides();
     schedulePlayableWarmup(5000);
@@ -1481,7 +1516,7 @@ const registerIpc = () => {
 
   ipc.handle(
     "library:runStartupFlow",
-    async (_event, params: CompressionRenderConfig) => {
+    async (_event, params: CompressionRenderConfig & { enabled?: boolean }) => {
       const pushStartupFlowPhase = (phase: StartupFlowPhase) => {
         _event.sender.send("library:startupFlowProgress", { phase });
       };
@@ -1508,8 +1543,10 @@ const registerIpc = () => {
           cortinaRoots.length > 0
             ? await runScan(cortinaRoots)
             : { scanned: 0, added: 0, updated: 0, removed: 0, errors: [] };
-        pushStartupFlowPhase("compression");
-        const precompute = await precomputeCompressedTracksWithProgress(_event.sender, params);
+        const precompute = await runStartupCompression(params.enabled, async () => {
+          pushStartupFlowPhase("compression");
+          return precomputeCompressedTracksWithProgress(_event.sender, params);
+        });
         schedulePlayableWarmup(5000);
         pushStartupFlowPhase("complete");
         return {

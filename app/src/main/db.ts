@@ -1,6 +1,5 @@
 import { ensureBpmSchema } from "./bpm/store";
 import Database from "better-sqlite3";
-import { getDataRoot } from "./data-location";
 import path from "path";
 import fs from "fs";
 import {
@@ -138,12 +137,22 @@ const createSchema = (database: Database.Database) => {
   `);
 };
 
-export const initDb = () => {
+export const openMaintenanceDb = (filename: string) => {
+  if (db) throw new Error("Database already initialized");
+  dbPath = filename;
+  db = new Database(filename);
+  registerSearchSqlFunctions(db);
+  return db;
+};
+
+export const initDb = (dataRoot?: string) => {
   if (db) {
     return db;
   }
 
-  dbPath = path.join(getDataRoot(), "tanda-player.db");
+  // Keep Electron-only data-location code out of the worker module graph.
+  const root = dataRoot ?? (require("./data-location") as typeof import("./data-location")).getDataRoot();
+  dbPath = path.join(root, "tanda-player.db");
   db = new Database(dbPath);
   registerSearchSqlFunctions(db);
   createSchema(db);

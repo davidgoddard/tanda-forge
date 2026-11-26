@@ -35,7 +35,8 @@
     "productName": "Tanda Forge",
     "icon": "app/resources/icons/icon.png",
     "asarUnpack": [
-      "dist/main/bpm/**/*"
+      "dist/main/**/*",
+      "dist/shared/**/*"
     ],
     "files": [
       "dist/**/*",

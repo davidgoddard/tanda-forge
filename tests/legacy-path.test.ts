@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createLegacyPathResolver,
   mapLegacyPathToRelative,
   normalizeLegacyRelativeForMatch,
   resolveLegacyPathMatch,
@@ -39,4 +40,19 @@ describe("legacy path matching", () => {
       "Tango 2023/CD Rip 2024/Roberto Firpo/Tangazos de  Antaño (Reliquias 541727) FLAC/02 Roberto Firpo - Fuegos Artificiales 1938.flac",
     );
   });
+});
+
+it("indexed resolver preserves direct, suffix, Unicode and ambiguous matches", () => {
+  const inventories = [
+    ["Album/Song.mp3", "Other/Song.mp3", "Solo.mp3", "Café/Title.mp3"],
+    ["a.mp3", "A.mp3", "x/a.mp3"],
+    ["a/b/c.mp3", "b/c.mp3", "c.mp3"],
+    [],
+  ];
+  for (const paths of inventories) {
+    const resolve = createLegacyPathResolver(paths);
+    for (const candidate of [...paths, "Song.mp3", "music/Album/Song.mp3", "old/Solo.mp3", "café/title.mp3", "missing.mp3", "old/a/b/c.mp3", ""]) {
+      expect(resolve(candidate, "/new/music")).toBe(resolveLegacyPathMatch(candidate, "/new/music", paths));
+    }
+  }
 });
