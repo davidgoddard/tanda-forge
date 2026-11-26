@@ -973,6 +973,10 @@ Features:
     above the localized "This is the last tanda" message,
   - the final cortina after the stop-triggering tanda shows only the farewell
     headline (localized equivalent of "That's all folks") with no secondary line.
+- UI-060.R14.d: When Last Tanda is enabled, reaching the physical playlist end
+  also selects the farewell headline for its final cortina, even if the
+  configured countdown exceeds the number of available tandas. The farewell
+  remains after playback stops; full-length final-cortina playback is unchanged.
 - UI-060.R15: After the final cortina of a marked-last tanda ends and playback
   stops, the display remains on the farewell cortina state (does not revert to
   generic "Cortina" idle text) until superseded by later playback/display updates.

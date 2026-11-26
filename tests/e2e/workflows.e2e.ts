@@ -3862,6 +3862,52 @@ test.describe("Electron app end-to-end workflows", () => {
     } finally { await launched.close(); }
   });
 
+  for (const remaining of [2, 4]) {
+    test(`physical playlist end keeps farewell with last-tanda count ${remaining}`, async () => {
+      const launched = await prepareMultipleCortinas();
+      const { page } = launched;
+      try {
+        await installAdvancingMediaStub(page, 700, 4_000);
+        await page.locator("#mode-select").selectOption("live");
+        await page.locator("#playlist-last-tanda-count").fill(String(remaining));
+        await page.locator("#playlist-last-tanda").check();
+        await page.locator("#playlist-start").click();
+        const finalRow = page.locator("#playlist-list .cortina-row").last();
+        await expect(finalRow).toHaveClass(/active/, { timeout: 20_000 });
+        await expect.poll(() => page.evaluate(() => (window as any).__e2eDisplaySnapshot?.title)).toBe("That's all folks");
+        await expect(page.locator("#playlist-start")).toBeEnabled({ timeout: 10_000 });
+        await expect.poll(() => page.evaluate(() => (window as any).__e2eDisplaySnapshot?.title)).toBe("That's all folks");
+      } finally { await launched.close(); }
+    });
+  }
+
+  test("marked-last countdown keeps farewell through multiple final cortinas with tandas queued", async () => {
+    const launched = await prepareMultipleCortinas();
+    const { page } = launched;
+    try {
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Tango Trio");
+      await clickRowAction(searchTandaRow(page, "Tango Trio"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+      await ensurePlaylistTab(page);
+      const finalRows = page.locator('#playlist-list .cortina-row[data-cortina-index="2"]');
+      await finalRows.first().locator(".cortina-meta").click();
+      await chooseCortina(page, "Second Cortina", "add");
+      await installAdvancingMediaStub(page, 700, 4_000);
+      await page.locator("#mode-select").selectOption("live");
+      await page.locator("#playlist-last-tanda-count").fill("1");
+      await page.locator("#playlist-last-tanda").check();
+      await page.locator("#playlist-start").click();
+      await expect.poll(() => page.evaluate(() => (window as any).__e2eDisplaySnapshot?.title), { timeout: 15_000 }).toBe("Last Tanda");
+      await expect(finalRows.first()).toHaveClass(/active/, { timeout: 15_000 });
+      await expect.poll(() => page.evaluate(() => (window as any).__e2eDisplaySnapshot?.title)).toBe("That's all folks");
+      await expect(finalRows.nth(1)).toHaveClass(/active/, { timeout: 8_000 });
+      await expect.poll(() => page.evaluate(() => (window as any).__e2eDisplaySnapshot?.title)).toBe("That's all folks");
+      await expect(page.locator("#playlist-start")).toBeEnabled({ timeout: 10_000 });
+      await expect.poll(() => page.evaluate(() => (window as any).__e2eDisplaySnapshot?.title)).toBe("That's all folks");
+    } finally { await launched.close(); }
+  });
+
   test("multiple cortinas - performance announcement and clearing stop on playlist resume", async () => {
     const launched = await prepareMultipleCortinas();
     const { page } = launched;

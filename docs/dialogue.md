@@ -7836,3 +7836,14 @@ The user requested publishing all current feature work on a feature branch at ve
   regression coverage. Combine both Find Tandas fixes: cancel queued searches,
   use visual-only tab activation, reload saved recording usage, ignore stale
   responses, and retain exact results across refresh/paging with size filtering.
+
+## 2026-11-26 — Farewell at the physical playlist end
+
+- User reported the final cortina playing in full while displaying “Last Tanda”
+  rather than “That's all folks”; Last Tanda was enabled and the tanda was also
+  physically last in the playlist.
+- The natural-end path cleared the final-cortina display flag. Preserve it when
+  Last Tanda is enabled, and suppress next-style lookup independently of the
+  remaining countdown so the farewell survives idle (UI-060.R14.d/R15).
+- Regression reproduced the wrong headline before the fix. Five focused E2E
+  workflows and 56 unit tests passed, along with the production build.

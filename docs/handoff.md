@@ -1,3 +1,15 @@
+## Physical-end farewell correction — 2026-11-26
+
+- Main includes PR #52 and now preserves the marked-last farewell when playback
+  reaches the physical playlist end before its configured countdown finishes
+  (UI-060.R14.d/R15). Full-length final-cortina playback is unchanged.
+- Regression reproduced “Last Tanda” instead of “That's all folks” before the
+  fix. Five focused E2E workflows passed, including physical end, longer
+  countdowns, multiple final cortinas with more tandas queued, and idle display.
+- Verification: 130 unit files / 779 tests pass under Electron's matching SQLite
+  runtime with two workers; production build and diff checks pass. Plain
+  preflight still encounters the known host-runtime search-index SIGSEGV.
+
 ## Multiple cortinas — 2026-11-26
 
 - Branch `feature/multiple-cortinas` adds ordered cortina lists with per-member

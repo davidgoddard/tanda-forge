@@ -3004,7 +3004,7 @@ const getCurrentProgressText = () =>
 
 const getNextTandaStyle = () =>
   resolveNextTandaStyle({
-    isMarkedLast: isCurrentTandaFinalLastCountdown(),
+    isMarkedLast: isCurrentTandaMarkedLast(),
     isFinalCortinaPhase:
       isMarkedLastFinalCortinaActive &&
       (cortinaDisplayPhase !== "none" || holdCortinaDisplayWhenIdle),
@@ -10612,7 +10612,9 @@ const runPlaylistPlayback = async (
     while (isPlaylistRunActive(runId)) {
     if (playlistPlayback.currentIndex >= playlistItems.length) {
       if (playedAny && hasCortinasAt(playlistPlayback.currentIndex)) {
-        isMarkedLastFinalCortinaActive = false;
+        // The physical end also closes a marked-last session, even when fewer
+        // tandas remain in the playlist than the configured countdown.
+        isMarkedLastFinalCortinaActive = isCurrentTandaMarkedLast();
         cortinaDisplayPhase = "about";
         const gapOk = await waitBeforeCortina(runId);
         if (!gapOk) {
