@@ -267,7 +267,7 @@ import { createSettingsDiagnosticsController } from "./controllers/settings-diag
 import { createSettingsGeneralController } from "./controllers/settings-general-controller.js";
 import { createAppRuntimeController } from "./controllers/app-runtime-controller.js";
 import { createLibraryListInteractionsController } from "./controllers/library-list-interactions-controller.js";
-import { createPanelInteractionsController } from "./controllers/panel-interactions-controller.js";
+import { createPanelInteractionsController, showPanelTab } from "./controllers/panel-interactions-controller.js";
 import { createPlaylistInteractionsController } from "./controllers/playlist-interactions-controller.js";
 import { createSettingsLibraryController } from "./controllers/settings-library-controller.js";
 import { createSettingsPlaylistController } from "./controllers/settings-playlist-controller.js";
@@ -8378,6 +8378,13 @@ const runSearchForTrack = (track: TrackRow, preferredStyles?: string[]) => {
 
 const runFindTandasForTrack = async (track: TrackRow) => {
   if (!window.tanda || !searchInput) return;
+  // Exact results must supersede queued and in-flight text searches.
+  if (pendingSearchRefreshTimer !== null) {
+    window.clearTimeout(pendingSearchRefreshTimer);
+    pendingSearchRefreshTimer = null;
+  }
+  const version = ++searchRefreshVersion;
+  ++tandaSearchVersion;
   const usage = trackTandaUsageCache.get(track.id)
     ?? (await window.tanda.getTrackTandaUsage([track.id]))[0];
   if (!usage) return;
@@ -8388,6 +8395,7 @@ const runFindTandasForTrack = async (track: TrackRow) => {
   tracks.sort((left, right) => (order.get(left.id) ?? ids.length) - (order.get(right.id) ?? ids.length));
   tracks.forEach((item) => trackCache.set(item.id, item));
   const matchingTandas = await window.tanda.getTandasByIds(usage.tandaIds);
+  if (version !== searchRefreshVersion) return;
   matchingTandas.forEach(upsertTandaCache);
   tandaSearchResults = matchingTandas.map((tanda) => ({
     id: tanda.id,
@@ -8414,7 +8422,11 @@ const runFindTandasForTrack = async (track: TrackRow) => {
   renderTandaSearchResults(true);
   setActiveSearchTabState("search-tandas");
   updateSearchTabVisibility();
-  activatePanelTab(getSearchPanel(), "search-tandas");
+  // Show the tab without its click handler launching a general text search.
+  const panel = getSearchPanel();
+  const button = panel?.querySelector<HTMLElement>('button[data-tab="search-tandas"]');
+  if (panel && button) showPanelTab(button, panel, "search-tandas");
+  applySearchUiState("idle", version, tracks.length);
 };
 
 const resolveSearchStylesForPlaylistIndex = (index: number) => {

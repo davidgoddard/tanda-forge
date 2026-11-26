@@ -1,3 +1,23 @@
+export const showPanelTab = (button: HTMLElement, panel: Element, tabId: string) => {
+  const tabBar = button.closest(".tab-bar");
+  tabBar
+    ?.querySelectorAll<HTMLButtonElement>("button")
+    .forEach((btn) => btn.classList.remove("active"));
+  panel
+    .querySelectorAll<HTMLElement>(".tab-panel, .list-rows")
+    .forEach((list) => list.classList.remove("active"));
+  button.classList.add("active");
+  const targetPanel = panel.querySelector<HTMLElement>(`#${tabId}`);
+  if (targetPanel) {
+    targetPanel.classList.add("active");
+    if (targetPanel.classList.contains("tab-panel")) {
+      targetPanel
+        .querySelectorAll<HTMLElement>(".list-rows")
+        .forEach((list) => list.classList.add("active"));
+    }
+  }
+};
+
 type PanelElements = {
   tandaListEl?: HTMLElement | null;
   playlistTandaEditorEl?: HTMLElement | null;
@@ -116,23 +136,7 @@ export const createPanelInteractionsController = (
         if (!panel) {
           return;
         }
-        const tabBar = button.closest(".tab-bar");
-        tabBar
-          ?.querySelectorAll<HTMLButtonElement>("button")
-          .forEach((btn) => btn.classList.remove("active"));
-        panel
-          .querySelectorAll<HTMLElement>(".tab-panel, .list-rows")
-          .forEach((list) => list.classList.remove("active"));
-        button.classList.add("active");
-        const targetPanel = panel.querySelector<HTMLElement>(`#${tabId}`);
-        if (targetPanel) {
-          targetPanel.classList.add("active");
-          if (targetPanel.classList.contains("tab-panel")) {
-            targetPanel
-              .querySelectorAll<HTMLElement>(".list-rows")
-              .forEach((list) => list.classList.add("active"));
-          }
-        }
+        showPanelTab(button, panel, tabId);
         if (tabId === "search-tracks" || tabId === "search-tandas") {
           deps.actions.setActiveSearchTab(tabId);
           deps.actions.updateSearchTabVisibility();

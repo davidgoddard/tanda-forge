@@ -366,6 +366,11 @@ Behavior:
 - UI-011.R26: In expanded tanda rows, a track's conditional **Find tandas** action
   runs the exact saved-tanda lookup in Search without triggering the row's
   playback behavior. This applies in Playlist as well as Search and Clipboard.
+- UI-011.R26.a: Find tandas must retain the exact saved-tanda membership results
+  for the selected recording and its confirmed recording matches when opening
+  the Tandas tab. Tab activation and older asynchronous text searches must not
+  replace those results. The tanda-size filter still applies; a new explicit
+  search replaces the exact lookup normally.
 
 ---
 

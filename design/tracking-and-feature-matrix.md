@@ -118,3 +118,9 @@ Includes matching SQLite/Playwright dependency updates and applying the macOS Do
 Integrated on top of `58d48eb` (0.5.4), retaining ALAC playback, root relocation,
 display fixes and the Unstyled collection. Tango Style Lab derivation is not
 integrated in this base.
+
+## Find tandas exact results — issue #48
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| UI-011.R26.a | Implemented | Exact recording-membership results survive tab activation; superseded searches are ignored. Existing size filtering and subsequent explicit searches remain supported. |

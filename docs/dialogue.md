@@ -7782,3 +7782,13 @@ The user requested publishing all current feature work on a feature branch at ve
 - Base is upstream `58d48eb` / 0.5.4. Preserve the local changes in a named safety
   stash while integrating; keep Finder metadata locally but untracked as on
   main. No remote push or Style Lab algorithm integration is part of this step.
+
+## 2026-11-26 — Find tandas result overwrite (#48)
+
+- The exact saved-tanda lookup was correct, but programmatically clicking the
+  Tandas tab launched a general text search that replaced its results.
+- Share visual tab activation without dispatching a click for this workflow;
+  invalidate queued/in-flight searches and discard superseded exact lookups.
+  Preserve confirmed recording matches and the existing tanda-size filter
+  (UI-011.R26.a). Regression coverage checks 3/4-track sizes and a subsequent
+  explicit search in `tests/e2e/workflows.e2e.ts`.
