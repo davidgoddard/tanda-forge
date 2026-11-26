@@ -370,6 +370,8 @@ Behavior:
   same-recording aliases, never title similarity. Tab activation, refresh and
   pagination retain these exact results. Editing the query or launching a new
   search exits the exact-result view. Each invocation reloads current saved usage.
+  Queued/in-flight text searches must not overwrite these results. The existing
+  tanda-size filter continues to apply.
 
 ---
 
@@ -436,6 +438,10 @@ Interactions:
   to fill a slot, must still avoid duplicate recordings/titles and enforce the
   configured orchestra repeat interval, and marks each result as auto-generated for DJ
   review. All clear-dialog wording is localized in every supported language.
+- UI-014.R30.a: A base sequence style must admit tracks tagged with its subtypes
+  (for example, Tango admits Tango - Traditional) during generation. Explicit
+  subtype targets remain exact; later cohesion, duplicate and repeat-gap
+  constraints still apply.
 - UI-014.R31: The bottom of Playlist settings contains an **Auto-generation**
   section with a configurable minimum number of projected playlist minutes
   between tandas containing the same canonical orchestra. Auto-fill and

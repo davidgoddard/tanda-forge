@@ -125,3 +125,15 @@ integrated in this base.
 |---|---|---|
 | FR-030.2.R4–5 / UI-012.R9.e–f | Implemented | Ordered editable lists, per-member preview/add/replace/remove, explicit empty positions and whole-playlist refill. |
 | FR-053.R6/R8 / DATA-CORTINA-001 | Implemented | Sequential independent playback controls, count-aware timing, restart/JSON persistence and ordered M3U export. |
+
+## Playlist generation style-family fix
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| UI-014.R30.a | Implemented | Base sequence styles admit subtype-tagged library tracks, preventing empty generated tandas when eligible subtype tracks exist. Explicit subtype targets remain exact. |
+
+## Find tandas exact results — issue #48
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| UI-011.R26.a | Implemented | Exact recording-membership results survive tab activation; superseded searches are ignored. Existing size filtering and subsequent explicit searches remain supported. |

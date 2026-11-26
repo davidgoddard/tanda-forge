@@ -7808,3 +7808,31 @@ The user requested publishing all current feature work on a feature branch at ve
 - Reserve left-side playlist space for generated/unsaved indicators so their
   negative row offset is not clipped by the scrolling container.
 - User reports all E2E tests have been run and requested commit, push and PR.
+
+## 2026-11-26 — Empty auto-generated tandas with subtype-tagged tracks
+
+- Clear + auto-generate reduced sequence styles to base labels, then required
+  exact track-style equality, excluding tracks such as Tango - Traditional.
+- Reuse the existing style-family filter for initial generation eligibility;
+  retain exact subtype selection and subsequent cohesion, duplicate and
+  orchestra-repeat constraints (UI-014.R30.a).
+- The Electron regression reproduced an empty tanda before the fix and passed
+  afterward. The user explicitly requested committing/pushing without additional
+  tests; checkpoint verification records the previously completed focused checks.
+
+## 2026-11-26 — Find tandas result overwrite (#48)
+
+- The exact saved-tanda lookup was correct, but programmatically clicking the
+  Tandas tab launched a general text search that replaced its results.
+- Share visual tab activation without dispatching a click for this workflow;
+  invalidate queued/in-flight searches and discard superseded exact lookups.
+  Preserve confirmed recording matches and the existing tanda-size filter
+  (UI-011.R26.a). Regression coverage checks 3/4-track sizes and a subsequent
+  explicit search in `tests/e2e/workflows.e2e.ts`.
+
+## 2026-11-26 — PR #52 conflict resolution
+
+- Merge current main, preserving subtype-aware playlist generation and its
+  regression coverage. Combine both Find Tandas fixes: cancel queued searches,
+  use visual-only tab activation, reload saved recording usage, ignore stale
+  responses, and retain exact results across refresh/paging with size filtering.

@@ -16,9 +16,15 @@
   Electron's matching native SQLite runtime with two workers; production build
   passes. Plain `npm run preflight` encountered the known host-runtime SQLite
   SIGSEGV in search-index tests, so its unit/build stages were checked separately.
-  The user reports all E2E tests have been run; they were not repeated here.
+  The user previously reported the full E2E run. After merging main for PR #52,
+  all 779 unit tests and the build passed again; three focused Electron checks
+  passed for exact lookup/size filters, playlist playback safety and subtype
+  auto-generation. The full E2E suite was not repeated.
 - Style-analysis work remains on the separate `feature/style-analysis-integration`
   branch; it is not included in this feature branch.
+- PR #52 integrates main's subtype-aware playlist generation and visual-only
+  Find Tandas tab activation. Queued searches are cancelled, stale responses
+  ignored, and exact results continue to honor the tanda-size filter.
 
 ## Local responsiveness integration — 2026-11-21
 

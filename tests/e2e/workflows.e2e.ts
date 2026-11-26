@@ -2168,6 +2168,37 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  test("19b - clear and auto-generate fills tandas from style-family variants", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await page.evaluate(async () => {
+        const tracks = await window.tanda!.listTracks();
+        for (const track of tracks) {
+          await window.tanda!.updateTrack({
+            ...track,
+            genre: `${track.genre} - Traditional`,
+          });
+        }
+        localStorage.setItem("tanda-playlist-sequence", "3t");
+        localStorage.setItem("tanda-playlist-start-time", "20:00");
+        localStorage.setItem("tanda-playlist-end-time", "20:10");
+        localStorage.setItem("tanda-playlist-artist-repeat-gap-min", "0");
+      });
+      await page.reload();
+      await page.waitForSelector("#search-input");
+      await ensurePlaylistTab(page);
+      await page.locator("#playlist-clear").click();
+      await page.locator('.playlist-clear-modal button[data-option="generate"]').click();
+      const firstTanda = page.locator("#playlist-list .tanda-row").first();
+      await expect(firstTanda).toBeVisible();
+      await ensureTandaRowExpanded(firstTanda);
+      await expect(firstTanda.locator('.tanda-detail-line[data-track-id]')).toHaveCount(3);
+    } finally {
+      await launched.close();
+    }
+  });
+
   test("20 - playlist clear in designer tab resets drafts without modal", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
@@ -2325,6 +2356,29 @@ test.describe("Electron app end-to-end workflows", () => {
         .toHaveClass(/placeholder/);
       await expect(editor).toBeVisible();
       await expect(page.locator('button[data-tab="playlist-tab"]')).toHaveClass(/active/);
+    } finally {
+      await launched.close();
+    }
+  });
+
+  test("21c2 - track Find Tandas retains exact membership instead of text results", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      for (const [size, expectedName] of [["3", "Tango Trio"], ["4", "Tango Four"]]) {
+        await page.locator('button[data-tab="search-tandas"]').click();
+        await page.locator("#search-tanda-size").fill(size);
+        await page.locator('button[data-tab="search-tracks"]').click();
+        await runSearch(page, "Alberto Gomez Tango Uno");
+        await clickRowAction(searchTrackRow(page, "Alberto Gomez Tango Uno"), "find-track-tandas");
+        await expect(page.locator('button[data-tab="search-tandas"]')).toHaveClass(/active/);
+        await expect(page.locator("#search-tracks")).toHaveAttribute("data-state", "idle");
+        await expect(page.locator("#search-tandas .tanda-row")).toHaveCount(1);
+        await expect(searchTandaRow(page, expectedName)).toBeVisible();
+      }
+      // A new explicit search must still replace the exact lookup normally.
+      await runSearch(page, "Milonga");
+      await expect(searchTandaRow(page, "Tango Four")).toHaveCount(0);
     } finally {
       await launched.close();
     }
