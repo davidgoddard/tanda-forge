@@ -900,6 +900,10 @@ export const fr: TranslationMap = {
     displayLastTandas4: "Quatre dernieres tandas",
     displayLastTandas5: "Cinq dernieres tandas",
     displayThisIsLastTanda: "C'est la derniere tanda",
+    displaySpecialPerformance: "Place à une représentation spéciale",
+    displayLastTanda: "Dernière tanda",
+    cortinaAutofill: "Remplir les cortinas automatiquement",
+    cortinaAutofillError: "Impossible de remplir les cortinas.",
     displayNoMoreTandas: "C'est tout, les amis",
     searchDiversityOpportunityStyles: "Styles manquants : {styles}",
     searchDiversityOpportunityVariety:

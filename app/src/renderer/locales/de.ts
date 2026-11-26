@@ -901,6 +901,10 @@ export const de: TranslationMap = {
     displayLastTandas4: "Letzte vier Tandas",
     displayLastTandas5: "Letzte funf Tandas",
     displayThisIsLastTanda: "Das ist die letzte Tanda",
+    displaySpecialPerformance: "Zeit für eine besondere Darbietung",
+    displayLastTanda: "Letzte Tanda",
+    cortinaAutofill: "Cortinas automatisch füllen",
+    cortinaAutofillError: "Cortinas konnten nicht automatisch gefüllt werden.",
     displayNoMoreTandas: "Das war's, Leute",
     searchDiversityOpportunityStyles: "Fehlende Stile: {styles}",
     searchDiversityOpportunityVariety:
