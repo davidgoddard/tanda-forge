@@ -2168,6 +2168,37 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  test("19b - clear and auto-generate fills tandas from style-family variants", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await page.evaluate(async () => {
+        const tracks = await window.tanda!.listTracks();
+        for (const track of tracks) {
+          await window.tanda!.updateTrack({
+            ...track,
+            genre: `${track.genre} - Traditional`,
+          });
+        }
+        localStorage.setItem("tanda-playlist-sequence", "3t");
+        localStorage.setItem("tanda-playlist-start-time", "20:00");
+        localStorage.setItem("tanda-playlist-end-time", "20:10");
+        localStorage.setItem("tanda-playlist-artist-repeat-gap-min", "0");
+      });
+      await page.reload();
+      await page.waitForSelector("#search-input");
+      await ensurePlaylistTab(page);
+      await page.locator("#playlist-clear").click();
+      await page.locator('.playlist-clear-modal button[data-option="generate"]').click();
+      const firstTanda = page.locator("#playlist-list .tanda-row").first();
+      await expect(firstTanda).toBeVisible();
+      await ensureTandaRowExpanded(firstTanda);
+      await expect(firstTanda.locator('.tanda-detail-line[data-track-id]')).toHaveCount(3);
+    } finally {
+      await launched.close();
+    }
+  });
+
   test("20 - playlist clear in designer tab resets drafts without modal", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;

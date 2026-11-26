@@ -118,3 +118,9 @@ Includes matching SQLite/Playwright dependency updates and applying the macOS Do
 Integrated on top of `58d48eb` (0.5.4), retaining ALAC playback, root relocation,
 display fixes and the Unstyled collection. Tango Style Lab derivation is not
 integrated in this base.
+
+## Playlist generation style-family fix
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| UI-014.R30.a | Implemented | Base sequence styles admit subtype-tagged library tracks, preventing empty generated tandas when eligible subtype tracks exist. Explicit subtype targets remain exact. |
