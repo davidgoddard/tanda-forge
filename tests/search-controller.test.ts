@@ -53,6 +53,50 @@ describe("search controller", () => {
     expect(state.offsetStart).toBe(0);
   });
 
+  it("keeps exact track/alias results through tab refresh and pagination", async () => {
+    let state = baseState();
+    let exact = true;
+    let searches = 0;
+    const controller = createSearchController<Track>({
+      searchPageSize: 2,
+      restoreExactResults: () => {
+        if (!exact) return false;
+        state = { ...state, items: [{ id: "selected" }, { id: "alias" }], total: 2 };
+        return true;
+      },
+      getWindowApi: () => ({
+        searchTracks: async () => { searches++; return [{ id: "same-title-unrelated" }]; },
+        searchTrackCount: async () => 1,
+        searchJumpIndex: async () => [],
+        searchJumpToPrefix: async () => ({ offset: 0 }),
+      }),
+      getState: () => state,
+      setState: (next) => { state = next; },
+      patchState: (patch) => { state = { ...state, ...patch }; },
+      getSearchParams: () => ({ query: "13" }),
+      applySearchUiState: () => {},
+      getRefreshVersion: () => 1,
+      incrementRefreshVersion: () => 1,
+      setTrackInCache: () => {},
+      renderSearchResults: () => {},
+      updateSearchSortDefaults: () => {},
+      updateTabCount: () => {},
+      updateJumpIndex: async () => {},
+      loadTandaSearchResults: async () => { searches++; },
+      getActiveSearchTab: () => "search-tandas",
+      getSearchListBody: () => null,
+      getSearchListMetrics: () => null,
+      setSearchListScrollTop: () => {},
+    });
+    await controller.refreshSearch();
+    await controller.loadSearchPage(0, "replace");
+    expect(searches).toBe(0);
+    expect(state.items.map((track) => track.id)).toEqual(["selected", "alias"]);
+    exact = false;
+    await controller.refreshSearch();
+    expect(searches).toBe(1);
+  });
+
   it("preserves the active search tab when no override is provided", () => {
     let state = baseState();
     let activatedTab: "search-tracks" | "search-tandas" | null = null;

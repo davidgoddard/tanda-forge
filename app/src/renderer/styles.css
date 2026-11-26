@@ -1323,6 +1323,7 @@ body.theme-dark-classic .collection-tabs button.active {
 }
 
 .playlist-list-body {
+  padding-left: 18px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: auto;
@@ -2716,7 +2717,14 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
 #cortina-modal .modal-card {
   width: min(720px, 90vw);
   height: min(70vh, 640px);
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.cortina-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 #cortina-modal .modal-body {
@@ -2734,6 +2742,11 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   background: transparent;
   border-radius: 0;
   border-bottom: 1px solid var(--border);
+}
+
+#cortina-modal .list-row.cortina-result.selected {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 var(--accent);
 }
 
 #cortina-modal .list-row.cortina-result:hover {

@@ -212,6 +212,10 @@ export const de: TranslationMap = {
     outputWaveformLabel: "Ausgangswellenform",
     waveformLoading: "Wellenform wird geladen...",
     waveformUnavailable: "Wellenform nicht verfugbar",
+    cortinaAutofill: "Playlist-Cortinas automatisch füllen",
+    cortinaAdd: "Hinzufügen",
+    cortinaReplace: "Ersetzen",
+    cortinaRemove: "Entfernen",
     cortinaPickerTitle: "Cortina-Auswahl",
     cortinaSearchLabel: "Suche",
     confirmCloseWhilePlaying:
@@ -871,6 +875,7 @@ export const de: TranslationMap = {
       "Bibliotheksordner entfernt {path}. Entfernte Titel: {tracks}. Ungueltig gemachte Tandas: {tandas}.",
     displayPlayingTrack: "Spiele {index}/{count}",
     displayNowTanda: "Jetzt: {style}\n{artist}",
+    displayMixedStyles: "Gemischte Stile",
     displayNextTanda: "Als Nächstes: {style}\n{artist}",
     displaySinger: "Sänger: {singer}",
     displayVariousArtists: "Verschiedene Interpreten",
@@ -880,6 +885,9 @@ export const de: TranslationMap = {
     displayLastTandas4: "Letzte vier Tandas",
     displayLastTandas5: "Letzte funf Tandas",
     displayThisIsLastTanda: "Das ist die letzte Tanda",
+    displaySpecialPerformance: "Zeit für eine besondere Darbietung",
+    displayLastTanda: "Letzte Tanda",
+    cortinaAutofillError: "Cortinas konnten nicht automatisch gefüllt werden.",
     displayNoMoreTandas: "Das war's, Leute",
     searchDiversityOpportunityStyles: "Fehlende Stile: {styles}",
     searchDiversityOpportunityVariety:

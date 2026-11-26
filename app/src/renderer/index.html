@@ -726,8 +726,14 @@
               <label for="cortina-modal-set" data-i18n="cortinaSetLabel">Cortina set</label>
               <select id="cortina-modal-set"></select>
             </div>
-            <div id="cortina-results" class="list-rows active"></div>
+            <div id="cortina-results" class="list-rows active" role="radiogroup" data-i18n-attr="aria-label" data-i18n="cortinaPickerTitle"></div>
           </div>
+          <footer class="cortina-picker-actions">
+            <button id="cortina-modal-add" disabled data-i18n="cortinaAdd">Add</button>
+            <button id="cortina-modal-replace" disabled data-i18n="cortinaReplace">Replace</button>
+            <button id="cortina-modal-remove" disabled data-i18n="cortinaRemove">Remove</button>
+            <button id="cortina-modal-autofill" data-i18n="cortinaAutofill">Auto-fill playlist cortinas</button>
+          </footer>
         </div>
       </section>
       <section class="settings-panel" id="settings-panel" aria-hidden="true">

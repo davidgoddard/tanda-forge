@@ -5,6 +5,7 @@ export type PlaylistTimingInput = {
   cortinaDurationMs: number;
   cortinaFadeMs: number;
   cortinaEnabled: boolean;
+  cortinaCounts?: number[];
 };
 
 export const computeTandaStartOffsetsMs = ({
@@ -14,19 +15,16 @@ export const computeTandaStartOffsetsMs = ({
   cortinaDurationMs,
   cortinaFadeMs,
   cortinaEnabled,
+  cortinaCounts,
 }: PlaylistTimingInput) => {
   const offsets: number[] = [];
   let offsetMs = 0;
   tandaDurationsMs.forEach((duration, index) => {
-    if (index === 0) {
-      if (cortinaEnabled) {
-        offsetMs += gapBeforeCortinaMs + cortinaDurationMs + cortinaFadeMs;
-        offsetMs += gapBeforeTandaMs;
-      }
-    } else if (cortinaEnabled) {
-      offsetMs += gapBeforeCortinaMs + cortinaDurationMs + cortinaFadeMs;
+    const count = cortinaEnabled ? Math.max(0, cortinaCounts?.[index] ?? 1) : 0;
+    if (count > 0) {
+      offsetMs += gapBeforeCortinaMs + count * (cortinaDurationMs + cortinaFadeMs);
       offsetMs += gapBeforeTandaMs;
-    } else {
+    } else if (index > 0) {
       offsetMs += gapBeforeTandaMs;
     }
     offsets.push(offsetMs);

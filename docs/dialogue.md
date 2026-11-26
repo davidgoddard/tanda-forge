@@ -7783,6 +7783,32 @@ The user requested publishing all current feature work on a feature branch at ve
   stash while integrating; keep Finder metadata locally but untracked as on
   main. No remote push or Style Lab algorithm integration is part of this step.
 
+## 2026-11-26 — Multiple cortinas and whole-playlist refill
+
+- User requested repeatable additions after a cortina, per-member preview and
+  replacement/removal, independent fade/extend/stop, and explicitly empty lists
+  that skip cortinas (FR-030.2.R4, UI-012.R9.e, FR-053.R6/R8).
+- User also requested a picker action to refill the entire playlist. Refill uses
+  the picker set, assigns one member per position, preserves tandas and is
+  disabled during playlist playback (FR-030.2.R5, UI-012.R9.f).
+- Lists persist alongside legacy assignments; JSON preserves empty lists and
+  M3U emits all members in order (DATA-CORTINA-001). Existing M3U import semantics
+  remain unchanged. User requested no tests at this commit/push checkpoint.
+
+
+## 2026-11-26 — Exact Find Tandas and saved display styles
+
+- Find Tandas must follow the selected track identity and its confirmed
+  identical/same-recording aliases. The reported Carabelli “13” case exposed a
+  tab-activation refresh replacing exact results with unrelated title matches.
+  Retain exact results until query editing or another search (UI-011.R26.a).
+- The tanda designer's saved style now takes precedence over song genres on the
+  display board; multiple saved styles use localized “Mixed styles”
+  (UI-060.R16.b), superseding the earlier track-first subtype decision.
+- Reserve left-side playlist space for generated/unsaved indicators so their
+  negative row offset is not clipped by the scrolling container.
+- User reports all E2E tests have been run and requested commit, push and PR.
+
 ## 2026-11-26 — Empty auto-generated tandas with subtype-tagged tracks
 
 - Clear + auto-generate reduced sequence styles to base labels, then required
@@ -7793,7 +7819,7 @@ The user requested publishing all current feature work on a feature branch at ve
 - The Electron regression reproduced an empty tanda before the fix and passed
   afterward. The user explicitly requested committing/pushing without additional
   tests; checkpoint verification records the previously completed focused checks.
-  
+
 ## 2026-11-26 — Find tandas result overwrite (#48)
 
 - The exact saved-tanda lookup was correct, but programmatically clicking the
@@ -7803,3 +7829,10 @@ The user requested publishing all current feature work on a feature branch at ve
   Preserve confirmed recording matches and the existing tanda-size filter
   (UI-011.R26.a). Regression coverage checks 3/4-track sizes and a subsequent
   explicit search in `tests/e2e/workflows.e2e.ts`.
+
+## 2026-11-26 — PR #52 conflict resolution
+
+- Merge current main, preserving subtype-aware playlist generation and its
+  regression coverage. Combine both Find Tandas fixes: cancel queued searches,
+  use visual-only tab activation, reload saved recording usage, ignore stale
+  responses, and retain exact results across refresh/paging with size filtering.

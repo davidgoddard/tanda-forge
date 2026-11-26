@@ -212,6 +212,10 @@ export const fr: TranslationMap = {
     outputWaveformLabel: "Forme de sortie",
     waveformLoading: "Chargement de la forme d'onde...",
     waveformUnavailable: "Forme d'onde indisponible",
+    cortinaAutofill: "Remplir automatiquement les cortinas de la playlist",
+    cortinaAdd: "Ajouter",
+    cortinaReplace: "Remplacer",
+    cortinaRemove: "Retirer",
     cortinaPickerTitle: "Selection de cortinas",
     cortinaSearchLabel: "Recherche",
     confirmCloseWhilePlaying:
@@ -870,6 +874,7 @@ export const fr: TranslationMap = {
       "Dossier de bibliotheque retire {path}. Pistes supprimees : {tracks}. Tandas invalidees : {tandas}.",
     displayPlayingTrack: "Lecture {index}/{count}",
     displayNowTanda: "Maintenant: {style}\n{artist}",
+    displayMixedStyles: "Styles mixtes",
     displayNextTanda: "Ensuite: {style}\n{artist}",
     displaySinger: "Chanteur: {singer}",
     displayVariousArtists: "Artistes varies",
@@ -879,6 +884,9 @@ export const fr: TranslationMap = {
     displayLastTandas4: "Quatre dernieres tandas",
     displayLastTandas5: "Cinq dernieres tandas",
     displayThisIsLastTanda: "C'est la derniere tanda",
+    displaySpecialPerformance: "Place à une représentation spéciale",
+    displayLastTanda: "Dernière tanda",
+    cortinaAutofillError: "Impossible de remplir les cortinas.",
     displayNoMoreTandas: "C'est tout, les amis",
     searchDiversityOpportunityStyles: "Styles manquants : {styles}",
     searchDiversityOpportunityVariety:

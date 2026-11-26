@@ -6,26 +6,23 @@ export type PlaylistPlaybackStatus = "idle" | "playing" | "paused";
 export const resolveTandaDisplayStyle = (params: {
   trackStyles: Array<string | null | undefined>;
   tandaStyles?: Array<string | null | undefined>;
+  mixedStylesLabel: string;
 }) => {
-  const trackStyles = params.trackStyles
+  const tandaStyles = (params.tandaStyles ?? [])
     .map((style) => splitStyleLabel(style ?? ""))
     .filter(({ base }) => Boolean(base));
-  const sourceStyles = trackStyles.length > 0
-    ? trackStyles
-    : (params.tandaStyles ?? [])
+  const sourceStyles = tandaStyles.length > 0
+    ? tandaStyles
+    : params.trackStyles
         .map((style) => splitStyleLabel(style ?? ""))
         .filter(({ base }) => Boolean(base));
-  if (sourceStyles.length === 0) {
-    return null;
-  }
   const fullStyles = Array.from(
     new Set(sourceStyles.map(({ base, variant }) => variant ? `${base} - ${variant}` : base)),
   );
-  if (fullStyles.length === 1) {
-    return fullStyles[0] ?? null;
+  if (fullStyles.length > 1) {
+    return params.mixedStylesLabel;
   }
-  const baseStyles = Array.from(new Set(sourceStyles.map(({ base }) => base)));
-  return baseStyles.join(", ");
+  return fullStyles[0] ?? null;
 };
 
 export const resolveCurrentProgressText = (params: {

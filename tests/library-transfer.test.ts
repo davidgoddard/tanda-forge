@@ -160,6 +160,26 @@ describe("playlist file import", () => {
     return { db, tempDir, libraryRoot, absoluteTrack };
   };
 
+  it("exports and imports ordered cortina lists, repeats, and explicit empty positions", () => {
+    const { db, tempDir, absoluteTrack } = createFixture();
+    const track = { fullPath: absoluteTrack, relativePath: "Tango/song-a.mp3", title: "Song A", artist: "Artist A" };
+    const manifest: PlaylistExportManifest = {
+      format: "tanda-forge-playlist", version: PLAYLIST_EXPORT_VERSION,
+      createdAt: "2026-11-26T00:00:00Z", appVersion: "0.5.4", items: [null],
+      cortinaAssignments: [{ index: 0, track }, { index: 1, track }],
+      cortinaLists: [{ index: 0, tracks: [track, track] }, { index: 1, tracks: [] }],
+    };
+    const jsonPath = path.join(tempDir, "multiple-cortinas.json");
+    fs.writeFileSync(jsonPath, JSON.stringify(manifest));
+    expect(importPlaylistFile(db as never, jsonPath).state.cortinaLists).toEqual([
+      { index: 0, trackIds: ["track-a", "track-a"] }, { index: 1, trackIds: [] },
+    ]);
+    const paths = serializePlaylistExportAsM3u(manifest).split("\n")
+      .filter((line) => line && !line.startsWith("#"));
+    expect(paths).toEqual(["Tango/song-a.mp3", "Tango/song-a.mp3"]);
+    expect(isValidPlaylistExportManifest({ ...manifest, cortinaLists: [{ index: 0, tracks: [null] }] })).toBe(false);
+  });
+
   it("imports tanda forge playlist json by matching absolute paths", () => {
     const { db, tempDir, absoluteTrack } = createFixture();
     const manifest: PlaylistExportManifest = {

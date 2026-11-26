@@ -26,3 +26,13 @@ describe("playlist timing", () => {
     expect(offsets).toEqual([48000, 156000]);
   });
 });
+
+
+it("accounts for every cortina and skips explicitly empty positions", () => {
+  expect(computeTandaStartOffsetsMs({
+    tandaDurationsMs: [60000, 60000, 60000],
+    gapBeforeTandaMs: 4000, gapBeforeCortinaMs: 2000,
+    cortinaDurationMs: 20000, cortinaFadeMs: 2000,
+    cortinaEnabled: true, cortinaCounts: [2, 0, 3],
+  })).toEqual([50000, 114000, 246000]);
+});

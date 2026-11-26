@@ -45,6 +45,7 @@ export type PlaylistExportManifest = {
   items: PortablePlaylistItem[];
   cortinaSet?: string;
   cortinaAssignments?: PortableCortinaAssignment[];
+  cortinaLists?: { index: number; tracks: PortableTrackRef[] }[];
 };
 
 export type TandasExportManifest = {
@@ -89,6 +90,11 @@ export const isValidPlaylistExportManifest = (
     typeof manifest.appVersion !== "string" ||
     !Array.isArray(manifest.items)
   ) {
+    return false;
+  }
+  if (manifest.cortinaLists !== undefined && (!Array.isArray(manifest.cortinaLists)
+    || !manifest.cortinaLists.every((entry) => entry && Number.isInteger(entry.index)
+      && entry.index >= 0 && Array.isArray(entry.tracks) && entry.tracks.every(isPortableTrackRef)))) {
     return false;
   }
   return manifest.items.every((item) => {

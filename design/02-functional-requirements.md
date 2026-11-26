@@ -250,6 +250,12 @@ intentionally deferred.
 - FR-030.2.R1: DJs may replace a cortina immediately before it plays.
 - FR-030.2.R2: UI provides search and browse across all cortina tracks.
 - FR-030.2.R3: Selection takes effect without disrupting playback state.
+- FR-030.2.R4: Each cortina position supports an ordered list of any length, including
+  zero. DJs can add, replace, audition and remove individual members. An empty
+  position stays empty and does not trigger automatic fallback selection.
+- FR-030.2.R5: The picker can refill all cortina positions with one selection
+  from its selected set, preserving playlist tandas and tracks. This operation
+  is unavailable during playlist playback.
 
 ### FR-030.3 Playback Rules
 - FR-030.3.R1: Cortinas play for a defined duration.

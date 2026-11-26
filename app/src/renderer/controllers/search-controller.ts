@@ -11,6 +11,7 @@ export type SearchState<TTrack> = {
 
 export type SearchControllerDeps<TTrack> = {
   searchPageSize: number;
+  restoreExactResults?: () => boolean;
   getWindowApi: () => {
     searchTracks: (params: any) => Promise<TTrack[]>;
     searchTrackCount: (params: any) => Promise<number>;
@@ -50,6 +51,7 @@ export const createSearchController = <TTrack extends { id: string }>(
     mode: "replace" | "append" | "prepend",
     paramsOverride?: Record<string, unknown>,
   ) => {
+    if (deps.restoreExactResults?.()) return;
     const api = deps.getWindowApi();
     const state = deps.getState();
     if (!api || (state.isLoading && mode !== "replace")) {
@@ -95,6 +97,10 @@ export const createSearchController = <TTrack extends { id: string }>(
 
   const refreshSearch = async () => {
     const refreshVersion = deps.incrementRefreshVersion();
+    if (deps.restoreExactResults?.()) {
+      deps.applySearchUiState("idle", refreshVersion, deps.getState().total);
+      return;
+    }
     deps.applySearchUiState("loading", refreshVersion, 0);
     if (deps.getActiveSearchTab() === "search-tandas") {
       const api = deps.getWindowApi();

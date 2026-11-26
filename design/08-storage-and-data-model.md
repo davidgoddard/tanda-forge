@@ -219,3 +219,14 @@ Fields:
 ## DATA-BPM-001 — BPM sources and background analysis
 
 `tracks.user_bpm` preserves entered/imported values; `derived_bpm` stores the local estimate and `bpm_override` a confirmed correction. `tracks.bpm` remains the effective value consumed by existing search/index/display paths. `bpm_config` persists enablement, source preference and pause state. SQLite triggers maintain the effective value and invalidate analysis on file changes. Analysis keys, errors, timestamps and warnings retain processing state. The worker loads the bundled ESM analyser from real files outside ASAR; no cloud or model service is required. See [algorithm explanation](../docs/bpm-measurement.md).
+
+## DATA-CORTINA-001 — Ordered playlist cortina lists
+
+- DATA-CORTINA-001.R1: Playlist state retains legacy single cortinaAssignments
+  and adds optional cortinaLists entries containing index and ordered trackIds.
+  A present empty list overrides default planning; an absent list retains the
+  legacy single-assignment behavior. Hydration includes every referenced ID.
+- DATA-CORTINA-001.R2: JSON manifests carry portable tracks for ordered lists,
+  including empty lists. Import resolves each member against the local library;
+  M3U export emits every member in order. Existing single-cortina files remain
+  compatible. Settings changes to the cortina set reset the assignments.

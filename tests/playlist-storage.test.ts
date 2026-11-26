@@ -128,3 +128,24 @@ describe("playlist storage parsing", () => {
     });
   });
 });
+
+
+describe("ordered cortina lists", () => {
+  it("round-trips repeated cortinas and explicit empty positions", () => {
+    const state = {
+      version: 2 as const,
+      items: [],
+      cortinaLists: [{ index: 0, trackIds: ["c1", "c2", "c1"] }, { index: 1, trackIds: [] }],
+    };
+    const restored = parseStoredPlaylistState(serializeStoredPlaylistState(state));
+    expect(restored?.cortinaLists).toEqual(state.cortinaLists);
+    expect(collectStoredPlaylistTrackIds(restored!)).toEqual(["c1", "c2"]);
+  });
+
+  it("rejects malformed lists without losing valid empty selections", () => {
+    expect(parseStoredPlaylistState(JSON.stringify({
+      version: 2, items: [], cortinaLists: [null, { index: -1, trackIds: [] },
+        { index: 1, trackIds: [null] }, { index: 2, trackIds: [] }],
+    }))?.cortinaLists).toEqual([{ index: 2, trackIds: [] }]);
+  });
+});

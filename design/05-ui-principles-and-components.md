@@ -366,11 +366,12 @@ Behavior:
 - UI-011.R26: In expanded tanda rows, a track's conditional **Find tandas** action
   runs the exact saved-tanda lookup in Search without triggering the row's
   playback behavior. This applies in Playlist as well as Search and Clipboard.
-- UI-011.R26.a: Find tandas must retain the exact saved-tanda membership results
-  for the selected recording and its confirmed recording matches when opening
-  the Tandas tab. Tab activation and older asynchronous text searches must not
-  replace those results. The tanda-size filter still applies; a new explicit
-  search replaces the exact lookup normally.
+- UI-011.R26.a: Find tandas matches track identity and confirmed identical or
+  same-recording aliases, never title similarity. Tab activation, refresh and
+  pagination retain these exact results. Editing the query or launching a new
+  search exits the exact-result view. Each invocation reloads current saved usage.
+  Queued/in-flight text searches must not overwrite these results. The existing
+  tanda-size filter continues to apply.
 
 ---
 
@@ -703,6 +704,13 @@ Behavior:
   changes, those persisted slot assignments are dropped and replacement
   cortinas are re-planned from the new set, while newly added playlist slots
   continue to draw from the current cortina set.
+- UI-012.R9.e: Every cortina member has a headphone preview when available and
+  a plus button to its right. Plus inserts a chosen member immediately afterward.
+  Clicking a member opens replacement selection and a Remove cortina action.
+  Empty positions retain an addable row; active/played members are protected.
+- UI-012.R9.f: The picker offers Auto-fill playlist cortinas for the whole
+  playlist, disabled during playlist playback. Refill restores one member at
+  each position, including deliberately empty positions.
 - UI-012.R10: In Live mode, played tandas are visually muted and their slots are locked
   against edits, swaps, or drops while playback is active.
 - UI-012.R11: In Preparation mode, clicking a playlist track starts playback from that
@@ -997,13 +1005,11 @@ Features:
   distinct normalized artist, the artist portion uses the localized equivalent
   of `Various artists`. The next-tanda area should prefer staying on one line by
   using a smaller font and near-full available width while remaining right-aligned.
-- UI-060.R16.b: Display-board tanda style labels preserve the full style and
-  subtype when all styled tracks in that tanda agree (for example,
-  `Tango - Contemporary`). When track styles differ, the label shows every
-  distinct base style once (for example, Contemporary and Electronic Tango
-  tracks display as `Tango`; mixed Tango and Waltz tracks display as
-  `Tango, Waltz`). Tanda-level styles are the fallback when track style metadata
-  is unavailable.
+- UI-060.R16.b: Display-board tanda style labels use the style saved in the
+  tanda designer, including its subtype, even when song styles differ. Multiple
+  distinct tanda styles show the localized “Mixed styles” label. Track metadata
+  is used only when no tanda style is defined; multiple fallback styles also use
+  the localized mixed label.
 - UI-060.R17: When the playlist is paused at the live-performance stop point,
   the marked tanda's track phase and its final cortina must suppress the
   bottom-right tanda text entirely instead of showing either "Next tanda" or

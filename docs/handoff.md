@@ -1,34 +1,30 @@
-## Playlist generation fix — 2026-11-26
+## Multiple cortinas — 2026-11-26
 
-- Branch `fix/playlist-auto-generation`, based on main `5514b50`, fixes empty
-  generated tandas when tracks have subtype tags such as Tango - Traditional.
-- Initial generation eligibility now uses the existing style-family matcher;
-  explicit subtype targets and later cohesion/duplicate/repeat-gap constraints
-  remain intact (`UI-014.R30.a`). No data migration or version change.
-- Verification completed before this checkpoint: 65 focused unit tests,
-  production build and six Electron workflows passed. The new subtype-library
-  regression reproduced an empty tanda before the fix and passed afterward.
-- At the user's explicit request, no additional tests or full preflight were
-  run for this commit/push checkpoint. Full checkpoint verification remains
-  outstanding; the focused checks above are the verified scope.
-- The separate Find tandas fix is on `fix/48-find-tandas`. Unfinished analysis
-  work remains in the original `feature/style-analysis-integration` workspace.
-  
-## Find tandas fix — 2026-11-26
-
-- Branch `fix/48-find-tandas` is based on main `5514b50` and addresses issue #48.
-- Exact saved-tanda results were overwritten by a general text search launched
-  by programmatic tab activation. Visual activation now avoids that click;
-  queued/in-flight searches are invalidated and superseded lookups discarded.
-- Confirmed recording matches and existing tanda-size filtering are preserved;
-  a new explicit search still replaces the results (`UI-011.R26.a`).
-- Verification: `npm run preflight` passed with Electron's matching native
-  SQLite runtime and two workers (130 files / 770 tests and production build).
-  Four focused Electron workflows passed: Designer actions, playlist-hosted
-  editor actions, exact lookup with 3/4-track filters, and playlist playback safety.
-- Unfinished style-analysis and metadata-display changes remain separately in
-  the original `feature/style-analysis-integration` workspace; they are excluded
-  from this branch. Package version remains 0.5.4.
+- Branch `feature/multiple-cortinas` adds ordered cortina lists with per-member
+  preview, insertion, replacement and removal. Empty lists persist and skip
+  cortina playback; refill in the picker restores one selection per position.
+- Existing single-cortina files remain supported. Lists are included in restart
+  state, JSON transfer, M3U export and projected timing. Each member retains its
+  own fade/extend/stop cycle; only the last may overlap into the next tanda.
+- See the user guide's Multiple cortinas section, FR-030.2.R4–5, UI-012.R9.e–f,
+  FR-053.R6/R8 and DATA-CORTINA-001 for behavior and storage decisions.
+- Version is 0.5.5. Find Tandas now preserves exact track and confirmed
+  recording-alias results across tab refreshes (UI-011.R26.a). Display labels
+  prioritize saved tanda styles, with localized mixed-style labels
+  (UI-060.R16.b); playlist indicators have a left gutter to avoid clipping.
+- Verification at this checkpoint: all 130 unit files / 779 tests pass using
+  Electron's matching native SQLite runtime with two workers; production build
+  passes. Plain `npm run preflight` encountered the known host-runtime SQLite
+  SIGSEGV in search-index tests, so its unit/build stages were checked separately.
+  The user previously reported the full E2E run. After merging main for PR #52,
+  all 779 unit tests and the build passed again; three focused Electron checks
+  passed for exact lookup/size filters, playlist playback safety and subtype
+  auto-generation. The full E2E suite was not repeated.
+- Style-analysis work remains on the separate `feature/style-analysis-integration`
+  branch; it is not included in this feature branch.
+- PR #52 integrates main's subtype-aware playlist generation and visual-only
+  Find Tandas tab activation. Queued searches are cancelled, stale responses
+  ignored, and exact results continue to honor the tanda-size filter.
 
 ## Local responsiveness integration — 2026-11-21
 
