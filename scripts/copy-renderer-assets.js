@@ -9,6 +9,13 @@ for (const name of fs.readdirSync(bpmSource)) {
   fs.copyFileSync(path.join(bpmSource, name), path.join(bpmTarget, name));
 }
 
+const styleSource = path.join(__dirname, "../app/src/main/style/analyzer");
+const styleTarget = path.join(__dirname, "../dist/main/style/analyzer");
+fs.mkdirSync(styleTarget, { recursive: true });
+for (const name of fs.readdirSync(styleSource)) {
+  fs.copyFileSync(path.join(styleSource, name), path.join(styleTarget, name));
+}
+
 const rootDir = path.join(__dirname, "..");
 const srcDir = path.join(rootDir, "app", "src", "renderer");
 const distDir = path.join(rootDir, "dist", "renderer");

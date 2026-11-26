@@ -262,6 +262,12 @@ export type E2ESeedPayload = {
 };
 
 export type AppApi = {
+  analyseBpm: () => Promise<import("./bpm").BpmStatus>;
+  getStyleStatus: () => Promise<import("./style-analysis").StyleStatus>;
+  configureStyle: (config: import("./style-analysis").StyleConfig) => Promise<import("./style-analysis").StyleStatus>;
+  getTrackStyle: (id: string) => Promise<import("./style-analysis").StyleTrack | null>;
+  analyseStyle: () => Promise<import("./style-analysis").StyleStatus>;
+  retryStyle: () => Promise<import("./style-analysis").StyleStatus>;
   getBpmStatus: () => Promise<import("./bpm").BpmStatus>;
   configureBpm: (config: import("./bpm").BpmConfig) => Promise<import("./bpm").BpmStatus>;
   getTrackBpm: (id: string) => Promise<import("./bpm").BpmTrack | null>;

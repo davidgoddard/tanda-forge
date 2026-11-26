@@ -2,6 +2,12 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { AppApi } from "../shared/types";
 
 const api: AppApi = {
+  analyseBpm: () => ipcRenderer.invoke("bpm:analyse"),
+  getStyleStatus: () => ipcRenderer.invoke("style:status"),
+  configureStyle: (config) => ipcRenderer.invoke("style:configure", config),
+  getTrackStyle: (id) => ipcRenderer.invoke("style:track", id),
+  analyseStyle: () => ipcRenderer.invoke("style:analyse"),
+  retryStyle: () => ipcRenderer.invoke("style:retry"),
   getBpmStatus: () => ipcRenderer.invoke("bpm:status"),
   configureBpm: (config) => ipcRenderer.invoke("bpm:configure", config),
   getTrackBpm: (id) => ipcRenderer.invoke("bpm:track", id),

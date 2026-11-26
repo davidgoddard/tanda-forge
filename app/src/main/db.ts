@@ -1,3 +1,4 @@
+import { ensureStyleAnalysisSchema } from "./style/store";
 import { ensureBpmSchema } from "./bpm/store";
 import Database from "better-sqlite3";
 import path from "path";
@@ -272,6 +273,7 @@ export const initDb = (dataRoot?: string) => {
     db.exec("create index if not exists idx_style_aliases_style_name on style_aliases (style_name)");
   } catch {}
   ensureBpmSchema(db);
+  ensureStyleAnalysisSchema(db);
   const searchMigration = ensureSearchSchema(db);
   if ("error" in searchMigration) {
     console.warn(`Search index migration failed; using compatibility search: ${searchMigration.error}`);

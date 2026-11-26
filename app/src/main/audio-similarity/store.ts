@@ -571,24 +571,25 @@ export const replicateAudioSimilarityMetadata = (
   if (!REPLICABLE_FIELDS.has(field)) throw new Error("That metadata field cannot be replicated.");
   const targets = [...new Set(targetTrackIds)].filter((id) => id && id !== sourceTrackId);
   if (!sourceTrackId || targets.length === 0) return { updated: 0, conflicts: [], changes: [] };
-  const column = field === "bpm" ? "user_bpm" : field;
-  const source = database.prepare(`select ${column} as value from tracks where id = ?`)
+  const column = field === "bpm" ? "bpm_override" : field === "genre" ? "user_style" : field;
+  const activeColumn = field === "bpm" ? "bpm_override_active" : field === "genre" ? "user_style_active" : null;
+  const source = database.prepare(`select ${field} as value from tracks where id = ?`)
     .get(sourceTrackId) as { value: AudioSimilarityMetadataChange["newValue"] } | undefined;
   if (!source) throw new Error("The source track is no longer available.");
-  const readTarget = database.prepare(`select ${column} as value from tracks where id = ?`);
-  const update = database.prepare(`update tracks set ${column} = ?, updated_at = ? where id = ?`);
+  const readTarget = database.prepare(`select ${column} as value${activeColumn ? `, ${activeColumn} as active` : ""} from tracks where id = ?`);
+  const update = database.prepare(`update tracks set ${column} = ?${activeColumn ? `, ${activeColumn}=1` : ""}, updated_at = ? where id = ?`);
   const now = new Date().toISOString();
   const changes: AudioSimilarityMetadataChange[] = [];
   for (const target of targets) {
-    const current = readTarget.get(target) as { value: AudioSimilarityMetadataChange["oldValue"] } | undefined;
+    const current = readTarget.get(target) as { value: AudioSimilarityMetadataChange["oldValue"]; active?: number } | undefined;
     if (!current) continue;
     const oldValue = field === "instrumental" && current.value !== null
       ? Boolean(current.value) : current.value;
     const newValue = field === "instrumental" && source.value !== null
       ? Boolean(source.value) : source.value;
-    if (oldValue === newValue) continue;
+    if (oldValue === newValue && (!activeColumn || current.active === 1)) continue;
     update.run(source.value, now, target);
-    changes.push({ trackId: target, field, oldValue, newValue });
+    changes.push({ trackId: target, field, oldValue, newValue, ...(activeColumn ? {oldOverrideActive:current.active??0} : {}) });
   }
   return { updated: changes.length, conflicts: [], changes };
 })();
@@ -605,19 +606,20 @@ export const undoAudioSimilarityMetadata = (
     if (!change?.trackId || !REPLICABLE_FIELDS.has(change.field)) {
       throw new Error("That metadata field cannot be restored.");
     }
-    const column = change.field === "bpm" ? "user_bpm" : change.field;
-    const current = database.prepare(`select ${column} as value from tracks where id = ?`)
-      .get(change.trackId) as { value: AudioSimilarityMetadataChange["newValue"] } | undefined;
+    const column = change.field === "bpm" ? "bpm_override" : change.field === "genre" ? "user_style" : change.field;
+    const activeColumn = change.field === "bpm" ? "bpm_override_active" : change.field === "genre" ? "user_style_active" : null;
+    const current = database.prepare(`select ${column} as value${activeColumn ? `, ${activeColumn} as active` : ""} from tracks where id = ?`)
+      .get(change.trackId) as { value: AudioSimilarityMetadataChange["newValue"]; active?:number } | undefined;
     const normalized = change.field === "instrumental" && current?.value !== null
       ? Boolean(current?.value) : current?.value;
-    if (!current || normalized !== change.newValue) {
+    if (!current || normalized !== change.newValue || (activeColumn && current.active !== 1)) {
       conflicts.push(change.trackId);
       continue;
     }
     const restoredValue = change.field === "instrumental" && typeof change.oldValue === "boolean"
       ? (change.oldValue ? 1 : 0)
       : change.oldValue;
-    database.prepare(`update tracks set ${column} = ?, updated_at = ? where id = ?`)
+    database.prepare(`update tracks set ${column} = ?${activeColumn ? `, ${activeColumn}=${change.oldOverrideActive === 1 ? 1 : 0}` : ""}, updated_at = ? where id = ?`)
       .run(restoredValue, now, change.trackId);
     restored.push(change);
   }

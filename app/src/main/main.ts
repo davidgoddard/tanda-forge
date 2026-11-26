@@ -27,6 +27,7 @@ import {
   verifyCachedFiles,
 } from "./diagnostics";
 import { BpmService } from "./bpm/service";
+import { getTrackStyle, setStyleConfig, saveTrackStyle } from "./style/store";
 import { setBpmConfig, getTrackBpm, saveTrackBpm } from "./bpm/store";
 import { getResolvedFfmpegPath as bpmFfmpegPath } from "./library/analysis";
 import type { BpmConfig } from "../shared/bpm";
@@ -175,7 +176,7 @@ if (forcedUserDataRoot) {
 
 let scanInProgress = false;
 const maintenance = new MaintenanceCoordinator();
-const bpmService = new BpmService(getDb, bpmFfmpegPath, () => scanInProgress || maintenance.busy);
+const bpmService = new BpmService(getDb, bpmFfmpegPath, () => scanInProgress || maintenance.busy, () => invalidateTrackSearchCache(getDb()));
 let legacyOverridesByRootId = new Map<string, Map<string, LegacyTrackOverride>>();
 const LEGACY_OVERRIDES_STATE_KEY = "legacy-overrides-v1";
 const FFMPEG_TOOLS_DIR_STATE_KEY = "ffmpeg-tools-dir-v1";
@@ -924,9 +925,21 @@ const registerIpc = () => {
       return result;
     });
   };
+  ipc.handle("style:status", () => bpmService.status("style"));
+  ipc.handle("style:configure", (_event, config: BpmConfig) => {
+    setStyleConfig(getDb(),config);
+    invalidateTrackSearchCache(getDb());
+    bpmService.revision++;
+    return bpmService.status("style");
+  });
+  ipc.handle("style:track", (_event,id:string) => getTrackStyle(getDb(),id));
+  ipc.handle("style:analyse", () => { bpmService.analyse("style"); return bpmService.status("style"); });
+  ipc.handle("style:retry", () => { bpmService.retry("style"); return bpmService.status("style"); });
+  ipc.handle("bpm:analyse", () => { bpmService.analyse(); return bpmService.status(); });
   ipc.handle("bpm:status", () => bpmService.status());
   ipc.handle("bpm:configure", (_event, config: BpmConfig) => {
     setBpmConfig(getDb(), config);
+    invalidateTrackSearchCache(getDb());
     bpmService.revision++;
     return bpmService.status();
   });
@@ -2131,7 +2144,9 @@ const registerIpc = () => {
       normalized.toLowerCase(),
     );
     db.prepare("delete from style_aliases where style_name = ?").run(normalized);
-    db.prepare("update tracks set genre = null where genre = ?").run(normalized);
+    for (const column of ["imported_style","user_style","derived_style"]) {
+      db.prepare(`update tracks set ${column}=null where ${column}=?`).run(normalized);
+    }
     db.prepare("delete from tanda_styles where style_name = ?").run(normalized);
     return { ok: true };
   });
@@ -2163,10 +2178,9 @@ const registerIpc = () => {
           if (!newStyle || oldStyle === newStyle) {
             return;
           }
-          db.prepare("update tracks set genre = ? where genre = ?").run(
-            newStyle,
-            oldStyle,
-          );
+          for (const column of ["imported_style","user_style","derived_style"]) {
+            db.prepare(`update tracks set ${column}=? where ${column}=?`).run(newStyle,oldStyle);
+          }
           db.prepare(
             "update tanda_styles set style_name = ? where style_name = ?",
           ).run(newStyle, oldStyle);
@@ -2284,6 +2298,7 @@ const registerIpc = () => {
               genreNormalized.toLowerCase(),
             ) as { name: string } | undefined)
         : undefined;
+      if (genreRaw && !styleRow) throw new Error("Unknown style");
       const genre = styleRow?.name ?? "";
       const bpm =
         payload.bpm !== null && payload.bpm !== undefined && Number.isFinite(payload.bpm)
@@ -2300,10 +2315,11 @@ const registerIpc = () => {
             : 0;
       db.transaction(() => {
         saveTrackBpm(db, payload.id, bpm && bpm > 0 ? bpm : null, payload.derivedBpm);
+        saveTrackStyle(db, payload.id, genre || null);
         db.prepare(
           `update tracks
             set title = ?, artist = ?, artist_summary = ?, singer = ?, album = ?,
-                year = ?, genre = ?, notes = ?, instrumental = ?, updated_at = ?
+                year = ?, notes = ?, instrumental = ?, updated_at = ?
             where id = ?`,
         ).run(
           title || null,
@@ -2312,7 +2328,6 @@ const registerIpc = () => {
           singer || null,
           album || null,
           year || null,
-          genre || null,
           notes || null,
           instrumental,
           updatedAt,
@@ -2944,7 +2959,7 @@ const registerIpc = () => {
 
       const insertStyle = db.prepare("insert into styles (name, normalized) values (?, ?)");
       seed.styles.forEach((styleName) => {
-        insertStyle.run(styleName, normalizeStyleName(styleName));
+        insertStyle.run(styleName, normalizeStyleName(styleName).toLowerCase());
       });
 
       const insertTrack = db.prepare(`

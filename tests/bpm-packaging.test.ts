@@ -16,6 +16,7 @@ describe("BPM worker packaging",()=>{
       .toBe(path.join("resources", "app.asar.unpacked", "dist", "main", "library", "maintenance-worker.js"));
     for (const file of [
       "dist/main/bpm/worker.js", "dist/main/bpm/service.js",
+      "dist/main/style/analyzer/api.js", "dist/main/style/analyzer/vals-v1.json", "dist/main/style/analyzer/milonga-v1.json",
       "dist/main/library/maintenance-worker.js", "dist/main/library/root-removal.js",
       "dist/main/db.js", "dist/main/legacy-import.js", "dist/shared/legacy-path.js",
     ]) {

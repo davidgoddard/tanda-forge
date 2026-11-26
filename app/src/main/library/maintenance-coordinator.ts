@@ -6,7 +6,7 @@ const independentChannels = new Set([
   "app:logClientError", "app:logPlaybackDiagnostic",
   "display:open", "display:status", "display:update",
   "audio:getCompressedTrackPath", "audio:renderCompressedTrack", "audio:renderPlayableTrack",
-  "bpm:status", "bpm:track", "bpm:permit",
+  "bpm:status", "bpm:track", "bpm:permit", "style:status", "style:track",
   "library:listRoots", "tracks:getByIds", "tracks:getWaveform",
   "data:getLocation", "diagnostics:getPaths", "diagnostics:getLogs",
   "diagnostics:getFfmpegToolsDir",

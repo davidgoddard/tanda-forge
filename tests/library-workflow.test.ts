@@ -21,6 +21,7 @@ describe("library workflow helper", () => {
     expect(result.guidanceKey).toBe("libraryWorkflowGuidanceRoots");
     expect(result.steps).toEqual([
       { key: "roots", status: "current" },
+      { key: "styles", status: "complete" },
       { key: "legacy-styles", status: "optional" },
       { key: "legacy-import", status: "optional" },
       { key: "analysis", status: "pending" },
@@ -157,4 +158,13 @@ describe("library workflow helper", () => {
       "current",
     );
   });
+});
+
+it("requires style definition after roots and before optional legacy steps or scanning",()=>{
+  const state={hasMusicRoot:true,hasCortinaRoot:true,stylesDefined:false,legacyDetected:true,legacyStylesReviewed:false,legacyImported:false,analysisCompleted:false,readiness:"idle" as const};
+  const result=deriveLibraryWorkflow(state);
+  expect(result.steps.map(step=>step.key)).toEqual(["roots","styles","legacy-styles","legacy-import","analysis","verify"]);
+  expect(result.steps.find(step=>step.key==="styles")?.status).toBe("current");
+  expect(result.steps.find(step=>step.key==="legacy-styles")?.status).toBe("pending");
+  expect(result.guidanceKey).toBe("libraryWorkflowGuidanceStyles");
 });

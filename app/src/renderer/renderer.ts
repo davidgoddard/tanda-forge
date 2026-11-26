@@ -1,3 +1,4 @@
+import { buildTrackSecondaryText, visibleTrackMetadata } from "./modules/track-metadata-view.js";
 import { createBpmController } from "./controllers/bpm-controller.js";
 import { matchesRating, normalizeRatingFilter, type RatingFilter, type RatingSnapshot } from "../shared/rating-filter.js";
 import {
@@ -267,7 +268,7 @@ import { createSettingsDiagnosticsController } from "./controllers/settings-diag
 import { createSettingsGeneralController } from "./controllers/settings-general-controller.js";
 import { createAppRuntimeController } from "./controllers/app-runtime-controller.js";
 import { createLibraryListInteractionsController } from "./controllers/library-list-interactions-controller.js";
-import { createPanelInteractionsController } from "./controllers/panel-interactions-controller.js";
+import { createPanelInteractionsController, showPanelTab } from "./controllers/panel-interactions-controller.js";
 import { createPlaylistInteractionsController } from "./controllers/playlist-interactions-controller.js";
 import { createSettingsLibraryController } from "./controllers/settings-library-controller.js";
 import { createSettingsPlaylistController } from "./controllers/settings-playlist-controller.js";
@@ -494,6 +495,10 @@ const libraryWorkflowPanels = new Map<
   [
     "roots",
     document.querySelector<HTMLDivElement>("#library-workflow-panel-roots"),
+  ],
+  [
+    "styles",
+    document.querySelector<HTMLDivElement>("#library-workflow-panel-styles"),
   ],
   [
     "legacy-styles",
@@ -1391,7 +1396,7 @@ let lastPlayingIndicatorTrackId: string | null = null;
 
 const DEFAULT_PLAYLIST_SEQUENCE = "3t 3t 3w 3t 3t 3m";
 const DEFAULT_STYLE_FAMILIES =
-  "T=Tango:Traditional, Contemporary, Alternative, Electro\nW=Waltz:Traditional, Contemporary, Alternative, Electro\nM=Milonga:Traditional, Contemporary, Alternative, Electro\nO=Other";
+  "T=Tango\nW=Waltz\nM=Milonga\nO=Other";
 const DEFAULT_PLAYLIST_START_TIME = "20:00";
 const getLanguage = () =>
   (localStorage.getItem("tanda-language") as LanguageKey) || "en";
@@ -7974,10 +7979,9 @@ const renderTrackRow = (
   details.className = "track-details";
   const primary = document.createElement("div");
   primary.className = "track-primary";
-  const artist = track.artist ? ` — ${track.artist}` : "";
   const primaryLabel = document.createElement("span");
   primaryLabel.className = "track-primary-label";
-  primaryLabel.textContent = `${track.title}${artist}`;
+  primaryLabel.textContent = [track.title, track.artist].map(visibleTrackMetadata).filter(Boolean).join(" — ");
   primary.title = primaryLabel.textContent;
   primary.appendChild(primaryLabel);
   if (tandaCount > 0) {
@@ -7990,20 +7994,10 @@ const renderTrackRow = (
   }
   const secondary = document.createElement("div");
   secondary.className = "track-secondary";
-  const bpmLabel =
-    track.bpm !== null && track.bpm !== undefined && track.bpm > 0
-      ? `${Math.round(track.bpm)} bpm`
-      : "";
-  const secondaryParts = [
-    track.year,
-    track.album,
-    track.genre,
-    bpmLabel,
-    track.notes,
-  ].filter((value) => value && value.trim().length > 0);
-  secondary.textContent = secondaryParts.join(" · ");
+  secondary.textContent = buildTrackSecondaryText(track);
   secondary.title = secondary.textContent;
-  details.append(primary, secondary);
+  details.appendChild(primary);
+  if (secondary.textContent) details.appendChild(secondary);
   row.append(details, actions);
   attachRowDrag(row, track, context);
   return row;
@@ -8378,6 +8372,13 @@ const runSearchForTrack = (track: TrackRow, preferredStyles?: string[]) => {
 
 const runFindTandasForTrack = async (track: TrackRow) => {
   if (!window.tanda || !searchInput) return;
+  // Exact results must supersede queued and in-flight text searches.
+  if (pendingSearchRefreshTimer !== null) {
+    window.clearTimeout(pendingSearchRefreshTimer);
+    pendingSearchRefreshTimer = null;
+  }
+  const version = ++searchRefreshVersion;
+  ++tandaSearchVersion;
   const usage = trackTandaUsageCache.get(track.id)
     ?? (await window.tanda.getTrackTandaUsage([track.id]))[0];
   if (!usage) return;
@@ -8388,6 +8389,7 @@ const runFindTandasForTrack = async (track: TrackRow) => {
   tracks.sort((left, right) => (order.get(left.id) ?? ids.length) - (order.get(right.id) ?? ids.length));
   tracks.forEach((item) => trackCache.set(item.id, item));
   const matchingTandas = await window.tanda.getTandasByIds(usage.tandaIds);
+  if (version !== searchRefreshVersion) return;
   matchingTandas.forEach(upsertTandaCache);
   tandaSearchResults = matchingTandas.map((tanda) => ({
     id: tanda.id,
@@ -8414,7 +8416,11 @@ const runFindTandasForTrack = async (track: TrackRow) => {
   renderTandaSearchResults(true);
   setActiveSearchTabState("search-tandas");
   updateSearchTabVisibility();
-  activatePanelTab(getSearchPanel(), "search-tandas");
+  // Show the tab without its click handler launching a general text search.
+  const panel = getSearchPanel();
+  const button = panel?.querySelector<HTMLElement>('button[data-tab="search-tandas"]');
+  if (panel && button) showPanelTab(button, panel, "search-tandas");
+  applySearchUiState("idle", version, tracks.length);
 };
 
 const resolveSearchStylesForPlaylistIndex = (index: number) => {
@@ -15734,7 +15740,7 @@ const loadStyles = async () => {
   });
   renderStyleFamilyList();
   renderLegacyStyleMappingTable();
-  if (trackEditorState.track) {
+  if (trackEditorState.track && !isTrackEditorDirty()) {
     fillTrackEditorFields(trackEditorState.track);
   }
 };
@@ -16120,7 +16126,7 @@ const mountLibraryWorkflowPanels = () => {
   const legacyStylesPanel = libraryWorkflowPanels.get("legacy-styles");
   if (legacyStylesPanel) {
     if (styleFamiliesSection) {
-      legacyStylesPanel.appendChild(styleFamiliesSection);
+      libraryWorkflowPanels.get("styles")?.appendChild(styleFamiliesSection);
     }
     if (legacyStyleReviewSection) {
       legacyStylesPanel.appendChild(legacyStyleReviewSection);
@@ -16173,6 +16179,7 @@ const renderLibraryWorkflow = () => {
   const state = {
     hasMusicRoot: libraryWorkflowRoots.some((root) => root.kind === "music"),
     hasCortinaRoot: libraryWorkflowRoots.some((root) => root.kind === "cortina"),
+    stylesDefined: localStorage.getItem("tanda-styles-defined") === "1" || libraryWorkflowAnalysisCompleted || libraryWorkflowLegacyImported,
     legacyDetected: Boolean(legacyImportRootPath),
     legacyStylesReviewed: libraryWorkflowLegacyStylesReviewed,
     legacyImported: libraryWorkflowLegacyImported,
@@ -16187,6 +16194,7 @@ const renderLibraryWorkflow = () => {
   libraryWorkflowInitialExpansionApplied = true;
   const workflow = deriveLibraryWorkflow(state);
   libraryWorkflowSteps.forEach((stepEl) => {
+    stepEl.classList.toggle("hidden", !state.legacyDetected && (stepEl.dataset.step === "legacy-styles" || stepEl.dataset.step === "legacy-import"));
     const status = workflow.steps.find((step) => step.key === stepEl.dataset.step)?.status ?? "pending";
     stepEl.classList.toggle("completed", status === "complete");
     stepEl.classList.toggle("current", status === "current");
@@ -19119,8 +19127,9 @@ const init = async () => {
     try {
       const correction = await bpmController?.correction();
       if (correction?.cancelled) return;
-      const updated = await window.tanda.updateTrack({ ...payload,
-        ...(correction && "derivedBpm" in correction ? { derivedBpm: correction.derivedBpm } : {}),
+      const {bpm,genre,...metadata} = payload;
+      const updated = await window.tanda.updateTrack({ ...metadata,
+        ...(bpmController ? bpmController.editedValues() : {bpm,genre}),
       });
       if (!updated) {
         setStatus(t("statusTrackUpdateFailed"));
@@ -19529,9 +19538,14 @@ const init = async () => {
       renderLibraryWorkflow();
     });
   });
+  document.querySelector("#library-styles-done")?.addEventListener("click", () => {
+    localStorage.setItem("tanda-styles-defined", "1");
+    libraryWorkflowExpandedStep = legacyImportRootPath ? "legacy-styles" : "analysis";
+    renderLibraryWorkflow();
+  });
   libraryRootsDoneButton?.addEventListener("click", () => {
     libraryWorkflowExpandedStepTouched = true;
-    libraryWorkflowExpandedStep = null;
+    libraryWorkflowExpandedStep = "styles";
     renderLibraryWorkflow();
   });
   legacyStyleReviewDoneButton?.addEventListener("click", () => {
@@ -19750,9 +19764,14 @@ const init = async () => {
     api: window.tanda, t, confirm: showConfirmModal,
     permitted: () => appMode !== "live" && !isMainPlaybackActive(),
     error: setStatus,
+    styleBaselineChanged: (style) => {
+      if (trackEditorState.baselineDraft) trackEditorState.baselineDraft.genre = style;
+    },
     refresh: async () => {
       const ids = [...trackCache.keys()];
       if (ids.length) (await window.tanda!.getTracksByIds(ids)).forEach(updateTrackCaches);
+      await loadStyles();
+      await refreshUnstyledCollection();
       await refreshSearch();
       renderAllLists();
     },

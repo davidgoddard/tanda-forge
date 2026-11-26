@@ -1,3 +1,5 @@
+import { ensureBpmSchema, setBpmConfig } from "../app/src/main/bpm/store";
+import { ensureStyleAnalysisSchema, setStyleConfig } from "../app/src/main/style/store";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -541,4 +543,32 @@ describe("audio similarity persistence", () => {
     });
     database.close();
   });
+});
+
+it("metadata copying writes manual sources and undo restores provenance",()=>{
+  const db=createDatabase();
+  try {
+    ensureBpmSchema(db as never);ensureStyleAnalysisSchema(db as never);
+    addTrack(db,"source");addTrack(db,"target");
+    db.exec("update tracks set bpm=60,genre='Tango' where id='source'; update tracks set bpm=70,genre='Waltz' where id='target';");
+    const config={enabled:true,preference:"prefer-user" as const,configured:true,paused:false};
+    setBpmConfig(db as never,config);setStyleConfig(db as never,config);
+    db.exec("update tracks set derived_bpm=65,derived_style='Milonga' where id='source'");
+    const bpm=replicateAudioSimilarityMetadata(db as never,"source",["target"],"bpm");
+    const style=replicateAudioSimilarityMetadata(db as never,"source",["target"],"genre");
+    expect(db.prepare("select user_bpm,bpm_override,bpm,imported_style,user_style,genre from tracks where id='target'").get())
+      .toEqual({user_bpm:70,bpm_override:65,bpm:65,imported_style:"Waltz",user_style:"Milonga",genre:"Milonga"});
+    undoAudioSimilarityMetadata(db as never,[...bpm.changes,...style.changes]);
+    expect(db.prepare("select user_bpm,bpm_override,bpm,imported_style,user_style,genre from tracks where id='target'").get())
+      .toEqual({user_bpm:70,bpm_override:null,bpm:70,imported_style:"Waltz",user_style:null,genre:"Waltz"});
+    db.exec("update tracks set bpm_override=65,user_style='Milonga' where id='target'");
+    setBpmConfig(db as never,{...config,enabled:false});setStyleConfig(db as never,{...config,enabled:false});
+    setBpmConfig(db as never,{...config,preference:"derived-only"});setStyleConfig(db as never,{...config,preference:"derived-only"});
+    const sameBpm=replicateAudioSimilarityMetadata(db as never,"source",["target"],"bpm");
+    const sameStyle=replicateAudioSimilarityMetadata(db as never,"source",["target"],"genre");
+    expect(sameBpm.updated).toBe(1);expect(sameStyle.updated).toBe(1);
+    undoAudioSimilarityMetadata(db as never,[...sameBpm.changes,...sameStyle.changes]);
+    expect(db.prepare("select bpm,genre,bpm_override_active,user_style_active from tracks where id='target'").get())
+      .toEqual({bpm:null,genre:null,bpm_override_active:0,user_style_active:0});
+  } finally { db.close(); }
 });

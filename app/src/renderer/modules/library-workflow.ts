@@ -2,6 +2,7 @@ export type LibraryWorkflowReadiness = "idle" | "pass" | "warn" | "fail";
 
 export type LibraryWorkflowStepKey =
   | "roots"
+  | "styles"
   | "legacy-styles"
   | "legacy-import"
   | "analysis"
@@ -17,6 +18,7 @@ export type LibraryWorkflowStepStatus =
 export type LibraryWorkflowState = {
   hasMusicRoot: boolean;
   hasCortinaRoot: boolean;
+  stylesDefined?: boolean;
   legacyDetected: boolean;
   legacyStylesReviewed: boolean;
   legacyImported: boolean;
@@ -34,6 +36,7 @@ export const getLibraryWorkflowGuidanceKey = (
   focusedStep?: LibraryWorkflowStepKey | null,
 ) => {
   if (focusedStep) {
+    if (focusedStep === "styles") return "libraryWorkflowGuidanceStyles";
     if (focusedStep === "roots") {
       return "libraryWorkflowGuidanceRoots";
     }
@@ -49,6 +52,7 @@ export const getLibraryWorkflowGuidanceKey = (
   }
   return !state.hasMusicRoot || !state.hasCortinaRoot
     ? "libraryWorkflowGuidanceRoots"
+    : state.stylesDefined === false ? "libraryWorkflowGuidanceStyles"
     : state.legacyDetected && !state.legacyImported
       ? "libraryWorkflowGuidanceLegacy"
       : !state.analysisCompleted
@@ -75,6 +79,7 @@ export const resolveLibraryWorkflowExpandedStep = (
 
 export const deriveLibraryWorkflow = (state: LibraryWorkflowState) => {
   const rootsReady = state.hasMusicRoot && state.hasCortinaRoot;
+  const stylesReady = state.stylesDefined !== false;
   const importNeeded = state.legacyDetected;
   const legacyStylesDone =
     !importNeeded || state.legacyStylesReviewed || state.legacyImported;
@@ -84,9 +89,10 @@ export const deriveLibraryWorkflow = (state: LibraryWorkflowState) => {
       key: "roots",
       status: rootsReady ? "complete" : "current",
     },
+    { key: "styles", status: stylesReady ? "complete" : rootsReady ? "current" : "pending" },
     {
       key: "legacy-styles",
-      status: !importNeeded ? "optional" : legacyStylesDone ? "complete" : "current",
+      status: !importNeeded ? "optional" : legacyStylesDone ? "complete" : rootsReady && stylesReady ? "current" : "pending",
     },
     {
       key: "legacy-import",
@@ -94,7 +100,7 @@ export const deriveLibraryWorkflow = (state: LibraryWorkflowState) => {
         ? "optional"
         : state.legacyImported
           ? "complete"
-          : rootsReady && legacyStylesDone
+          : rootsReady && stylesReady && legacyStylesDone
             ? "current"
             : "pending",
     },
@@ -102,7 +108,7 @@ export const deriveLibraryWorkflow = (state: LibraryWorkflowState) => {
       key: "analysis",
       status: state.analysisCompleted
         ? "complete"
-        : !rootsReady || (importNeeded && !state.legacyImported)
+        : !rootsReady || !stylesReady || (importNeeded && !state.legacyImported)
           ? "pending"
           : "current",
     },

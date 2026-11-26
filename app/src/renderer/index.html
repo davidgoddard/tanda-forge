@@ -628,9 +628,12 @@
               </div>
             </div>
             <div class="modal-field">
+              <div class="track-editor-analysis-label">
               <label for="track-editor-genre" data-i18n="trackEditorGenreLabel">
                 Style
               </label>
+              <p id="track-editor-style-details" class="modal-hint"></p>
+              </div>
               <div class="modal-field-with-action">
                 <select id="track-editor-genre"></select>
                 <button
@@ -660,9 +663,12 @@
               </div>
             </div>
             <div class="modal-field">
+              <div class="track-editor-analysis-label">
               <label for="track-editor-bpm" data-i18n="bpmUserLabel">
                 BPM
               </label>
+              <p id="track-editor-bpm-details" class="modal-hint"></p>
+              </div>
               <div class="modal-bpm-row">
                 <input id="track-editor-bpm" type="number" min="0" step="1" />
                 <button
@@ -684,12 +690,6 @@
                 <div id="track-editor-tap-hint" class="modal-hint" data-i18n="trackEditorTapHint">
                   Tap to set BPM · Wait 3 seconds to reset
                 </div>
-              </div>
-              <div id="track-editor-derived-section" hidden>
-                <label for="track-editor-derived-bpm" data-i18n="bpmDerivedLabel">Derived BPM / correction</label>
-                <input id="track-editor-derived-bpm" type="number" min="1" max="1000" step="1" />
-                <p id="track-editor-bpm-details" class="modal-hint"></p>
-                <p data-i18n="bpmCorrectionHelp">Tap updates the derived BPM above. Saving asks you to confirm a correction. Clear it to use the analyser result again.</p>
               </div>
               <div id="track-editor-path" class="modal-hint track-editor-path"></div>
               <div id="track-editor-compressed-path" class="modal-hint track-editor-path"></div>
@@ -827,6 +827,39 @@
                         type="button"
                         class="library-workflow-step-toggle"
                         data-step-toggle="roots"
+                        data-i18n-attr="aria-label,title"
+                        data-i18n="libraryWorkflowExpandStep"
+                        aria-expanded="false"
+                        aria-label="Expand step"
+                        title="Expand step"
+                      >
+                        <span class="library-workflow-step-toggle-icon" aria-hidden="true">▸</span>
+                        <span class="library-workflow-step-toggle-label sr-only" data-i18n="libraryWorkflowExpandStep">Expand step</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="library-workflow-step" data-step="styles">
+                    <button
+                      type="button"
+                      class="library-workflow-step-marker"
+                      data-step-expand="styles"
+                      data-i18n-attr="aria-label,title"
+                      data-i18n="libraryWorkflowExpandStep"
+                      aria-label="Expand step"
+                      title="Expand step"
+                    ></button>
+                    <div class="library-workflow-step-copy">
+                      <div class="library-workflow-step-row">
+                        <span data-i18n="libraryWorkflowStepStyles">Define styles and sub-types</span>
+                        <span class="library-workflow-step-badge" data-i18n="libraryWorkflowRequired">Required</span>
+                      </div>
+                      <div class="library-workflow-step-note" data-i18n="libraryWorkflowGuidanceStyles">
+                        Define the top-level styles and any optional sub-types.
+                      </div>
+                      <button
+                        type="button"
+                        class="library-workflow-step-toggle"
+                        data-step-toggle="styles"
                         data-i18n-attr="aria-label,title"
                         data-i18n="libraryWorkflowExpandStep"
                         aria-expanded="false"
@@ -981,6 +1014,7 @@
                       Expand a step on the left to focus its related controls here.
                     </div>
                     <div id="library-workflow-panel-roots" class="library-workflow-panel hidden"></div>
+                    <div id="library-workflow-panel-styles" class="library-workflow-panel hidden"></div>
                     <div id="library-workflow-panel-legacy-styles" class="library-workflow-panel hidden"></div>
                     <div id="library-workflow-panel-legacy-import" class="library-workflow-panel hidden"></div>
                     <div id="library-workflow-panel-analysis" class="library-workflow-panel hidden"></div>
@@ -1022,6 +1056,7 @@
                 </div>
                 <div id="style-family-list" class="style-family-list"></div>
               </div>
+              <button id="library-styles-done" data-i18n="libraryStylesDone">Done defining styles</button>
             </div>
             <div id="legacy-style-review-section" class="settings-section setup-card setup-card-warn hidden">
               <div class="settings-eyebrow" data-i18n="legacyImportBadge">One-time migration</div>
@@ -1590,7 +1625,8 @@
                 </div>
               </section>
 
-              <section class="settings-group settings-group-wide" id="bpm-settings">
+              <div class="settings-analysis-panels settings-group-wide">
+              <section class="settings-group" id="bpm-settings">
                 <h4 data-i18n="systemGroupBpm">BPM</h4>
                 <div class="settings-group-grid">
                   <div class="settings-field wide">
@@ -1598,15 +1634,17 @@
                       <input type="checkbox" id="bpm-enabled" />
                       <span data-i18n="bpmEnable">Enable automatic BPM analysis</span>
                     </label>
-                    <p data-i18n="bpmHelp">Analyses existing and newly imported music. Disabling restores your entered BPM values.</p>
+                    <p data-i18n="analysisHelp">Enable for future imports. Analyse all tracks to process or reanalyse the existing library. Disabling stops analysis and retains values.</p>
                   </div>
                   <div class="settings-field wide">
                     <label for="bpm-preference" data-i18n="bpmPreference">Which BPM should Tanda Forge use?</label>
                     <select id="bpm-preference">
-                      <option value="prefer-user" data-i18n="bpmPreferUser">Prefer my entered BPM; otherwise use derived BPM</option>
-                      <option value="derived-only" data-i18n="bpmDerivedOnly">Always use derived BPM</option>
+                      <option value="prefer-user" data-i18n="analysisUserPreferred">User preferred</option>
+                      <option value="default-only" data-i18n="analysisDefaultOnly">Default only</option>
+                      <option value="derived-only" data-i18n="analysisAlways">Always use derived BPM</option>
                     </select>
                     <div class="settings-inline">
+                      <button id="bpm-analyse" data-i18n="analysisAll">Analyse all tracks</button>
                       <button id="bpm-pause" data-i18n="bpmPause">Pause analysis</button>
                       <button id="bpm-retry" data-i18n="bpmRetry">Retry unsuccessful tracks</button>
                     </div>
@@ -1614,6 +1652,35 @@
                   </div>
                 </div>
               </section>
+
+              <section class="settings-group" id="style-settings">
+                <h4 data-i18n="systemGroupStyle">Style</h4>
+                <div class="settings-group-grid">
+                  <div class="settings-field wide">
+                    <label class="settings-checkbox" for="style-enabled">
+                      <input type="checkbox" id="style-enabled" />
+                      <span data-i18n="styleEnable">Enable automatic style analysis</span>
+                    </label>
+                    <p data-i18n="analysisHelp">Enable for future imports. Analyse all tracks to process or reanalyse the existing library. Disabling stops analysis and retains values.</p>
+                  </div>
+                  <div class="settings-field wide">
+                    <label for="style-preference" data-i18n="stylePreference">Which style should Tanda Forge use?</label>
+                    <select id="style-preference">
+                      <option value="prefer-user" data-i18n="analysisUserPreferred">User preferred</option>
+                      <option value="default-only" data-i18n="analysisDefaultOnly">Default only</option>
+                      <option value="derived-only" data-i18n="analysisAlways">Always use derived BPM</option>
+                    </select>
+                    <div class="settings-inline">
+                      <button id="style-analyse" data-i18n="analysisAll">Analyse all tracks</button>
+                      <button id="style-pause" data-i18n="bpmPause">Pause analysis</button>
+                      <button id="style-retry" data-i18n="bpmRetry">Retry unsuccessful tracks</button>
+                    </div>
+                    <p id="style-status" role="status" aria-live="polite"></p>
+                  </div>
+                </div>
+              </section>
+
+              </div>
 
               <section class="settings-group settings-group-wide">
                 <h4 data-i18n="systemGroupData">Data</h4>

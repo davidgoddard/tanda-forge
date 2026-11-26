@@ -348,7 +348,7 @@ export const scanLibraryRoots = async (
 
   const existsStmt = db.prepare(
     `select id, file_hash, file_size, file_mtime_ms, title, artist, artist_summary, singer,
-      album, year, genre, user_bpm as bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms,
+      album, year, imported_style as genre, user_bpm as bpm, notes, instrumental, duration_ms, start_offset_ms, end_trim_ms,
       loudness_db, gain_db, tag_error, analysis_error, tag_json, analysis_json
      from tracks where root_id = ? and relative_path = ?`,
   );

@@ -564,7 +564,7 @@ const importLegacyTracks = async (
     styleMap.set(row.alias_normalized.toLowerCase(), row.style_name);
   });
   const selectStmt = db.prepare(
-    `select id, title, artist, album, year, genre, bpm, notes, singer, instrumental, created_at,
+    `select id, title, artist, album, year, imported_style as genre, user_bpm as bpm, notes, singer, instrumental, created_at,
         file_hash, file_size, file_mtime_ms, duration_ms, start_offset_ms, end_trim_ms,
         loudness_db, gain_db, tag_error, analysis_error, tag_json, analysis_json
      from tracks where root_id = ? and relative_path = ?`,
@@ -820,7 +820,7 @@ const applyLegacyOverrides = (
 ) => {
   const db = getDb();
   const selectStmt = db.prepare(
-    `select title, artist, album, year, genre, user_bpm as bpm, notes
+    `select title, artist, album, year, imported_style as genre, user_bpm as bpm, notes
      from tracks where root_id = ? and relative_path = ?`,
   );
   const updateStmt = db.prepare(

@@ -62,6 +62,7 @@ export type ReplicableAudioSimilarityField =
 export type AudioSimilarityMetadataValue = string | number | boolean | null;
 
 export type AudioSimilarityMetadataChange = {
+  oldOverrideActive?: number;
   trackId: string;
   field: ReplicableAudioSimilarityField;
   oldValue: AudioSimilarityMetadataValue;
