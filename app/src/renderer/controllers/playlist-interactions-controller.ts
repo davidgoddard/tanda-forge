@@ -64,7 +64,7 @@ export type PlaylistInteractionsControllerDeps = {
     appendTandaDraft: (draft: TandaDraft) => TandaDraft;
     generateDesignerTanda: () => Promise<void>;
     setActiveTanda: (tandaId: string) => void;
-    openCortinaModal: (index: number | null, position?: number, add?: boolean) => void;
+    openCortinaModal: (index: number | null, position?: number) => void;
     toggleTandaRow: (row: HTMLElement) => void;
     closeDetailMenus: () => void;
     closeRowMenus: () => void;
@@ -276,7 +276,6 @@ export const createPlaylistInteractionsController = (
         deps.actions.openCortinaModal(
           Number.isNaN(index ?? NaN) ? null : index,
           Number.parseInt(row.dataset.cortinaPosition ?? "0", 10) || 0,
-          action === "add-cortina",
         );
         return;
       }

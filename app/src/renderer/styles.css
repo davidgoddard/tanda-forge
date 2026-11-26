@@ -2743,6 +2743,11 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   border-bottom: 1px solid var(--border);
 }
 
+#cortina-modal .list-row.cortina-result.selected {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 var(--accent);
+}
+
 #cortina-modal .list-row.cortina-result:hover {
   background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
 }

@@ -213,8 +213,9 @@ export const pt: TranslationMap = {
     waveformLoading: "Carregando forma de onda...",
     waveformUnavailable: "Forma de onda indisponivel",
     cortinaAutofill: "Preencher automaticamente as cortinas da playlist",
-    cortinaAdd: "Adicionar cortina",
-    cortinaRemove: "Remover cortina",
+    cortinaAdd: "Adicionar",
+    cortinaReplace: "Substituir",
+    cortinaRemove: "Remover",
     cortinaPickerTitle: "Seletor de cortinas",
     cortinaSearchLabel: "Buscar",
     confirmCloseWhilePlaying:
@@ -883,6 +884,9 @@ export const pt: TranslationMap = {
     displayLastTandas4: "Ultimas quatro tandas",
     displayLastTandas5: "Ultimas cinco tandas",
     displayThisIsLastTanda: "Esta e a ultima tanda",
+    displaySpecialPerformance: "Hora de uma apresentação especial",
+    displayLastTanda: "Última tanda",
+    cortinaAutofillError: "Não foi possível preencher as cortinas.",
     displayNoMoreTandas: "E isso, pessoal",
     searchDiversityOpportunityStyles: "Estilos em falta: {styles}",
     searchDiversityOpportunityVariety:

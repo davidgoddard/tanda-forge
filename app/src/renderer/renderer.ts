@@ -1128,7 +1128,7 @@ const updateE2eRuntimeSnapshot = () => {
 };
 let pendingCortinaTargetIndex: number | null = null;
 let pendingCortinaPosition = 0;
-let pendingCortinaAdd = false;
+let selectedCortinaTrack: TrackRow | null = null;
 const pulsePlaylistIndices = new Set<number>();
 const pulseCortinaIndices = new Set<number>();
 const pulseClipboardTrackIds = new Set<string>();
@@ -3158,9 +3158,14 @@ const updateExternalDisplay = () => {
   const isMarkedLast = isCurrentTandaMarkedLast();
   const showFinalCortinaMessage = isFinalCortinaForMarkedLast(isMarkedLast, nextStyle);
   const suppressPerformanceStopText = shouldSuppressPerformanceStopDisplayText();
-  const cortinaHeadline = showFinalCortinaMessage
-    ? t("displayNoMoreTandas")
-    : t("cortinaRowLabel");
+  const cortinaHeadline = isPerformanceStopFinalCortinaActive ||
+    (holdPerformanceStopDisplayBlankWhenIdle && isCurrentTandaMarkedPerformanceStop())
+    ? t("displaySpecialPerformance")
+    : showFinalCortinaMessage
+      ? t("displayNoMoreTandas")
+      : isCurrentTandaFinalLastCountdown() && !isMarkedLastFinalCortinaActive
+        ? t("displayLastTanda")
+        : t("cortinaRowLabel");
   const cortinaSubline = showFinalCortinaMessage || suppressPerformanceStopText
     ? ""
     : nextStyle
@@ -9696,14 +9701,6 @@ const renderCortinaRows = (index: number, startMinutes?: number) => {
       trackCache.set(track.id, track);
       if (headphoneAvailable) actions.appendChild(buildHeadphoneButton(track.id));
     }
-    const add = document.createElement("button");
-    add.type = "button";
-    add.dataset.action = "add-cortina";
-    add.textContent = "+";
-    add.title = t("cortinaAdd");
-    add.setAttribute("aria-label", t("cortinaAdd"));
-    add.disabled = !isCortinaPositionEditable(index, position, true);
-    actions.appendChild(add);
     row.append(time, label, actions);
     applyPulseToRow(row, pulseCortinaIndices, index);
     return row;
@@ -9711,6 +9708,7 @@ const renderCortinaRows = (index: number, startMinutes?: number) => {
 };
 
 const renderPlaylist = () => {
+  if (cortinaModal?.classList.contains("open")) updateCortinaPickerActions();
   if (!playlistListEl) {
     return;
   }
@@ -10231,6 +10229,7 @@ const playSingleCortina = async (
   options?: {
     transitionFadeMs?: number;
     allowOverlapIntoNextTanda?: boolean;
+    playToEnd?: boolean;
     track?: TrackRow;
   },
 ): Promise<{
@@ -10253,7 +10252,7 @@ const playSingleCortina = async (
   }
   cortinaDisplayPhase = "playing";
   cortinaPlaying = true;
-  cortinaAllowFull = false;
+  cortinaAllowFull = options?.playToEnd ?? false;
   cortinaStopRequested = false;
   cortinaStopPromise = null;
   cortinaAutoStopRevision += 1;
@@ -10275,8 +10274,8 @@ const playSingleCortina = async (
     {
       allowToggle: false,
       isCortinaPlayback: true,
-      maxDurationSeconds: effectiveDurationMs / 1000,
-      autoStopFadeMs,
+      maxDurationSeconds: options?.playToEnd ? undefined : effectiveDurationMs / 1000,
+      autoStopFadeMs: options?.playToEnd ? 0 : autoStopFadeMs,
       fromPlaylist: true,
       transitionFadeMs: options?.transitionFadeMs,
     },
@@ -10301,7 +10300,7 @@ const playSingleCortina = async (
     renderPlaylist();
     return { ok: false, overlappedIntoNext: false, overlapFadeMs: null, track };
   }
-  if (options?.allowOverlapIntoNextTanda) {
+  if (options?.allowOverlapIntoNextTanda && !options.playToEnd) {
     const gapBeforeTandaMs = getGapBeforeTanda() * 1000;
     const startAtSeconds = Math.max(0, track.start_offset_ms ?? 0) / 1000;
     const playbackEndSeconds = resolvePlaybackEndSeconds({
@@ -10400,7 +10399,7 @@ const playSingleCortina = async (
 const playCortina = async (
   runId: number,
   targetIndex: number,
-  options?: { transitionFadeMs?: number; allowOverlapIntoNextTanda?: boolean },
+  options?: { transitionFadeMs?: number; allowOverlapIntoNextTanda?: boolean; playToEnd?: boolean },
 ): ReturnType<typeof playSingleCortina> => {
   let result: Awaited<ReturnType<typeof playSingleCortina>> = {
     ok: true, overlappedIntoNext: false, overlapFadeMs: null, track: null,
@@ -10416,6 +10415,7 @@ const playCortina = async (
     cortinaActivePosition = position;
     result = await playSingleCortina(runId, targetIndex, {
       track: getCortinaRowTracks(targetIndex)[position],
+      playToEnd: options?.playToEnd && position === getCortinaRowTracks(targetIndex).length - 1,
       transitionFadeMs: position === 0 ? options?.transitionFadeMs : undefined,
       allowOverlapIntoNextTanda: options?.allowOverlapIntoNextTanda
         && position === getCortinaRowTracks(targetIndex).length - 1,
@@ -10433,6 +10433,10 @@ const runPlaylistPlayback = async (
     suppressLeadInCortinaForSelectedStart?: boolean;
   },
 ) => {
+  if (isPausedForPerformanceStop || holdPerformanceStopDisplayBlankWhenIdle) {
+    resetPlaylistToggleState(localStorage, PLAYLIST_PERFORMANCE_STOP_KEY);
+    if (playlistPerformanceStopToggle) playlistPerformanceStopToggle.checked = false;
+  }
   playlistPlayback.runId += 1;
   const runId = playlistPlayback.runId;
   const resumeState = resume ? playlistPlayback.resume : null;
@@ -10573,7 +10577,7 @@ const runPlaylistPlayback = async (
           return;
         }
         const cortinaResult = await playCortina(runId, playlistPlayback.currentIndex, {
-          allowOverlapIntoNextTanda: true,
+          playToEnd: true,
         });
         if (!cortinaResult.ok) {
           return;
@@ -10845,6 +10849,7 @@ const runPlaylistPlayback = async (
           }
         }
         const cortinaResult = await playCortina(runId, playlistPlayback.currentIndex, {
+          playToEnd: true,
           transitionFadeMs: pendingTransitionFadeMs ?? undefined,
         });
         pendingTransitionFadeMs = null;
@@ -13286,6 +13291,7 @@ const setCortinaModalVisible = (visible: boolean) => {
   cortinaModal.setAttribute("aria-hidden", visible ? "false" : "true");
   if (!visible) {
     pendingCortinaTargetIndex = null;
+    selectedCortinaTrack = null;
   }
 };
 
@@ -13367,51 +13373,91 @@ const renderCortinaResults = async () => {
       actions.appendChild(headphone);
     }
     row.append(details, actions);
+    row.tabIndex = 0;
+    row.setAttribute("role", "radio");
+    const select = () => {
+      selectedCortinaTrack = track;
+      updateCortinaPickerActions();
+    };
     row.addEventListener("click", (event) => {
-      const target = event.target as HTMLElement;
-      if (target.closest("button")) {
-        return;
+      if (!(event.target as HTMLElement).closest("button")) select();
+    });
+    row.addEventListener("keydown", (event) => {
+      if (event.target === row && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        select();
       }
-      if (pendingCortinaTargetIndex !== null) {
-        if (!isCortinaPositionEditable(pendingCortinaTargetIndex, pendingCortinaPosition, pendingCortinaAdd)) {
-          setStatus(t("statusCortinaLocked"));
-          return;
-        }
-        const tracks = [...getCortinaRowTracks(pendingCortinaTargetIndex)];
-        if (pendingCortinaAdd) tracks.splice(Math.min(tracks.length, pendingCortinaPosition + 1), 0, track);
-        else tracks.splice(pendingCortinaPosition, 1, track);
-        cortinaOverrideByIndex.set(pendingCortinaTargetIndex, tracks);
-        markCortinaPulse(pendingCortinaTargetIndex);
-      } else {
-        cortinaOverrideTrack = track;
-      }
-      setStatus(t("statusCortinaSelected", { title: resolveNowPlayingTrackLabel(track) }));
-      setCortinaModalVisible(false);
-      renderPlaylist();
     });
     cortinaResults.appendChild(row);
   });
+  updateCortinaPickerActions();
 };
 
-const openCortinaModal = (targetIndex: number | null, position = 0, add = false) => {
-  if (!isCortinaPositionEditable(targetIndex, position, add)) {
+let cortinaAutofillInProgress = false;
+const getEditableCortinaAutofillIndices = () => getCortinaRowIndices(playlistItems).filter(
+  (index) => playlistPlayback.status !== "playing" ||
+    (index > playlistPlayback.currentIndex && index > playlistPlayback.playedThroughIndex),
+);
+
+const updateCortinaPickerActions = () => {
+  const index = pendingCortinaTargetIndex;
+  const hasMember = index !== null && Boolean(getCortinaRowTracks(index)[pendingCortinaPosition]);
+  const setDisabled = (id: string, disabled: boolean) => {
+    const button = document.querySelector<HTMLButtonElement>(id);
+    if (button) button.disabled = disabled;
+  };
+  setDisabled("#cortina-modal-add", !selectedCortinaTrack || index === null
+    || !isCortinaPositionEditable(index, pendingCortinaPosition, true));
+  setDisabled("#cortina-modal-replace", !selectedCortinaTrack || (index !== null && !hasMember)
+    || !isCortinaPositionEditable(index, pendingCortinaPosition));
+  setDisabled("#cortina-modal-remove", !hasMember
+    || !isCortinaPositionEditable(index, pendingCortinaPosition));
+  setDisabled("#cortina-modal-autofill", cortinaAutofillInProgress || !getEditableCortinaAutofillIndices().length);
+  cortinaResults?.querySelectorAll<HTMLElement>(".cortina-result").forEach((row) => {
+    const selected = row.dataset.trackId === selectedCortinaTrack?.id;
+    row.classList.toggle("selected", selected);
+    row.setAttribute("aria-checked", String(selected));
+  });
+};
+
+const applyCortinaSelection = (add: boolean) => {
+  const track = selectedCortinaTrack;
+  const index = pendingCortinaTargetIndex;
+  if (!track || (add && index === null)) return;
+  if (!isCortinaPositionEditable(index, pendingCortinaPosition, add)) {
+    setStatus(t("statusCortinaLocked"));
+    return;
+  }
+  if (index !== null) {
+    const tracks = [...getCortinaRowTracks(index)];
+    if (!add && !tracks[pendingCortinaPosition]) return;
+    if (add) tracks.splice(Math.min(tracks.length, pendingCortinaPosition + 1), 0, track);
+    else tracks.splice(pendingCortinaPosition, 1, track);
+    cortinaOverrideByIndex.set(index, tracks);
+    markCortinaPulse(index);
+  } else {
+    cortinaOverrideTrack = track;
+  }
+  setStatus(t("statusCortinaSelected", { title: resolveNowPlayingTrackLabel(track) }));
+  setCortinaModalVisible(false);
+  renderPlaylist();
+};
+
+const openCortinaModal = (targetIndex: number | null, position = 0) => {
+  if (!isCortinaPositionEditable(targetIndex, position, true)
+    && !isCortinaPositionEditable(targetIndex, position)) {
     setStatus(t("statusCortinaLocked"));
     return;
   }
   pendingCortinaTargetIndex = targetIndex;
   pendingCortinaPosition = position;
-  pendingCortinaAdd = add;
-  const autofill = document.querySelector<HTMLButtonElement>("#cortina-modal-autofill");
-  if (autofill) autofill.disabled = playlistPlayback.status === "playing";
-  const remove = document.querySelector<HTMLButtonElement>("#cortina-modal-remove");
-  if (remove) remove.hidden = add || targetIndex === null || !getCortinaRowTracks(targetIndex)[position];
+  selectedCortinaTrack = targetIndex === null ? null : getCortinaRowTracks(targetIndex)[position] ?? null;
+  updateCortinaPickerActions();
   if (cortinaModalSet) {
     cortinaModalSetValue = getCortinaSet() || CORTINA_ANY_ID;
     cortinaModalSet.value = cortinaModalSetValue;
   }
-  if (cortinaSearchInput) {
-    cortinaSearchInput.value = "";
-  }
+  if (cortinaSearchInput) cortinaSearchInput.value = "";
   void renderCortinaResults();
   setCortinaModalVisible(true);
 };
@@ -19071,31 +19117,41 @@ const init = async () => {
     setCortinaControlsVisible(true);
     updateNowPlayingDisplay();
   });
-  const isPlaylistPlayingForCortinaEdit = () => playlistPlayback.status === "playing";
-  document.querySelector<HTMLButtonElement>("#cortina-modal-autofill")?.addEventListener("click", async (event) => {
-    if (isPlaylistPlayingForCortinaEdit()) return;
-    const button = event.currentTarget as HTMLButtonElement;
-    button.disabled = true;
+  document.querySelector<HTMLButtonElement>("#cortina-modal-autofill")?.addEventListener("click", async () => {
+    if (cortinaAutofillInProgress) return;
+    cortinaAutofillInProgress = true;
+    updateCortinaPickerActions();
     try {
       const set = cortinaModalSetValue ?? getCortinaSet();
       const tracks = set === CORTINA_ANY_ID
         ? (await Promise.all(cortinaSets.map(loadCortinaTracks))).flat()
         : await loadCortinaTracks(set);
-      if (!tracks.length || isPlaylistPlayingForCortinaEdit()) return;
+      if (!tracks.length) {
+        setStatus(t("cortinaNone"));
+        return;
+      }
       let pool: TrackRow[] = [];
-      for (const index of getCortinaRowIndices(playlistItems)) {
+      // Recheck after loading: playback may have advanced while awaiting tracks.
+      for (const index of getEditableCortinaAutofillIndices()) {
         if (!pool.length) pool = shuffleTracks(tracks);
         cortinaOverrideByIndex.set(index, [pool.pop()!]);
+        markCortinaPulse(index);
       }
       setCortinaModalVisible(false);
       renderPlaylist();
+    } catch (error) {
+      setStatus(t("cortinaAutofillError"));
+      console.error("Cortina autofill failed", error);
     } finally {
-      button.disabled = isPlaylistPlayingForCortinaEdit();
+      cortinaAutofillInProgress = false;
+      updateCortinaPickerActions();
     }
   });
+  document.querySelector("#cortina-modal-add")?.addEventListener("click", () => applyCortinaSelection(true));
+  document.querySelector("#cortina-modal-replace")?.addEventListener("click", () => applyCortinaSelection(false));
   document.querySelector("#cortina-modal-remove")?.addEventListener("click", () => {
     const index = pendingCortinaTargetIndex;
-    if (index === null || pendingCortinaAdd) return;
+    if (index === null) return;
     if (!isCortinaPositionEditable(index, pendingCortinaPosition)) {
       setStatus(t("statusCortinaLocked"));
       return;

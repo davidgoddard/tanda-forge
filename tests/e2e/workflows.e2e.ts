@@ -1360,7 +1360,7 @@ const installAdvancingMediaStub = async (
         pausedStates.set(media, true);
         endedStates.set(media, true);
         scope.__e2eAdvancingMediaState = {
-          activeSource: `${media.currentSrc ?? media.src ?? ""}`,
+          activeSource: `${media.currentSrc || media.src || ""}`,
           paused: true,
           ended: true,
           currentTime: media.__e2eCurrentTime,
@@ -1403,7 +1403,7 @@ const installAdvancingMediaStub = async (
           src?: string;
         };
         stopPlayback(media, false);
-        const source = `${media.currentSrc ?? media.src ?? ""}`.toLowerCase();
+        const source = `${media.currentSrc || media.src || ""}`.toLowerCase();
         const durationSeconds = (source.includes("cortina")
           ? Math.max(100, cortinaDuration)
           : Math.max(100, musicDuration)) / 1000;
@@ -1421,7 +1421,7 @@ const installAdvancingMediaStub = async (
         media.dispatchEvent(new Event("play"));
         media.dispatchEvent(new Event("timeupdate"));
         scope.__e2eAdvancingMediaState = {
-          activeSource: `${media.currentSrc ?? media.src ?? ""}`,
+          activeSource: `${media.currentSrc || media.src || ""}`,
           paused: false,
           ended: false,
           currentTime: media.__e2eCurrentTime ?? 0,
@@ -1447,7 +1447,7 @@ const installAdvancingMediaStub = async (
           pausedStates.set(media, false);
           endedStates.set(media, false);
           scope.__e2eAdvancingMediaState = {
-            activeSource: `${media.currentSrc ?? media.src ?? ""}`,
+            activeSource: `${media.currentSrc || media.src || ""}`,
             paused: false,
             ended: false,
             currentTime: media.__e2eCurrentTime ?? 0,
@@ -3697,8 +3697,10 @@ test.describe("Electron app end-to-end workflows", () => {
     return launched;
   };
 
-  const chooseCortina = async (page: Page, title: string) => {
+  const chooseCortina = async (page: Page, title: string, action = "replace") => {
     await page.locator("#cortina-results .cortina-result", { hasText: title }).click();
+    await expect(page.locator("#cortina-modal")).toHaveAttribute("aria-hidden", "false");
+    await page.locator(`#cortina-modal-${action}`).click();
     await expect(page.locator("#cortina-modal")).toHaveAttribute("aria-hidden", "true");
   };
 
@@ -3709,10 +3711,10 @@ test.describe("Electron app end-to-end workflows", () => {
     try {
       await rows.first().locator(".cortina-meta").click();
       await chooseCortina(page, "CORTINA ONLY TRACK");
-      await rows.first().getByRole("button", { name: "Add cortina", exact: true }).click();
-      await chooseCortina(page, "Second Cortina");
-      await rows.nth(1).getByRole("button", { name: "Add cortina", exact: true }).click();
-      await chooseCortina(page, "CORTINA ONLY TRACK");
+      await rows.first().locator(".cortina-meta").click();
+      await chooseCortina(page, "Second Cortina", "add");
+      await rows.nth(1).locator(".cortina-meta").click();
+      await chooseCortina(page, "CORTINA ONLY TRACK", "add");
       await expect(rows).toHaveCount(3);
       await expect(rows.nth(1)).toHaveAttribute("data-track-id", "c2");
       await page.evaluate(() => {
@@ -3728,12 +3730,6 @@ test.describe("Electron app end-to-end workflows", () => {
       });
       await installDeterministicMediaStub(page);
       await expect(rows.locator('button[data-action="headphone"]')).toHaveCount(3);
-      const positions = await rows.nth(1).evaluate((row) => {
-        const headphone = row.querySelector('button[data-action="headphone"]')!.getBoundingClientRect();
-        const add = row.querySelector('button[data-action="add-cortina"]')!.getBoundingClientRect();
-        return { headphoneRight: headphone.right, addLeft: add.left };
-      });
-      expect(positions.addLeft).toBeGreaterThanOrEqual(positions.headphoneRight);
       await rows.nth(1).locator('button[data-action="headphone"]').click();
       await expect(rows.nth(1).locator('button[data-action="headphone"]')).toHaveClass(/active/);
       await rows.nth(1).locator('button[data-action="headphone"]').click();
@@ -3755,7 +3751,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await ensurePlaylistTab(page);
       await expect(rows.first()).not.toHaveAttribute("data-track-id", /.+/);
       // Refill restores one cortina at every position without touching the tandas.
-      await rows.first().getByRole("button", { name: "Add cortina", exact: true }).click();
+      await rows.first().locator(".cortina-meta").click();
       await page.locator("#cortina-modal-autofill").click();
       await expect(page.locator('#playlist-list .cortina-row[data-track-id]')).toHaveCount(3);
       await expect(playlistTandaRow(page, "Tango Trio")).toBeVisible();
@@ -3770,10 +3766,10 @@ test.describe("Electron app end-to-end workflows", () => {
     try {
       await rows.first().locator(".cortina-meta").click();
       await chooseCortina(page, "CORTINA ONLY TRACK");
-      await rows.first().getByRole("button", { name: "Add cortina", exact: true }).click();
-      await chooseCortina(page, "Second Cortina");
-      await rows.nth(1).getByRole("button", { name: "Add cortina", exact: true }).click();
-      await chooseCortina(page, "CORTINA ONLY TRACK");
+      await rows.first().locator(".cortina-meta").click();
+      await chooseCortina(page, "Second Cortina", "add");
+      await rows.nth(1).locator(".cortina-meta").click();
+      await chooseCortina(page, "CORTINA ONLY TRACK", "add");
       await installVariableEndingMediaStub(page, 4_000, 6_000);
       await page.locator("#mode-select").selectOption("live");
       await dispatchExactClick(await getExpandedTandaDetailLine(playlistTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Uno"));
@@ -3787,6 +3783,44 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect(rows.nth(2)).toHaveClass(/active/, { timeout: 4_000 });
       await expect(page.locator("#cortina-play")).toBeEnabled();
       await expectNowPlayingContainsSoon(page, "tango uno", 8_000);
+    } finally { await launched.close(); }
+  });
+
+  test("multiple cortinas - last tanda display, natural final ending and live refill", async () => {
+    const launched = await prepareMultipleCortinas();
+    const { page } = launched;
+    try {
+      await installAdvancingMediaStub(page, 700, 4_000);
+      await page.locator("#mode-select").selectOption("live");
+      await page.locator("#playlist-last-tanda").check();
+      await page.evaluate(() => localStorage.setItem("tanda-playlist-current-last-count", "0"));
+      await page.locator("#playlist-start").click();
+      await expect.poll(() => page.evaluate(() => (window as any).__e2eDisplaySnapshot?.title)).toBe("Last Tanda");
+      const finalRows = page.locator('#playlist-list .cortina-row[data-cortina-index="1"]');
+      await finalRows.first().locator(".cortina-meta").click();
+      await expect(page.locator("#cortina-modal-autofill")).toBeEnabled();
+      await page.locator("#cortina-modal-autofill").click();
+      await expect(page.locator("#cortina-modal")).toHaveAttribute("aria-hidden", "true");
+      await expect.poll(() => page.evaluate(() => (window as any).__e2eDisplaySnapshot?.title), { timeout: 12_000 }).toBe("That's all folks");
+      await page.waitForTimeout(1_800);
+      await expect(page.locator("#playlist-stop")).toBeEnabled();
+      await expect(page.locator("#playlist-start")).toBeEnabled({ timeout: 6_000 });
+    } finally { await launched.close(); }
+  });
+
+  test("multiple cortinas - performance announcement and clearing stop on playlist resume", async () => {
+    const launched = await prepareMultipleCortinas();
+    const { page } = launched;
+    try {
+      await installVariableEndingMediaStub(page, 700, 4_000);
+      await page.locator("#mode-select").selectOption("live");
+      await page.locator("#playlist-performance-stop").check();
+      await page.locator("#playlist-start").click();
+      await expect.poll(() => page.evaluate(() => (window as any).__e2eDisplaySnapshot?.title), { timeout: 12_000 }).toBe("Time for a Special Performance");
+      await expect(page.locator("#playlist-start")).toBeEnabled({ timeout: 8_000 });
+      await dispatchExactClick(await getExpandedTandaDetailLine(playlistTandaRow(page, "Milonga Trio"), "Milonga de Prueba"));
+      await expect(page.locator("#playlist-performance-stop")).not.toBeChecked();
+      expect(await page.evaluate(() => localStorage.getItem("tanda-playlist-performance-stop"))).not.toBe("1");
     } finally { await launched.close(); }
   });
 
