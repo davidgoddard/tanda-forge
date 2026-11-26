@@ -7794,3 +7794,17 @@ The user requested publishing all current feature work on a feature branch at ve
 - Lists persist alongside legacy assignments; JSON preserves empty lists and
   M3U emits all members in order (DATA-CORTINA-001). Existing M3U import semantics
   remain unchanged. User requested no tests at this commit/push checkpoint.
+
+
+## 2026-11-26 — Exact Find Tandas and saved display styles
+
+- Find Tandas must follow the selected track identity and its confirmed
+  identical/same-recording aliases. The reported Carabelli “13” case exposed a
+  tab-activation refresh replacing exact results with unrelated title matches.
+  Retain exact results until query editing or another search (UI-011.R26.a).
+- The tanda designer's saved style now takes precedence over song genres on the
+  display board; multiple saved styles use localized “Mixed styles”
+  (UI-060.R16.b), superseding the earlier track-first subtype decision.
+- Reserve left-side playlist space for generated/unsaved indicators so their
+  negative row offset is not clipped by the scrolling container.
+- User reports all E2E tests have been run and requested commit, push and PR.

@@ -1215,6 +1215,12 @@ const persistedTandaIds = new Set<string>();
 let selectedTandaId: string | null = null;
 let clipboardTandas: TandaDraft[] = [];
 let tandaSearchResults: TandaSearchRow[] = [];
+searchInput?.addEventListener("input", () => { exactTrackTandaSearch = null; });
+let exactTrackTandaSearch: {
+  query: string;
+  tracks: TrackRow[];
+  tandas: TandaSearchRow[];
+} | null = null;
 
 let activeRightTab: RightPanelTab = "playlist-tab";
 let activeSearchTab: SearchTab = "search-tracks";
@@ -8283,6 +8289,20 @@ const getSearchController = () => {
   }
   searchController = createSearchController<TrackRow>({
     searchPageSize: SEARCH_PAGE_SIZE,
+    restoreExactResults: () => {
+      const exact = exactTrackTandaSearch;
+      if (!exact) return false;
+      if ((searchInput?.value.trim() ?? "") !== exact.query) {
+        exactTrackTandaSearch = null;
+        return false;
+      }
+      patchSearchState({ items: exact.tracks, total: exact.tracks.length,
+        offsetStart: 0, isLoading: false, lastQuery: exact.query });
+      tandaSearchResults = exact.tandas;
+      renderSearchResults();
+      renderTandaSearchResults(true);
+      return true;
+    },
     getWindowApi: () =>
       window.tanda
         ? {
@@ -8349,6 +8369,7 @@ const runSearchQuery = (
   if (!searchInput) {
     return;
   }
+  exactTrackTandaSearch = null;
   const controller = getSearchController();
   controller.runSearchQuery(query, allowEmpty, {
     setInputValue: (value) => {
@@ -8396,8 +8417,10 @@ const runSearchForTrack = (track: TrackRow, preferredStyles?: string[]) => {
 
 const runFindTandasForTrack = async (track: TrackRow) => {
   if (!window.tanda || !searchInput) return;
-  const usage = trackTandaUsageCache.get(track.id)
-    ?? (await window.tanda.getTrackTandaUsage([track.id]))[0];
+  const version = ++searchRefreshVersion;
+  ++tandaSearchVersion;
+  const usage = (await window.tanda.getTrackTandaUsage([track.id]))[0];
+  if (version !== searchRefreshVersion) return;
   if (!usage) return;
   trackTandaUsageCache.set(track.id, usage);
   const ids = [track.id, ...usage.recordingTrackIds.filter((id) => id !== track.id)];
@@ -8406,6 +8429,7 @@ const runFindTandasForTrack = async (track: TrackRow) => {
   tracks.sort((left, right) => (order.get(left.id) ?? ids.length) - (order.get(right.id) ?? ids.length));
   tracks.forEach((item) => trackCache.set(item.id, item));
   const matchingTandas = await window.tanda.getTandasByIds(usage.tandaIds);
+  if (version !== searchRefreshVersion) return;
   matchingTandas.forEach(upsertTandaCache);
   tandaSearchResults = matchingTandas.map((tanda) => ({
     id: tanda.id,
@@ -8417,6 +8441,9 @@ const runFindTandasForTrack = async (track: TrackRow) => {
     slot_count: tanda.slot_count,
     track_count: tanda.track_slots.filter(Boolean).length,
   }));
+  exactTrackTandaSearch = {
+    query: track.title.trim(), tracks, tandas: tandaSearchResults,
+  };
   searchInput.value = track.title;
   selectedStyles = [];
   loadStyles();

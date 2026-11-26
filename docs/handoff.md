@@ -8,11 +8,15 @@
   own fade/extend/stop cycle; only the last may overlap into the next tanda.
 - See the user guide's Multiple cortinas section, FR-030.2.R4–5, UI-012.R9.e–f,
   FR-053.R6/R8 and DATA-CORTINA-001 for behavior and storage decisions.
-- Previously verified: production build, 68 focused tests, three new Electron
-  workflows and two existing cortina-control workflows passed. Dedicated checks
-  on `fix/48-find-tandas` (two) and `fix/playlist-auto-generation` (one) also passed.
-- No tests or build were rerun for this commit/push, per user instruction.
-  Full preflight for this feature remains outstanding. Version remains 0.5.4.
+- Version is 0.5.5. Find Tandas now preserves exact track and confirmed
+  recording-alias results across tab refreshes (UI-011.R26.a). Display labels
+  prioritize saved tanda styles, with localized mixed-style labels
+  (UI-060.R16.b); playlist indicators have a left gutter to avoid clipping.
+- Verification at this checkpoint: all 130 unit files / 779 tests pass using
+  Electron's matching native SQLite runtime with two workers; production build
+  passes. Plain `npm run preflight` encountered the known host-runtime SQLite
+  SIGSEGV in search-index tests, so its unit/build stages were checked separately.
+  The user reports all E2E tests have been run; they were not repeated here.
 - Style-analysis work remains on the separate `feature/style-analysis-integration`
   branch; it is not included in this feature branch.
 
