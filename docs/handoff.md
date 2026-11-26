@@ -1,3 +1,21 @@
+## Multiple cortinas — 2026-11-26
+
+- Branch `feature/multiple-cortinas` adds ordered cortina lists with per-member
+  preview, insertion, replacement and removal. Empty lists persist and skip
+  cortina playback; refill in the picker restores one selection per position.
+- Existing single-cortina files remain supported. Lists are included in restart
+  state, JSON transfer, M3U export and projected timing. Each member retains its
+  own fade/extend/stop cycle; only the last may overlap into the next tanda.
+- See the user guide's Multiple cortinas section, FR-030.2.R4–5, UI-012.R9.e–f,
+  FR-053.R6/R8 and DATA-CORTINA-001 for behavior and storage decisions.
+- Previously verified: production build, 68 focused tests, three new Electron
+  workflows and two existing cortina-control workflows passed. Dedicated checks
+  on `fix/48-find-tandas` (two) and `fix/playlist-auto-generation` (one) also passed.
+- No tests or build were rerun for this commit/push, per user instruction.
+  Full preflight for this feature remains outstanding. Version remains 0.5.4.
+- Style-analysis work remains on the separate `feature/style-analysis-integration`
+  branch; it is not included in this feature branch.
+
 ## Local responsiveness integration — 2026-11-21
 
 - Branch `integration/responsive-analysis-base` is based on upstream `58d48eb`

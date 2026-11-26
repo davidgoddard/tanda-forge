@@ -212,6 +212,9 @@ export const de: TranslationMap = {
     outputWaveformLabel: "Ausgangswellenform",
     waveformLoading: "Wellenform wird geladen...",
     waveformUnavailable: "Wellenform nicht verfugbar",
+    cortinaAutofill: "Playlist-Cortinas automatisch füllen",
+    cortinaAdd: "Cortina hinzufügen",
+    cortinaRemove: "Cortina entfernen",
     cortinaPickerTitle: "Cortina-Auswahl",
     cortinaSearchLabel: "Suche",
     confirmCloseWhilePlaying:

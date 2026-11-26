@@ -694,6 +694,13 @@ Behavior:
   changes, those persisted slot assignments are dropped and replacement
   cortinas are re-planned from the new set, while newly added playlist slots
   continue to draw from the current cortina set.
+- UI-012.R9.e: Every cortina member has a headphone preview when available and
+  a plus button to its right. Plus inserts a chosen member immediately afterward.
+  Clicking a member opens replacement selection and a Remove cortina action.
+  Empty positions retain an addable row; active/played members are protected.
+- UI-012.R9.f: The picker offers Auto-fill playlist cortinas for the whole
+  playlist, disabled during playlist playback. Refill restores one member at
+  each position, including deliberately empty positions.
 - UI-012.R10: In Live mode, played tandas are visually muted and their slots are locked
   against edits, swaps, or drops while playback is active.
 - UI-012.R11: In Preparation mode, clicking a playlist track starts playback from that

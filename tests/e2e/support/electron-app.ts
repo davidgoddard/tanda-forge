@@ -53,11 +53,15 @@ const launchWithRoots = async (
   return { app, page, tempRoot, close };
 };
 
-export const launchSeededApp = async (kind: SeedKind): Promise<LaunchedApp> => {
+export const launchSeededApp = async (
+  kind: SeedKind,
+  customize?: (payload: import("../../../app/src/shared/types").E2ESeedPayload) => void,
+): Promise<LaunchedApp> => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "tpl-e2e-"));
   const dataRoot = path.join(tempRoot, "data");
   const userDataRoot = path.join(tempRoot, "user-data");
   const seeded = seedDataRoot(dataRoot, kind);
+  if (seeded.payload) customize?.(seeded.payload);
   const launched = await launchWithRoots(tempRoot, dataRoot, userDataRoot);
   if (seeded.payload) {
     await launched.page.evaluate(async (payload) => {

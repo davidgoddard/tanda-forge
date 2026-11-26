@@ -7782,3 +7782,15 @@ The user requested publishing all current feature work on a feature branch at ve
 - Base is upstream `58d48eb` / 0.5.4. Preserve the local changes in a named safety
   stash while integrating; keep Finder metadata locally but untracked as on
   main. No remote push or Style Lab algorithm integration is part of this step.
+
+## 2026-11-26 — Multiple cortinas and whole-playlist refill
+
+- User requested repeatable additions after a cortina, per-member preview and
+  replacement/removal, independent fade/extend/stop, and explicitly empty lists
+  that skip cortinas (FR-030.2.R4, UI-012.R9.e, FR-053.R6/R8).
+- User also requested a picker action to refill the entire playlist. Refill uses
+  the picker set, assigns one member per position, preserves tandas and is
+  disabled during playlist playback (FR-030.2.R5, UI-012.R9.f).
+- Lists persist alongside legacy assignments; JSON preserves empty lists and
+  M3U emits all members in order (DATA-CORTINA-001). Existing M3U import semantics
+  remain unchanged. User requested no tests at this commit/push checkpoint.

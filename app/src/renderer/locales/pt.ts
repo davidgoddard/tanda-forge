@@ -212,6 +212,9 @@ export const pt: TranslationMap = {
     outputWaveformLabel: "Forma de saida",
     waveformLoading: "Carregando forma de onda...",
     waveformUnavailable: "Forma de onda indisponivel",
+    cortinaAutofill: "Preencher automaticamente as cortinas da playlist",
+    cortinaAdd: "Adicionar cortina",
+    cortinaRemove: "Remover cortina",
     cortinaPickerTitle: "Seletor de cortinas",
     cortinaSearchLabel: "Buscar",
     confirmCloseWhilePlaying:

@@ -3667,6 +3667,160 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  const prepareMultipleCortinas = async () => {
+    const launched = await launchSeededApp("full", (payload) => {
+      const first = payload.tracks.find((track) => track.root_id === "root-cortina")!;
+      const secondPath = path.join(path.dirname(first.full_path), "second-cortina.mp3");
+      fs.writeFileSync(secondPath, "");
+      payload.tracks.push({ ...first, id: "c2", title: "Second Cortina", file_hash: "hash-c2",
+        full_path: secondPath, relative_path: path.join(path.dirname(first.relative_path), "second-cortina.mp3") });
+    });
+    const { page } = launched;
+    await openSettings(page);
+    await page.locator('button[data-tab="playlist"]').click();
+    await page.locator("#gap-between-tracks").fill("0");
+    await page.locator("#gap-before-tanda").fill("0");
+    await page.locator("#gap-before-cortina").fill("0");
+    await page.locator("#stop-fade-duration").fill("0.2");
+    await page.locator("#playlist-cortina-duration").fill("1");
+    await page.locator("#playlist-cortina-set").selectOption(await waitForFirstNamedCortinaSetValue(page));
+    await closeSettings(page);
+    await clearPlaylistViaUi(page);
+    await page.locator('button[data-tab="search-tandas"]').click();
+    for (const name of ["Tango Trio", "Milonga Trio"]) {
+      await runSearch(page, name);
+      await clickRowAction(searchTandaRow(page, name), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+    }
+    await ensurePlaylistTab(page);
+    await expect(page.locator('#playlist-list .cortina-row[data-cortina-index="0"][data-track-id]')).toHaveCount(1);
+    return launched;
+  };
+
+  const chooseCortina = async (page: Page, title: string) => {
+    await page.locator("#cortina-results .cortina-result", { hasText: title }).click();
+    await expect(page.locator("#cortina-modal")).toHaveAttribute("aria-hidden", "true");
+  };
+
+  test("multiple cortinas - add, swap, remove, persist empty lists and auto-fill again", async () => {
+    const launched = await prepareMultipleCortinas();
+    const { page } = launched;
+    const rows = page.locator('#playlist-list .cortina-row[data-cortina-index="0"]');
+    try {
+      await rows.first().locator(".cortina-meta").click();
+      await chooseCortina(page, "CORTINA ONLY TRACK");
+      await rows.first().getByRole("button", { name: "Add cortina", exact: true }).click();
+      await chooseCortina(page, "Second Cortina");
+      await rows.nth(1).getByRole("button", { name: "Add cortina", exact: true }).click();
+      await chooseCortina(page, "CORTINA ONLY TRACK");
+      await expect(rows).toHaveCount(3);
+      await expect(rows.nth(1)).toHaveAttribute("data-track-id", "c2");
+      await page.evaluate(() => {
+        Object.defineProperty(navigator.mediaDevices, "enumerateDevices", {
+          configurable: true,
+          value: async () => [
+            { kind: "audiooutput", deviceId: "main-e2e", groupId: "main", label: "Main E2E" },
+            { kind: "audiooutput", deviceId: "headphone-e2e", groupId: "headphone", label: "Headphone E2E" },
+          ],
+        });
+        Object.defineProperty(HTMLMediaElement.prototype, "setSinkId", { configurable: true, value: async () => {} });
+        navigator.mediaDevices.dispatchEvent(new Event("devicechange"));
+      });
+      await installDeterministicMediaStub(page);
+      await expect(rows.locator('button[data-action="headphone"]')).toHaveCount(3);
+      const positions = await rows.nth(1).evaluate((row) => {
+        const headphone = row.querySelector('button[data-action="headphone"]')!.getBoundingClientRect();
+        const add = row.querySelector('button[data-action="add-cortina"]')!.getBoundingClientRect();
+        return { headphoneRight: headphone.right, addLeft: add.left };
+      });
+      expect(positions.addLeft).toBeGreaterThanOrEqual(positions.headphoneRight);
+      await rows.nth(1).locator('button[data-action="headphone"]').click();
+      await expect(rows.nth(1).locator('button[data-action="headphone"]')).toHaveClass(/active/);
+      await rows.nth(1).locator('button[data-action="headphone"]').click();
+      await expect(rows.nth(1).locator('button[data-action="headphone"]')).not.toHaveClass(/active/);
+
+      await rows.nth(1).locator(".cortina-meta").click();
+      await chooseCortina(page, "CORTINA ONLY TRACK");
+      await expect(rows.nth(1)).not.toHaveAttribute("data-track-id", "c2");
+      await page.reload();
+      await ensurePlaylistTab(page);
+      await expect(rows).toHaveCount(3);
+      for (let count = 3; count > 0; count -= 1) {
+        await rows.first().locator(".cortina-meta").click();
+        await page.locator("#cortina-modal-remove").click();
+      }
+      await expect(rows).toHaveCount(1);
+      await expect(rows.first()).not.toHaveAttribute("data-track-id", /.+/);
+      await page.reload();
+      await ensurePlaylistTab(page);
+      await expect(rows.first()).not.toHaveAttribute("data-track-id", /.+/);
+      // Refill restores one cortina at every position without touching the tandas.
+      await rows.first().getByRole("button", { name: "Add cortina", exact: true }).click();
+      await page.locator("#cortina-modal-autofill").click();
+      await expect(page.locator('#playlist-list .cortina-row[data-track-id]')).toHaveCount(3);
+      await expect(playlistTandaRow(page, "Tango Trio")).toBeVisible();
+      await expect(playlistTandaRow(page, "Milonga Trio")).toBeVisible();
+    } finally { await launched.close(); }
+  });
+
+  test("multiple cortinas - play sequentially with independent auto-fade, extend and stop", async () => {
+    const launched = await prepareMultipleCortinas();
+    const { page } = launched;
+    const rows = page.locator('#playlist-list .cortina-row[data-cortina-index="0"]');
+    try {
+      await rows.first().locator(".cortina-meta").click();
+      await chooseCortina(page, "CORTINA ONLY TRACK");
+      await rows.first().getByRole("button", { name: "Add cortina", exact: true }).click();
+      await chooseCortina(page, "Second Cortina");
+      await rows.nth(1).getByRole("button", { name: "Add cortina", exact: true }).click();
+      await chooseCortina(page, "CORTINA ONLY TRACK");
+      await installVariableEndingMediaStub(page, 4_000, 6_000);
+      await page.locator("#mode-select").selectOption("live");
+      await dispatchExactClick(await getExpandedTandaDetailLine(playlistTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Uno"));
+      await expect(rows.nth(0)).toHaveClass(/active/);
+      await expect(rows.nth(1)).toHaveClass(/active/, { timeout: 8_000 });
+      await expectNowPlayingContainsSoon(page, "second cortina", 2_000);
+      await page.locator("#cortina-play").click();
+      await page.waitForTimeout(1_500);
+      await expect(rows.nth(1)).toHaveClass(/active/);
+      await page.locator("#cortina-stop").click();
+      await expect(rows.nth(2)).toHaveClass(/active/, { timeout: 4_000 });
+      await expect(page.locator("#cortina-play")).toBeEnabled();
+      await expectNowPlayingContainsSoon(page, "tango uno", 8_000);
+    } finally { await launched.close(); }
+  });
+
+  test("multiple cortinas - empty lists move directly between tandas", async () => {
+    const launched = await prepareMultipleCortinas();
+    const { page } = launched;
+    try {
+      const indices = await page.locator("#playlist-list .cortina-row").evaluateAll((rows) =>
+        rows.map((row) => (row as HTMLElement).dataset.cortinaIndex));
+      for (const index of indices) {
+        await page.locator(`#playlist-list .cortina-row[data-cortina-index="${index}"] .cortina-meta`).click();
+        await page.locator("#cortina-modal-remove").click();
+      }
+      await installVariableEndingMediaStub(page, 700, 6_000);
+      await page.evaluate(() => {
+        const scope = window as unknown as { playedSources: string[] };
+        scope.playedSources = [];
+        const play = HTMLMediaElement.prototype.play;
+        HTMLMediaElement.prototype.play = function () {
+          scope.playedSources.push(this.src);
+          return play.call(this);
+        };
+      });
+      await page.locator("#mode-select").selectOption("live");
+      await dispatchExactClick(await getExpandedTandaDetailLine(playlistTandaRow(page, "Tango Trio"), "Alberto Gomez Tango Uno"));
+      await expect.poll(() => page.evaluate(() =>
+        (window as unknown as { playedSources: string[] }).playedSources),
+        { timeout: 8_000 },
+      ).toEqual(expect.arrayContaining([expect.stringContaining("milonga-prueba")]));
+      const sources = await page.evaluate(() => (window as unknown as { playedSources: string[] }).playedSources);
+      expect(sources.some((source) => source.toLowerCase().includes("cortina"))).toBe(false);
+    } finally { await launched.close(); }
+  });
+
   test("46 - cortina scenarios cover timer expiry, manual stop, and play-to-end override", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;

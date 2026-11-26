@@ -118,3 +118,10 @@ Includes matching SQLite/Playwright dependency updates and applying the macOS Do
 Integrated on top of `58d48eb` (0.5.4), retaining ALAC playback, root relocation,
 display fixes and the Unstyled collection. Tango Style Lab derivation is not
 integrated in this base.
+
+## Multiple cortinas
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| FR-030.2.R4–5 / UI-012.R9.e–f | Implemented | Ordered editable lists, per-member preview/add/replace/remove, explicit empty positions and whole-playlist refill. |
+| FR-053.R6/R8 / DATA-CORTINA-001 | Implemented | Sequential independent playback controls, count-aware timing, restart/JSON persistence and ordered M3U export. |

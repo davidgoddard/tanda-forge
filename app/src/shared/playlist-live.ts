@@ -12,6 +12,7 @@ type TimelineConfig = {
   cortinaDurationMs: number;
   cortinaFadeMs: number;
   cortinaEnabled: boolean;
+  cortinaCounts?: number[];
 };
 
 export const computeTimelineOffsetsMs = (
@@ -25,6 +26,7 @@ export const computeTimelineOffsetsMs = (
     cortinaDurationMs: config.cortinaDurationMs,
     cortinaFadeMs: config.cortinaFadeMs,
     cortinaEnabled: config.cortinaEnabled,
+    cortinaCounts: config.cortinaCounts,
   });
 
 export const computeElapsedMsForEntry = (params: {

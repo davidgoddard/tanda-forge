@@ -103,14 +103,17 @@ export const serializePlaylistExportAsM3u = (
     return track.relativePath || track.fullPath;
   };
   const cortinasByIndex = new Map(
-    (manifest.cortinaAssignments ?? []).map((assignment) => [assignment.index, assignment.track]),
+    (manifest.cortinaAssignments ?? []).map((assignment) => [assignment.index, [assignment.track]]),
   );
+  manifest.cortinaLists?.forEach((entry) => cortinasByIndex.set(entry.index, entry.tracks));
   const appendCortina = (index: number) => {
     const cortina = cortinasByIndex.get(index);
     if (!cortina) return;
-    lines.push(buildM3uExtinfLine(cortina));
-    lines.push(locationFor(cortina));
-    lines.push("");
+    for (const track of cortina) {
+      lines.push(buildM3uExtinfLine(track));
+      lines.push(locationFor(track));
+      lines.push("");
+    }
   };
   manifest.items.forEach((item, index) => {
     appendCortina(index);
@@ -385,6 +388,14 @@ const buildStoredStateFromPlaylistManifest = (
       items,
       cortinaSet: manifest.cortinaSet,
       cortinaAssignments,
+      cortinaLists: manifest.cortinaLists?.map((entry) => ({
+        index: entry.index,
+        trackIds: entry.tracks.flatMap((track) => {
+          const resolved = resolvePortableTrackRef(track, maps);
+          if (resolved.warning) warnings.push(`Cortina ${resolved.warning}`);
+          return resolved.id ? [resolved.id] : [];
+        }),
+      })),
     } satisfies StoredPlaylistState,
     warnings,
   };

@@ -75,13 +75,16 @@ For each cortina:
   and let the cortina continue to its natural trimmed end.
 - FR-053.R4: Fade-out is applied using system-defined curves.
 - FR-053.R5: Cortina gain is applied independently.
-- FR-053.R6: When cortinas are enabled, a cortina plays before the first tanda
-  and after the final tanda in the playlist.
+- FR-053.R6: When cortinas are enabled, each nonempty cortina list plays before
+  its tanda; the final list plays after the playlist. Explicit empty lists skip
+  cortina playback.
 - FR-053.R7: A pre-cortina delay is applied after a tanda ends and before the next
   cortina starts (when configured); there is no pre-cortina delay before the
   first cortina when starting a playlist.
-- FR-053.R8: After a cortina fades out, the pre-tanda delay is applied before the
-  next tanda starts (when configured).
+- FR-053.R8: After the final cortina in a list fades out, the pre-tanda delay
+  applies before the next tanda (when configured). Members play sequentially,
+  with independent fade/extend/stop state. Only the last member may overlap
+  into the next tanda. Projected timing includes every member.
 - FR-053.R9: During a playing cortina, a manual "Play" override must cancel the
   configured-duration fade path even if that fade has already started, so the
   cortina continues to its natural trimmed end or until a later manual stop.

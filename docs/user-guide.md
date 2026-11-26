@@ -78,7 +78,7 @@ What JSON preserves:
 - tanda track membership
 - mismatch markers
 - selected cortina set name
-- compatible saved cortina slot assignments
+- ordered cortina lists, including positions deliberately left empty
 
 What JSON still depends on:
 
@@ -155,7 +155,8 @@ The playlist timing values affect how one item leads into the next:
 
 Once cortinas have been assigned to playlist slots, those slot choices are
 saved with the playlist and restored the next time the app opens, whether they
-came from auto-planning or from a manual replacement. If you later change the
+came from auto-planning or manual selection. Multiple cortinas keep their order,
+and deliberately empty positions remain empty after reopening. If you later change the
 selected cortina set in Playlist settings, those saved slot assignments are
 cleared and the playlist reassigns cortinas from the newly selected set. If you
 extend the playlist with more tandas, only the new cortina rows are filled from
@@ -202,9 +203,41 @@ track or tracks.
 During main playback, a vertical line moves across the active playlist track
 to show its position within the effective audio after saved start and end trims.
 
-Cortinas if used will be displayed between tandas and if clicked on will open the cortina picker to allow manual selection.
-The headphone button beside a picker result auditions it without selecting the
-cortina or closing the picker.
+### Multiple cortinas and the cortina picker
+
+When cortinas are enabled, the playlist shows a cortina position before the
+first tanda, between tandas, and after the last tanda. A new position initially
+receives one track from the selected cortina set.
+
+- **Add:** click **+** to the right of a cortina's headphone button, then choose
+  a track in the picker. It is inserted immediately after that cortina. Repeat
+  as often as needed; every added track has its own headphone and **+** controls.
+- **Preview:** click a track's headphone button to audition it. Headphone buttons
+  in the picker preview a result without selecting it or closing the picker.
+  These controls appear when headphone output is available.
+- **Replace:** click the cortina's title in the playlist and choose a different
+  track. Use the picker's set selector and search to find tracks from other sets.
+- **Remove:** click the cortina's title, then **Remove cortina** in the picker.
+  Only that member is removed. Removing the last member leaves an empty row
+  with **+** so you can add one later. Playback skips that empty position and
+  continues to the next tanda using the normal configured transition.
+
+Cortinas play in the displayed order. Each starts its own configured duration
+and fade cycle. The normal **Play** override lets the current cortina continue
+past its timed fade; **Stop** fades the current cortina and continues to the
+next cortina, or to the tanda when the list is finished. These overrides do not
+carry over to the following cortina. Active and already-played members cannot
+be replaced or removed during their sequence; upcoming members remain editable.
+
+To rebuild the cortina choices, open the picker, choose a set, and click
+**Auto-fill playlist cortinas**. This replaces every cortina list—including
+empty positions—with one automatic selection per position. It leaves all
+tracks and tandas in the playlist unchanged. This whole-playlist action is
+unavailable while playlist playback is running.
+
+Tanda Forge JSON export/import preserves the lists and explicit empty
+positions. With **Include cortinas** selected, M3U export writes every cortina
+in order; M3U import still treats those entries as standalone tracks.
 
 Tandas show their overall style letter and then the name of the tanda if specified followed by a summary of the artist composition, whether sung, the years of the tracks in the tanda, the range of tempos in the tanda and the duration of the tanda.
 

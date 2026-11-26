@@ -210,6 +210,9 @@ export const en: TranslationMap = {
     outputWaveformLabel: "Output waveform",
     waveformLoading: "Loading waveform...",
     waveformUnavailable: "Waveform unavailable",
+    cortinaAutofill: "Auto-fill playlist cortinas",
+    cortinaAdd: "Add cortina",
+    cortinaRemove: "Remove cortina",
     cortinaPickerTitle: "Cortina Picker",
     cortinaSearchLabel: "Search",
     confirmCloseWhilePlaying:

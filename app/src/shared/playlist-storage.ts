@@ -30,6 +30,7 @@ export type StoredPlaylistState = {
   items: StoredPlaylistItem[];
   cortinaSet?: string;
   cortinaAssignments?: StoredCortinaAssignment[];
+  cortinaLists?: { index: number; trackIds: string[] }[];
 };
 
 export const parseStoredPlaylistState = (raw: string): StoredPlaylistState | null => {
@@ -51,6 +52,11 @@ export const parseStoredPlaylistState = (raw: string): StoredPlaylistState | nul
       version: 2,
       items: data.items,
       cortinaSet: typeof data.cortinaSet === "string" ? data.cortinaSet : undefined,
+      cortinaLists: Array.isArray(data.cortinaLists)
+        ? data.cortinaLists.filter((entry) => entry && Number.isInteger(entry.index)
+          && entry.index >= 0 && Array.isArray(entry.trackIds)
+          && entry.trackIds.every((id) => typeof id === "string" && id.length > 0))
+        : undefined,
       cortinaAssignments: rawAssignments.filter(
         (entry): entry is StoredCortinaAssignment =>
           Boolean(entry) &&
@@ -89,6 +95,7 @@ export const collectStoredPlaylistTrackIds = (
     });
   });
   if (!Array.isArray(stored)) {
+    stored.cortinaLists?.forEach((entry) => entry.trackIds.forEach((id) => trackIds.add(id)));
     stored.cortinaAssignments?.forEach((entry) => {
       if (entry.trackId) {
         trackIds.add(entry.trackId);
