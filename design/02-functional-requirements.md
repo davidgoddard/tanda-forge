@@ -300,7 +300,18 @@ For overlaps:
 
 ## FR-BPM-001 — Optional local BPM measurement
 
-- FR-BPM-001.R1: BPM analysis is opt-in and processes existing and newly scanned music locally with bundled FFmpeg and a background worker.
-- FR-BPM-001.R2: Preserve entered/imported BPM separately from derived estimates and confirmed corrections. Support prefer-entered and derived-only policies; disabling analysis restores entered values as effective BPM.
+- FR-BPM-001.R1: BPM analysis is opt-in for future imports; Analyse all tracks explicitly queues existing music. Processing remains local with bundled FFmpeg and a background worker.
+- FR-BPM-001.R2: Preserve imported, derived and manual BPM separately. Default only selects manual/imported/derived; User preferred selects manual/derived/imported. Enabling Always resets to derived, allowing later manual overrides. Disabling retains values and source selection; reanalysis retains manual choices.
 - FR-BPM-001.R3: Show progress, pause/resume and retry controls. Start new analysis only with a current renderer permission lease outside live mode/main playback and while no library scan is active. An already running analysis may finish.
 - FR-BPM-001.R4: Persist results across restart, invalidate stale audio estimates, and use rounded effective BPM consistently in search and displays. Explain that estimates require listening and may select another rhythmic counting level.
+
+## FR-STYLE-001 — Optional local style analysis
+
+- FR-STYLE-001.R1: Independently opt into style processing for new imports or
+  explicitly queue Analyse all tracks for existing music. Reuse one bounded
+  decoded buffer and acoustic BPM evidence for both enabled analyses.
+- FR-STYLE-001.R2: Derive only Tango, Waltz/vals or Milonga, resolving configured
+  base names/aliases without inventing subtypes. Treat blank and ? as missing.
+- FR-STYLE-001.R3: Preserve imported/manual/derived style with the BPM source
+  policies in FR-BPM-001.R2. Share playback-safe worker scheduling, but retain
+  independent enablement, progress, pause/resume and retry controls.

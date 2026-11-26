@@ -116,5 +116,14 @@ Includes matching SQLite/Playwright dependency updates and applying the macOS Do
 | CFG-LIB-014–015 | Implemented | Localized progress, mutual exclusion with main playback/Live mode, optional Startup Flow compression and compression-aware readiness. |
 
 Integrated on top of `58d48eb` (0.5.4), retaining ALAC playback, root relocation,
-display fixes and the Unstyled collection. Tango Style Lab derivation is not
-integrated in this base.
+display fixes and the Unstyled collection. This base precedes the style-analysis
+integration below.
+
+## Style-analysis integration and metadata source policies
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| FR-STYLE-001 / FR-BPM-001 / DATA-BPM-001 / UI-BPM-001 | Implemented; checkpoint verification deferred | Shared local decoding, separate queues/controls, three source policies, manual provenance and style-family setup. |
+| UI-011.R26.a | Implemented | Exact Find tandas results are preserved on tab activation. |
+
+The multiple-cortina feature is on a separate branch and is not included here.

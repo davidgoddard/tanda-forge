@@ -218,4 +218,12 @@ Fields:
 
 ## DATA-BPM-001 — BPM sources and background analysis
 
-`tracks.user_bpm` preserves entered/imported values; `derived_bpm` stores the local estimate and `bpm_override` a confirmed correction. `tracks.bpm` remains the effective value consumed by existing search/index/display paths. `bpm_config` persists enablement, source preference and pause state. SQLite triggers maintain the effective value and invalidate analysis on file changes. Analysis keys, errors, timestamps and warnings retain processing state. The worker loads the bundled ESM analyser from real files outside ASAR; no cloud or model service is required. See [algorithm explanation](../docs/bpm-measurement.md).
+`tracks.user_bpm` retains the historical imported baseline; `derived_bpm` stores
+analysis and `bpm_override` stores manual choices. `bpm_override_active` controls
+manual priority after enabling Always. Effective `tracks.bpm` remains rounded.
+Style parallels this with imported_style, derived_style, user_style and
+user_style_active, exposing effective genre. Configuration and pending/error/
+analysis-key columns support independent queues. Additive migrations preserve
+existing data and legacy preferences; source triggers maintain effective values.
+The shared worker decodes once and supplies both engines. Style model assets
+are packaged alongside the existing BPM engine; processing stays local.

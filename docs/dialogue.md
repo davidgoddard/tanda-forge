@@ -7782,3 +7782,19 @@ The user requested publishing all current feature work on a feature branch at ve
 - Base is upstream `58d48eb` / 0.5.4. Preserve the local changes in a named safety
   stash while integrating; keep Finder metadata locally but untracked as on
   main. No remote push or Style Lab algorithm integration is part of this step.
+
+## 2026-11-26 — Analysis integration checkpoint
+
+- Record the implemented source-policy refinement: separate imported, manual
+  and derived values; Default only and User preferred differ in fallback order;
+  enabling Always resets manual priority, then permits later manual edits.
+  Disabling retains values (supersedes earlier restore-entered behavior).
+- Style classification and BPM share decoded audio with independent queue
+  controls. Style emits base labels only; Library setup defines families before
+  optional legacy mapping (FR-STYLE-001, FR-BPM-001, UI-BPM-001, DATA-BPM-001).
+- Local commit 7fd5830 contains the analysis integration and Find tandas fix,
+  despite its cortina-oriented subject. Multiple-cortina implementation resides
+  separately on feature/multiple-cortinas; preserve existing commit history.
+- User requested all outstanding work committed/pushed without further tests.
+  Generated test screenshots are excluded. No new verification is claimed for
+  the analysis integration in this checkpoint.

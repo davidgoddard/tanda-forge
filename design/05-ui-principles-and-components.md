@@ -366,6 +366,9 @@ Behavior:
 - UI-011.R26: In expanded tanda rows, a track's conditional **Find tandas** action
   runs the exact saved-tanda lookup in Search without triggering the row's
   playback behavior. This applies in Playlist as well as Search and Clipboard.
+- UI-011.R26.a: Exact Find tandas membership results must survive visual tab
+  activation and supersede queued/in-flight text searches; size filtering and
+  subsequent explicit searches remain supported.
 
 ---
 
@@ -1152,4 +1155,4 @@ it must look different.
 
 ## UI-BPM-001 — BPM configuration and correction
 
-System settings provide localized opt-in, source preference, progress, pause/resume and retry controls. First enablement asks which source policy to use. The track editor preserves entered BPM and exposes derived BPM correction with confirmation for tap-based changes. System and Playlist settings group related controls and share dropdown styling.
+System settings provide separate localized BPM and Style panels with opt-in, source preference, Analyse all tracks, progress, pause/resume and retry controls. Source policies are Always, User preferred and Default only. The track editor edits the effective BPM/style as manual values and shows source details; Tap edits BPM directly. Library setup defines style families and optional subtypes before optional legacy mapping. System and Playlist settings share dropdown styling.

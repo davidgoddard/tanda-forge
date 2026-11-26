@@ -1,3 +1,23 @@
+## Style-analysis integration checkpoint — 2026-11-26
+
+- Branch `feature/style-analysis-integration` contains local commit `7fd5830`:
+  optional style classification, shared BPM/style decoding and scheduling,
+  separate source provenance, three source policies and style-family setup.
+  It also includes the Find tandas result-overwrite fix and metadata display fixes.
+- Imported/manual/derived values remain separate. Always resets manual priority
+  only when enabled; later edits and reanalysis preserve manual choices.
+  Disabling analysis retains values. See FR-STYLE-001, FR-BPM-001, UI-BPM-001
+  and DATA-BPM-001, plus the updated user guide.
+- The existing commit subject mentions cortinas, but multiple-cortina code is
+  on `feature/multiple-cortinas`, not this branch. Playlist auto-generation is
+  separately on `fix/playlist-auto-generation`; Find tandas has its isolated
+  `fix/48-find-tandas` branch as well.
+- No tests/build/preflight run at this checkpoint, per explicit user instruction.
+  Analysis integration requires full checkpoint verification before release;
+  existing generated test screenshots are not treated as proof of a passed run.
+- Package version remains 0.5.4. Changes to analysis schemas are additive;
+  no FFmpeg pin changes or release-specific FFmpeg checks are included.
+
 ## Local responsiveness integration — 2026-11-21
 
 - Branch `integration/responsive-analysis-base` is based on upstream `58d48eb`

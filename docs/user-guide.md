@@ -831,28 +831,21 @@ is needed. Cortinas are excluded from the automatic BPM queue.
 
 ### Enable and choose which BPM to use
 
-1. Open **Settings → System** and find the **BPM** panel just above **Data**.
-2. Check **Enable automatic BPM analysis**.
-3. On first activation, choose **Prefer my entered BPM; otherwise use derived
-   BPM** or **Always use derived BPM**, then confirm.
+Open **Settings → System**, find the **BPM** panel, and enable automatic
+analysis for future imports. Use **Analyse all tracks** to process or reanalyse
+music already in the library. Imported, manually entered and derived values
+are stored separately. Choose the source policy in the same panel:
 
-Your existing entered/imported BPM values are retained separately from the
-analyser result. All music tracks are eligible for analysis, including tracks
-that already have an entered BPM. You can change the preference later in the
-same settings section without reanalysing the audio.
-
-The following rules select the **effective BPM** used by the app:
-
-| Setting | BPM used |
+| Policy | Value used |
 |---|---|
-| Disabled | Your entered BPM only; no figure if none is entered. |
-| Enabled, with a confirmed correction | Your correction, taking priority over either preference below. |
-| Enabled, prefer entered BPM, no correction | Your entered BPM if available; otherwise the derived figure. |
-| Enabled, always use derived BPM, no correction | The derived figure, even when an entered value exists. |
+| **Default only** | Manual entry, then imported value, then derived result. |
+| **User preferred** | Manual entry, then derived result, then imported value. |
+| **Always** | Enabling resets to the derived result; subsequent manual edits take priority. |
 
-With **Always use derived BPM**, a track waiting for analysis or without a usable
-result has no effective BPM unless you have confirmed a correction. It does not
-silently fall back to your entered figure.
+Disabling analysis stops new processing and retains the selected values.
+Re-enabling **Always** starts a new derived baseline; changing preference,
+pausing/resuming or reanalysing does not discard subsequent manual choices.
+Without a result or a subsequent manual value, **Always** can show no BPM.
 
 ### Where the selected BPM is used
 
@@ -883,48 +876,18 @@ added to the library through an import or scan.
 
 ### Disable automatic BPM analysis
 
-Uncheck **Enable automatic BPM analysis** in **Settings → System**. The app
-returns to **your entered BPM only**, including in displays and searches. Tracks
-without an entered value have no BPM. Derived values and confirmed corrections
-are retained, but are not used while the feature is disabled.
-
-Re-enabling restores your saved preference and corrections for unchanged audio.
-If the queue was paused, use **Resume analysis** to continue processing. This is
-different from pausing: pausing leaves the current BPM selection policy active.
+Uncheck **Enable automatic BPM analysis** in **Settings → System** to stop
+starting new analyses. Imported, derived and manual values are retained, and
+the source policy remains in effect. An already running analysis may finish.
+Use **Pause analysis** for a temporary pause without changing enablement.
 
 ### BPM values in the track editor
 
-Open a track through **E — Edit track**, or select it in Edit mode. With automatic
-analysis enabled, the editor shows:
-
-- **Your entered BPM**: your editable original value, including values imported
-  from an existing library.
-- **Derived BPM / correction**: the analyser result, or your confirmed replacement
-  if you have made one.
-- **Analyser** and **Used in app**: the original calculated figure and the current
-  effective BPM. A saved replacement is marked **Confirmed correction**.
-
-To correct the derived figure, listen to a representative passage and use
-**Tap**. While analysis is enabled, tapping changes **Derived BPM / correction**;
-it leaves **Your entered BPM** alone. You can also type a corrected value into
-the derived/correction field.
-
-Choose **Save**. If that field has changed, the app asks you to confirm the
-replacement before saving. Cancelling the confirmation leaves the saved value
-unchanged and lets you continue editing. Confirming gives the correction priority
-under either enabled preference. The analyser's original result is still
-available alongside it.
-
-To remove a correction, clear **Derived BPM / correction**, save and confirm.
-The app returns to the normal selection rule: the entered value if preferred and
-available, otherwise the analyser result. In derived-only mode it uses the
-analyser result. Editing **Your entered BPM** changes the preserved value, but
-does not remove a confirmed correction.
-
-When analysis is disabled, the derived/correction section is hidden and **Tap**
-updates **Your entered BPM** as usual. Corrections survive ordinary disabling
-and re-enabling; replacing a track's audio can invalidate its old analysis and
-correction.
+The **BPM** field shows the effective value and accepts typed values or **Tap**.
+Saving a changed value records a manual choice separately from the imported and
+derived values. Source details show the imported, manual and derived values
+and identify the value currently used. Reanalysis retains later manual edits;
+re-enabling **Always** resets their active priority to the derived baseline.
 
 ### Accuracy and listening checks
 
@@ -938,6 +901,24 @@ confirmed override when needed.
 
 For the musical reasoning, relevant diagrams and research references, read
 [How Tanda Forge measures BPM](bpm-measurement.md).
+
+## Automatic style analysis
+
+The **Style** panel in **Settings → System** independently enables local dance
+style analysis for future imports. **Analyse all tracks** processes the existing
+library. It uses the same **Default only**, **User preferred** and **Always**
+source policies as BPM; disabling it retains values. Pause/resume and retry
+controls are separate for BPM and style.
+
+The classifier suggests top-level Tango, Waltz/vals or Milonga, mapped to your
+configured style names. It does not invent subtypes. Imported tags, manual edits
+and derived suggestions remain separate; blank and `?` tags count as missing.
+Review suggestions by listening, particularly for nontraditional music, which
+is outside the classifier's validated training domain.
+
+In **Library setup**, define style families and optional subtypes before legacy
+mapping and scanning. New default families start with base styles only; existing
+user-defined subtypes are retained. Track summaries omit blank/`?` metadata.
 
 ## Initial Setup
 
