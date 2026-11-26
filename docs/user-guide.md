@@ -205,11 +205,24 @@ to show its position within the effective audio after saved start and end trims.
 
 ### Multiple cortinas and the cortina picker
 
+<img src="../images/user-guide/cortina-picker.png" width="200px">
+
+Enable cortinas by choosing a **Cortina set** in Playlist settings. The playlist
+then provides cortina positions before its tandas and after the last tanda.
+A new position normally receives one track from the selected set. Each position
+can hold several cortinas, played in order, or be deliberately left empty.
+
+An **Empty tanda — Drop a track here** row is an unfilled playlist slot, not a
+populated tanda. These empty placeholders do not have cortina rows between them,
+so several may appear together without cortina spacing. This does not by itself
+mean that cortinas have been lost. Adding a tanda to a slot gives it a cortina
+position. Also, the playlist contents filter hides cortina rows; clear the
+filter to see the full playlist.
 When cortinas are enabled, the playlist shows a cortina position before the
 first tanda, between tandas, and after the last tanda. A new position initially
 receives one track from the selected cortina set.
 
-- **Add:** click **+** to the right of a cortina's headphone button, then choose
+- **Add:** click on the cortina track and then choose
   a track in the picker. It is inserted immediately after that cortina. Repeat
   as often as needed; every added track has its own headphone and **+** controls.
 - **Preview:** click a track's headphone button to audition it. Headphone buttons
@@ -219,7 +232,7 @@ receives one track from the selected cortina set.
   track. Use the picker's set selector and search to find tracks from other sets.
 - **Remove:** click the cortina's title, then **Remove cortina** in the picker.
   Only that member is removed. Removing the last member leaves an empty row
-  with **+** so you can add one later. Playback skips that empty position and
+  so you can add one later. Playback skips that empty position and
   continues to the next tanda using the normal configured transition.
 
 Cortinas play in the displayed order. Each starts its own configured duration
@@ -240,6 +253,8 @@ positions. With **Include cortinas** selected, M3U export writes every cortina
 in order; M3U import still treats those entries as standalone tracks.
 
 Tandas show their overall style letter and then the name of the tanda if specified followed by a summary of the artist composition, whether sung, the years of the tracks in the tanda, the range of tempos in the tanda and the duration of the tanda.
+
+TIP - If you want to slip a final track in at the end of the evening such as a cumprasita or a venue favourite, add an empty tanda at the end, add your track of choice, then remove the cortina between it and the previous tanda and the song will simply play immediately after the last song of the previous tanda!  No need to modify the tandas in the playlist!
 
 <img src="../images/user-guide/05-playlist.png" width="400px">
 

@@ -875,6 +875,7 @@ export const de: TranslationMap = {
       "Bibliotheksordner entfernt {path}. Entfernte Titel: {tracks}. Ungueltig gemachte Tandas: {tandas}.",
     displayPlayingTrack: "Spiele {index}/{count}",
     displayNowTanda: "Jetzt: {style}\n{artist}",
+    displayMixedStyles: "Gemischte Stile",
     displayNextTanda: "Als Nächstes: {style}\n{artist}",
     displaySinger: "Sänger: {singer}",
     displayVariousArtists: "Verschiedene Interpreten",

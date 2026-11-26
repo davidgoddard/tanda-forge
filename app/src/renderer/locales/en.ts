@@ -961,6 +961,7 @@ export const en: TranslationMap = {
       "Removed library folder {path}. Tracks removed: {tracks}. Tandas invalidated: {tandas}.",
     displayPlayingTrack: "Playing {index}/{count}",
     displayNowTanda: "Now: {style}\n{artist}",
+    displayMixedStyles: "Mixed styles",
     displayNextTanda: "Next: {style}\n{artist}",
     displaySinger: "Singer: {singer}",
     displayVariousArtists: "Various artists",

@@ -872,6 +872,7 @@ export const es: TranslationMap = {
       "Carpeta de biblioteca quitada {path}. Temas eliminados: {tracks}. Tandas invalidadas: {tandas}.",
     displayPlayingTrack: "Reproduciendo {index}/{count}",
     displayNowTanda: "Ahora: {style}\n{artist}",
+    displayMixedStyles: "Estilos mixtos",
     displayNextTanda: "Sigue: {style}\n{artist}",
     displaySinger: "Cantor: {singer}",
     displayVariousArtists: "Varios artistas",

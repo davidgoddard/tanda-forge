@@ -8,9 +8,10 @@ import {
 } from "../app/src/renderer/modules/display-view";
 
 describe("display view helpers", () => {
-  it("preserves a shared track subtype in the tanda display style", () => {
+  it("uses the saved tanda style instead of the shared track subtype", () => {
     expect(
       resolveTandaDisplayStyle({
+        mixedStylesLabel: "Mixed styles",
         trackStyles: [
           "Tango - Contemporary",
           "tango - contemporary",
@@ -18,12 +19,13 @@ describe("display view helpers", () => {
         ],
         tandaStyles: ["Tango"],
       }),
-    ).toBe("Tango - Contemporary");
+    ).toBe("Tango");
   });
 
-  it("collapses mixed track subtypes to their distinct base styles", () => {
+  it("uses the saved tanda style even when track styles differ", () => {
     expect(
       resolveTandaDisplayStyle({
+        mixedStylesLabel: "Mixed styles",
         trackStyles: [
           "Tango - Contemporary",
           "Tango - Electronic",
@@ -31,16 +33,37 @@ describe("display view helpers", () => {
         ],
         tandaStyles: ["Tango"],
       }),
-    ).toBe("Tango, Waltz");
+    ).toBe("Tango");
   });
 
   it("falls back to the tanda style when track styles are unavailable", () => {
     expect(
       resolveTandaDisplayStyle({
+        mixedStylesLabel: "Mixed styles",
         trackStyles: [null, ""],
         tandaStyles: ["Milonga - Alternative"],
       }),
     ).toBe("Milonga - Alternative");
+  });
+
+  it("uses the localized mixed label for multiple tanda styles, including subtypes", () => {
+    for (const tandaStyles of [["Tango", "Waltz"], ["Tango - Traditional", "Tango - Modern"]]) {
+      expect(resolveTandaDisplayStyle({
+        trackStyles: ["Milonga"], tandaStyles, mixedStylesLabel: "Estilos mixtos",
+      })).toBe("Estilos mixtos");
+    }
+  });
+
+  it("deduplicates saved styles and falls back only when no tanda style exists", () => {
+    expect(resolveTandaDisplayStyle({
+      trackStyles: ["Milonga"], tandaStyles: ["Tango", "tango", ""], mixedStylesLabel: "Mixed styles",
+    })).toBe("Tango");
+    expect(resolveTandaDisplayStyle({
+      trackStyles: ["Tango - Modern"], tandaStyles: [], mixedStylesLabel: "Mixed styles",
+    })).toBe("Tango - Modern");
+    expect(resolveTandaDisplayStyle({
+      trackStyles: [null, ""], tandaStyles: [], mixedStylesLabel: "Mixed styles",
+    })).toBeNull();
   });
 
   it("builds progress text for tanda playback", () => {

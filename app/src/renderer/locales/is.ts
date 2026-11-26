@@ -957,6 +957,7 @@ export const is: TranslationMap = {
   statusRootRemoved: "Fjarlægði safnmöppuna {path}. Lög fjarlægð: {tracks}. Töndur gerðar ógildar: {tandas}.",
   displayPlayingTrack: "Spilar {index}/{count}",
   displayNowTanda: "Nú: {style}\n{artist}",
+  displayMixedStyles: "Blandaðir stílar",
   displayNextTanda: "Næst: {style}\n{artist}",
   displaySinger: "Söngvari: {singer}",
   displayVariousArtists: "Ymsir listamenn",

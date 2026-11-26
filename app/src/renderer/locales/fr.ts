@@ -874,6 +874,7 @@ export const fr: TranslationMap = {
       "Dossier de bibliotheque retire {path}. Pistes supprimees : {tracks}. Tandas invalidees : {tandas}.",
     displayPlayingTrack: "Lecture {index}/{count}",
     displayNowTanda: "Maintenant: {style}\n{artist}",
+    displayMixedStyles: "Styles mixtes",
     displayNextTanda: "Ensuite: {style}\n{artist}",
     displaySinger: "Chanteur: {singer}",
     displayVariousArtists: "Artistes varies",

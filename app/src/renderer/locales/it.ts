@@ -880,6 +880,7 @@ export const it: TranslationMap = {
       "Cartella di libreria rimossa {path}. Brani rimossi: {tracks}. Tandas invalidate: {tandas}.",
     displayPlayingTrack: "Riproduzione {index}/{count}",
     displayNowTanda: "Ora: {style}\n{artist}",
+    displayMixedStyles: "Stili misti",
     displayNextTanda: "Poi: {style}\n{artist}",
     displaySinger: "Cantante: {singer}",
     displayVariousArtists: "Artisti vari",

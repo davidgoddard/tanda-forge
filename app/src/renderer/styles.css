@@ -1323,6 +1323,7 @@ body.theme-dark-classic .collection-tabs button.active {
 }
 
 .playlist-list-body {
+  padding-left: 18px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: auto;

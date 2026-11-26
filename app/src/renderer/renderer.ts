@@ -140,7 +140,7 @@ import {
   gainDbToLinear,
   resolvePlaybackNormalization,
 } from "../shared/audio-normalization.js";
-import { computeFadeDurationMs } from "../shared/audio-fade.js";
+import { computeFadeDurationMs, computeCortinaFadeLevel } from "../shared/audio-fade.js";
 import { createLightingNotifier, createLightingPlaybackNotifier } from "../shared/lighting-notifier.js";
 import {
   clampNumber,
@@ -3017,6 +3017,7 @@ const getNextTandaStyle = () =>
           trackId ? trackCache.get(trackId)?.genre : null,
         ),
         tandaStyles: tanda.styles,
+        mixedStylesLabel: t("displayMixedStyles"),
       });
     },
     shouldShowDisplayNextTanda: (status) => shouldShowDisplayNextTanda(status),
@@ -5017,6 +5018,9 @@ const fadeOutAudio = async (
   shouldCancel?: () => boolean,
 ) => {
   const startVolume = getAudioLevel(audio);
+  const isCortina = Object.values(playback).some((state) =>
+    state.isCortinaPlayback && (state.active === audio || state.compressedActive === audio),
+  );
   const start = performance.now();
   return new Promise<boolean>((resolve) => {
     const step = () => {
@@ -5026,7 +5030,9 @@ const fadeOutAudio = async (
       }
       const elapsed = performance.now() - start;
       const t = Math.min(1, durationMs > 0 ? elapsed / durationMs : 1);
-      setAudioLevel(audio, Math.max(0, startVolume * (1 - t)));
+      setAudioLevel(audio, isCortina
+        ? computeCortinaFadeLevel(startVolume, t)
+        : Math.max(0, startVolume * (1 - t)));
       if (t >= 1) {
         resolve(true);
         return;

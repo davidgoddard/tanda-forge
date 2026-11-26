@@ -875,6 +875,7 @@ export const pt: TranslationMap = {
       "Pasta da biblioteca removida {path}. Faixas removidas: {tracks}. Tandas invalidadas: {tandas}.",
     displayPlayingTrack: "Tocando {index}/{count}",
     displayNowTanda: "Agora: {style}\n{artist}",
+    displayMixedStyles: "Estilos mistos",
     displayNextTanda: "Depois: {style}\n{artist}",
     displaySinger: "Cantor: {singer}",
     displayVariousArtists: "Varios artistas",
