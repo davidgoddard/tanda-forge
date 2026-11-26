@@ -13,6 +13,22 @@
   outstanding; the focused checks above are the verified scope.
 - The separate Find tandas fix is on `fix/48-find-tandas`. Unfinished analysis
   work remains in the original `feature/style-analysis-integration` workspace.
+  
+## Find tandas fix — 2026-11-26
+
+- Branch `fix/48-find-tandas` is based on main `5514b50` and addresses issue #48.
+- Exact saved-tanda results were overwritten by a general text search launched
+  by programmatic tab activation. Visual activation now avoids that click;
+  queued/in-flight searches are invalidated and superseded lookups discarded.
+- Confirmed recording matches and existing tanda-size filtering are preserved;
+  a new explicit search still replaces the results (`UI-011.R26.a`).
+- Verification: `npm run preflight` passed with Electron's matching native
+  SQLite runtime and two workers (130 files / 770 tests and production build).
+  Four focused Electron workflows passed: Designer actions, playlist-hosted
+  editor actions, exact lookup with 3/4-track filters, and playlist playback safety.
+- Unfinished style-analysis and metadata-display changes remain separately in
+  the original `feature/style-analysis-integration` workspace; they are excluded
+  from this branch. Package version remains 0.5.4.
 
 ## Local responsiveness integration — 2026-11-21
 

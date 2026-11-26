@@ -124,3 +124,9 @@ integrated in this base.
 | Requirement | Status | Implementation |
 |---|---|---|
 | UI-014.R30.a | Implemented | Base sequence styles admit subtype-tagged library tracks, preventing empty generated tandas when eligible subtype tracks exist. Explicit subtype targets remain exact. |
+
+## Find tandas exact results — issue #48
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| UI-011.R26.a | Implemented | Exact recording-membership results survive tab activation; superseded searches are ignored. Existing size filtering and subsequent explicit searches remain supported. |

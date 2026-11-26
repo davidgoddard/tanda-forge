@@ -2361,6 +2361,29 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  test("21c2 - track Find Tandas retains exact membership instead of text results", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      for (const [size, expectedName] of [["3", "Tango Trio"], ["4", "Tango Four"]]) {
+        await page.locator('button[data-tab="search-tandas"]').click();
+        await page.locator("#search-tanda-size").fill(size);
+        await page.locator('button[data-tab="search-tracks"]').click();
+        await runSearch(page, "Alberto Gomez Tango Uno");
+        await clickRowAction(searchTrackRow(page, "Alberto Gomez Tango Uno"), "find-track-tandas");
+        await expect(page.locator('button[data-tab="search-tandas"]')).toHaveClass(/active/);
+        await expect(page.locator("#search-tracks")).toHaveAttribute("data-state", "idle");
+        await expect(page.locator("#search-tandas .tanda-row")).toHaveCount(1);
+        await expect(searchTandaRow(page, expectedName)).toBeVisible();
+      }
+      // A new explicit search must still replace the exact lookup normally.
+      await runSearch(page, "Milonga");
+      await expect(searchTandaRow(page, "Tango Four")).toHaveCount(0);
+    } finally {
+      await launched.close();
+    }
+  });
+
   test("21d - expanded playlist track Find Tandas does not start playback", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
