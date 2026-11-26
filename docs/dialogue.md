@@ -7783,6 +7783,17 @@ The user requested publishing all current feature work on a feature branch at ve
   stash while integrating; keep Finder metadata locally but untracked as on
   main. No remote push or Style Lab algorithm integration is part of this step.
 
+## 2026-11-26 — Empty auto-generated tandas with subtype-tagged tracks
+
+- Clear + auto-generate reduced sequence styles to base labels, then required
+  exact track-style equality, excluding tracks such as Tango - Traditional.
+- Reuse the existing style-family filter for initial generation eligibility;
+  retain exact subtype selection and subsequent cohesion, duplicate and
+  orchestra-repeat constraints (UI-014.R30.a).
+- The Electron regression reproduced an empty tanda before the fix and passed
+  afterward. The user explicitly requested committing/pushing without additional
+  tests; checkpoint verification records the previously completed focused checks.
+  
 ## 2026-11-26 — Find tandas result overwrite (#48)
 
 - The exact saved-tanda lookup was correct, but programmatically clicking the

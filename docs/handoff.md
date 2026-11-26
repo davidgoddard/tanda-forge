@@ -1,3 +1,19 @@
+## Playlist generation fix — 2026-11-26
+
+- Branch `fix/playlist-auto-generation`, based on main `5514b50`, fixes empty
+  generated tandas when tracks have subtype tags such as Tango - Traditional.
+- Initial generation eligibility now uses the existing style-family matcher;
+  explicit subtype targets and later cohesion/duplicate/repeat-gap constraints
+  remain intact (`UI-014.R30.a`). No data migration or version change.
+- Verification completed before this checkpoint: 65 focused unit tests,
+  production build and six Electron workflows passed. The new subtype-library
+  regression reproduced an empty tanda before the fix and passed afterward.
+- At the user's explicit request, no additional tests or full preflight were
+  run for this commit/push checkpoint. Full checkpoint verification remains
+  outstanding; the focused checks above are the verified scope.
+- The separate Find tandas fix is on `fix/48-find-tandas`. Unfinished analysis
+  work remains in the original `feature/style-analysis-integration` workspace.
+  
 ## Find tandas fix — 2026-11-26
 
 - Branch `fix/48-find-tandas` is based on main `5514b50` and addresses issue #48.

@@ -11204,8 +11204,7 @@ const pickGeneratedTandaForSlot = (
   );
   const targetStyles = options?.targetStyles
     ?? (slotIndex === null ? [] : getDefaultPlaylistStyles(slotIndex));
-  const defaultStyles = targetStyles.map(canonicalizeStyleForMatching);
-  const styleRequired = defaultStyles.length > 0;
+  const styleRequired = targetStyles.length > 0;
   const anchorIds = new Set(options?.anchorTrackIds ?? []);
   const anchorTracks = (options?.anchorTrackIds ?? [])
     .map((trackId) => allTracks.find((track) => track.id === trackId) ?? null)
@@ -11223,8 +11222,9 @@ const pickGeneratedTandaForSlot = (
     if (!styleRequired) {
       return true;
     }
-    const style = canonicalizeStyleForMatching(track.genre ?? "");
-    return style.length > 0 && defaultStyles.includes(style);
+    // Sequence slots select a base family; subtype-tagged tracks are eligible
+    // too. Explicit subtype targets remain exact, as in the shared UI filter.
+    return styleMatchesFilter(track.genre ?? "", targetStyles);
   });
   if (pool.length < targetCount) {
     return null;
