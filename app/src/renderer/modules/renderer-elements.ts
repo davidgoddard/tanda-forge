@@ -342,6 +342,8 @@ export const queryRendererElements = () => {
     document.querySelector<HTMLButtonElement>("#playlist-import-button");
   const playlistTransferResult =
     document.querySelector<HTMLDivElement>("#playlist-transfer-result");
+  const cortinaFadeInput =
+    document.querySelector<HTMLInputElement>("#cortina-fade-duration");
   const stopFadeInput =
     document.querySelector<HTMLInputElement>("#stop-fade-duration");
   const playlistSequenceInput =
@@ -662,6 +664,7 @@ export const queryRendererElements = () => {
     playlistImportBtn,
     playlistTransferResult,
     stopFadeInput,
+    cortinaFadeInput,
     playlistSequenceInput,
     playlistArtistRepeatGapInput,
     playlistCortinaSetSelect,

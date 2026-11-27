@@ -802,7 +802,8 @@ export const it: TranslationMap = {
     statusCortinaSelected: "Cortina selezionata: {title}.",
     statusCortinaLocked:
       "Questa cortina e gia stata riprodotta e non puo essere cambiata.",
-    stopFade: "Dissolvenza stop (s)",
+    stopFade: "Dissolvenza allo stop di brano o playlist (s)",
+    cortinaFade: "Dissolvenza cortina (s)",
     cortinaLevelPercentLabel: "Livello cortina (% uscita principale)",
     audioDspEnabledLabel: "Abilita DSP dinamica in tempo reale",
     audioDynamicsPresetLabel: "Preset dinamica",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  isUserStartedIncompleteTanda,
+  getTandaCompletionAnchors,
   tandaCompletionCombinationKey,
 } from "../app/src/shared/tanda-completion";
 
@@ -12,21 +12,28 @@ describe("tanda completion state", () => {
       .not.toBe(tandaCompletionCombinationKey(["a", "b"]));
   });
 
-  it("only offers completion for a user-started incomplete tanda", () => {
-    expect(isUserStartedIncompleteTanda({
+  it("offers completion for a populated tanda below the preferred size", () => {
+    expect(getTandaCompletionAnchors({
       trackSlots: ["anchor", null, null],
-      manualTrackIds: ["anchor"],
       preferredSize: 3,
-    })).toBe(true);
-    expect(isUserStartedIncompleteTanda({
+    })).toEqual(["anchor"]);
+    expect(getTandaCompletionAnchors({
       trackSlots: [null, null, null],
-      manualTrackIds: [],
       preferredSize: 3,
-    })).toBe(false);
-    expect(isUserStartedIncompleteTanda({
+    })).toEqual([]);
+    expect(getTandaCompletionAnchors({
       trackSlots: ["anchor", "a", "b"],
       manualTrackIds: ["anchor"],
       preferredSize: 3,
-    })).toBe(false);
+    })).toEqual([]);
+  });
+
+  it("keeps anchors and allows generated suggestions to be cycled", () => {
+    expect(getTandaCompletionAnchors({
+      trackSlots: ["anchor", "suggestion", "other"],
+      manualTrackIds: ["anchor"],
+      generatedTrackIds: ["suggestion"],
+      preferredSize: 3,
+    })).toEqual(["anchor", "other"]);
   });
 });

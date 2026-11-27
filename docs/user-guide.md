@@ -654,7 +654,7 @@ There are several ways a tanda can be created or filled:
   supplies the required style and size; otherwise the Search style selectors
   and default tanda size are used. On a saved tanda, Generate creates a separate
   draft and does not update the saved tanda.
-- After you manually add one or more tracks to an incomplete tanda, the action
+- When a tanda has at least one track and is below the target size, the action
   becomes **Complete Tanda**. It preserves your tracks and fills the remaining
   preferred-size slots with cohesive candidates. Generate again on the completed
   tanda to cycle its suggested surround: an offered combination is not repeated,

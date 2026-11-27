@@ -585,9 +585,9 @@ Requirements:
   tanda or track style. Explicit style clicks always override either default.
 - UI-016.R20: Generation in the Tanda Designer reflects the active draft state:
   - UI-016.R20.a: Empty and wholly manual or wholly generated full tandas show
-    **Generate Tanda**. A user-started tanda containing manual tracks but fewer
-    than the preferred number shows **Complete Tanda**; other incomplete drafts
-    do not show either action.
+    **Generate Tanda**. A tanda with at least one track and fewer than the
+    target number shows **Complete Tanda**. Existing tracks are retained as
+    anchors, with previously generated suggestions still eligible for cycling.
   - UI-016.R20.b: Completing preserves manual anchor tracks and fills only the
     remaining preferred-size slots using the normal cohesion rules. Unlike
     from-scratch generation, completion must not exclude the anchor orchestra
@@ -605,6 +605,13 @@ Requirements:
     unchanged and a localized **No similar tracks found** alert is shown.
   - UI-016.R20.f: Generate replaces an active unsaved, non-anchored draft. If
     the active tanda is saved, it creates a separate draft without mutation.
+  - UI-016.R20.g: An editable playlist-hosted tanda offers **Complete Tanda**
+    above the rating when partially filled, or **Generate Tanda** when empty.
+    Both actions fill the current playlist draft in place and exclude tracks
+    and orchestras used by other playlist entries from new suggestions.
+    Completion retains all tracks already in the edited tanda and may use
+    unused tracks by its anchor orchestras even if those orchestras play
+    elsewhere in the playlist.
 - UI-016.R21: The Designer footer uses the compact localized labels **Save**
   and **Delete** for its save and delete actions.
 - UI-016.R22: Adding a track manually to a Designer tanda immediately sets the

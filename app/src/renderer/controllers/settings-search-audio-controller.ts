@@ -11,6 +11,7 @@ type SearchAudioElements = {
   gapBeforeTandaInput?: HTMLInputElement | null;
   gapBeforeCortinaInput?: HTMLInputElement | null;
   stopFadeInput?: HTMLInputElement | null;
+  cortinaFadeInput?: HTMLInputElement | null;
   cortinaLevelPercentInput?: HTMLInputElement | null;
   audioDynamicsEnabledInput?: HTMLInputElement | null;
   audioDynamicsLiftThresholdInput?: HTMLInputElement | null;
@@ -38,6 +39,7 @@ export type SettingsSearchAudioControllerDeps = {
     gapBeforeTanda: string;
     gapBeforeCortina: string;
     stopFade: string;
+    cortinaFade: string;
     cortinaLevelPercent: string;
     dynamicsEnabled: string;
     dynamicsLiftThreshold: string;
@@ -60,6 +62,7 @@ export type SettingsSearchAudioControllerDeps = {
     getGapBeforeTanda: () => number;
     getGapBeforeCortina: () => number;
     getStopFadeSeconds: () => number;
+    getCortinaFadeSeconds: () => number;
     getCortinaLevelPercent: () => number;
     getAudioDynamicsConfig: () => {
       enabled: boolean;
@@ -132,6 +135,7 @@ export const createSettingsSearchAudioController = (
       gapBeforeTandaInput,
       gapBeforeCortinaInput,
       stopFadeInput,
+      cortinaFadeInput,
       cortinaLevelPercentInput,
       audioDynamicsEnabledInput,
       audioDynamicsLiftThresholdInput,
@@ -254,8 +258,13 @@ export const createSettingsSearchAudioController = (
     });
     bindValidatedNumberInput(stopFadeInput, {
       read: deps.readers.getStopFadeSeconds,
-      isValid: (value) => value >= 0,
+      isValid: (value) => value >= 0 && value <= 30,
       write: (value) => deps.storage.setItem(deps.keys.stopFade, value.toString()),
+    });
+    bindValidatedNumberInput(cortinaFadeInput, {
+      read: deps.readers.getCortinaFadeSeconds,
+      isValid: (value) => value >= 0 && value <= 30,
+      write: (value) => deps.storage.setItem(deps.keys.cortinaFade, value.toString()),
     });
     bindValidatedNumberInput(cortinaLevelPercentInput, {
       read: deps.readers.getCortinaLevelPercent,

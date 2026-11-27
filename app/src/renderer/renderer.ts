@@ -36,7 +36,7 @@ import {
   getSavedTandaId,
 } from "./tanda-deletion.js";
 import {
-  isUserStartedIncompleteTanda,
+  getTandaCompletionAnchors,
   tandaCompletionCombinationKey,
 } from "../shared/tanda-completion.js";
 
@@ -475,6 +475,7 @@ const {
   playlistImportBtn,
   playlistTransferResult,
   stopFadeInput,
+  cortinaFadeInput,
   playlistSequenceInput,
   playlistArtistRepeatGapInput,
   playlistCortinaSetSelect,
@@ -707,22 +708,23 @@ const PLAYLIST_AUTO_CENTER_IDLE_MS = 2 * 60 * 1000;
 const DEFAULT_SEARCH_MIN_SCORE = 0.19;
 const DEFAULT_SEARCH_BPM_RANGE = 5;
 const CORTINA_SET_KEY = "tanda-cortina-set";
+const PREFERRED_DEFAULT_CORTINA_SET = "Hi energy";
 const DEFAULT_CORTINA_SET_ID = "__default__";
 const CORTINA_DURATION_KEY = "tanda-cortina-duration";
-const DEFAULT_CORTINA_DURATION = 40;
+const DEFAULT_CORTINA_DURATION = 27;
 const DISPLAY_BACKGROUND_INTERVAL_KEY = "tanda-display-background-interval";
 const DISPLAY_AV_LAG_KEY = "tanda-display-av-lag";
 const DEFAULT_DISPLAY_BACKGROUND_INTERVAL_SEC = 20;
 const DISPLAY_USE_IMAGES_KEY = "tanda-display-use-images";
 const DISPLAY_IMAGE_DIM_KEY = "tanda-display-image-dim";
-const DEFAULT_DISPLAY_IMAGE_DIM = 0.35;
+const DEFAULT_DISPLAY_IMAGE_DIM = 0.68;
 const DISPLAY_FONT_SCALE_KEY = "tanda-display-font-scale";
-const DEFAULT_DISPLAY_FONT_SCALE = 1.15;
+const DEFAULT_DISPLAY_FONT_SCALE = 1;
 const DISPLAY_AUTO_FIT_TEXT_KEY = "tanda-display-auto-fit-text";
 const DISPLAY_CORTINA_FONT_SCALE_KEY = "tanda-display-cortina-font-scale";
-const DEFAULT_DISPLAY_CORTINA_FONT_SCALE = 1;
+const DEFAULT_DISPLAY_CORTINA_FONT_SCALE = 1.07;
 const DISPLAY_EDGE_PADDING_KEY = "tanda-display-edge-padding-vmin";
-const DEFAULT_DISPLAY_EDGE_PADDING_VMIN = 8;
+const DEFAULT_DISPLAY_EDGE_PADDING_VMIN = 7;
 const CORTINA_LEVEL_PERCENT_KEY = "tanda-cortina-level-percent";
 const AUDIO_DYNAMICS_ENABLED_KEY = "tanda-audio-dynamics-enabled";
 const AUDIO_DYNAMICS_DEPTH_KEY = "tanda-audio-dynamics-depth";
@@ -752,7 +754,7 @@ const PLAYLIST_LAST_TANDA_COUNT_KEY = "tanda-playlist-current-last-count";
 const PLAYLIST_PERFORMANCE_STOP_KEY = "tanda-playlist-performance-stop";
 const PLAYLIST_END_TIME_KEY = "tanda-playlist-end-time";
 const DEFAULT_PLAYLIST_LAST_TANDA_COUNT = 1;
-const DEFAULT_PLAYLIST_END_TIME = "03:00";
+const DEFAULT_PLAYLIST_END_TIME = "17:30";
 
 let searchState: SearchState<TrackRow> = {
   items: [],
@@ -853,6 +855,7 @@ const updateE2eRuntimeSnapshot = () => {
         cortinaPlaying: boolean;
         configuredCortinaDuration: number;
         configuredStopFade: number;
+        configuredCortinaFade: number;
       };
     }
   ).__e2eRuntimeSnapshot = {
@@ -872,6 +875,7 @@ const updateE2eRuntimeSnapshot = () => {
     cortinaPlaying,
     configuredCortinaDuration: getCortinaDuration(),
     configuredStopFade: getStopFadeSeconds(),
+    configuredCortinaFade: getCortinaFadeSeconds(),
   };
 };
 const pulsePlaylistIndices = new Set<number>();
@@ -1133,7 +1137,7 @@ let lastPlayingIndicatorTrackId: string | null = null;
 const DEFAULT_PLAYLIST_SEQUENCE = "3t 3t 3w 3t 3t 3m";
 const DEFAULT_STYLE_FAMILIES =
   "T=Tango:Traditional, Contemporary, Alternative, Electro\nW=Waltz:Traditional, Contemporary, Alternative, Electro\nM=Milonga:Traditional, Contemporary, Alternative, Electro\nO=Other";
-const DEFAULT_PLAYLIST_START_TIME = "20:00";
+const DEFAULT_PLAYLIST_START_TIME = "14:00";
 const getLanguage = () =>
   (localStorage.getItem("tanda-language") as LanguageKey) || "en";
 let appVersion = "—";
@@ -1945,7 +1949,7 @@ const buildPlaylistTimeline = () => {
     gapBeforeTandaMs: getGapBeforeTanda() * 1000,
     gapBeforeCortinaMs: getGapBeforeCortina() * 1000,
     cortinaDurationMs: getCortinaDuration() * 1000,
-    cortinaFadeMs: getStopFadeSeconds() * 1000,
+    cortinaFadeMs: getCortinaFadeSeconds() * 1000,
     cortinaEnabled: isCortinaEnabled(),
     cortinaCounts: entries.map((entry) => getCortinaCount(entry.index)),
   });
@@ -2015,7 +2019,7 @@ const getLiveElapsedMs = (
   const gapBeforeTandaMs = getGapBeforeTanda() * 1000;
   const gapBeforeCortinaMs = getGapBeforeCortina() * 1000;
   const cortinaDurationMs = getCortinaDuration() * 1000;
-  const cortinaFadeMs = getStopFadeSeconds() * 1000;
+  const cortinaFadeMs = getCortinaFadeSeconds() * 1000;
   if (cortinaPlaying && cortinaActiveIndex !== null) {
     if (cortinaActiveIndex === playlistItems.length) {
       const totalMs = computeTimelineTotalMs(timeline.offsets, timeline.entries);
@@ -2086,7 +2090,7 @@ const getCortinaStartTimes = () => {
   const gapBeforeTandaMs = getGapBeforeTanda() * 1000;
   const gapBeforeCortinaMs = getGapBeforeCortina() * 1000;
   const cortinaDurationMs = getCortinaDuration() * 1000;
-  const cortinaFadeMs = getStopFadeSeconds() * 1000;
+  const cortinaFadeMs = getCortinaFadeSeconds() * 1000;
   timeline.offsets.forEach((offsetMs, idx) => {
     const cortinaStartMs = computeCortinaStartOffsetMs(
       offsetMs,
@@ -2126,13 +2130,15 @@ const validateTandaForSlot = (tanda: TandaDraft, slotIndex: number) => {
 };
 
 const getGapBetweenTracks = () =>
-  parseSettingNumber("tanda-gap-between-tracks", 2, -30, 30);
+  parseSettingNumber("tanda-gap-between-tracks", 2.5, -30, 30);
 const getGapBeforeTanda = () =>
-  parseSettingNumber("tanda-gap-before-tanda", 4, -30, 30);
+  parseSettingNumber("tanda-gap-before-tanda", -2, -30, 30);
 const getGapBeforeCortina = () =>
-  parseSettingNumber("tanda-gap-before-cortina", 1, -30, 30);
+  parseSettingNumber("tanda-gap-before-cortina", 2, -30, 30);
 const getStopFadeSeconds = () =>
-  parseSettingNumber("tanda-stop-fade", 2, 0, 30);
+  parseSettingNumber("tanda-track-stop-fade", 2, 0, 30);
+const getCortinaFadeSeconds = () =>
+  parseSettingNumber("tanda-stop-fade", 6, 0, 30);
 const getCortinaLevelPercent = () =>
   parseSettingNumber(
     CORTINA_LEVEL_PERCENT_KEY,
@@ -2220,7 +2226,7 @@ const syncCompressedCompanion = (state: PlaybackState) => {
 
 const applyDynamicLevelToChannel = (channel: OutputChannel) => {
   const state = playback[channel];
-  if (!state.active) {
+  if (!state.active || activeAudioFades.has(state.active)) {
     return;
   }
   const linearGain = gainForTrack(state.appliedGainDb);
@@ -2885,6 +2891,10 @@ const handleTandaAction = async (event: Event) => {
     setStatus(t("statusTandaLocked"));
     return;
   }
+  if (action === "tanda-fill-playlist") {
+    await fillPlaylistTanda(tanda);
+    return;
+  }
   if (action === "tanda-edit") {
     setActiveTanda(tanda.id);
     activateRightTab("tanda-designer-tab");
@@ -3238,38 +3248,33 @@ const updatePlayingIndicators = () => {
   lastPlayingIndicatorTrackId = activeId;
 };
 
+const activeAudioFades = new WeakMap<HTMLAudioElement, symbol>();
+
 const fadeBetween = (
   from: HTMLAudioElement | undefined,
   to: HTMLAudioElement,
   targetVolume: number,
   durationMs = 600,
+  fromCortina = false,
 ) => {
   setAudioLevel(to, targetVolume);
   if (!from) {
     return;
   }
   if (durationMs <= 0) {
+    activeAudioFades.delete(from);
     setAudioLevel(from, 0);
     from.pause();
     from.currentTime = 0;
     void releaseAudioDspRuntime(from);
     return;
   }
-  const fromStart = getAudioLevel(from);
-  const start = performance.now();
-  const step = () => {
-    const elapsed = performance.now() - start;
-    const t = Math.min(1, durationMs > 0 ? elapsed / durationMs : 1);
-    setAudioLevel(from, Math.max(0, fromStart * (1 - t)));
-    if (t >= 1) {
-      from.pause();
-      from.currentTime = 0;
-      void releaseAudioDspRuntime(from);
-      return;
-    }
-    window.requestAnimationFrame(step);
-  };
-  window.requestAnimationFrame(step);
+  void fadeOutAudio(from, durationMs, undefined, fromCortina).then((completed) => {
+    if (!completed) return;
+    from.pause();
+    from.currentTime = 0;
+    void releaseAudioDspRuntime(from);
+  });
 };
 
 type OutputRoutingResult = {
@@ -4233,12 +4238,13 @@ const playOnChannelImpl = async (
     if (channel === "main" && options?.isCortinaPlayback && state.active === next) {
       notifyLighting(false);
     }
-    if (state.compressedActive && !state.compressedActive.paused) {
+    if (state.active === next && state.compressedActive && !state.compressedActive.paused) {
       state.compressedActive.pause();
     }
     updateNowPlayingDisplay();
   });
   next.addEventListener("timeupdate", () => {
+    if (state.active !== next) return;
     syncCompressedCompanion(state);
     const durationCutoffSeconds =
       options?.isCortinaPlayback && cortinaAllowFull
@@ -4260,6 +4266,7 @@ const playOnChannelImpl = async (
         : null;
     if (
       !trimHandled &&
+      !activeAudioFades.has(next) &&
       effectiveEndSeconds !== null &&
       fadeStartSeconds !== null &&
       next.currentTime >= fadeStartSeconds
@@ -4276,24 +4283,29 @@ const playOnChannelImpl = async (
         );
         const shouldCancelAutoStop = () =>
           (autoStopCanBeCancelled && cortinaAllowFull) ||
-          autoStopRevision !== cortinaAutoStopRevision;
+          (options?.isCortinaPlayback === true && (cortinaStopRequested ||
+            autoStopRevision !== cortinaAutoStopRevision));
+        const restoreAfterOverride = () => {
+          trimHandled = false;
+          if (state.active === next && autoStopCanBeCancelled && cortinaAllowFull &&
+            !cortinaStopRequested && !activeAudioFades.has(next)) {
+            applyDynamicLevelToChannel(channel);
+            updateNowPlayingDisplay();
+          }
+        };
         if (autoStopFadeMs > 0 || isTrimmedEarly) {
           const preferredFadeMs = autoStopFadeMs > 0 ? autoStopFadeMs : 140;
           const fadeMs = computeFadeDurationMs(preferredFadeMs, remainingMs);
           if (fadeMs > 0) {
             const completed = await fadeOutAudio(next, fadeMs, shouldCancelAutoStop);
             if (!completed) {
-              trimHandled = false;
-              setAudioLevel(next, targetVolume);
-              updateNowPlayingDisplay();
+              restoreAfterOverride();
               return;
             }
           }
         }
         if (shouldCancelAutoStop()) {
-          trimHandled = false;
-          setAudioLevel(next, targetVolume);
-          updateNowPlayingDisplay();
+          restoreAfterOverride();
           return;
         }
         setAudioLevel(next, 0);
@@ -4306,6 +4318,7 @@ const playOnChannelImpl = async (
     }
     if (
       channel === "main" &&
+      !activeAudioFades.has(next) &&
       !state.compressionTailAutoResetApplied &&
       shouldAutoResetCompressionMixNearEnd({
         enabled: localStorage.getItem(AUDIO_DYNAMICS_ENABLED_KEY) === "1",
@@ -4356,14 +4369,16 @@ const playOnChannelImpl = async (
       Number.isFinite(options?.transitionFadeMs) && (options?.transitionFadeMs ?? 0) > 0
         ? options?.transitionFadeMs ?? 0
         : 600;
-    fadeBetween(previous, next, targetVolume, transitionFadeMs);
+    const outgoingIsCortina = previousStateSnapshot.isCortinaPlayback;
+    fadeBetween(previous, next, targetVolume, transitionFadeMs, outgoingIsCortina);
     if (previousCompressed) {
       if (transitionFadeMs <= 0) {
         previousCompressed.pause();
         previousCompressed.currentTime = 0;
         void releaseAudioDspRuntime(previousCompressed);
       } else {
-        void fadeOutAudio(previousCompressed, transitionFadeMs).then(() => {
+        void fadeOutAudio(previousCompressed, transitionFadeMs, undefined, outgoingIsCortina).then((completed) => {
+          if (!completed) return;
           previousCompressed.pause();
           previousCompressed.currentTime = 0;
           void releaseAudioDspRuntime(previousCompressed);
@@ -4463,15 +4478,22 @@ const fadeOutAudio = async (
   audio: HTMLAudioElement,
   durationMs: number,
   shouldCancel?: () => boolean,
+  isCortina = Object.values(playback).some((state) =>
+    state.isCortinaPlayback && (state.active === audio || state.compressedActive === audio),
+  ),
 ) => {
   const startVolume = getAudioLevel(audio);
-  const isCortina = Object.values(playback).some((state) =>
-    state.isCortinaPlayback && (state.active === audio || state.compressedActive === audio),
-  );
+  const fade = Symbol();
+  activeAudioFades.set(audio, fade);
   const start = performance.now();
   return new Promise<boolean>((resolve) => {
     const step = () => {
+      if (activeAudioFades.get(audio) !== fade) {
+        resolve(false);
+        return;
+      }
       if (shouldCancel?.()) {
+        activeAudioFades.delete(audio);
         resolve(false);
         return;
       }
@@ -4481,6 +4503,7 @@ const fadeOutAudio = async (
         ? computeCortinaFadeLevel(startVolume, t)
         : Math.max(0, startVolume * (1 - t)));
       if (t >= 1) {
+        activeAudioFades.delete(audio);
         resolve(true);
         return;
       }
@@ -4502,6 +4525,8 @@ const stopChannelPlayback = async (channel: OutputChannel, fadeMs: number) => {
     if (state.compressedActive) {
       await fadeOutAudio(state.compressedActive, fadeMs);
     }
+  } else {
+    activeAudioFades.delete(active);
   }
   active.pause();
   if (channel === "main") notifyLightingPlayback.stop();
@@ -7524,7 +7549,7 @@ const renderCortinaRows = (index: number, startMinutes?: number) => {
     const time = document.createElement("span");
     time.className = "cortina-time";
     time.textContent = startMinutes === undefined ? "" : `(${formatClockTime(
-      startMinutes + Math.floor(position * (getCortinaDuration() + getStopFadeSeconds()) / 60),
+      startMinutes + Math.floor(position * (getCortinaDuration() + getCortinaFadeSeconds()) / 60),
     )})`;
     const label = document.createElement("span");
     label.className = "cortina-meta";
@@ -8043,7 +8068,7 @@ const requestImmediateCortinaStop = () => {
     return cortinaStopPromise;
   }
   const activeCompanion = playback.main.compressedActive;
-  const fadeMs = Math.max(0, getStopFadeSeconds() * 1000);
+  const fadeMs = Math.max(0, getCortinaFadeSeconds() * 1000);
   cortinaStopPromise = (async () => {
     if (fadeMs > 0) {
       await Promise.all([
@@ -8052,6 +8077,8 @@ const requestImmediateCortinaStop = () => {
           ? fadeOutAudio(activeCompanion, fadeMs)
           : Promise.resolve(),
       ]);
+    } else {
+      activeAudioFades.delete(activeAudio);
     }
     activeAudio.pause();
   })().finally(() => {
@@ -8099,7 +8126,7 @@ const playSingleCortina = async (
     Number.isFinite(configuredDurationMs) && configuredDurationMs > 0
       ? configuredDurationMs
       : 20_000;
-  const autoStopFadeMs = Math.max(0, getStopFadeSeconds() * 1000);
+  const autoStopFadeMs = Math.max(0, getCortinaFadeSeconds() * 1000);
   setCortinaControlsVisible(true);
   renderPlaylist();
   const started = await playOnChannel(
@@ -8212,7 +8239,7 @@ const playSingleCortina = async (
       } else if (cortinaAllowFull) {
         await waitForAudioEnd(activeAudio, runId);
       } else if (!activeAudio.paused && !activeAudio.ended) {
-        const fadeMs = Math.max(400, getStopFadeSeconds() * 1000);
+        const fadeMs = Math.max(400, getCortinaFadeSeconds() * 1000);
         await Promise.all([
           fadeOutAudio(activeAudio, fadeMs),
           activeCompanion && !activeCompanion.paused
@@ -8879,15 +8906,15 @@ const artistKey = (track: TrackRow) =>
 
 const singerKey = (track: TrackRow) => (track.singer ?? "").trim().toLowerCase();
 
-const collectUsedTrackTitles = () => {
+const collectUsedTrackTitles = (excludedIndex?: number) => {
   const used = new Set<string>();
   const addTrack = (track: TrackRow) => {
     used.add(normalizeTrackTitleForAutofill(track));
     const equivalents = audioSimilarityController.similarityEquivalentTrackIds.get(track.id) ?? new Set([track.id]);
     equivalents.forEach((trackId) => used.add(`@similarity:${trackId}`));
   };
-  playlistItems.forEach((item) => {
-    if (!item) {
+  playlistItems.forEach((item, index) => {
+    if (!item || index === excludedIndex) {
       return;
     }
     if (item.kind === "track") {
@@ -9055,6 +9082,7 @@ const pickGeneratedTandaForSlot = (
     registerDraft?: boolean;
     anchorTrackIds?: string[];
     triedGeneratedCombinations?: Set<string>;
+    preferAnchorOrchestra?: boolean;
   },
 ) => {
   const targetCount = Math.max(
@@ -9072,11 +9100,14 @@ const pickGeneratedTandaForSlot = (
   if (anchorIds.size > 0 && anchorTracks.length !== anchorIds.size) {
     return null;
   }
+  const anchorArtists = new Set(anchorTracks.map(artistKey).filter(Boolean));
   const pool = allTracks.filter((track) => {
     if (!anchorIds.has(track.id) && isAutofillTrackUsed(track, usedTrackTitles)) {
       return false;
     }
-    if (!anchorIds.has(track.id) && options?.excludedArtists?.has(artistKey(track))) {
+    const artist = artistKey(track);
+    if (!anchorIds.has(track.id) && options?.excludedArtists?.has(artist)
+      && !(options.preferAnchorOrchestra && anchorArtists.has(artist))) {
       return false;
     }
     if (!styleRequired) {
@@ -9112,8 +9143,11 @@ const pickGeneratedTandaForSlot = (
         const fineStyle = anchorStyles.length === 1
           ? anchorStyles[0] ?? ""
           : canonicalizeStyleForMatching(seed.genre ?? "");
+        const styleCandidates = options?.preferAnchorOrchestra && seedArtist && phaseRules.requireSameArtist
+          ? pool.filter((track) => anchorIds.has(track.id) || artistKey(track) === seedArtist)
+          : pool;
         const requireFineStyle = hasFineGrainedStyleCapacity({
-          items: pool,
+          items: styleCandidates,
           targetStyle: fineStyle,
           targetCount,
           getStyle: (track) => canonicalizeStyleForMatching(track.genre ?? ""),
@@ -9193,7 +9227,7 @@ const pickGeneratedTandaForSlot = (
           const difference = score(left) - score(right);
           return difference !== 0 ? difference : left.id.localeCompare(right.id);
         });
-        const randomOffset = anchorTracks.length > 0 && candidates.length > 0
+        const randomOffset = !options?.preferAnchorOrchestra && anchorTracks.length > 0 && candidates.length > 0
           ? Math.floor(Math.random() * candidates.length)
           : 0;
         const randomizedCandidates = randomOffset > 0
@@ -9295,10 +9329,10 @@ const pickGeneratedTandaForSlot = (
   return null;
 };
 
-const collectPlaylistArtistKeys = () => {
+const collectPlaylistArtistKeys = (excludedIndex?: number) => {
   const artists = new Set<string>();
-  playlistItems.forEach((item) => {
-    if (!item) return;
+  playlistItems.forEach((item, index) => {
+    if (!item || index === excludedIndex) return;
     if (item.kind === "track") {
       const key = artistKey(item.track);
       if (key) artists.add(key);
@@ -9314,16 +9348,82 @@ const collectPlaylistArtistKeys = () => {
   return artists;
 };
 
+const getDesignerGenerationTarget = () => {
+  const index = getPlaylistTargetIndex();
+  return index === null
+    ? { targetStyles: getExpandedStyleFilter(), targetCount: getDefaultTandaSize() }
+    : { targetStyles: getDefaultPlaylistStyles(index), targetCount: getDefaultPlaylistTandaSize(index) };
+};
+
+const getPlaylistEditorFillTarget = (tanda: TandaDraft, index: number) => ({
+  targetCount: Math.max(tanda.trackSlots.length, getDefaultPlaylistTandaSize(index)),
+  targetStyles: tanda.styles.length ? [...tanda.styles] : getDefaultPlaylistStyles(index),
+});
+
+const fillPlaylistTanda = async (tanda: TandaDraft) => {
+  const index = playlistOpenTandaIndex;
+  if (index === null) return;
+  const item = playlistItems[index];
+  if (item?.kind !== "tanda" || item.tandaId !== tanda.id || !tanda.playlistUnsaved) return;
+  const before = cloneTanda(tanda);
+  const target = getPlaylistEditorFillTarget(tanda, index);
+  if (before.trackSlots.filter(Boolean).length >= target.targetCount) return;
+  const isCurrent = () =>
+    activeRightTab === "playlist-tab" &&
+    tandaEditorHostTab === "playlist-tab" &&
+    playlistOpenTandaIndex === index &&
+    playlistItems[index]?.kind === "tanda" &&
+    playlistItems[index]?.tandaId === tanda.id &&
+    resolveTandaDraft(tanda.id) === tanda &&
+    !isTandaLocked(tanda.id) &&
+    JSON.stringify(before.trackSlots) === JSON.stringify(tanda.trackSlots) &&
+    JSON.stringify(target) === JSON.stringify(getPlaylistEditorFillTarget(tanda, index));
+  if (!isCurrent()) return;
+  const api = window.tanda;
+  try {
+    await runDesignerGeneration({
+      listTracks: api ? () => api.listTracks() : undefined,
+      getTarget: () => target,
+      getActiveTanda: () => tanda,
+      playlistSlot: { isCurrent },
+      cacheTrack: (track) => trackCache.set(track.id, track),
+      getBpm: (id) => trackCache.get(id)?.bpm,
+      collectPlaylistArtistKeys: () => collectPlaylistArtistKeys(index),
+      generate: (tracks, options) => pickGeneratedTandaForSlot(
+        null, tracks, [], collectUsedTrackTitles(index), new Map(), 0, 0, new Map(),
+        {
+          ...options, origin: "playlist", reconcileSavedMatch: false, registerDraft: false,
+          preferAnchorOrchestra: options.anchorTrackIds.length > 0,
+        },
+      ),
+      installDraft: (generated) => {
+        tanda.trackSlots = generated.trackSlots;
+        tanda.styles = generated.styles;
+        tanda.autoGenerated = true;
+        tanda.manualTrackIds = undefined;
+        tanda.generatedTrackIds = undefined;
+        tanda.triedGeneratedCombinations = undefined;
+      },
+      refresh: () => {
+        tanda.totalDurationMs = undefined;
+        clearAlert();
+        renderPlaylist();
+        renderTandaDesigner();
+      },
+      setStatus,
+      showAlert,
+      t,
+    });
+  } catch (error) {
+    if (isCurrent()) setStatus(error instanceof Error ? error.message : String(error));
+  }
+};
+
 const generateDesignerTanda = () => {
   const api = window.tanda;
   return runDesignerGeneration({
     listTracks: api ? () => api.listTracks() : undefined,
-    getTarget: () => {
-      const index = getPlaylistTargetIndex();
-      return index === null
-        ? { targetStyles: getExpandedStyleFilter(), targetCount: getDefaultTandaSize() }
-        : { targetStyles: getDefaultPlaylistStyles(index), targetCount: getDefaultPlaylistTandaSize(index) };
-    },
+    getTarget: getDesignerGenerationTarget,
     getActiveTanda,
     cacheTrack: (track) => trackCache.set(track.id, track),
     getBpm: (id) => trackCache.get(id)?.bpm,
@@ -9798,19 +9898,10 @@ const renderTandaDesigner = () => {
     const selected = designerSelectedId
       ? orderedDesignerDrafts.find((item) => item.id === designerSelectedId) ?? null
       : null;
-    const preferredSize = getDefaultTandaSize();
-    const trackCount = selected?.trackSlots.filter(Boolean).length ?? 0;
-    const complete = Boolean(selected && (
-      isUserStartedIncompleteTanda({
-        trackSlots: selected.trackSlots,
-        manualTrackIds: selected.manualTrackIds,
-        preferredSize,
-      })
-      || ((selected.manualTrackIds?.length ?? 0) > 0
-        && (selected.generatedTrackIds?.length ?? 0) > 0)
-    ));
-    const generate = !selected || trackCount === 0 || trackCount >= preferredSize;
-    generateTandaBtn.classList.toggle("hidden", !complete && !generate);
+    const { targetCount } = getDesignerGenerationTarget();
+    const complete = selected
+      && getTandaCompletionAnchors({ ...selected, preferredSize: targetCount }).length > 0;
+    generateTandaBtn.classList.remove("hidden");
     generateTandaBtn.textContent = t(complete ? "completeTanda" : "generateTanda");
   }
   const renderInto = (
@@ -10025,6 +10116,17 @@ const renderTandaDesigner = () => {
     )}`;
     metaRow.append(countMeta, instrumentalMeta, durationMeta);
 
+    if (container === playlistTandaEditorEl && playlistOpenTandaIndex !== null && !locked) {
+      const { targetCount } = getPlaylistEditorFillTarget(tanda, playlistOpenTandaIndex);
+      const trackCount = tanda.trackSlots.filter(Boolean).length;
+      if (trackCount < targetCount) {
+        const fillButton = document.createElement("button");
+        fillButton.className = "tanda-playlist-fill";
+        fillButton.dataset.action = "tanda-fill-playlist";
+        fillButton.textContent = t(trackCount ? "completeTanda" : "generateTanda");
+        header.appendChild(fillButton);
+      }
+    }
     header.append(nameRow, styleRow, metaRow);
 
     const trackList = document.createElement("div");
@@ -10493,7 +10595,7 @@ const getOpenPlaylistTandaIndex = () => {
     return null;
   }
   const tanda = resolveTandaDraft(item.tandaId);
-  if (!tanda || !tanda.trackSlots.some((slot) => !slot)) {
+  if (!tanda || (tandaEditorHostTab !== "playlist-tab" && !tanda.trackSlots.some((slot) => !slot))) {
     clearPlaylistOpenTanda();
     return null;
   }
@@ -10810,7 +10912,8 @@ const getSearchConfig = () => ({
   bpmRange: getSearchBpmRange(),
 });
 
-const getCortinaSet = () => localStorage.getItem(CORTINA_SET_KEY) ?? "";
+const getCortinaSet = () => localStorage.getItem(CORTINA_SET_KEY)
+  ?? (cortinaSets.includes(PREFERRED_DEFAULT_CORTINA_SET) ? PREFERRED_DEFAULT_CORTINA_SET : "");
 
 const getCortinaDuration = () => {
   const raw = localStorage.getItem(CORTINA_DURATION_KEY);
@@ -10842,13 +10945,8 @@ const displayLagScheduler = createDisplayLagScheduler<DisplayUpdatePayload>(
   getDisplayLagSeconds(),
 );
 
-const getDisplayUseBackgroundImages = () => {
-  const raw = localStorage.getItem(DISPLAY_USE_IMAGES_KEY);
-  if (raw === null) {
-    return true;
-  }
-  return raw !== "0";
-};
+const getDisplayUseBackgroundImages = () =>
+  (localStorage.getItem(DISPLAY_USE_IMAGES_KEY) ?? "0") !== "0";
 
 const getDisplayImageDimOpacity = () => {
   const raw = localStorage.getItem(DISPLAY_IMAGE_DIM_KEY);
@@ -13884,6 +13982,7 @@ const init = async () => {
       gapBeforeTandaInput,
       gapBeforeCortinaInput,
       stopFadeInput,
+      cortinaFadeInput,
       cortinaLevelPercentInput,
       audioDynamicsEnabledInput,
       audioDynamicsLiftThresholdInput,
@@ -13906,7 +14005,8 @@ const init = async () => {
       gapBetweenTracks: "tanda-gap-between-tracks",
       gapBeforeTanda: "tanda-gap-before-tanda",
       gapBeforeCortina: "tanda-gap-before-cortina",
-      stopFade: "tanda-stop-fade",
+      stopFade: "tanda-track-stop-fade",
+      cortinaFade: "tanda-stop-fade",
       cortinaLevelPercent: CORTINA_LEVEL_PERCENT_KEY,
       dynamicsEnabled: AUDIO_DYNAMICS_ENABLED_KEY,
       dynamicsLiftThreshold: AUDIO_DYNAMICS_LIFT_THRESHOLD_KEY,
@@ -13929,6 +14029,7 @@ const init = async () => {
       getGapBeforeTanda,
       getGapBeforeCortina,
       getStopFadeSeconds,
+      getCortinaFadeSeconds,
       getCortinaLevelPercent,
       getAudioDynamicsConfig,
     },

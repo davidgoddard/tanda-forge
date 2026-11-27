@@ -27,6 +27,7 @@ const createDeps = () => {
         gapBeforeTanda: "gap-before-tanda",
         gapBeforeCortina: "gap-before-cortina",
         stopFade: "stop-fade",
+        cortinaFade: "cortina-fade",
         cortinaLevelPercent: "cortina-level",
         dynamicsEnabled: "dyn-enabled",
         dynamicsLiftThreshold: "dyn-lift",
@@ -49,6 +50,7 @@ const createDeps = () => {
         getGapBeforeTanda: () => 5,
         getGapBeforeCortina: () => 4,
         getStopFadeSeconds: () => 3,
+        getCortinaFadeSeconds: () => 6,
         getCortinaLevelPercent: () => 100,
         getAudioDynamicsConfig: () => ({
           enabled: false,
@@ -80,6 +82,27 @@ const createDeps = () => {
 };
 
 describe("settings search/audio controller", () => {
+  it("reads and saves track stop and cortina fade durations independently", () => {
+    const { storage, deps } = createDeps();
+    const stopFadeInput = new FakeInput() as unknown as HTMLInputElement;
+    const cortinaFadeInput = new FakeInput() as unknown as HTMLInputElement;
+    createSettingsSearchAudioController({
+      ...deps,
+      elements: { stopFadeInput, cortinaFadeInput },
+    }).initialize();
+
+    expect(stopFadeInput.value).toBe("3");
+    expect(cortinaFadeInput.value).toBe("6");
+    stopFadeInput.value = "0.5";
+    stopFadeInput.dispatchEvent(new Event("change"));
+    expect(storage.get("stop-fade")).toBe("0.5");
+    expect(storage.has("cortina-fade")).toBe(false);
+    cortinaFadeInput.value = "5";
+    cortinaFadeInput.dispatchEvent(new Event("change"));
+    expect(storage.get("cortina-fade")).toBe("5");
+    expect(storage.get("stop-fade")).toBe("0.5");
+  });
+
   it("persists and clamps the clipboard new limit", () => {
     const { storage, deps } = createDeps();
     const input = new FakeInput() as unknown as HTMLInputElement;

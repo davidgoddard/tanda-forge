@@ -2246,6 +2246,55 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  for (const anchorOrchestraAlreadyUsed of [false, true]) {
+  test(`21a - playlist editor fills its slot (anchor orchestra elsewhere: ${anchorOrchestraAlreadyUsed})`, async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await clearPlaylistViaUi(page);
+      await page.evaluate(() => localStorage.setItem("tanda-playlist-sequence", "3m 3t"));
+      await page.locator('button[data-tab="search-tandas"]').click();
+      await runSearch(page, "Canaro Milonga Pack A");
+      await clickRowAction(searchTandaRow(page, "Canaro Milonga Pack A"), "add-playlist-tanda");
+      await confirmIfPrompted(page);
+      if (anchorOrchestraAlreadyUsed) {
+        await runSearch(page, "Canaro Tango Pack");
+        await clickRowAction(searchTandaRow(page, "Canaro Tango Pack"), "add-playlist-tanda");
+        await confirmIfPrompted(page);
+      }
+      await ensurePlaylistTab(page);
+      await clickRowAction(playlistTandaRow(page, "Canaro Milonga Pack A"), "tanda-edit");
+      const editor = await waitForPlaylistEditorRows(page, 3);
+      const fill = editor.locator('button[data-action="tanda-fill-playlist"]');
+      const tracks = editor.locator(".tanda-track-row[data-track-id]");
+      const draftId = await editor.locator(".tanda-card").getAttribute("data-tanda-id");
+      const anchorId = await tracks.first().getAttribute("data-track-id");
+      await expect(fill).toHaveCount(0);
+
+      await clickEditorTrackAction(editor, 2, "tanda-discard-track");
+      await expect(fill).toHaveText("Complete Tanda");
+      await fill.click();
+      await expect(tracks).toHaveCount(3);
+      await expect(editor.locator(`.tanda-track-row[data-track-id="${anchorId}"]`)).toBeVisible();
+      await expect.poll(() => tracks.evaluateAll((rows) =>
+        rows.map((row) => (row as HTMLElement).dataset.trackId).sort(),
+      )).toEqual(["t13", "t14", "t15"]);
+
+      if (anchorOrchestraAlreadyUsed) return;
+      for (const index of [2, 1, 0]) {
+        await clickEditorTrackAction(editor, index, "tanda-discard-track");
+      }
+      await expect(fill).toHaveText("Generate Tanda");
+      await fill.click();
+      await expect(tracks).toHaveCount(3);
+      await expect(editor.locator(".tanda-card")).toHaveAttribute("data-tanda-id", draftId!);
+      await expect(fill).toHaveCount(0);
+    } finally {
+      await launched.close();
+    }
+  });
+  }
+
   test("21b - Designer track overflow actions search, find, edit, copy, and discard without closing", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
@@ -3658,6 +3707,40 @@ test.describe("Electron app end-to-end workflows", () => {
     }
   });
 
+  test("fresh profile uses the Playlist and Display Board defaults", async () => {
+    const launched = await launchSeededApp("full");
+    const { page } = launched;
+    try {
+      await openSettings(page);
+      await page.locator('button[data-tab="playlist"]').click();
+      for (const [id, value] of Object.entries({
+        "gap-between-tracks": "2.5",
+        "gap-before-tanda": "-2",
+        "gap-before-cortina": "2",
+        "playlist-cortina-duration": "27",
+        "cortina-fade-duration": "6",
+        "playlist-start-time": "14:00",
+        "playlist-end-time": "17:30",
+        "playlist-cortina-set": "",
+      })) {
+        await expect(page.locator(`#${id}`)).toHaveValue(value);
+      }
+      await page.locator('button[data-tab="display-board"]').click();
+      await expect(page.locator("#display-use-images")).not.toBeChecked();
+      await expect(page.locator("#display-auto-fit-text")).toBeChecked();
+      for (const [id, value] of Object.entries({
+        "display-image-dim": "68",
+        "display-base-font-size": "100",
+        "display-cortina-font-size": "107",
+        "display-edge-padding": "7",
+      })) {
+        await expect(page.locator(`#${id}`)).toHaveValue(value);
+      }
+    } finally {
+      await launched.close();
+    }
+  });
+
   test("41 - cortina now-playing controls stop to continue and play to override duration", async () => {
     const launched = await launchSeededApp("full");
     const { page } = launched;
@@ -3670,7 +3753,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator("#gap-between-tracks").fill("0");
       await page.locator("#gap-before-tanda").fill("0");
       await page.locator("#gap-before-cortina").fill("0");
-      await page.locator("#stop-fade-duration").fill("0.6");
+      await page.locator("#cortina-fade-duration").fill("0.6");
       await page.locator("#playlist-cortina-duration").fill("1");
       const setValue = await waitForFirstNamedCortinaSetValue(page);
       await page.locator("#playlist-cortina-set").selectOption(setValue);
@@ -3736,7 +3819,7 @@ test.describe("Electron app end-to-end workflows", () => {
     await page.locator("#gap-between-tracks").fill("0");
     await page.locator("#gap-before-tanda").fill("0");
     await page.locator("#gap-before-cortina").fill("0");
-    await page.locator("#stop-fade-duration").fill("0.2");
+    await page.locator("#cortina-fade-duration").fill("0.2");
     await page.locator("#playlist-cortina-duration").fill("1");
     await page.locator("#playlist-cortina-set").selectOption(await waitForFirstNamedCortinaSetValue(page));
     await closeSettings(page);
@@ -3968,7 +4051,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await page.locator("#gap-between-tracks").fill("0");
       await page.locator("#gap-before-tanda").fill("0");
       await page.locator("#gap-before-cortina").fill("0");
-      await page.locator("#stop-fade-duration").fill("0.6");
+      await page.locator("#cortina-fade-duration").fill("0.6");
       await page.locator("#playlist-cortina-duration").fill("1");
       const setValue = await waitForFirstNamedCortinaSetValue(page);
       await page.locator("#playlist-cortina-set").selectOption(setValue);
@@ -4057,6 +4140,9 @@ test.describe("Electron app end-to-end workflows", () => {
               mainIsCortinaPlayback: boolean;
               mainVolume: number;
               nowPlayingTrack: string;
+              configuredCortinaDuration: number;
+              configuredStopFade: number;
+              configuredCortinaFade: number;
             };
           }
         ).__e2eRuntimeSnapshot ?? null,
@@ -4067,7 +4153,8 @@ test.describe("Electron app end-to-end workflows", () => {
       expect(prePlayState?.mainPaused).toBe(false);
       expect(prePlayState?.mainEnded).toBe(false);
       expect(prePlayState?.configuredCortinaDuration).toBe(40);
-      expect(prePlayState?.configuredStopFade).toBe(20);
+      expect(prePlayState?.configuredStopFade).toBe(2);
+      expect(prePlayState?.configuredCortinaFade).toBe(20);
       await page.locator("#cortina-play").click();
       await expect(page.locator("#cortina-play")).toBeDisabled();
       await page.waitForTimeout(21_000);
@@ -4086,6 +4173,7 @@ test.describe("Electron app end-to-end workflows", () => {
               cortinaPlaying: boolean;
               configuredCortinaDuration: number;
               configuredStopFade: number;
+              configuredCortinaFade: number;
             };
           }
         ).__e2eRuntimeSnapshot ?? null,

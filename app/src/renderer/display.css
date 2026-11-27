@@ -116,14 +116,14 @@ body {
   position: relative;
   z-index: 3;
   height: 100%;
-  --display-edge-padding-vmin: 8;
+  --display-edge-padding-vmin: 7;
   padding: calc(var(--display-edge-padding-vmin) * 1vmin);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   text-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
-  --display-font-scale: 1.15;
-  --display-cortina-font-scale: 1;
+  --display-font-scale: 1;
+  --display-cortina-font-scale: 1.07;
   --display-fit-scale-normal: 1;
   --display-fit-scale-cortina: 1;
   --display-field-fit-scale: 1;

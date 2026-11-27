@@ -18,13 +18,11 @@ export const computeFadeDurationMs = (
   return 80;
 };
 
-/** Constant attenuation in dB avoids the accelerating tail of an amplitude ramp.
- * Finish 60 dB below the starting level before setting exact silence.
- */
+/** Raised-cosine gain with a gentle onset and a smooth tail to silence. */
 export const computeCortinaFadeLevel = (startLevel: number, progress: number) => {
   if (!Number.isFinite(startLevel) || startLevel <= 0) return 0;
   if (!Number.isFinite(progress)) return 0;
   const fraction = Math.max(0, Math.min(1, progress));
   if (fraction === 1) return 0;
-  return startLevel * Math.pow(10, (-60 * fraction) / 20);
+  return startLevel * Math.cos((Math.PI / 2) * fraction) ** 2;
 };

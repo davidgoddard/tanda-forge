@@ -20,14 +20,14 @@ describe("computeFadeDurationMs", () => {
 });
 
 describe("cortina fade level", () => {
-  it("attenuates by equal decibel steps across the fade, including its tail", () => {
+  it("eases into and out of the fade and reaches exact silence", () => {
     for (const start of [0.2, 1, 2]) {
-      const levels = [0, 0.2, 0.4, 0.6, 0.8].map((t) => computeCortinaFadeLevel(start, t));
-      expect(levels[0]).toBe(start);
-      for (let i = 1; i < levels.length; i += 1) {
-        expect(20 * Math.log10(levels[i] / levels[i - 1])).toBeCloseTo(-12, 10);
-      }
-      expect(computeCortinaFadeLevel(start, 0.9999) / start).toBeLessThan(0.00101);
+      expect(computeCortinaFadeLevel(start, 0)).toBe(start);
+      expect(computeCortinaFadeLevel(start, 0.01) / start).toBeGreaterThan(0.999);
+      expect(computeCortinaFadeLevel(start, 0.25) / start).toBeCloseTo(0.853553, 6);
+      expect(computeCortinaFadeLevel(start, 0.5) / start).toBeCloseTo(0.5, 10);
+      expect(computeCortinaFadeLevel(start, 0.75) / start).toBeCloseTo(0.146447, 6);
+      expect(computeCortinaFadeLevel(start, 0.99) / start).toBeLessThan(0.001);
       expect(computeCortinaFadeLevel(start, 1)).toBe(0);
     }
   });

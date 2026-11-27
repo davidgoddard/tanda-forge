@@ -1,13 +1,17 @@
 export const tandaCompletionCombinationKey = (trackIds: string[]) =>
   [...new Set(trackIds)].sort((left, right) => left.localeCompare(right)).join("\u001f");
 
-export const isUserStartedIncompleteTanda = (params: {
+export const getTandaCompletionAnchors = (params: {
   trackSlots: (string | null)[];
   manualTrackIds?: string[];
+  generatedTrackIds?: string[];
   preferredSize: number;
 }) => {
-  const populated = params.trackSlots.filter(Boolean).length;
-  return (params.manualTrackIds?.length ?? 0) > 0
-    && populated > 0
-    && populated < Math.max(1, params.preferredSize);
+  const tracks = params.trackSlots.filter((id): id is string => Boolean(id));
+  const suggestions = new Set(params.generatedTrackIds);
+  const manual = new Set(params.manualTrackIds);
+  if (tracks.some((id) => manual.has(id)) && tracks.some((id) => suggestions.has(id))) {
+    return tracks.filter((id) => manual.has(id) || !suggestions.has(id));
+  }
+  return tracks.length < Math.max(1, params.preferredSize) ? tracks : [];
 };

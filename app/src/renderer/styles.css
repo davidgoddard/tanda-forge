@@ -1972,6 +1972,10 @@ body:is(.theme-dark, .theme-dark-alt, .theme-dark-red, .theme-dark-green, .theme
   gap: 0.6rem;
 }
 
+.tanda-playlist-fill {
+  justify-self: end;
+}
+
 .tanda-card .tanda-row {
   display: flex;
   gap: 0.6rem;

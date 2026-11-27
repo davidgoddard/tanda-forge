@@ -1,4 +1,4 @@
-import { isUserStartedIncompleteTanda, tandaCompletionCombinationKey } from "../../shared/tanda-completion.js";
+import { getTandaCompletionAnchors, tandaCompletionCombinationKey } from "../../shared/tanda-completion.js";
 import { orderTandaTracksByBpm } from "../../shared/playlist-auto-generation.js";
 import type { TrackRow } from "../../shared/types.js";
 import type { TandaDraft } from "../domain.js";
@@ -24,6 +24,7 @@ type DesignerGenerationDeps = {
   setStatus: (message: string) => void;
   showAlert: (message: string) => void;
   t: (key: string) => string;
+  playlistSlot?: { isCurrent: () => boolean };
 };
 
 export const runDesignerGeneration = async (deps: DesignerGenerationDeps) => {
@@ -33,26 +34,25 @@ export const runDesignerGeneration = async (deps: DesignerGenerationDeps) => {
   }
   const { targetStyles, targetCount } = deps.getTarget();
   const activeTanda = deps.getActiveTanda();
-  const shouldComplete = Boolean(activeTanda && (
-    isUserStartedIncompleteTanda({
-      trackSlots: activeTanda.trackSlots,
-      manualTrackIds: activeTanda.manualTrackIds,
-      preferredSize: targetCount,
-    })
-    || ((activeTanda.manualTrackIds?.length ?? 0) > 0
-      && (activeTanda.generatedTrackIds?.length ?? 0) > 0)
-  ));
-  if (targetStyles.length === 0 && !shouldComplete) {
+  const anchorTrackIds = deps.playlistSlot
+    ? (activeTanda?.trackSlots ?? []).filter((id): id is string => Boolean(id))
+    : activeTanda
+    ? getTandaCompletionAnchors({ ...activeTanda, preferredSize: targetCount })
+    : [];
+  const shouldComplete = anchorTrackIds.length > 0;
+  if (targetStyles.length === 0 && !shouldComplete && !deps.playlistSlot) {
     deps.setStatus(deps.t("statusGenerateTandaChooseStyle"));
     return;
   }
   const allTracks = await deps.listTracks();
+  if (deps.playlistSlot && !deps.playlistSlot.isCurrent()) return;
   allTracks.forEach((track) => deps.cacheTrack(track));
-  const anchorTrackIds = shouldComplete ? activeTanda?.manualTrackIds ?? [] : [];
   const generated = deps.generate(allTracks, {
     targetCount,
     targetStyles,
-    excludedArtists: shouldComplete ? undefined : deps.collectPlaylistArtistKeys(),
+    excludedArtists: shouldComplete && !deps.playlistSlot
+      ? undefined
+      : deps.collectPlaylistArtistKeys(),
     anchorTrackIds,
     triedGeneratedCombinations: new Set(activeTanda?.triedGeneratedCombinations ?? []),
   });
@@ -66,12 +66,7 @@ export const runDesignerGeneration = async (deps: DesignerGenerationDeps) => {
   }
   if (shouldComplete && activeTanda) {
     const generatedIds = generated.generatedTrackIds ?? [];
-    const previousGenerated = new Set(activeTanda.generatedTrackIds ?? []);
-    const nextSlots = activeTanda.trackSlots
-      .filter((trackId): trackId is string => Boolean(
-        trackId && !previousGenerated.has(trackId),
-      ))
-      .slice(0, targetCount) as (string | null)[];
+    const nextSlots: (string | null)[] = [...anchorTrackIds];
     while (nextSlots.length < targetCount) nextSlots.push(null);
     let generatedIndex = 0;
     for (let index = 0; index < nextSlots.length && generatedIndex < generatedIds.length; index += 1) {
@@ -85,6 +80,7 @@ export const runDesignerGeneration = async (deps: DesignerGenerationDeps) => {
       (trackId) => trackId ? deps.getBpm(trackId) : null,
     );
     activeTanda.generatedTrackIds = generatedIds;
+    activeTanda.manualTrackIds = anchorTrackIds;
     activeTanda.triedGeneratedCombinations = [
       ...(activeTanda.triedGeneratedCombinations ?? []),
       tandaCompletionCombinationKey(generatedIds),
