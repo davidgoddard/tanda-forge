@@ -257,6 +257,10 @@ import {
 } from "./modules/playback-view.js";
 import { createWaveformController } from "./modules/waveform-view.js";
 import {
+  buildTrackPrimaryLabel,
+  buildTrackSecondaryLabel,
+} from "./modules/track-display.js";
+import {
   resolveCurrentProgressText,
   resolveLastTandaCountdownText,
   resolveNextTandaLabel,
@@ -7248,10 +7252,9 @@ const renderTrackRow = (
   details.className = "track-details";
   const primary = document.createElement("div");
   primary.className = "track-primary";
-  const artist = track.artist ? ` — ${track.artist}` : "";
   const primaryLabel = document.createElement("span");
   primaryLabel.className = "track-primary-label";
-  primaryLabel.textContent = `${track.title}${artist}`;
+  primaryLabel.textContent = buildTrackPrimaryLabel(track);
   primary.title = primaryLabel.textContent;
   primary.appendChild(primaryLabel);
   if (tandaCount > 0) {
@@ -7268,14 +7271,13 @@ const renderTrackRow = (
     track.bpm !== null && track.bpm !== undefined && track.bpm > 0
       ? `${Math.round(track.bpm)} bpm`
       : "";
-  const secondaryParts = [
+  secondary.textContent = buildTrackSecondaryLabel([
     track.year,
     track.album,
     track.genre,
     bpmLabel,
     track.notes,
-  ].filter((value) => value && value.trim().length > 0);
-  secondary.textContent = secondaryParts.join(" · ");
+  ]);
   secondary.title = secondary.textContent;
   details.append(primary, secondary);
   row.append(details, actions);
