@@ -27,6 +27,18 @@ const database=()=>{
 afterEach(()=>directories.splice(0).forEach(dir=>fs.rmSync(dir,{recursive:true,force:true})));
 const enable=(db:any,preference:"prefer-user"|"derived-only"="prefer-user")=>setBpmConfig(db,{enabled:true,preference,configured:true,paused:false});
 describe("BPM source preservation",()=>{
+  it("preserves entered BPM on unrelated edits and applies a manual BPM in derived-only mode",()=>{
+    const db=database();enable(db,"derived-only");
+    db.exec("update tracks set derived_bpm=55 where id='b'");
+    saveTrackBpm(db,"b",undefined);
+    expect(getTrackBpm(db,"b")).toMatchObject({user_bpm:null,bpm:55});
+    saveTrackBpm(db,"b",undefined,57);
+    expect(getTrackBpm(db,"b")).toMatchObject({user_bpm:null,bpm:57});
+    saveTrackBpm(db,"b",60,60);
+    expect(getTrackBpm(db,"b")).toMatchObject({user_bpm:60,derived_bpm:55,bpm:60});
+    saveTrackBpm(db,"b",null,null);
+    expect(getTrackBpm(db,"b")).toMatchObject({user_bpm:null,bpm_override:null,bpm:55});
+  });
   it("migrates existing values once and starts disabled",()=>{
     const db=database();expect(getBpmConfig(db).enabled).toBe(false);
     expect(getTrackBpm(db,"a")?.user_bpm).toBe(64);

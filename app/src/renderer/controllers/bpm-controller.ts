@@ -111,11 +111,14 @@ export const createBpmController = (options: {
       baseline=derived.value;
       details.textContent=t("bpmDetails",{original:roundBpm(track?.derived_bpm)??"—",effective:roundBpm(track?.bpm)??"—"})+(track?.bpm_override!=null?" · "+t("bpmCorrected"):"");
       if(track?.bpm_error) details.textContent+=" · "+t("bpmFailed",{message:track.bpm_error});
-      return track?.user_bpm??null;
+      return track?.bpm;
     },
     tap(bpm:number){if(!editorEnabled)return false;derived.value=String(roundBpm(bpm)??"");return true;},
     dirty(){return editorEnabled&&derived.value!==baseline;},
-    async correction():Promise<{cancelled:boolean;derivedBpm?:number|null}>{
+    async correction(editedBpm?: number | null):Promise<{cancelled:boolean;derivedBpm?:number|null}>{
+      if (editorEnabled && editedBpm !== undefined) {
+        return { cancelled: false, derivedBpm: editedBpm };
+      }
       if(!editorEnabled||derived.value===baseline)return {cancelled:false};
       const raw=derived.value.trim()===""?null:Number(derived.value);
       const value=raw===null?null:Math.round(raw);

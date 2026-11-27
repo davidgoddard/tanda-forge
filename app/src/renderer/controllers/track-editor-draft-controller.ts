@@ -164,7 +164,8 @@ export const createTrackEditorDraftController = (deps: Dependencies) => {
     trackEditorGenreInput.value = track.genre ?? "";
     trackEditorNotesInput.value = track.notes ?? "";
     const bpmController = deps.getBpmController();
-    trackEditorBpmInput.value = formatTrackEditorBpm(bpmController ? bpmController.fill() : track.bpm);
+    const effectiveBpm = bpmController ? bpmController.fill() : track.bpm;
+    trackEditorBpmInput.value = formatTrackEditorBpm(effectiveBpm === undefined ? track.bpm : effectiveBpm);
     trackEditorState.baselineDraft = getTrackEditorDraftPayload();
     deps.renderPathHints(track);
     resetTapTempo();
@@ -215,6 +216,9 @@ export const createTrackEditorDraftController = (deps: Dependencies) => {
       resetTapTempo();
     },
     getTrackEditorDraftPayload,
+    getEditedBpm(bpm: number | null) {
+      return bpm === trackEditorState.baselineDraft?.bpm ? undefined : bpm;
+    },
     confirmTrackEditorDiscardIfDirty,
     fillTrackEditorFields,
     handleTapTempo,

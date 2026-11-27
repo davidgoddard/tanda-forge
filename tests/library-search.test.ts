@@ -751,6 +751,17 @@ describe("fuzzy search helpers", () => {
     expect(result[0].score).toBeGreaterThan(result[1].score);
   });
 
+  it("ranks scoped BPM searches by effective tempo", () => {
+    const exact = buildTrack({ id: "exact", title: "Red, Yellow, Blue", bpm: 55 });
+    const close = buildTrack({ id: "close", title: "Milonga Triste", bpm: 59 });
+    const result = filterAndScoreTracks([close, exact], {
+      query: "bpm:55",
+      minScore: 0.19,
+      bpmRange: 5,
+    });
+    expect(result.map(({ track }) => track.id)).toEqual(["exact", "close"]);
+  });
+
   it("uses similarity mode when numeric tokens are present and favors close year/tempo", () => {
     const close = buildTrack({
       id: "close",

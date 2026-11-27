@@ -15026,6 +15026,11 @@ const init = async () => {
     if (!fieldValue) {
       return;
     }
+    if (field === "bpm") {
+      const bpm = Math.round(Number(fieldValue));
+      if (bpm >= 1 && bpm <= 1000) runSearchQuery(`bpm:${bpm}`, true, "search-tracks");
+      return;
+    }
     if (field === "genre") {
       selectedStyles = resolveTrackSearchStyles({
         trackStyle: fieldValue,
@@ -15082,9 +15087,10 @@ const init = async () => {
       return;
     }
     try {
-      const correction = await bpmController?.correction();
+      const editedBpm = trackEditorDraft.getEditedBpm(payload.bpm);
+      const correction = await bpmController?.correction(editedBpm);
       if (correction?.cancelled) return;
-      const updated = await window.tanda.updateTrack({ ...payload,
+      const updated = await window.tanda.updateTrack({ ...payload, bpm: editedBpm,
         ...(correction && "derivedBpm" in correction ? { derivedBpm: correction.derivedBpm } : {}),
       });
       if (!updated) {

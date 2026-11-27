@@ -77,9 +77,12 @@ export const setBpmConfig = (db: Database.Database, config: BpmConfig) => {
 };
 export const getTrackBpm = (db: Database.Database,id:string): BpmTrack | null =>
   (db.prepare("select user_bpm,derived_bpm,bpm_override,bpm,bpm_error,bpm_analysis_key from tracks where id=?").get(id) as BpmTrack) ?? null;
-export const saveTrackBpm = (db: Database.Database,id:string,user:number|null,correction?:number|null) => {
+export const saveTrackBpm = (db: Database.Database,id:string,user:number|null|undefined,correction?:number|null) => {
   for (const value of [user,correction]) if (value != null && (!Number.isFinite(value)||value<=0||value>1000)) throw Error("Invalid BPM");
   if (correction !== undefined && !getBpmConfig(db).enabled) throw Error("BPM analysis is disabled");
-  if (correction === undefined) db.prepare("update tracks set user_bpm=? where id=?").run(roundBpm(user),id);
+  if (user === undefined) {
+    if (correction !== undefined) db.prepare("update tracks set bpm_override=? where id=?").run(roundBpm(correction),id);
+  }
+  else if (correction === undefined) db.prepare("update tracks set user_bpm=? where id=?").run(roundBpm(user),id);
   else db.prepare("update tracks set user_bpm=?,bpm_override=? where id=?").run(roundBpm(user),roundBpm(correction),id);
 };

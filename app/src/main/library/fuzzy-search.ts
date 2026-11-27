@@ -314,7 +314,7 @@ const parseQuery = (query: string): ParsedQuery => {
     },
   );
   const tempoTokens: number[] = [];
-  metadataText = metadataText.replace(/\bbpm\s*:\s*(\d{2,3})\b/gi, (_match, bpm: string) => {
+  metadataText = metadataText.replace(/\bbpm\s*:\s*(1000|[1-9]\d{0,2})\b/gi, (_match, bpm: string) => {
     hasExplicitSimilarityIntent = true;
     tempoTokens.push(Number.parseInt(bpm, 10));
     return " ";

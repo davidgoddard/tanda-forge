@@ -51,8 +51,9 @@ export const findSearchCandidateIds = (
   filters: SearchFilters,
 ) => {
   const trimmed = filters.query.trim();
-  if (/^\d{2,3}$/.test(trimmed)) {
-    const bpm = Number.parseInt(trimmed, 10);
+  const scopedBpm = trimmed.match(/^bpm\s*:\s*(1000|[1-9]\d{0,2})$/i);
+  if (scopedBpm || /^\d{2,3}$/.test(trimmed)) {
+    const bpm = Number.parseInt(scopedBpm?.[1] ?? trimmed, 10);
     return (db.prepare(
       `select id from tracks where bpm between ? and ?`,
     ).all(bpm - filters.bpmRange, bpm + filters.bpmRange) as Array<{ id: string }>)

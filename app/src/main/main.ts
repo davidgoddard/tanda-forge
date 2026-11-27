@@ -2299,7 +2299,7 @@ const registerIpc = () => {
             ? 1
             : 0;
       db.transaction(() => {
-        saveTrackBpm(db, payload.id, bpm && bpm > 0 ? bpm : null, payload.derivedBpm);
+        saveTrackBpm(db, payload.id, payload.bpm === undefined ? undefined : bpm && bpm > 0 ? bpm : null, payload.derivedBpm);
         db.prepare(
           `update tracks
             set title = ?, artist = ?, artist_summary = ?, singer = ?, album = ?,
