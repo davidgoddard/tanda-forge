@@ -2,7 +2,7 @@ import type { RatingFilter } from "../../shared/rating-filter";
 import { buildRatingWhere, trackRatingSql } from "./rating-filter";
 import Database from "better-sqlite3";
 import { TrackRow } from "../../shared/types";
-import { filterAndScoreTracks } from "./fuzzy-search";
+import { filterAndScoreTracks, parseScopedSearchQuery } from "./fuzzy-search";
 import { buildSearchVisibilityWhere } from "../search-config";
 import { findIndexedTrackCandidateIds } from "./search-index";
 
@@ -51,6 +51,8 @@ export const findSearchCandidateIds = (
   filters: SearchFilters,
 ) => {
   const trimmed = filters.query.trim();
+  const scoped = parseScopedSearchQuery(trimmed);
+  if (scoped.scope === "album") return scoped.query ? null : [];
   const scopedBpm = trimmed.match(/^bpm\s*:\s*(1000|[1-9]\d{0,2})$/i);
   if (scopedBpm || /^\d{2,3}$/.test(trimmed)) {
     const bpm = Number.parseInt(scopedBpm?.[1] ?? trimmed, 10);

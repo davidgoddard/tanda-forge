@@ -2,10 +2,29 @@ import { describe, expect, it } from "vitest";
 import {
   computeTapTempoBpm,
   formatTrackEditorBpm,
+  resolveTrackEditorFieldSearch,
   trackEditorBpmDiffers,
   trackEditorDraftDiffers,
   type TrackEditorDraft,
 } from "../app/src/renderer/modules/track-editor-view";
+
+describe("track editor field search", () => {
+  it("replaces the query for BPM and album searches", () => {
+    expect(resolveTrackEditorFieldSearch("bpm", "63.6", "Canaro"))
+      .toEqual({ kind: "query", query: "bpm:64", forceTracks: true });
+    expect(resolveTrackEditorFieldSearch("bpm", "1001", "Canaro")).toBeNull();
+    expect(resolveTrackEditorFieldSearch("album", ' "Live" ', "Canaro"))
+      .toEqual({ kind: "query", query: 'album:' + JSON.stringify('"Live"'), forceTracks: true });
+  });
+
+  it("distinguishes style filters from terms appended to the current query", () => {
+    expect(resolveTrackEditorFieldSearch("genre", " Tango ", "Canaro"))
+      .toEqual({ kind: "style", style: "Tango" });
+    expect(resolveTrackEditorFieldSearch("artist", "Canaro Alberto", "Canaro"))
+      .toEqual({ kind: "query", query: "Canaro Alberto", forceTracks: false });
+    expect(resolveTrackEditorFieldSearch("title", " ", "Canaro")).toBeNull();
+  });
+});
 
 describe("track editor tap tempo", () => {
   it("returns rounded bpm from tap intervals", () => {

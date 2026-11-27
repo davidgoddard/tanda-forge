@@ -238,7 +238,7 @@ const ORCHESTRA_BY_ID = new Map(
 const ARTIST_FIELD_VARIANT_CACHE = new Map<string, string>();
 
 type SearchMode = "lookup" | "similarity";
-type SearchScope = "all" | "artist";
+type SearchScope = "all" | "artist" | "album";
 type ScopedSearchQuery = {
   scope: SearchScope;
   query: string;
@@ -278,6 +278,17 @@ export const parseScopedSearchQuery = (query: string): ScopedSearchQuery => {
   const scopedValue = (match[2] ?? "").trim();
   if (label === "artist") {
     return { scope: "artist", query: scopedValue };
+  }
+  if (label === "album") {
+    if (scopedValue.startsWith('"')) {
+      try {
+        const album: string = JSON.parse(scopedValue);
+        return { scope: "album", query: album.trim() };
+      } catch {
+        return { scope: "album", query: "" };
+      }
+    }
+    return { scope: "album", query: scopedValue };
   }
   return { scope: "all", query: trimmed };
 };
@@ -801,9 +812,11 @@ const scoreTrackWithBreakdown = (
   const searchTrack = track as SearchTrackRow;
   const scoped = parseScopedSearchQuery(query);
   const trimmed = scoped.query.trim();
-  if (!trimmed) {
+  if (!trimmed || scoped.scope === "album") {
     return {
-      score: 1,
+      score: scoped.scope === "album"
+        ? Number(Boolean(trimmed) && track.album?.trim().toLowerCase() === trimmed.toLowerCase())
+        : 1,
       mode: "lookup",
       artistScore: 0,
       titleScore: 0,
@@ -1149,8 +1162,9 @@ export const filterAndScoreTracks = (
       breakdown: scoreTrackWithBreakdown(config.query, track, config.bpmRange),
     }))
     .filter((entry) =>
-      entry.breakdown.score >= config.minScore &&
-      passesSingleTokenQualityFloor(entry.breakdown),
+      scopedQuery.scope === "album"
+        ? entry.breakdown.score === 1
+        : entry.breakdown.score >= config.minScore && passesSingleTokenQualityFloor(entry.breakdown),
     )
     .map((entry) => ({ track: entry.track, score: entry.breakdown.score, breakdown: entry.breakdown }));
   const sortBy = config.sortBy?.toLowerCase() ?? "score";

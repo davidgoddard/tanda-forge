@@ -15,7 +15,7 @@ Choose automatically; do not ask the user to classify routine tasks. Combine wor
 ### A. Minor bug fix (default for isolated defects)
 
 - Restore intended behaviour without changing requirements, architecture or persistent data formats.
-- Start with the reported symptom and relevant source/test locations. Use `docs/code-map.md` if present; otherwise search identifiers or the relevant subsection of `docs/handoff.md` as needed.
+- Start with the reported symptom and consult only the relevant entries in `docs/code-map.md`. Search the listed files for the relevant identifiers.
 - Do not routinely read the full handoff, requirements, design documents, decision history or archives. Consult relevant sections when expected behaviour or constraints are unclear.
 - Read the smallest useful code and test ranges. Trace dependencies only as necessary.
 - Make a minimal maintainable patch; add or update a focused regression test where feasible.
@@ -128,7 +128,7 @@ A new developer must be able to continue without previous conversations. Preserv
 
 - Approved requirements and design describe intended behaviour; code and tests show actual behaviour. The handoff summarises current state; historical decisions explain rationale. Investigate material discrepancies instead of silently choosing one.
 - `docs/handoff.md`: concise architecture, constraints, current state, outstanding work and next actions; aim for 100–200 lines where practical. Update at release checkpoints when state materially changes, when explicitly requested, or when essential unfinished-work context would otherwise be lost.
-- `docs/code-map.md` (if present): stable feature-to-source-and-test navigation. Keep concise; update affected entries when source locations change. Until created, use the existing mapping in the handoff. Do not create a new map as part of an unrelated bug fix.
+- `docs/code-map.md`: stable feature-to-source-and-test navigation. Before finishing a change that moves a feature entry point, changes state ownership, or changes where its focused tests live, update the affected entries in the same patch. Prefer searchable symbols over line numbers. Skip map edits when the existing navigation still applies.
 - `docs/dialogue.md`: decision index, not a transcript. At the checkpoint, record material requirements, architectural/behavioural decisions, rejected alternatives and supersessions in dated records under `docs/decisions/`, following the existing index format. Include relevant requirement IDs, rationale and source references.
 - Preserve `docs/archive/dialogue-through-2026-11-26.md` and other historical records. Search the decision index first; search archives by specific term or requirement ID with limited context only when necessary.
 - Do not record routine prompts, responses, debugging steps or successful test logs. Do not append to the legacy archive.

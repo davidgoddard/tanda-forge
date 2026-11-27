@@ -46,10 +46,8 @@ import type {
   TandaDraft,
 } from "./domain.js";
 import {
-  appendQueryTokens,
   buildTrackSimilarityQuery,
   buildTrackSearchQuery,
-  buildVocalSearchQuery,
   dedupeQueryTokens,
 } from "../shared/search-query.js";
 import {
@@ -175,6 +173,7 @@ import {
   type StoredPlaylistState,
 } from "../shared/playlist-storage.js";
 import { tandaContentsMatch } from "../shared/playlist-tanda-variant.js";
+import { cloneTanda, finalizeTandaOwnership, isTandaEmpty, resolveTandaEditorHost } from "./modules/tanda-draft-ownership.js";
 import {
   findExactOrderedTandaMatch,
   filterForArtistDiversity,
@@ -245,6 +244,7 @@ import { createSettingsShellController } from "./controllers/settings-shell-cont
 import { createPlaybackCompressionController } from "./controllers/playback-compression-controller.js";
 import { createPlaylistRuntimeController } from "./controllers/playlist-runtime-controller.js";
 import { createTrackEditorDraftController } from "./controllers/track-editor-draft-controller.js";
+import { resolveTrackEditorFieldSearch } from "./modules/track-editor-view.js";
 import { buildTandaTrackLabel } from "./modules/tanda-track-view.js";
 import {
   buildClipboardTandaFilterText,
@@ -1721,6 +1721,8 @@ const clearTrackEditorState = () => {
 let bpmController: ReturnType<typeof createBpmController> | null = null;
 
 const trackEditorDraft = createTrackEditorDraftController({
+  tapButton: trackEditorTapBtn,
+  resetButton: trackEditorResetBtn,
   fields: {
     trackEditorTitleInput,
     trackEditorArtistInput,
@@ -1745,8 +1747,6 @@ const {
   getTrackEditorDraftPayload,
   confirmTrackEditorDiscardIfDirty,
   fillTrackEditorFields,
-  handleTapTempo,
-  resetTrackEditorFields,
 } = trackEditorDraft;
 
 const openTrackEditor = async (trackId: string) => {
@@ -5598,9 +5598,8 @@ const openTandaInDesigner = (
   returnTab?: RightPanelTab | null,
 ) => {
   tandaEditorReturnTab = returnTab ?? null;
-  const shouldHostInPlaylist =
-    returnTab === "playlist-tab" && playlistOpenTandaIndex !== null;
-  tandaEditorHostTab = shouldHostInPlaylist ? "playlist-tab" : "tanda-designer-tab";
+  tandaEditorHostTab = resolveTandaEditorHost(returnTab, playlistOpenTandaIndex);
+  const shouldHostInPlaylist = tandaEditorHostTab === "playlist-tab";
   const origin = shouldHostInPlaylist ? "playlist" : "designer";
   const incomingSource =
     source ??
@@ -5643,43 +5642,9 @@ const finalizeTandaDraft = (
   tanda: TandaDraft,
   returnTab?: RightPanelTab | null,
 ) => {
-  const savedMaster = tanda.masterTandaId
-    ? tandaCache.get(tanda.masterTandaId) ?? null
-    : null;
-  const restoredToMaster =
-    returnTab === "playlist-tab" &&
-    tanda.playlistUnsaved === true &&
-    savedMaster !== null &&
-    tandaContentsMatch(tanda, savedMaster);
-  if (restoredToMaster && tanda.masterTandaId) {
-    const masterTandaId = tanda.masterTandaId;
-    playlistItems = playlistItems.map((item) =>
-      item?.kind === "tanda" && item.tandaId === tanda.id
-        ? { ...item, tandaId: masterTandaId }
-        : item,
-    );
-    tandaCache.delete(tanda.id);
-  } else if (
-    persistedTandaIds.has(tanda.id) ||
-    playlistItems.some((item) => item?.kind === "tanda" && item.tandaId === tanda.id) ||
-    clipboardCollections.some((collection) => collection.tandaIds.includes(tanda.id))
-  ) {
-    tandaCache.set(tanda.id, {
-      ...cloneTanda(tanda),
-      origin: returnTab === "playlist-tab" ? "playlist" : "designer",
-    });
-  }
-  tandaDrafts = tandaDrafts.filter((item) => item.id !== tanda.id);
-  const existingEmpty = tandaDrafts.find(
-    (item) => item.origin !== "playlist" && isTandaEmpty(item),
-  );
-  const emptyTemplate = existingEmpty ?? createEmptyTanda();
-  const retainedEmptyId = emptyTemplate.id;
-  tandaDrafts = tandaDrafts.filter(
-    (item) => item.origin === "playlist" || !isTandaEmpty(item) || item.id === retainedEmptyId,
-  );
-  if (!existingEmpty) tandaDrafts = [...tandaDrafts, emptyTemplate];
-  selectedTandaId = emptyTemplate.id;
+  ({ playlistItems, tandaDrafts, selectedTandaId } = finalizeTandaOwnership(tanda, returnTab, {
+    playlistItems, tandaDrafts, tandaCache, persistedTandaIds, clipboardCollections, createEmptyTanda,
+  }));
   renderTandaDesigner();
   if (returnTab) {
     activateRightTab(returnTab);
@@ -6346,30 +6311,6 @@ const resolveSearchStylesForPlaylistIndex = (index: number) => {
     .filter(Boolean);
 };
 
-const getTrackEditorFieldQueryValue = (field: string) => {
-  switch (field) {
-    case "title":
-      return trackEditorTitleInput?.value ?? "";
-    case "artist":
-      return trackEditorArtistInput?.value ?? "";
-    case "singer":
-      return trackEditorSingerInput?.value ?? "";
-    case "vocal":
-      return buildVocalSearchQuery(trackEditorVocalInput?.value ?? "");
-    case "album":
-      return trackEditorAlbumInput?.value ?? "";
-    case "year":
-      return trackEditorYearInput?.value ?? "";
-    case "genre":
-      return trackEditorGenreInput?.value ?? "";
-    case "notes":
-      return trackEditorNotesInput?.value ?? "";
-    case "bpm":
-      return trackEditorBpmInput?.value ?? "";
-    default:
-      return "";
-  }
-};
 
 const getClipboardTrackFilterText = (track: TrackRow) =>
   buildTrackSearchQuery(track).toLowerCase();
@@ -11172,31 +11113,6 @@ const createEmptyTanda = (): TandaDraft => {
   };
 };
 
-const cloneTanda = (tanda: TandaDraft): TandaDraft => ({
-  id: tanda.id,
-  name: tanda.name,
-  styles: [...tanda.styles],
-  rating: tanda.rating,
-  trackSlots: [...tanda.trackSlots],
-  totalDurationMs: tanda.totalDurationMs,
-  origin: tanda.origin,
-  masterTandaId: tanda.masterTandaId,
-  playlistUnsaved: tanda.playlistUnsaved,
-  autoGenerated: tanda.autoGenerated,
-  legacySourcePath: tanda.legacySourcePath,
-  manualTrackIds: tanda.manualTrackIds ? [...tanda.manualTrackIds] : undefined,
-  generatedTrackIds: tanda.generatedTrackIds ? [...tanda.generatedTrackIds] : undefined,
-  triedGeneratedCombinations: tanda.triedGeneratedCombinations
-    ? [...tanda.triedGeneratedCombinations]
-    : undefined,
-});
-
-const isTandaEmpty = (tanda: TandaDraft | null | undefined) => {
-  if (!tanda) {
-    return true;
-  }
-  return tanda.trackSlots.every((slot) => !slot);
-};
 
 const isUnsavedTanda = (tanda: TandaDraft | null | undefined) =>
   Boolean(tanda && !isTandaEmpty(tanda) && (
@@ -14996,20 +14912,7 @@ const init = async () => {
   });
   cortinaPickerController.initialize();
 
-  trackEditorTapBtn?.addEventListener("click", () => {
-    handleTapTempo();
-  });
-  trackEditorSingerInput?.addEventListener("input", () => {
-    if (!trackEditorVocalInput) {
-      return;
-    }
-    if (
-      trackEditorSingerInput.value.trim().length > 0 &&
-      trackEditorVocalInput.value === "instrumental"
-    ) {
-      trackEditorVocalInput.value = "sung";
-    }
-  });
+  trackEditorDraft.initialize();
   trackEditor?.addEventListener("click", (event) => {
     const target = event.target as HTMLElement | null;
     const button = target?.closest<HTMLButtonElement>(
@@ -15022,29 +14925,24 @@ const init = async () => {
     if (!field) {
       return;
     }
-    const fieldValue = getTrackEditorFieldQueryValue(field).trim();
-    if (!fieldValue) {
-      return;
-    }
-    if (field === "bpm") {
-      const bpm = Math.round(Number(fieldValue));
-      if (bpm >= 1 && bpm <= 1000) runSearchQuery(`bpm:${bpm}`, true, "search-tracks");
-      return;
-    }
-    if (field === "genre") {
+    const search = resolveTrackEditorFieldSearch(
+      field, trackEditorDraft.getTrackEditorFieldQueryValue(field), searchInput.value,
+    );
+    if (!search) return;
+    if (search.kind === "style") {
       selectedStyles = resolveTrackSearchStyles({
-        trackStyle: fieldValue,
+        trackStyle: search.style,
         availableStyles,
       });
       loadStyles();
       runSearchQuery(searchInput.value, true, "search-tracks");
       return;
     }
-    const nextQuery = appendQueryTokens(searchInput.value, fieldValue);
-    runSearchQuery(nextQuery, true);
-  });
-  trackEditorResetBtn?.addEventListener("click", () => {
-    resetTrackEditorFields();
+    if (search.forceTracks) {
+      runSearchQuery(search.query, true, "search-tracks");
+    } else {
+      runSearchQuery(search.query, true);
+    }
   });
   trackEditorDeleteBtn?.addEventListener("click", async () => {
     const track = trackEditorDraft.track;
@@ -15079,13 +14977,14 @@ const init = async () => {
     clearTrackEditorState();
   });
   trackEditorSaveBtn?.addEventListener("click", async () => {
-    if (!window.tanda || !trackEditorDraft.track) {
+    if (!window.tanda || !trackEditorDraft.track || trackEditorSaveBtn.disabled) {
       return;
     }
     const payload = getTrackEditorDraftPayload();
     if (!payload) {
       return;
     }
+    trackEditorSaveBtn.disabled = true;
     try {
       const editedBpm = trackEditorDraft.getEditedBpm(payload.bpm);
       const correction = await bpmController?.correction(editedBpm);
@@ -15118,6 +15017,8 @@ const init = async () => {
       }
     } catch {
       setStatus(t("statusTrackUpdateFailed"));
+    } finally {
+      trackEditorSaveBtn.disabled = false;
     }
   });
 

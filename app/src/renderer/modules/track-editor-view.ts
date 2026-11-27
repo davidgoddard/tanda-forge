@@ -1,3 +1,26 @@
+import { appendQueryTokens, buildVocalSearchQuery } from "../../shared/search-query.js";
+
+export const resolveTrackEditorFieldSearch = (
+  field: string,
+  value: string,
+  currentQuery: string,
+): { kind: "style"; style: string } |
+   { kind: "query"; query: string; forceTracks: boolean } | null => {
+  const term = (field === "vocal" ? buildVocalSearchQuery(value) : value).trim();
+  if (!term) return null;
+  if (field === "genre") return { kind: "style", style: term };
+  if (field === "bpm") {
+    const bpm = Math.round(Number(term));
+    return bpm >= 1 && bpm <= 1000
+      ? { kind: "query", query: `bpm:${bpm}`, forceTracks: true }
+      : null;
+  }
+  if (field === "album") {
+    return { kind: "query", query: `album:${JSON.stringify(term)}`, forceTracks: true };
+  }
+  return { kind: "query", query: appendQueryTokens(currentQuery, term), forceTracks: false };
+};
+
 export const computeTapTempoBpm = (taps: number[]) => {
   if (taps.length < 2) {
     return null;

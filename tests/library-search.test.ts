@@ -751,6 +751,20 @@ describe("fuzzy search helpers", () => {
     expect(result[0].score).toBeGreaterThan(result[1].score);
   });
 
+  it("matches the complete album tag regardless of title or search threshold", () => {
+    const tracks = [
+      buildTrack({ id: "one", title: "Red, Yellow, Blue", album: 'The "Tango" Lesson' }),
+      buildTrack({ id: "two", title: "Milonga Triste", album: 'the "tango" lesson' }),
+      buildTrack({ id: "title-only", title: 'The "Tango" Lesson', album: "Another album" }),
+      buildTrack({ id: "partial", album: 'The "Tango" Lesson Live' }),
+    ];
+    const config = { query: 'album:' + JSON.stringify('The "Tango" Lesson'), bpmRange: 5 };
+    for (const minScore of [0, 0.19, 1]) {
+      expect(filterAndScoreTracks(tracks, { ...config, minScore })
+        .map(({ track }) => track.id).sort()).toEqual(["one", "two"]);
+    }
+  });
+
   it("ranks scoped BPM searches by effective tempo", () => {
     const exact = buildTrack({ id: "exact", title: "Red, Yellow, Blue", bpm: 55 });
     const close = buildTrack({ id: "close", title: "Milonga Triste", bpm: 59 });

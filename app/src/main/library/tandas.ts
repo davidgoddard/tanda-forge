@@ -110,7 +110,18 @@ export const buildTandaSearchWhere = (params: TandaSearchParams) => {
   const where: string[] = [];
   const values: unknown[] = [];
 
-  if (query) {
+  if (scoped.scope === "album") {
+    if (query) {
+      where.push(`exists (
+        select 1 from tanda_tracks tt
+        join tracks t on t.id = tt.track_id
+        where tt.tanda_id = tandas.id and lower(trim(t.album)) = lower(?)
+      )`);
+      values.push(query);
+    } else {
+      where.push("0 = 1");
+    }
+  } else if (query) {
     const artistCandidates = resolveArtistScopedCandidates(query);
     const recognizedArtist = artistCandidates.some((candidate) =>
       /\b(?:orquesta|orchestra)\b/i.test(candidate)
@@ -467,7 +478,7 @@ export const searchTandas = (
   db: Database.Database,
   params: TandaSearchParams,
 ): TandaSearchRow[] => {
-  const candidateIds = params.query.trim()
+  const candidateIds = params.query.trim() && parseScopedSearchQuery(params.query).scope !== "album"
     ? findIndexedTandaCandidateIds(db, params.query.replace(/^artist\s*:\s*/i, ""))
     : null;
   const { whereSql, values } = buildTandaSearchWhere({ ...params, candidateIds });
@@ -514,7 +525,7 @@ export const searchTandaCount = (
   db: Database.Database,
   params: TandaSearchParams,
 ): number => {
-  const candidateIds = params.query.trim()
+  const candidateIds = params.query.trim() && parseScopedSearchQuery(params.query).scope !== "album"
     ? findIndexedTandaCandidateIds(db, params.query.replace(/^artist\s*:\s*/i, ""))
     : null;
   const { whereSql, values } = buildTandaSearchWhere({ ...params, candidateIds });

@@ -8,6 +8,8 @@ import {
 } from "../modules/track-editor-view.js";
 
 type Dependencies = {
+  tapButton: HTMLButtonElement | null;
+  resetButton: HTMLButtonElement | null;
   fields: {
     trackEditorTitleInput: HTMLInputElement | null;
     trackEditorArtistInput: HTMLInputElement | null;
@@ -204,6 +206,20 @@ export const createTrackEditorDraftController = (deps: Dependencies) => {
   };
 
   return {
+    getTrackEditorFieldQueryValue(field: string) {
+      const inputs: Record<string, { value: string } | null> = {
+        title: trackEditorTitleInput,
+        artist: trackEditorArtistInput,
+        singer: trackEditorSingerInput,
+        vocal: trackEditorVocalInput,
+        album: trackEditorAlbumInput,
+        year: trackEditorYearInput,
+        genre: trackEditorGenreInput,
+        notes: trackEditorNotesInput,
+        bpm: trackEditorBpmInput,
+      };
+      return inputs[field]?.value ?? "";
+    },
     get track() {
       return trackEditorState.track;
     },
@@ -221,7 +237,17 @@ export const createTrackEditorDraftController = (deps: Dependencies) => {
     },
     confirmTrackEditorDiscardIfDirty,
     fillTrackEditorFields,
-    handleTapTempo,
-    resetTrackEditorFields,
+    initialize() {
+      deps.tapButton?.addEventListener("click", handleTapTempo);
+      trackEditorSingerInput?.addEventListener("input", () => {
+        if (
+          trackEditorSingerInput.value.trim().length > 0 &&
+          trackEditorVocalInput?.value === "instrumental"
+        ) {
+          trackEditorVocalInput.value = "sung";
+        }
+      });
+      deps.resetButton?.addEventListener("click", resetTrackEditorFields);
+    },
   };
 };

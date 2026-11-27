@@ -111,7 +111,9 @@ export const createBpmController = (options: {
       baseline=derived.value;
       details.textContent=t("bpmDetails",{original:roundBpm(track?.derived_bpm)??"—",effective:roundBpm(track?.bpm)??"—"})+(track?.bpm_override!=null?" · "+t("bpmCorrected"):"");
       if(track?.bpm_error) details.textContent+=" · "+t("bpmFailed",{message:track.bpm_error});
-      return track?.bpm;
+      // Derived-only can have no effective BPM until analysis or correction.
+      // Keep the entered value visible in the editor while it is pending.
+      return track?.bpm ?? track?.user_bpm;
     },
     tap(bpm:number){if(!editorEnabled)return false;derived.value=String(roundBpm(bpm)??"");return true;},
     dirty(){return editorEnabled&&derived.value!==baseline;},

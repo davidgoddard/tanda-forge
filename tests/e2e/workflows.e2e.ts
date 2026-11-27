@@ -3049,6 +3049,7 @@ test.describe("Electron app end-to-end workflows", () => {
       await expect(page.locator("#track-editor")).toHaveAttribute("aria-hidden", "false");
       await page.locator("#track-editor-genre").selectOption({ label: "Tango - Traditional" });
       await page.locator("#track-editor-save").click();
+      await expect(page.locator("#track-editor-save")).toBeEnabled();
       await closeTrackEditorIfOpen(page);
       await clickRowAction(searchTrackRow(page, "Tempo 72 Test"), "edit-track");
       await expect(page.locator("#track-editor")).toHaveAttribute("aria-hidden", "false");
