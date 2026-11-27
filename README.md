@@ -268,7 +268,7 @@ A typical workflow:
 3. Review and enrich track metadata such as:
    - dates
    - notes
-   - BPM
+   - BPM (Can be auto-derived if enabled)
    - title, artist, singer, style, and other library fields
 4. Use that metadata in different ways:
    - search directly by hand
