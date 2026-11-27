@@ -1,0 +1,6 @@
+# Large historical and generated material is excluded from routine searches.
+# Use `rg --no-ignore` or pass an explicit file path when it is relevant.
+docs/archive/
+design/legacy/
+test-results/
+app/resources/ffmpeg/

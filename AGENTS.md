@@ -1,250 +1,166 @@
 # AGENTS.md — Tanda Forge
 
-## Mission
+## 1. Mission and priorities
 
-Tanda Forge is a cross-platform Electron/TypeScript application for preparing tandas, managing music and playlists, and running live Argentine tango events.
+Tanda Forge is a cross-platform Electron/TypeScript application for managing music, preparing tandas and running live Argentine tango events.
 
-The objective is to deliver reliable, maintainable features with minimal user supervision, while preserving architectural decisions, requirements traceability and project continuity.
+Deliver correct, maintainable changes independently, with minimal unnecessary investigation, token consumption and administrative work. Protect live playback, audio routing, data integrity and compatibility across macOS, Windows and Linux. Efficiency never overrides correctness or necessary verification.
 
-Prioritise correctness, live-playback safety and data integrity over saving tokens. Avoid unnecessary investigation, repetition and documentation work.
+Follow the user's explicit scope and applicable repository instructions. Use the smallest workflow appropriate to the actual risk. A small patch is not necessarily low risk.
 
-## 1. Autonomous Development
+## 2. Select the workflow
 
-When the user requests a feature or bug fix:
+Choose automatically; do not ask the user to classify routine tasks. Combine workflows when explicitly requested. Escalate if evidence reveals greater risk or scope.
 
-1. Read `docs/handoff.md` for current project context.
-2. Locate the relevant requirements, design documents, source files and tests.
-3. Investigate only as far as necessary to understand the affected functionality.
-4. Form a brief internal implementation plan.
-5. Implement the requested change, including appropriate tests and translations.
-6. Verify the completed work with focused checks appropriate to the change.
-7. Defer requirements, design, handoff and dialogue updates until a release
-   checkpoint, unless the user explicitly requests documentation work.
-8. Report the outcome, verification results and any remaining issues.
+### A. Minor bug fix (default for isolated defects)
 
-Work independently through ordinary technical decisions. Do not ask the user to approve routine implementation details.
+- Restore intended behaviour without changing requirements, architecture or persistent data formats.
+- Start with the reported symptom and relevant source/test locations. Use `docs/code-map.md` if present; otherwise search identifiers or the relevant subsection of `docs/handoff.md` as needed.
+- Do not routinely read the full handoff, requirements, design documents, decision history or archives. Consult relevant sections when expected behaviour or constraints are unclear.
+- Read the smallest useful code and test ranges. Trace dependencies only as necessary.
+- Make a minimal maintainable patch; add or update a focused regression test where feasible.
+- Run affected tests and relevant type checks or builds. Review the changed diff.
+- Do not run full preflight, update project documentation or refactor unrelated code by default.
+- Finish with a concise report of the fix and verification.
 
-Follow existing patterns and choose the smallest maintainable solution consistent with requirements.
+### B. Feature or substantial change
 
-Ask for clarification only when:
-- The intended user-facing behaviour has materially different plausible interpretations.
-- A decision would substantially change architecture, compatibility or established requirements.
-- An action could cause irreversible data loss or destructive migration.
-- A required external credential, resource or product decision is unavailable.
-- Existing requirements conflict and cannot be reconciled safely.
+- Read the relevant handoff sections, requirements, design, implementation and tests.
+- Identify affected interfaces, compatibility constraints and user-visible behaviour. Plan briefly, implement incrementally and test affected paths.
+- Preserve requirements traceability. Record material new requirements, decisions or documentation obligations in a concise durable note when they would otherwise be lost; reconcile at the release checkpoint.
+- Defer broader documentation and full preflight unless risk, dependencies or the user require them.
 
-When uncertainty is minor, make a reasonable assumption, implement consistently and report it.
+### C. High-risk change
 
-Do not silently broaden the requested feature or perform unrelated refactoring.
+Use this workflow for changes affecting playback continuity, audio devices/routing, playlist progression, database integrity, schema migration, destructive library operations, IPC security, packaging, or other critical shared behaviour.
 
-### Incremental Work and Release Checkpoints
+- Read relevant requirements, safety constraints, implementation and dependent tests. Inspect the handoff where relevant.
+- Assess failure modes, compatibility and recovery. Preserve established safety behaviour and protect user data.
+- Add regression coverage and run appropriate broader tests, builds, integration checks or manual checks. Run full preflight if the impact warrants it.
+- Escalate material ambiguities or irreversible actions to the user. Do not claim hardware, live audio or platform behaviour was verified when it was not.
 
-Assume feature requests and bug fixes are part of an ongoing batch of small
-changes. During incremental work:
-- Do not update requirements, design documents, `docs/handoff.md`,
-  `docs/dialogue.md` or other project documentation unless the user explicitly
-  asks for a documentation change.
-- Run focused tests, type checks or builds needed to validate the affected area.
-- Do not run `npm run preflight` merely because an individual change is complete.
+### D. Significant refactoring
 
-Treat a request to **commit** or **push** the current work as an implied release
-checkpoint. At that checkpoint, before committing or pushing:
-- Reconcile and update the affected requirements, design documents, feature
-  status, handoff and significant decision history for the accumulated changes.
-- Run `npm run preflight` and any relevant Playwright or high-risk checks.
-- Resolve failures introduced by the accumulated work and report unrelated or
-  unresolved failures clearly.
+- Establish a passing baseline for affected behavior, then extract one cohesive responsibility at a time.
+- Preserve event order, timing, IPC and persistence contracts. Prefer explicit dependencies and independently testable controllers over shared mutable context objects.
+- After each extraction, run focused tests and relevant type checks. At a feature boundary or shared-state/lifecycle change, run the build and relevant end-to-end workflows before continuing.
+- Keep milestones independently reviewable. Stop and reassess when coupling or risk is materially greater than expected.
 
-An explicit request to prepare, publish or verify a release is also a release
-checkpoint. An explicit request for documentation or full verification applies
-only to the requested scope and does not require a commit or push.
+### E. Commit or push
 
-## 2. Project Knowledge and Continuity
+A commit or push alone is NOT a release checkpoint.
 
-A new developer or coding agent must be able to clone the repository and continue development without access to previous conversations.
+- Inspect Git status and the intended diff. Preserve unrelated user changes; do not stage them without authorisation.
+- Ensure relevant checks passed for the exact changes, rerunning only checks invalidated by subsequent edits or required by branch policy.
+- Commit only when requested or authorised. Use a meaningful commit message.
+- Push only when authorised. Respect branch protections and required CI checks. Report pending or failed CI; never bypass required gates.
+- Do not automatically reconcile all documentation, bump versions, tag or publish releases.
+- A request to merge into the release/main branch requires the release integration checks in workflow F, unless equivalent required checks are already verified for the exact candidate.
 
-### Handoff
+### F. Prepare or verify a release
 
-`docs/handoff.md` is the concise current-state briefing, not a chronological development log.
+A release checkpoint is an explicit release request or release-branch integration, not every local commit or feature-branch push.
 
-It should contain:
-- Current architecture and important constraints.
-- Active work and feature status.
-- Outstanding problems or incomplete tasks.
-- Important verified technical decisions, with links to detailed documentation.
-- Relevant verification status and next actions.
+1. Identify the release scope from the appropriate previous release/tag, Git history and current changes. Inspect status and relevant release scripts/workflows; avoid guessing the version or release convention.
+2. Review accumulated changes for regressions, outstanding verification and material decisions. Reconcile only affected requirements, design, feature status, handoff and decision records. Update release notes/version metadata according to existing conventions and the requested scope.
+3. Run `npm run preflight` (unit tests and production build), relevant Playwright tests, and risk-specific checks. Equivalent successful CI evidence for the exact candidate may be reused when it covers the same checks and environment requirements. Do not repeat unchanged expensive checks without reason.
+4. Verify FFmpeg release integrity as specified below. Check relevant packaging and platform workflows; distinguish local verification from remote CI or manual testing.
+5. Review the final candidate and ensure required checks still cover it after any corrections. Fix task-related failures; report unrelated or unresolved failures.
+6. Report release readiness, version/scope, checks, outstanding blockers and unverified platforms. Do not declare readiness if required checks are incomplete or failed.
 
-Keep the handoff concise, preferably around 100–200 lines.
+Preparing or verifying a release does not itself authorise pushing, tagging or publishing. Perform those operations only as requested or otherwise explicitly authorised. Do not invent credentials or bypass protections. Preserve existing release procedures.
 
-Update it once at a release checkpoint when material project state has changed,
-or when the user explicitly requests a handoff for unfinished work.
+### G. Publish a release
 
-Remove obsolete operational details rather than continually appending history.
+- Publish only with explicit authorisation, after workflow F passes for the exact candidate.
+- Follow the repository's existing version, tag and GitHub Release conventions. Do not recreate or move existing tags without explicit direction.
+- Confirm CI packaging and integrity checks complete for every supported target before declaring publication successful. Report failed or missing artifacts without bypassing safeguards.
 
-### Dialogue and Decision History
+### H. Documentation-only work
 
-`docs/dialogue.md` is the searchable index for significant requirements, decisions
-and engineering rationale. New records live in `docs/decisions/`; the original
-dialogue is preserved in `docs/archive/dialogue-through-2026-11-26.md`.
+Edit only requested documents. A full documentation sweep requires an explicit request. For a sweep, compare current requirements, design, feature status and handoff with implementation and tests; reconcile discrepancies, preserve rationale and report unresolved issues. Do not modify production code without authorisation. No application build is needed unless executable examples, configuration or build-sensitive files change.
 
-Record:
-- New or materially changed requirements.
-- Important architectural and behavioural decisions.
-- Rejected alternatives where the reasoning is useful.
-- Significant constraints or trade-offs.
-- Decisions that supersede earlier decisions.
+## 3. Efficient investigation and execution
 
-Do not record routine prompts, intermediate responses, command output, test logs or repetitive debugging conversations.
+- Prefer targeted symbol and filename searches (`rg -l`, `rg -n`) in likely source/test directories before repository-wide searches.
+- Use bounded reads (`sed -n`, targeted search context or equivalent). Do not dump large files such as `renderer.ts`, full diffs, archives or lockfiles when smaller ranges suffice.
+- Exclude dependencies, generated output, binaries, historical archives and test artifacts from ordinary searches unless relevant. Respect ignore files.
+- Reuse known context and previous command results. Do not repeatedly read unchanged instructions or code. Expand scope only when findings justify it.
+- Avoid unnecessary parallel investigations, speculative refactoring, dependency changes and repeated full builds.
+- Prefer existing local scripts and tools. Do not install new tools solely to complete an ordinary fix when existing tools suffice.
+- Batch related independent checks where useful. Inspect targeted diffs rather than dumping the entire working tree.
+- Keep successful command output short. Capture verbose logs in a temporary file outside tracked source, preserve the exit status, and show a bounded diagnostic excerpt on failure. Read additional log sections only as needed; do not conceal failures or truncate away relevant diagnostics.
+- Keep progress updates brief. Avoid narrating routine commands or repeating the user's request.
 
-Preserve existing history. At the applicable checkpoint, add a concise dated
-decision file and an index row using the format in `docs/dialogue.md`. Include
-topic tags, affected requirement identifiers, rationale, relevant file references
-and explicit supersession links. Do not append new entries to the legacy archive.
+## 4. Engineering standards
 
-Consult history only when rationale is needed. Search the index first, then read
-only matching records. For legacy history, use `rg -n -C 5` with requirement IDs
-or specific domain terms and expand only relevant line ranges; do not read the
-entire archive by default. Current requirements take precedence over history.
+- Preserve existing functionality, architecture and conventions unless the requested change requires otherwise.
+- Use defensive code, meaningful error handling and safe failure behaviour, particularly during live DJ sessions.
+- Keep UI strings in the existing language map (i18n), except user data and tag-derived metadata. Maintain applicable translations.
+- Add or update tests for modified behaviour wherever feasible; explain important gaps. Do not weaken tests to make a patch pass.
+- Prefer coherent feature modules and focused helpers. Extract code from large files when it directly supports the task; do not undertake unrelated structural refactoring merely to save tokens.
+- Ask only when materially different interpretations, conflicting requirements, irreversible data loss, substantial architectural decisions or missing resources prevent safe progress. Otherwise use reasonable assumptions and disclose consequential ones.
 
-### Documentation Authority
+## 5. Verification commands
 
-Current approved requirements and design documents describe intended behaviour.
+Use the existing package scripts and select checks according to the workflow and changed code:
 
-Code and tests establish what is actually implemented.
+| Purpose | Command |
+| --- | --- |
+| Focused unit tests | `npm test -- <actual-test-path>` |
+| All unit tests | `npm test` |
+| Renderer type check | `npx --no-install tsc -p tsconfig.renderer.json --noEmit` |
+| Main-process type check | `npx --no-install tsc -p tsconfig.main.json --noEmit` |
+| Production build | `npm run build` |
+| Focused browser tests | `npm run test:e2e -- <actual-spec-path>` |
+| Full preflight | `npm run preflight` |
+| Packaging | `npm run package` (only when appropriate to the release/platform) |
 
-The handoff summarises current project state.
+For concise captured output, use the matching `npm run verify:*` commands described in `docs/development-workflow.md`.
 
-Dialogue records explain historical decisions but do not override current approved requirements.
+Use actual paths discovered in the repository; do not run literal placeholders. Check package scripts if they have changed. Prefer focused checks for minor changes; broaden when shared interfaces, build configuration or multiple subsystems are affected. Do not silently substitute type checking for a required production build.
 
-Investigate discrepancies rather than silently treating an outdated document as authoritative.
+Preserve command exit codes. Diagnose failures introduced by the change. Do not claim a pre-existing failure without evidence, or a skipped check as passed. Report blockers such as unavailable dependencies, hardware or CI access. Avoid coverage runs unless useful or required.
 
-## 3. Code Quality
+## 6. Project knowledge and continuity
 
-- Write defensive, maintainable code.
-- Handle failures gracefully and report meaningful user-facing errors.
-- Preserve existing functionality unless explicitly changed.
-- Add or update unit tests for new or modified behaviour wherever feasible.
-- Use established project architecture and conventions.
-- Avoid unrelated refactoring and unnecessary dependencies.
-- Keep all UI strings in the language map (i18n), except user data and tag-derived metadata.
+A new developer must be able to continue without previous conversations. Preserve durable knowledge without maintaining a transcript of routine work.
 
-Pay particular attention to:
-- Live playback and audio output routing.
-- Library and playlist data integrity.
-- Safe failure behaviour during live DJ sessions.
-- Platform compatibility across macOS, Windows and Linux.
+- Approved requirements and design describe intended behaviour; code and tests show actual behaviour. The handoff summarises current state; historical decisions explain rationale. Investigate material discrepancies instead of silently choosing one.
+- `docs/handoff.md`: concise architecture, constraints, current state, outstanding work and next actions; aim for 100–200 lines where practical. Update at release checkpoints when state materially changes, when explicitly requested, or when essential unfinished-work context would otherwise be lost.
+- `docs/code-map.md` (if present): stable feature-to-source-and-test navigation. Keep concise; update affected entries when source locations change. Until created, use the existing mapping in the handoff. Do not create a new map as part of an unrelated bug fix.
+- `docs/dialogue.md`: decision index, not a transcript. At the checkpoint, record material requirements, architectural/behavioural decisions, rejected alternatives and supersessions in dated records under `docs/decisions/`, following the existing index format. Include relevant requirement IDs, rationale and source references.
+- Preserve `docs/archive/dialogue-through-2026-11-26.md` and other historical records. Search the decision index first; search archives by specific term or requirement ID with limited context only when necessary.
+- Do not record routine prompts, responses, debugging steps or successful test logs. Do not append to the legacy archive.
+- Assign document-specific IDs to new formal requirements. At the checkpoint, update affected design, requirements and feature status, distinguishing implemented, partial and planned functionality. Prefer targeted edits, preserve history and avoid wholesale reconciliation unless explicitly requested.
 
-Do not silently change established audio-routing or playback safety behaviour.
+Do not defer essential new knowledge if it cannot be recovered from tracked changes or existing records. For isolated fixes that restore documented behaviour, no documentation change is normally necessary.
 
-## 4. Requirements and Design Documents
+## 7. FFmpeg release integrity
 
-Apply these updates at a release checkpoint, during an explicitly requested
-documentation task, or when the user specifically asks for an individual
-document change. Defer them during ordinary incremental feature and bug-fix work.
+Pinned FFmpeg binaries are release-critical. Before changing a pin or declaring a release ready:
 
-- Assign document-specific requirement identifiers to new formal requirements.
-- Update relevant design documents when requirements or documented behaviour change.
-- Keep requirements, implementation and feature-status records consistent.
-- Clearly distinguish implemented, partially implemented and planned features.
-- Update only the documents affected by the current task.
-- Do not perform a full documentation reconciliation during routine development.
-- Prefer targeted edits rather than rewriting entire documents.
+- Confirm each pinned asset resolves and is covered by the upstream retention policy.
+- Verify upstream-published SHA-256 digests and compatible `ffmpeg` and `ffprobe` executables.
+- Run relevant fetch-script tests and the full build. Reuse valid evidence for the same candidate where appropriate.
+- Never use moving `latest` URLs or unverified fallbacks. Report unavailable digests/assets as blockers rather than assuming integrity.
 
-Existing historical documentation must be preserved unless explicitly superseded or archived.
+Do not perform release-specific FFmpeg checks for unrelated development tasks.
 
-## 5. Verification
+## 8. Repository hygiene and authorisation
 
-During implementation:
-- Run focused tests for affected functionality.
-- Run relevant type checks or builds when appropriate.
-- Fix failures introduced by the task.
-- Avoid repeatedly running unchanged checks without a reason.
+- Preserve unrelated and uncommitted user changes. Do not discard, reset, overwrite or stash them without appropriate authorisation.
+- Do not commit dependencies, generated artifacts, temporary files or downloaded binaries, including `node_modules/`, `dist/`, `tmp/`, `.git/tmp/` and `app/resources/ffmpeg/`. Use established external downloads or Git LFS when appropriate.
+- Do not expose secrets or credentials. Do not perform destructive Git operations, alter remote branches, push, tag or publish without authorisation.
+- Respect existing CI, packaging, release and branch requirements. If a required check or resource is unavailable, report it rather than bypassing it.
 
-At a release checkpoint (including a request to commit or push):
-- Run `npm run preflight` to execute the full unit-test suite and production build.
-- Run relevant Playwright tests for affected user workflows when appropriate.
-- Perform additional checks for high-risk audio, data migration, packaging or platform-specific changes.
+## 9. Completion report
 
-Do not repeatedly execute the full suite between intermediate edits unless necessary.
+Before finishing, inspect the scoped diff and confirm required verification for the selected workflow. Keep the final response proportionate:
 
-A task is not considered fully verified unless its required checks have passed.
+- What changed and the important affected files.
+- Checks run and their actual results.
+- Material assumptions, remaining risks, skipped required checks and blockers, if any.
+- For release work, readiness and any outstanding publication steps.
 
-If tests or builds fail, investigate failures caused by the task. Clearly report unrelated or unresolved failures rather than claiming success.
-
-Documentation-only changes do not require an application build unless they affect executable examples, configuration, generated code or build-sensitive files.
-
-## 6. FFmpeg Release Integrity
-
-Pinned FFmpeg binaries are release-critical dependencies.
-
-Before changing an FFmpeg pin or declaring a release ready:
-- Verify each pinned asset still resolves.
-- Confirm coverage by the upstream retention policy.
-- Verify upstream-published SHA-256 digests.
-- Confirm compatible `ffmpeg` and `ffprobe` executables.
-- Run fetch-script tests and the full build.
-- Never use a moving `latest` URL or an unverified fallback.
-
-Do not perform release-specific FFmpeg verification for unrelated development tasks.
-
-## 7. Repository Hygiene
-
-Do not commit large binaries, generated artifacts or temporary directories, including:
-
-- `node_modules/`
-- `dist/`
-- `tmp/`
-- `.git/tmp/`
-- `app/resources/ffmpeg/`
-
-Use external downloads or Git LFS where appropriate.
-
-Preserve unrelated user changes and do not discard uncommitted work.
-
-Do not push, publish releases, alter remote branches or perform destructive Git operations unless authorised.
-
-## 8. Efficient Agent Operation
-
-- Search narrowly before searching the entire repository.
-- Read only the relevant sections of large documentation files.
-- Avoid re-reading unchanged files unnecessarily.
-- Use focused command output rather than dumping large logs into context.
-- Batch related changes into logical tasks.
-- Do not launch unnecessary parallel investigations.
-- Use the current conversation's context rather than repeatedly rediscovering facts.
-- Avoid long progress narratives and repeated explanations.
-- Do not sacrifice required verification or correctness merely to reduce tool usage.
-
-## 9. Documentation Sweep Mode
-
-Only perform a full documentation sweep when explicitly requested.
-
-For a documentation sweep:
-1. Review the documentation structure and current approved requirements.
-2. Compare relevant documentation against implementation and tests.
-3. Correct outdated or contradictory statements.
-4. Reconcile requirement identifiers and feature status.
-5. Preserve important historical decisions.
-6. Update the handoff to reflect the verified current state.
-7. Record meaningful new decisions in the dialogue history.
-8. Report unresolved discrepancies.
-
-Do not change production code during a documentation-only sweep without explicit authorisation.
-
-## 10. Task Completion
-
-Before finishing:
-- Ensure the requested functionality is implemented.
-- Verify relevant behaviour with focused checks.
-- At a release checkpoint, update affected design and requirements documents,
-  update the handoff if material project state changed, record significant
-  decisions in the dialogue history, and complete the full verification defined
-  in Section 5.
-
-Provide a concise final report containing:
-- What changed.
-- What was tested and whether it passed.
-- Any important assumptions.
-- Remaining problems or user decisions required.
-
-Do not claim success for incomplete or unverified work.
+Do not repeat the implementation diff or full logs unless requested. Do not claim success for incomplete or unverified work. Stop when the requested task is complete; do not initiate additional cleanup, documentation, release or Git operations without a reason grounded in the selected workflow.

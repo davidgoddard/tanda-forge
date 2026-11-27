@@ -54,4 +54,5 @@ a compatible NASM installation; the post-build capability checks still enforce
 all functionality required by the application.
 
 The mandatory agent checklist for maintaining and releasing these pins is in
-`AGENTS.md`.
+`AGENTS.md`. The separation between focused local checks, release preparation,
+and authorised publication is summarised in `docs/development-workflow.md`.

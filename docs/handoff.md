@@ -8,7 +8,7 @@ Search that archive only when historical context is needed; do not read it in fu
 ## Current state
 
 - Electron/TypeScript desktop application for library preparation, tanda design,
-  playlists and live Argentine tango events. Package version is 0.5.5.
+  playlists and live Argentine tango events. Package version is 0.5.6.
 - Main owns SQLite, local files, scanning, analysis, caches and diagnostics.
   Preload exposes the typed API; renderer owns UI and live sequencing/playback.
 - `app/src/main/main.ts`, `app/src/preload/preload.ts` and
@@ -31,12 +31,15 @@ Search that archive only when historical context is needed; do not read it in fu
 - Preserve unrelated working-tree changes. Do not commit/push without a request.
 - Incremental fixes use focused tests/builds; documentation reconciliation and
   full preflight belong at a commit/push/release checkpoint (see `AGENTS.md`).
-- End-to-end tests are explicitly deferred for this refactoring batch.
+- The current environment could not launch Electron. The user ran all 81
+  end-to-end tests successfully after the latest cortina picker extraction; ask
+  the user to rerun E2E at later significant milestones instead of retrying here.
 - Do not change FFmpeg pins or perform unrelated release verification.
 
 ## Find the code for a fix
 
-Paths below are relative to `app/src/renderer/` unless stated otherwise.
+The maintained navigation table now lives in `docs/code-map.md`. Paths below are
+relative to `app/src/renderer/` unless stated otherwise.
 Start with the listed feature module and its unit tests. Use a narrow symbol
 search in `renderer.ts` only for its wiring or remaining shared playback state.
 Do not load the whole renderer, stylesheet, handoff archive or dialogue history.
@@ -57,7 +60,7 @@ Do not load the whole renderer, stylesheet, handoff archive or dialogue history.
 | Clipboard/list interactions | `controllers/library-list-interactions-controller.ts`, `modules/clipboard-view.ts` | corresponding controller tests, clipboard tests |
 | Track editor | `modules/track-editor-view.ts`, `track-editor-path.ts`; remaining coordination in `renderer.ts` | track-editor tests |
 | Tanda rows/designer | `modules/tanda-track-view.ts`; remaining designer logic in `renderer.ts` | `tanda-track-menu.test.ts`, `tanda-designer-playlist-action.test.ts` |
-| Cortina picker | `renderer.ts`: `renderCortinaResults`, `applyCortinaSelection`, `openCortinaModal` | `cortina-picker.test.ts`, `cortina-picker-style.test.ts` |
+| Cortina picker | `controllers/cortina-picker-controller.ts`; planning/playback remains in `renderer.ts` | `cortina-picker.test.ts`, `cortina-picker-style.test.ts` |
 | BPM | `controllers/bpm-controller.ts`, `app/src/main/bpm/`, `app/src/shared/bpm.ts` | BPM tests; `docs/bpm-measurement.md` |
 | Display board | `modules/display-view.ts`, `display.js`, `display.css` | display/now-playing tests |
 | Compression/output routing | `controllers/playback-compression-controller.ts`, `modules/playback-view.ts`; audio runtime in `renderer.ts` | compression/output/normalization tests |
@@ -82,7 +85,9 @@ Do not load the whole renderer, stylesheet, handoff archive or dialogue history.
 - Statistics charts are separated from report queries and playlist-filter actions.
 - Feature factories are composed before `init()`; they do not start report loads
   or background polls just by being constructed.
-- `renderer.ts` still owns substantial playback, designer, cortina, clipboard and
+- The cortina picker owns modal state, results, selection and autofill wiring;
+  renderer retains cortina planning, live edit locks and playback.
+- `renderer.ts` still owns substantial playback, designer, cortina planning, clipboard and
   startup coordination. Continue extracting bounded features, not arbitrary line
   ranges or an untyped shared context object. Keep each fix local where possible.
 
@@ -103,8 +108,18 @@ Do not load the whole renderer, stylesheet, handoff archive or dialogue history.
 
 ## Verification and remaining work
 
-- Current refactoring: 17 focused unit-test files / 120 tests passed, production
-  build passed, and `git diff --check` passed. No end-to-end tests were run.
+- The user confirmed E2E passed after the designer Generate/Complete and Web
+  Audio runtime extractions, and reported audio working in a manual check.
+- Tanda summaries, sorting and expanded track details now live in
+  `modules/tanda-presentation.ts`. The user confirmed all 81 E2E tests passed
+  after this extraction.
+
+- Latest milestone: 136 unit files / 798 tests passed (1 file / 8 tests skipped)
+  and the production build passed after the cortina picker extraction. The
+  focused picker tests also passed. The concise runner reported only Vite's
+  existing CJS deprecation warning.
+- The user ran all 81 E2E tests successfully after this extraction. Electron
+  still cannot launch in the agent environment, so this is user-supplied evidence.
 - Compared 39 extracted function bodies with the baseline: 37 preserve syntax
   apart from dependency access; the two intentional structural changes delegate
   index building and separate duplicate-focus event registration.
@@ -113,5 +128,5 @@ Do not load the whole renderer, stylesheet, handoff archive or dialogue history.
 - Known environment issue: plain host-Node preflight can SIGSEGV in search-index
   tests when the SQLite native module targets Electron. Use the matching runtime
   when required; do not treat a crash as passing or change tests to hide it.
-- This batch does not constitute a release checkpoint. Full preflight and relevant
-  end-to-end workflows remain necessary when a later commit/release is requested.
+- This batch does not constitute a release checkpoint. Relevant end-to-end
+  workflows, packaging and FFmpeg integrity checks remain necessary for release.

@@ -17,7 +17,12 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "postinstall": "electron-builder install-app-deps",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify:test": "node scripts/run-quiet.js -- npm test --",
+    "verify:renderer": "node scripts/run-quiet.js -- npx --no-install tsc -p tsconfig.renderer.json --noEmit",
+    "verify:main": "node scripts/run-quiet.js -- npx --no-install tsc -p tsconfig.main.json --noEmit",
+    "verify:e2e": "node scripts/run-quiet.js -- npm run test:e2e --",
+    "verify:full": "node scripts/run-quiet.js -- npm run preflight"
   },
   "dependencies": {
     "better-sqlite3": "^13.2.0"

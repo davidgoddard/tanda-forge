@@ -50,6 +50,7 @@ not feature completion. When superseded, link the replacement in the old record.
 
 | Date / record | Topics / requirement IDs | Status | Decision |
 | --- | --- | --- | --- |
+| [2026-11-27 — Renderer feature controllers](decisions/2026-11-27-renderer-feature-controllers.md) | renderer, modularity, agent-workflow; no functional requirement | Accepted | Extract cohesive feature controllers with explicit dependencies while retaining safety-critical state until its interfaces and coverage support extraction. |
 | [2026-11-27 — Selective history retrieval](decisions/2026-11-27-selective-history-retrieval.md) | documentation, agent-workflow; no functional requirement | Accepted | Keep a short index, individual decisions and an unchanged legacy archive. |
 
 ## Recording future decisions

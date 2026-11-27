@@ -1,7 +1,20 @@
+import { createTandaPresentation } from "./modules/tanda-presentation.js";
+import {
+  ensureAudioDspRuntime,
+  releaseAudioDspRuntime,
+  setAudioLevel,
+  getAudioLevel,
+  resumeAudioContextForElement,
+  sampleRuntimeRms,
+  ensureSharedAudioContextRunning,
+  type AudioDspRuntime,
+} from "./modules/web-audio-runtime.js";
+import { runDesignerGeneration } from "./controllers/tanda-designer-generation.js";
 import { createStyleSettingsController } from "./controllers/style-settings-controller.js";
 import { createStatisticsController } from "./controllers/statistics-controller.js";
 import { createDiagnosticsTrackReview } from "./controllers/diagnostics-track-review-controller.js";
 import { createAudioSimilarityController } from "./controllers/audio-similarity-controller.js";
+import { createCortinaPickerController } from "./controllers/cortina-picker-controller.js";
 
 import { queryRendererElements } from "./modules/renderer-elements.js";
 import { createConfirmationDialog } from "./modules/confirmation-dialog.js";
@@ -10,12 +23,10 @@ import { createClearDialogs } from "./modules/clear-dialogs.js";
 import { createBpmController } from "./controllers/bpm-controller.js";
 import { matchesRating, normalizeRatingFilter, type RatingFilter, type RatingSnapshot } from "../shared/rating-filter.js";
 import {
-  buildTandaArtistSortKey,
   deriveInstrumental,
   normalizeStyleName,
   summarizeArtistName,
   summarizeTrackArtist,
-  restoreEquivalentArtistSpelling,
   summarizeTandaTracks,
   collectStylesFromTracks,
 } from "../shared/tanda-utils.js";
@@ -798,7 +809,6 @@ let cortinaActiveIndex: number | null = null;
 let cortinaOverrideTrack: TrackRow | null = null;
 const cortinaOverrideByIndex = new Map<number, TrackRow[]>();
 let cortinaActivePosition = 0;
-let cortinaModalSetValue: string | null = null;
 let cortinaSetsLoaded = false;
 type CortinaDisplayPhase = "none" | "about" | "playing" | "after";
 let cortinaDisplayPhase: CortinaDisplayPhase = "none";
@@ -869,9 +879,6 @@ const updateE2eRuntimeSnapshot = () => {
     configuredStopFade: getStopFadeSeconds(),
   };
 };
-let pendingCortinaTargetIndex: number | null = null;
-let pendingCortinaPosition = 0;
-let selectedCortinaTrack: TrackRow | null = null;
 const pulsePlaylistIndices = new Set<number>();
 const pulseCortinaIndices = new Set<number>();
 const pulseClipboardTrackIds = new Set<string>();
@@ -1218,7 +1225,6 @@ const gainForTrack = (gainDb: number | null | undefined) => {
   // +12 dB is ~3.98x linear, so allow 4x here instead of clipping at 2x.
   return gainDbToLinear(gainDb, 4);
 };
-const audioLevels = new WeakMap<HTMLAudioElement, number>();
 const DSP_MAX_WET_MIX = 1;
 type AudioDynamicsConfig = {
   enabled: boolean;
@@ -1235,29 +1241,7 @@ type AudioDynamicsConfig = {
   rampMs: number;
 };
 
-type AudioDspRuntime = {
-  source: MediaElementAudioSourceNode;
-  inputGain: GainNode;
-  dryGain: GainNode;
-  liftGain: GainNode;
-  limiter: DynamicsCompressorNode;
-  wetGain: GainNode;
-  mixGain: GainNode;
-  analyser: AnalyserNode;
-  outputAnalyser: AnalyserNode;
-  isRunning: boolean;
-  currentLiftDb: number;
-  detectorDb: number;
-  peakDb: number;
-  levelerMeanDb: number;
-  lastUpdateMs: number;
-  updateRafId: number | null;
-};
-
-let sharedAudioContext: AudioContext | null = null;
-const audioDspRuntimes = new WeakMap<HTMLAudioElement, AudioDspRuntime>();
 const audioSampleBuffer = new Float32Array(2048);
-const levelMatchSampleBuffer = new Float32Array(1024);
 let mainWetMixCurrent = 0;
 let mainWetMixTarget = 0;
 let mainWetMixRafId: number | null = null;
@@ -1282,48 +1266,6 @@ const runMainWetMixSmoother = () => {
   mainWetMixRafId = window.requestAnimationFrame(step);
 };
 
-const configureRuntimePassThrough = (runtime: AudioDspRuntime) => {
-  const now = runtime.inputGain.context.currentTime;
-  runtime.dryGain.gain.cancelScheduledValues(now);
-  runtime.wetGain.gain.cancelScheduledValues(now);
-  runtime.dryGain.gain.setValueAtTime(1, now);
-  runtime.wetGain.gain.setValueAtTime(0, now);
-};
-
-const sampleRuntimeRms = (audio: HTMLAudioElement) => {
-  const runtime = audioDspRuntimes.get(audio);
-  if (!runtime) {
-    return 0;
-  }
-  runtime.outputAnalyser.getFloatTimeDomainData(levelMatchSampleBuffer);
-  let sum = 0;
-  for (let i = 0; i < levelMatchSampleBuffer.length; i += 1) {
-    const sample = levelMatchSampleBuffer[i] ?? 0;
-    sum += sample * sample;
-  }
-  return Math.sqrt(sum / levelMatchSampleBuffer.length);
-};
-
-const getSharedAudioContext = () => {
-  if (!sharedAudioContext) {
-    sharedAudioContext = new AudioContext();
-  }
-  return sharedAudioContext;
-};
-
-const ensureSharedAudioContextRunning = async () => {
-  const context = getSharedAudioContext();
-  if (context.state === "running") {
-    return true;
-  }
-  try {
-    await context.resume();
-  } catch {
-    return false;
-  }
-  const nextState = context.state as AudioContextState;
-  return nextState === "running";
-};
 
 const getAudioDynamicsConfig = (): AudioDynamicsConfig => ({
   enabled: localStorage.getItem(AUDIO_DYNAMICS_ENABLED_KEY) === "1",
@@ -1757,119 +1699,6 @@ const updateRuntimeLift = (runtime: AudioDspRuntime) => {
   runtime.updateRafId = window.requestAnimationFrame(() => updateRuntimeLift(runtime));
 };
 
-const ensureAudioDspRuntime = (audio: HTMLAudioElement) => {
-  const existing = audioDspRuntimes.get(audio);
-  if (existing) {
-    return existing;
-  }
-  const context = getSharedAudioContext();
-  const source = context.createMediaElementSource(audio);
-  const inputGain = context.createGain();
-  const dryGain = context.createGain();
-  const liftGain = context.createGain();
-  const limiter = context.createDynamicsCompressor();
-  const wetGain = context.createGain();
-  const mixGain = context.createGain();
-  const analyser = context.createAnalyser();
-  const outputAnalyser = context.createAnalyser();
-  analyser.fftSize = 2048;
-  analyser.smoothingTimeConstant = 0.05;
-  outputAnalyser.fftSize = 1024;
-  outputAnalyser.smoothingTimeConstant = 0.08;
-
-  source.connect(inputGain);
-  inputGain.connect(dryGain);
-  inputGain.connect(liftGain);
-  inputGain.connect(analyser);
-  liftGain.connect(limiter);
-  limiter.connect(wetGain);
-  dryGain.connect(mixGain);
-  wetGain.connect(mixGain);
-  mixGain.connect(outputAnalyser);
-  mixGain.connect(context.destination);
-
-  const runtime: AudioDspRuntime = {
-    source,
-    inputGain,
-    dryGain,
-    liftGain,
-    limiter,
-    wetGain,
-    mixGain,
-    analyser,
-    outputAnalyser,
-    isRunning: true,
-    currentLiftDb: 0,
-    detectorDb: -120,
-    peakDb: -120,
-    levelerMeanDb: -120,
-    lastUpdateMs: performance.now(),
-    updateRafId: null,
-  };
-  // Main/wet playback now uses offline-rendered compression, so runtime should
-  // remain transparent and only provide gain + analyser plumbing.
-  configureRuntimePassThrough(runtime);
-  audio.volume = Math.min(1, Math.max(0, audio.volume || 1));
-  runtime.updateRafId = null;
-  runtime.isRunning = false;
-  audioDspRuntimes.set(audio, runtime);
-  return runtime;
-};
-
-const releaseAudioDspRuntime = async (audio: HTMLAudioElement) => {
-  const runtime = audioDspRuntimes.get(audio);
-  if (!runtime) {
-    return;
-  }
-  runtime.isRunning = false;
-  if (runtime.updateRafId !== null) {
-    window.cancelAnimationFrame(runtime.updateRafId);
-    runtime.updateRafId = null;
-  }
-  runtime.source.disconnect();
-  runtime.inputGain.disconnect();
-  runtime.dryGain.disconnect();
-  runtime.liftGain.disconnect();
-  runtime.limiter.disconnect();
-  runtime.wetGain.disconnect();
-  runtime.mixGain.disconnect();
-  runtime.analyser.disconnect();
-  runtime.outputAnalyser.disconnect();
-  audioDspRuntimes.delete(audio);
-  const level = audioLevels.get(audio);
-  audio.volume = Math.min(1, Math.max(0, level ?? audio.volume ?? 1));
-};
-
-const setAudioLevel = (audio: HTMLAudioElement, level: number) => {
-  const safe = Math.max(0, level);
-  audioLevels.set(audio, safe);
-  const runtime = audioDspRuntimes.get(audio);
-  if (runtime) {
-    // When routed through WebAudio runtime, keep media element at unity and
-    // apply program level only once via runtime input gain.
-    runtime.inputGain.gain.setValueAtTime(safe, runtime.inputGain.context.currentTime);
-    audio.volume = 1;
-    return;
-  }
-  audio.volume = Math.min(1, safe);
-};
-
-const getAudioLevel = (audio: HTMLAudioElement) => {
-  const stored = audioLevels.get(audio);
-  if (typeof stored === "number" && Number.isFinite(stored)) {
-    return Math.max(0, stored);
-  }
-  return Math.max(0, audio.volume || 0);
-};
-
-const resumeAudioContextForElement = async (audio: HTMLAudioElement) => {
-  const runtime = audioDspRuntimes.get(audio);
-  if (!runtime) {
-    return;
-  }
-  await ensureSharedAudioContextRunning();
-  setAudioLevel(audio, getAudioLevel(audio));
-};
 
 const formatTime = (seconds: number) => {
   if (!Number.isFinite(seconds) || seconds <= 0) {
@@ -6433,191 +6262,19 @@ const getTandaStyleBadge = (tanda: TandaDraft) => {
   return "?";
 };
 
-const getTandaYearRange = (years: string[]) => {
-  const numericYears = years
-    .flatMap((year) => Array.from(year.matchAll(/\d{4}/g)).map((match) => match[0]))
-    .map((year) => Number.parseInt(year, 10))
-    .filter((year) => Number.isFinite(year));
-  if (numericYears.length === 0) {
-    return years.length > 0 ? years.join(",") : "";
-  }
-  const min = Math.min(...numericYears);
-  const max = Math.max(...numericYears);
-  if (min === max) {
-    return `${min}`;
-  }
-  return `${min}-${max}`;
-};
-
-const getInstrumentalLabel = (status: string) => {
-  if (status === "instrumental") {
-    return t("tandaInstrumentalLabel");
-  }
-  if (status === "mixed") {
-    return t("tandaMixedLabel");
-  }
-  return t("tandaNonInstrumental");
-};
-
-const buildTandaSummaryText = (tanda: TandaDraft, fallbackName?: string) => {
-  const rawName = (tanda.name || fallbackName || "").trim();
-  const tracks = tanda.trackSlots.map((trackId) =>
-    trackId ? trackCache.get(trackId) ?? null : null,
-  );
-  const summary = summarizeTandaTracks(
-    tracks.map((track) => {
-      if (!track) {
-        return null;
-      }
-      const artist = summarizeTrackArtist(track);
-      return {
-        artist,
-        year: track.year,
-        instrumental: track.instrumental ?? null,
-      };
-    }),
-  );
-  const artistLabel =
-    summary.artists.length > 0
-      ? summary.artists
-          .map((artist) =>
-            artist.count > 1 ? `${artist.name}(${artist.count})` : artist.name,
-          )
-          .join(" / ")
-      : t("tandaUnknownArtist");
-  const name = restoreEquivalentArtistSpelling(
-    rawName,
-    summary.artists.map((artist) => artist.name),
-  );
-  const yearLabel = summary.years.length > 0 ? summary.years.join(",") : "";
-  const instrumentalLabel = getInstrumentalLabel(summary.instrumentalStatus);
-  const bpmValues = tracks
-    .map((track) => (track?.bpm && track.bpm > 0 ? Math.round(track.bpm) : null))
-    .filter((value): value is number => value !== null);
-  const bpmLabel =
-    bpmValues.length === 0
-      ? ""
-      : Math.min(...bpmValues) === Math.max(...bpmValues)
-        ? `${Math.min(...bpmValues)} bpm`
-        : `${Math.min(...bpmValues)}-${Math.max(...bpmValues)} bpm`;
-  const durationLabel = formatTime(
-    tracks.reduce((sum, track) => sum + getEffectiveTrackDurationMs(track), 0) /
-      1000,
-  );
-  const ratingLabel =
-    tanda.rating > 0 ? `${"\u2605".repeat(Math.min(5, tanda.rating))}` : "";
-  const details = [
-    artistLabel,
-    instrumentalLabel,
-    yearLabel,
-    bpmLabel,
-    durationLabel,
-    ratingLabel,
-  ].filter((part) => part && part.trim().length > 0);
-  return name ? `${name} - ${details.join(" - ")}` : details.join(" - ");
-};
-
-const getTandaSortKey = (tanda: TandaDraft) => {
-  const tracks = tanda.trackSlots.map((trackId) =>
-    trackId ? trackCache.get(trackId) ?? null : null,
-  );
-  const summary = summarizeTandaTracks(
-    tracks.map((track) => {
-      if (!track) {
-        return null;
-      }
-      const artist = summarizeTrackArtist(track);
-      return {
-        artist,
-        year: track.year,
-        instrumental: track.instrumental ?? null,
-      };
-    }),
-  );
-  return buildTandaArtistSortKey(summary, t("tandaUnknownArtist"));
-};
-
-const buildTandaExpandedSummaryText = (
-  tanda: TandaDraft,
-  fallbackName?: string,
-) => {
-  const rawName = (tanda.name || fallbackName || "").trim();
-  const tracks = tanda.trackSlots.map((trackId) =>
-    trackId ? trackCache.get(trackId) ?? null : null,
-  );
-  const summary = summarizeTandaTracks(
-    tracks.map((track) => {
-      if (!track) {
-        return null;
-      }
-      return {
-        artist: summarizeTrackArtist(track),
-        year: track.year,
-        instrumental: track.instrumental ?? null,
-      };
-    }),
-  );
-  const name = restoreEquivalentArtistSpelling(
-    rawName,
-    summary.artists.map((artist) => artist.name),
-  );
-  const yearLabel =
-    summary.years.length > 0 ? getTandaYearRange(summary.years) : "";
-  const bpmValues = tracks
-    .map((track) => (track?.bpm && track.bpm > 0 ? Math.round(track.bpm) : null))
-    .filter((value): value is number => value !== null);
-  const bpmLabel =
-    bpmValues.length === 0
-      ? ""
-      : Math.min(...bpmValues) === Math.max(...bpmValues)
-        ? `${Math.min(...bpmValues)} bpm`
-        : `${Math.min(...bpmValues)}-${Math.max(...bpmValues)} bpm`;
-  const durationLabel = formatTime(
-    tracks.reduce((sum, track) => sum + getEffectiveTrackDurationMs(track), 0) /
-      1000,
-  );
-  const ratingLabel =
-    tanda.rating > 0 ? `${"\u2605".repeat(Math.min(5, tanda.rating))}` : "";
-  const details = [yearLabel, bpmLabel, durationLabel, ratingLabel].filter(
-    (part) => part && part.trim().length > 0,
-  );
-  return name ? (details.length > 0 ? `${name} - ${details.join(" - ")}` : name) : details.join(" - ");
-};
-
-type TandaDetailLine = {
-  text: string;
-  trackId?: string;
-  slotIndex?: number;
-};
-
-const buildTandaDetailLines = (tanda: TandaDraft): TandaDetailLine[] => {
-  const slots = tanda.trackSlots;
-  const tracks = slots
-    .map((trackId) => (trackId ? trackCache.get(trackId) ?? null : null))
-    .filter(Boolean) as TrackRow[];
-  if (tracks.length === 0) {
-    return [{ text: t("tandaPlaceholder") }];
-  }
-  return slots.flatMap((trackId, slotIndex) => {
-    if (!trackId) {
-      return [];
-    }
-    const track = trackCache.get(trackId);
-    if (!track) {
-      return [];
-    }
-    const year = track.year?.trim() || "";
-    const duration = formatTime(getEffectiveTrackDurationMs(track) / 1000);
-    const yearLabel = year ? ` (${year})` : "";
-    return [
-      {
-        text: `${resolveNowPlayingTrackLabel(track)}${yearLabel} · ${duration}`,
-        trackId: track.id,
-        slotIndex,
-      },
-    ];
-  });
-};
+const {
+  getInstrumentalLabel,
+  buildTandaSummaryText,
+  getTandaSortKey,
+  buildTandaExpandedSummaryText,
+  buildTandaDetailLines,
+} = createTandaPresentation({
+  getTrack: (id) => trackCache.get(id),
+  getEffectiveTrackDurationMs,
+  formatTime,
+  resolveNowPlayingTrackLabel,
+  t,
+});
 
 const getSearchPanel = () => searchTracksEl?.closest(".panel") ?? null;
 
@@ -9857,115 +9514,46 @@ const collectPlaylistArtistKeys = () => {
   return artists;
 };
 
-const generateDesignerTanda = async () => {
-  if (!window.tanda) {
-    setStatus(t("statusNoApi"));
-    return;
-  }
-  const targetIndex = getPlaylistTargetIndex();
-  const targetStyles = targetIndex !== null
-    ? getDefaultPlaylistStyles(targetIndex)
-    : getExpandedStyleFilter();
-  const targetCount = targetIndex !== null
-    ? getDefaultPlaylistTandaSize(targetIndex)
-    : getDefaultTandaSize();
-  const activeTanda = getActiveTanda();
-  const shouldComplete = Boolean(activeTanda && (
-    isUserStartedIncompleteTanda({
-      trackSlots: activeTanda.trackSlots,
-      manualTrackIds: activeTanda.manualTrackIds,
-      preferredSize: targetCount,
-    })
-    || ((activeTanda.manualTrackIds?.length ?? 0) > 0
-      && (activeTanda.generatedTrackIds?.length ?? 0) > 0)
-  ));
-  if (targetStyles.length === 0 && !shouldComplete) {
-    setStatus(t("statusGenerateTandaChooseStyle"));
-    return;
-  }
-  const allTracks = await window.tanda.listTracks();
-  allTracks.forEach((track) => trackCache.set(track.id, track));
-  const anchorTrackIds = shouldComplete ? activeTanda?.manualTrackIds ?? [] : [];
-  const generated = pickGeneratedTandaForSlot(
-    null,
-    allTracks,
-    [],
-    collectUsedTrackTitles(),
-    new Map(),
-    0,
-    0,
-    new Map(),
-    {
-      targetCount,
-      targetStyles,
-      excludedArtists: shouldComplete ? undefined : collectPlaylistArtistKeys(),
-      origin: "designer",
-      reconcileSavedMatch: false,
-      registerDraft: false,
-      anchorTrackIds,
-      triedGeneratedCombinations: new Set(activeTanda?.triedGeneratedCombinations ?? []),
+const generateDesignerTanda = () => {
+  const api = window.tanda;
+  return runDesignerGeneration({
+    listTracks: api ? () => api.listTracks() : undefined,
+    getTarget: () => {
+      const index = getPlaylistTargetIndex();
+      return index === null
+        ? { targetStyles: getExpandedStyleFilter(), targetCount: getDefaultTandaSize() }
+        : { targetStyles: getDefaultPlaylistStyles(index), targetCount: getDefaultPlaylistTandaSize(index) };
     },
-  );
-  if (!generated) {
-    if (shouldComplete) {
-      showAlert(t("statusCompleteTandaUnavailable"));
-    } else {
-      setStatus(t("statusGenerateTandaUnavailable"));
-    }
-    return;
-  }
-  if (shouldComplete && activeTanda) {
-    const generatedIds = generated.generatedTrackIds ?? [];
-    const previousGenerated = new Set(activeTanda.generatedTrackIds ?? []);
-    const nextSlots = activeTanda.trackSlots
-      .filter((trackId): trackId is string => Boolean(
-        trackId && !previousGenerated.has(trackId),
-      ))
-      .slice(0, targetCount) as (string | null)[];
-    while (nextSlots.length < targetCount) nextSlots.push(null);
-    let generatedIndex = 0;
-    for (let index = 0; index < nextSlots.length && generatedIndex < generatedIds.length; index += 1) {
-      if (!nextSlots[index]) {
-        nextSlots[index] = generatedIds[generatedIndex] ?? null;
-        generatedIndex += 1;
-      }
-    }
-    activeTanda.trackSlots = orderTandaTracksByBpm(
-      nextSlots,
-      (trackId) => trackId ? trackCache.get(trackId)?.bpm : null,
-    );
-    activeTanda.generatedTrackIds = generatedIds;
-    activeTanda.triedGeneratedCombinations = [
-      ...(activeTanda.triedGeneratedCombinations ?? []),
-      tandaCompletionCombinationKey(generatedIds),
-    ];
-    activeTanda.styles = generated.styles;
-    activeTanda.autoGenerated = false;
-    selectedStyles = toBaseStyleFilters(activeTanda.styles);
-    clearAlert();
-    loadStyles();
-    updateSearchTabVisibility();
-    renderTandaDesigner();
-    setStatus(t("statusCompleteTandaCreated"));
-    return;
-  }
-  const selectedIndex = tandaDrafts.findIndex(
-    (draft) => draft.id === selectedTandaId
-      && draft.origin !== "playlist"
-      && !persistedTandaIds.has(draft.id),
-  );
-  if (selectedIndex >= 0) {
-    tandaDrafts = tandaDrafts.map((draft, index) =>
-      index === selectedIndex ? generated : draft);
-  } else {
-    tandaDrafts = [...tandaDrafts, generated];
-  }
-  selectedTandaId = generated.id;
-  selectedStyles = toBaseStyleFilters(generated.styles);
-  loadStyles();
-  updateSearchTabVisibility();
-  renderTandaDesigner();
-  setStatus(t("statusGenerateTandaCreated"));
+    getActiveTanda,
+    cacheTrack: (track) => trackCache.set(track.id, track),
+    getBpm: (id) => trackCache.get(id)?.bpm,
+    collectPlaylistArtistKeys,
+    generate: (tracks, options) => pickGeneratedTandaForSlot(
+      null, tracks, [], collectUsedTrackTitles(), new Map(), 0, 0, new Map(),
+      { ...options, origin: "designer", reconcileSavedMatch: false, registerDraft: false },
+    ),
+    installDraft: (generated) => {
+      const selectedIndex = tandaDrafts.findIndex(
+        (draft) => draft.id === selectedTandaId
+          && draft.origin !== "playlist"
+          && !persistedTandaIds.has(draft.id),
+      );
+      tandaDrafts = selectedIndex >= 0
+        ? tandaDrafts.map((draft, index) => index === selectedIndex ? generated : draft)
+        : [...tandaDrafts, generated];
+      selectedTandaId = generated.id;
+    },
+    refresh: (styles, completed) => {
+      selectedStyles = toBaseStyleFilters(styles);
+      if (completed) clearAlert();
+      loadStyles();
+      updateSearchTabVisibility();
+      renderTandaDesigner();
+    },
+    setStatus,
+    showAlert,
+    t,
+  });
 };
 
 const registerAutofillUsage = (
@@ -11559,8 +11147,7 @@ const loadCortinaSets = async () => {
       }
       cortinaModalSet.appendChild(option);
     });
-    cortinaModalSetValue = setValue || CORTINA_ANY_ID;
-    cortinaModalSet.value = cortinaModalSetValue;
+    cortinaModalSet.value = setValue || CORTINA_ANY_ID;
   }
 };
 
@@ -11662,187 +11249,56 @@ const ensureCortinaPlans = async (indices: number[]) => {
   await cortinaPlanPromise;
 };
 
-const setCortinaModalVisible = (visible: boolean) => {
-  if (!cortinaModal) {
-    return;
-  }
-  if (!visible || appMode !== "edit") {
-    resetModalCardPosition(cortinaModal);
-  }
-  cortinaModal.classList.toggle("open", visible);
-  cortinaModal.setAttribute("aria-hidden", visible ? "false" : "true");
-  if (!visible) {
-    pendingCortinaTargetIndex = null;
-    selectedCortinaTrack = null;
-  }
-};
-
-const renderCortinaResults = async () => {
-  if (!cortinaResults) {
-    return;
-  }
-  const setName = cortinaModalSetValue ?? cortinaModalSet?.value ?? getCortinaSet();
-  if (!setName || setName === "") {
-    cortinaResults.innerHTML = "";
-    return;
-  }
-  const query = cortinaSearchInput?.value.trim().toLowerCase() ?? "";
-  let tracks: TrackRow[] = [];
-  if (setName === CORTINA_ANY_ID) {
-    const seen = new Set<string>();
-    for (const set of cortinaSets) {
-      const setTracks = await loadCortinaTracks(set);
-      setTracks.forEach((track) => {
-        if (!seen.has(track.id)) {
-          seen.add(track.id);
-          tracks.push(track);
-        }
-      });
-    }
-  } else {
-    tracks = await loadCortinaTracks(setName);
-  }
-  const filtered = (query
-    ? tracks.filter((track) => {
-        const title = track.title?.toLowerCase() ?? "";
-        const artist = track.artist?.toLowerCase() ?? "";
-        return title.includes(query) || artist.includes(query);
-      })
-    : tracks
-  ).sort((a, b) => {
-    const titleA = a.title?.toLowerCase() ?? "";
-    const titleB = b.title?.toLowerCase() ?? "";
-    const titleCmp = titleA.localeCompare(titleB);
-    if (titleCmp !== 0) {
-      return titleCmp;
-    }
-    const artistA = a.artist?.toLowerCase() ?? "";
-    const artistB = b.artist?.toLowerCase() ?? "";
-    return artistA.localeCompare(artistB);
-  });
-  cortinaResults.innerHTML = "";
-  filtered.forEach((track) => {
-    const row = document.createElement("div");
-    row.className = "list-row track-row cortina-row cortina-result";
-    row.dataset.trackId = track.id;
-    row.dataset.filePath = track.full_path;
-    row.innerHTML = "";
-    const details = document.createElement("div");
-    details.className = "track-details";
-    const primary = document.createElement("div");
-    primary.className = "track-primary";
-    const title = track.title?.trim() ?? "";
-    const artist = track.artist?.trim() ?? "";
-    const label = [title, artist].filter(Boolean).join(" / ");
-    primary.textContent = label || track.relative_path || "";
-    details.append(primary);
-    const actions = document.createElement("div");
-    actions.className = "row-actions";
-    if (headphoneAvailable) {
-      const headphone = buildHeadphoneButton(track.id);
-      headphone.addEventListener("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        await playOnChannel(
-          "headphone",
-          track.full_path,
-          track.id,
-          track,
-          track.gain_db ?? null,
-        );
-        updateHeadphoneButtonIndicators();
-      });
-      actions.appendChild(headphone);
-    }
-    row.append(details, actions);
-    row.tabIndex = 0;
-    row.setAttribute("role", "radio");
-    const select = () => {
-      selectedCortinaTrack = track;
-      updateCortinaPickerActions();
-    };
-    row.addEventListener("click", (event) => {
-      if (!(event.target as HTMLElement).closest("button")) select();
-    });
-    row.addEventListener("keydown", (event) => {
-      if (event.target === row && (event.key === "Enter" || event.key === " ")) {
-        event.preventDefault();
-        select();
-      }
-    });
-    cortinaResults.appendChild(row);
-  });
-  updateCortinaPickerActions();
-};
-
-let cortinaAutofillInProgress = false;
 const getEditableCortinaAutofillIndices = () => getCortinaRowIndices(playlistItems).filter(
   (index) => playlistPlayback.status !== "playing" ||
     (index > playlistPlayback.currentIndex && index > playlistPlayback.playedThroughIndex),
 );
 
-const updateCortinaPickerActions = () => {
-  const index = pendingCortinaTargetIndex;
-  const hasMember = index !== null && Boolean(getCortinaRowTracks(index)[pendingCortinaPosition]);
-  const setDisabled = (id: string, disabled: boolean) => {
-    const button = document.querySelector<HTMLButtonElement>(id);
-    if (button) button.disabled = disabled;
-  };
-  setDisabled("#cortina-modal-add", !selectedCortinaTrack || index === null
-    || !isCortinaPositionEditable(index, pendingCortinaPosition, true));
-  setDisabled("#cortina-modal-replace", !selectedCortinaTrack || (index !== null && !hasMember)
-    || !isCortinaPositionEditable(index, pendingCortinaPosition));
-  setDisabled("#cortina-modal-remove", !hasMember
-    || !isCortinaPositionEditable(index, pendingCortinaPosition));
-  setDisabled("#cortina-modal-autofill", cortinaAutofillInProgress || !getEditableCortinaAutofillIndices().length);
-  cortinaResults?.querySelectorAll<HTMLElement>(".cortina-result").forEach((row) => {
-    const selected = row.dataset.trackId === selectedCortinaTrack?.id;
-    row.classList.toggle("selected", selected);
-    row.setAttribute("aria-checked", String(selected));
-  });
-};
-
-const applyCortinaSelection = (add: boolean) => {
-  const track = selectedCortinaTrack;
-  const index = pendingCortinaTargetIndex;
-  if (!track || (add && index === null)) return;
-  if (!isCortinaPositionEditable(index, pendingCortinaPosition, add)) {
-    setStatus(t("statusCortinaLocked"));
-    return;
-  }
-  if (index !== null) {
-    const tracks = [...getCortinaRowTracks(index)];
-    if (!add && !tracks[pendingCortinaPosition]) return;
-    if (add) tracks.splice(Math.min(tracks.length, pendingCortinaPosition + 1), 0, track);
-    else tracks.splice(pendingCortinaPosition, 1, track);
-    cortinaOverrideByIndex.set(index, tracks);
-    markCortinaPulse(index);
-  } else {
-    cortinaOverrideTrack = track;
-  }
-  setStatus(t("statusCortinaSelected", { title: resolveNowPlayingTrackLabel(track) }));
-  setCortinaModalVisible(false);
-  renderPlaylist();
-};
-
-const openCortinaModal = (targetIndex: number | null, position = 0) => {
-  if (!isCortinaPositionEditable(targetIndex, position, true)
-    && !isCortinaPositionEditable(targetIndex, position)) {
-    setStatus(t("statusCortinaLocked"));
-    return;
-  }
-  pendingCortinaTargetIndex = targetIndex;
-  pendingCortinaPosition = position;
-  selectedCortinaTrack = targetIndex === null ? null : getCortinaRowTracks(targetIndex)[position] ?? null;
-  updateCortinaPickerActions();
-  if (cortinaModalSet) {
-    cortinaModalSetValue = getCortinaSet() || CORTINA_ANY_ID;
-    cortinaModalSet.value = cortinaModalSetValue;
-  }
-  if (cortinaSearchInput) cortinaSearchInput.value = "";
-  void renderCortinaResults();
-  setCortinaModalVisible(true);
-};
+const cortinaPickerController = createCortinaPickerController({
+  elements: {
+    modal: cortinaModal,
+    closeButton: cortinaModalClose,
+    setSelect: cortinaModalSet,
+    searchInput: cortinaSearchInput,
+    results: cortinaResults,
+    addButton: document.querySelector<HTMLButtonElement>("#cortina-modal-add"),
+    replaceButton: document.querySelector<HTMLButtonElement>("#cortina-modal-replace"),
+    removeButton: document.querySelector<HTMLButtonElement>("#cortina-modal-remove"),
+    autofillButton: document.querySelector<HTMLButtonElement>("#cortina-modal-autofill"),
+  },
+  anySetId: CORTINA_ANY_ID,
+  readers: {
+    getAppMode: () => appMode,
+    getConfiguredSet: getCortinaSet,
+    getSets: () => cortinaSets,
+    loadTracks: loadCortinaTracks,
+    getRowTracks: getCortinaRowTracks,
+    getEditableAutofillIndices: getEditableCortinaAutofillIndices,
+    isPositionEditable: (index, position, add) =>
+      isCortinaPositionEditable(index, position, add),
+    isHeadphoneAvailable: () => headphoneAvailable,
+  },
+  actions: {
+    resetModalPosition: resetModalCardPosition,
+    buildHeadphoneButton,
+    playHeadphone: async (track) => {
+      await playOnChannel("headphone", track.full_path, track.id, track, track.gain_db ?? null);
+    },
+    updateHeadphoneIndicators: updateHeadphoneButtonIndicators,
+    setOverrideTracks: (index, tracks) => cortinaOverrideByIndex.set(index, tracks),
+    setStandaloneOverride: (track) => { cortinaOverrideTrack = track; },
+    markPulse: markCortinaPulse,
+    renderPlaylist,
+    setStatus,
+    translate: t,
+    resolveTrackLabel: resolveNowPlayingTrackLabel,
+    shuffleTracks,
+    logError: (message, error) => console.error(message, error),
+  },
+});
+const openCortinaModal = cortinaPickerController.open;
+const setCortinaModalVisible = cortinaPickerController.setVisible;
+const updateCortinaPickerActions = cortinaPickerController.updateActions;
 
 const createEmptyTanda = (): TandaDraft => {
   const size = getDefaultTandaSize();
@@ -14632,10 +14088,8 @@ const init = async () => {
         await ensureCortinaPlans(getCortinaRowIndices(playlistItems));
         renderPlaylist();
         scheduleCompressionPrefetch();
-        if (cortinaModalSet) {
-          cortinaModalSet.value = next;
-        }
-        await renderCortinaResults();
+        cortinaPickerController.setSelectedSet(next);
+        await cortinaPickerController.renderResults();
       },
       onCortinaDurationChanged: () => {},
       onPlaylistStartTimeChanged: () => {
@@ -15681,63 +15135,7 @@ const init = async () => {
     setCortinaControlsVisible(true);
     updateNowPlayingDisplay();
   });
-  document.querySelector<HTMLButtonElement>("#cortina-modal-autofill")?.addEventListener("click", async () => {
-    if (cortinaAutofillInProgress) return;
-    cortinaAutofillInProgress = true;
-    updateCortinaPickerActions();
-    try {
-      const set = cortinaModalSetValue ?? getCortinaSet();
-      const tracks = set === CORTINA_ANY_ID
-        ? (await Promise.all(cortinaSets.map(loadCortinaTracks))).flat()
-        : await loadCortinaTracks(set);
-      if (!tracks.length) {
-        setStatus(t("cortinaNone"));
-        return;
-      }
-      let pool: TrackRow[] = [];
-      // Recheck after loading: playback may have advanced while awaiting tracks.
-      for (const index of getEditableCortinaAutofillIndices()) {
-        if (!pool.length) pool = shuffleTracks(tracks);
-        cortinaOverrideByIndex.set(index, [pool.pop()!]);
-        markCortinaPulse(index);
-      }
-      setCortinaModalVisible(false);
-      renderPlaylist();
-    } catch (error) {
-      setStatus(t("cortinaAutofillError"));
-      console.error("Cortina autofill failed", error);
-    } finally {
-      cortinaAutofillInProgress = false;
-      updateCortinaPickerActions();
-    }
-  });
-  document.querySelector("#cortina-modal-add")?.addEventListener("click", () => applyCortinaSelection(true));
-  document.querySelector("#cortina-modal-replace")?.addEventListener("click", () => applyCortinaSelection(false));
-  document.querySelector("#cortina-modal-remove")?.addEventListener("click", () => {
-    const index = pendingCortinaTargetIndex;
-    if (index === null) return;
-    if (!isCortinaPositionEditable(index, pendingCortinaPosition)) {
-      setStatus(t("statusCortinaLocked"));
-      return;
-    }
-    const tracks = [...getCortinaRowTracks(index)];
-    tracks.splice(pendingCortinaPosition, 1);
-    cortinaOverrideByIndex.set(index, tracks);
-    setCortinaModalVisible(false);
-    renderPlaylist();
-  });
-  cortinaModalClose?.addEventListener("click", () => {
-    setCortinaModalVisible(false);
-  });
-  cortinaModalSet?.addEventListener("change", () => {
-    if (cortinaModalSet) {
-      cortinaModalSetValue = cortinaModalSet.value ?? CORTINA_ANY_ID;
-    }
-    void renderCortinaResults();
-  });
-  cortinaSearchInput?.addEventListener("input", () => {
-    void renderCortinaResults();
-  });
+  cortinaPickerController.initialize();
 
   trackEditorTapBtn?.addEventListener("click", () => {
     handleTapTempo();
