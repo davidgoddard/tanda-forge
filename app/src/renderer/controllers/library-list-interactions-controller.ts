@@ -526,5 +526,22 @@ export const createLibraryListInteractionsController = (
 
   return {
     initialize,
+    initializeClipboardCollectionForm(
+      nameInput: HTMLInputElement | null,
+      addButton: HTMLButtonElement | null,
+      addCollection: (name: string) => void,
+    ) {
+      addButton?.addEventListener("click", () => {
+        const name = nameInput?.value.trim();
+        if (!nameInput || !name) return;
+        nameInput.value = "";
+        addCollection(name);
+      });
+      nameInput?.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        addButton?.click();
+      });
+    },
   };
 };

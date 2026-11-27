@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { applyClipboardClear } from "../app/src/shared/clipboard-clear";
+import { applyClipboardClear, resolveClipboardSelectionAfterClear } from "../app/src/shared/clipboard-clear";
+
+describe("selection after clearing clipboard collections", () => {
+  const collections = ["other", "general"].map((id) => ({
+    id, name: id, trackIds: [], tandaIds: [],
+  }));
+
+  it("falls back to General and drops removed collection IDs", () => {
+    expect(resolveClipboardSelectionAfterClear(collections, ["removed"], "removed", ["other", "removed"]))
+      .toEqual({ activeCollectionId: "general", includedCollectionIds: ["other"], clearRowSelection: true });
+  });
+
+  it("clears row selection only when the active collection was cleared or is General", () => {
+    expect(resolveClipboardSelectionAfterClear(collections, ["other"], "other", []).clearRowSelection).toBe(true);
+    expect(resolveClipboardSelectionAfterClear(collections, ["general"], "other", []).clearRowSelection).toBe(false);
+  });
+});
 
 describe("applyClipboardClear", () => {
   it("clears selected collections and keeps protected ones", () => {

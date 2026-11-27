@@ -108,7 +108,7 @@ import {
   moveTandaToCollection,
   moveTrackToCollection,
 } from "../shared/clipboard-move.js";
-import { applyClipboardClear } from "../shared/clipboard-clear.js";
+import { applyClipboardClear, resolveClipboardSelectionAfterClear } from "../shared/clipboard-clear.js";
 import { resolveCollectionForClipboardWrite } from "../shared/clipboard-target.js";
 import { computeTrimmedEnd } from "../shared/audio-trim.js";
 import { resolveBaseDurationSeconds, resolveClampedCurrentSeconds, resolveDisplayDurationSeconds, resolveEffectiveDurationSeconds, resolveProgressRatio, resolveWaveformSeekTargetSeconds } from "../shared/now-playing.js";
@@ -11839,7 +11839,6 @@ const unstyledCollectionNames = () =>
     (lang) => translations[lang].clipboardCollectionUnstyled,
   );
 
-const normalizeCollectionName = (name: string) => name.trim();
 
 const ensureDefaultCollection = () => {
   const existing = clipboardCollections.find((item) => item.id === "general");
@@ -14574,19 +14573,12 @@ const init = async () => {
       },
     );
     clipboardCollections = updated;
-    includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
-      (id) => clipboardCollections.some((collection) => collection.id === id),
+    const selection = resolveClipboardSelectionAfterClear(
+      updated, result.selectedIds, activeClipboardCollectionId, includedClipboardCollectionIds,
     );
-    if (
-      activeClipboardCollectionId &&
-      !clipboardCollections.some((collection) => collection.id === activeClipboardCollectionId)
-    ) {
-      activeClipboardCollectionId = getGeneralCollection()?.id ?? "general";
-    }
-    if (
-      activeClipboardCollectionId === "general" ||
-      result.selectedIds.includes(activeClipboardCollectionId ?? "")
-    ) {
+    includedClipboardCollectionIds = selection.includedCollectionIds;
+    activeClipboardCollectionId = selection.activeCollectionId;
+    if (selection.clearRowSelection) {
       selectedClipboardTrackId = null;
       selectedClipboardTandaId = null;
     }
@@ -14809,39 +14801,21 @@ const init = async () => {
     clearPlayCounts();
   });
 
-  clipboardCollectionAddBtn?.addEventListener("click", () => {
-    const name = normalizeCollectionName(
-      clipboardCollectionNameInput?.value ?? "",
-    );
-    if (!name) {
-      return;
-    }
-    const id = crypto.randomUUID();
-    clipboardCollections.push({
-      id,
-      name,
-      trackIds: [],
-      tandaIds: [],
-    });
-    activeClipboardCollectionId = id;
-    includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
-      (value) => value !== id,
-    );
-    if (clipboardCollectionNameInput) {
-      clipboardCollectionNameInput.value = "";
-    }
-    saveClipboardCollections();
-    renderClipboardCollections();
-    renderClipboard();
-  });
-
-  clipboardCollectionNameInput?.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter") {
-      return;
-    }
-    event.preventDefault();
-    clipboardCollectionAddBtn?.click();
-  });
+  libraryListInteractionsController.initializeClipboardCollectionForm(
+    clipboardCollectionNameInput,
+    clipboardCollectionAddBtn,
+    (name) => {
+      const id = crypto.randomUUID();
+      clipboardCollections.push({ id, name, trackIds: [], tandaIds: [] });
+      activeClipboardCollectionId = id;
+      includedClipboardCollectionIds = includedClipboardCollectionIds.filter(
+        (value) => value !== id,
+      );
+      saveClipboardCollections();
+      renderClipboardCollections();
+      renderClipboard();
+    },
+  );
 
   if (playlistSequenceInput) {
     playlistSequenceInput.value = getPlaylistSequenceInput();

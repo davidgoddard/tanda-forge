@@ -46,3 +46,21 @@ export const applyClipboardClear = (
 
   return { collections: filtered, removedIds };
 };
+
+export const resolveClipboardSelectionAfterClear = (
+  collections: ClipboardCollection[],
+  selectedIds: string[],
+  activeId: string | null,
+  includedIds: string[],
+) => {
+  const remaining = new Set(collections.map(({ id }) => id));
+  const activeCollectionId = activeId && !remaining.has(activeId)
+    ? remaining.has("general") ? "general" : collections[0]?.id ?? "general"
+    : activeId;
+  return {
+    activeCollectionId,
+    includedCollectionIds: includedIds.filter((id) => remaining.has(id)),
+    clearRowSelection: activeCollectionId === "general" ||
+      selectedIds.includes(activeCollectionId ?? ""),
+  };
+};
