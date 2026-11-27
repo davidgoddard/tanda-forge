@@ -1,3 +1,8 @@
+import { createStyleSettingsController } from "./controllers/style-settings-controller.js";
+import { createStatisticsController } from "./controllers/statistics-controller.js";
+import { createDiagnosticsTrackReview } from "./controllers/diagnostics-track-review-controller.js";
+import { createAudioSimilarityController } from "./controllers/audio-similarity-controller.js";
+
 import { queryRendererElements } from "./modules/renderer-elements.js";
 import { createConfirmationDialog } from "./modules/confirmation-dialog.js";
 import { createChoiceDialogs } from "./modules/choice-dialogs.js";
@@ -23,13 +28,7 @@ import {
   isUserStartedIncompleteTanda,
   tandaCompletionCombinationKey,
 } from "../shared/tanda-completion.js";
-import type {
-  AudioSimilarityReport,
-  AudioSimilarityMember,
-  AudioSimilarityMetadataChange,
-  AudioSimilarityAuditionTrack,
-  AudioSimilarityRelationshipType,
-} from "../shared/audio-similarity.js";
+
 import type {
   ClipboardCollection,
   PlaylistItem,
@@ -61,25 +60,8 @@ import {
   type SequenceEntry,
   type StyleMap,
 } from "../shared/playlist-sequence.js";
-import {
-  buildFamilyStyleIndex,
-  composeStyleLabel,
-  deriveFamiliesFromStyles,
-  expandStyleFilters,
-  formatStylePillLabel,
-  sortBaseStyles,
-  parseStyleFamilies,
-  serializeStyleFamilies,
-  splitStyleLabel,
-  styleFamilyMapFromFamilies,
-  type StyleFamily,
-} from "../shared/style-families.js";
-import {
-  getLegacyStyleMapping,
-  parseLegacyStyleMappingState,
-  setLegacyStyleMapping,
-  type LegacyStyleMappingState,
-} from "../shared/legacy-style-mappings.js";
+import { buildFamilyStyleIndex, composeStyleLabel, deriveFamiliesFromStyles, expandStyleFilters, formatStylePillLabel, parseStyleFamilies, serializeStyleFamilies, splitStyleLabel, styleFamilyMapFromFamilies, type StyleFamily } from "../shared/style-families.js";
+import { parseLegacyStyleMappingState, type LegacyStyleMappingState } from "../shared/legacy-style-mappings.js";
 import {
   buildPlaylistDuplicateIndex,
   getDuplicateStatusForTanda,
@@ -120,15 +102,7 @@ import {
 import { applyClipboardClear } from "../shared/clipboard-clear.js";
 import { resolveCollectionForClipboardWrite } from "../shared/clipboard-target.js";
 import { computeTrimmedEnd } from "../shared/audio-trim.js";
-import {
-  resolveBaseDurationSeconds,
-  resolveClampedCurrentSeconds,
-  resolveDisplayDurationSeconds,
-  resolveEffectiveDurationSeconds,
-  resolveProgressRatio,
-  toDisplayStyleLabel,
-  resolveWaveformSeekTargetSeconds,
-} from "../shared/now-playing.js";
+import { resolveBaseDurationSeconds, resolveClampedCurrentSeconds, resolveDisplayDurationSeconds, resolveEffectiveDurationSeconds, resolveProgressRatio, resolveWaveformSeekTargetSeconds } from "../shared/now-playing.js";
 import {
   COMPRESSION_TAIL_RESET_LEAD_SECONDS,
   isCompressionControlLockedForPrep,
@@ -145,18 +119,7 @@ import {
 } from "../shared/audio-normalization.js";
 import { computeFadeDurationMs, computeCortinaFadeLevel } from "../shared/audio-fade.js";
 import { createLightingNotifier, createLightingPlaybackNotifier } from "../shared/lighting-notifier.js";
-import {
-  clampNumber,
-  computeDynamicsFrame,
-  computeParallelMixGains,
-  resolveWetCompensation,
-  computeTrackLevelerFrame,
-  computeUpwardLiftDb,
-  depthPercentToMix,
-  dbToLinear,
-  linearToDb,
-  smoothToward,
-} from "../shared/audio-dynamics.js";
+import { clampNumber, computeDynamicsFrame, computeParallelMixGains, resolveWetCompensation, computeTrackLevelerFrame, depthPercentToMix, dbToLinear, linearToDb, smoothToward } from "../shared/audio-dynamics.js";
 import { requiresPlaybackTranscode } from "../shared/audio-playback-source.js";
 import {
   dedupeAudioOutputs,
@@ -189,7 +152,7 @@ import {
 } from "../shared/playlist-flow.js";
 import { computeAutoClearRemainingMs } from "../shared/playlist-filter.js";
 import { normalizePlaylistItems } from "../shared/playlist-normalize.js";
-import { computeScaledPercent } from "../shared/chart-scale.js";
+
 import { basenameForDisplay } from "../shared/path-display.js";
 import {
   collectStoredPlaylistTrackIds,
@@ -217,19 +180,7 @@ import {
   type PlaylistExportManifest,
   type PortableTrackRef,
 } from "../shared/library-transfer.js";
-import {
-  aggregateOrchestraDurations,
-  areArtistsGapSatisfied,
-  buildAdaptiveNumericDistribution,
-  buildAdaptiveStyleNumericDistribution,
-  findTandaPurityIssues,
-  filterByArtistRepeatGap,
-  type TandaPurityIssue,
-  collectEligibleArtistStyleGroups,
-  isTandaArtistStyleAvailable,
-  normalizeAvailabilityStyleGroup,
-  normalizeArtistGroupKey,
-} from "../shared/playlist-diversity.js";
+import { areArtistsGapSatisfied, filterByArtistRepeatGap, collectEligibleArtistStyleGroups, isTandaArtistStyleAvailable, normalizeAvailabilityStyleGroup, normalizeArtistGroupKey } from "../shared/playlist-diversity.js";
 import { ORCHESTRA_SEED_DATA } from "../shared/orchestra-seed.js";
 import {
   buildOrchestraAliasIndex,
@@ -314,7 +265,7 @@ import {
   type LibraryWorkflowReadiness,
   type LibraryWorkflowStepKey,
 } from "./modules/library-workflow.js";
-import { pulseStyleFamilyEditFields } from "./modules/style-family-view.js";
+
 import {
   createRendererUiStore,
   type SearchState,
@@ -5053,871 +5004,6 @@ const maybeShowReleaseUpdatePopup = async () => {
   } catch {}
 };
 
-const renderMiniChart = (
-  root: HTMLDivElement | null,
-  rows: { label: string; value: number }[],
-  options?: {
-    maxBars?: number;
-    includeZero?: boolean;
-    className?: string;
-  },
-) => {
-  if (!root) {
-    return;
-  }
-  root.innerHTML = "";
-  root.style.removeProperty("--mini-chart-columns");
-  root.classList.remove("orchestra", "compact");
-  if (options?.className) {
-    root.classList.add(options.className);
-  }
-  const includeZero = options?.includeZero ?? false;
-  const maxBars = options?.maxBars ?? Number.POSITIVE_INFINITY;
-  const data = rows
-    .filter((row) =>
-      includeZero
-        ? Number.isFinite(row.value) && row.value >= 0
-        : Number.isFinite(row.value) && row.value > 0,
-    )
-    .slice(0, maxBars);
-  if (data.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "mini-chart-empty";
-    empty.textContent = t("playlistStatsNoData");
-    root.appendChild(empty);
-    return;
-  }
-  const maxValue = Math.max(...data.map((row) => row.value));
-  if (options?.className === "compact") {
-    root.style.setProperty("--mini-chart-columns", `${Math.max(1, data.length)}`);
-  }
-  const ORCHESTRA_LABEL_MAX = "Enrique Rodrigues".length;
-  data.forEach((row) => {
-    const item = document.createElement("div");
-    item.className = "mini-chart-item";
-    const bar = document.createElement("div");
-    bar.className = "mini-chart-bar";
-    if (row.value <= 0) {
-      bar.classList.add("is-zero");
-      bar.style.height = "0";
-    } else {
-      bar.style.height = `${computeScaledPercent(row.value, maxValue, {
-        minPercent: 4,
-      })}%`;
-    }
-    const label = document.createElement("div");
-    label.className = "mini-chart-label";
-    const labelText =
-      options?.className === "orchestra" && row.label.length > ORCHESTRA_LABEL_MAX
-        ? `${row.label.slice(0, ORCHESTRA_LABEL_MAX - 1)}...`
-        : row.label;
-    label.textContent = labelText;
-    label.title =
-      options?.className === "orchestra"
-        ? `${row.label}: ${formatTime(row.value)}`
-        : `${row.label}: ${Math.round(row.value)}`;
-    item.append(bar, label);
-    root.appendChild(item);
-  });
-};
-
-const resolveStyleColorGroup = (styleKey: string) => {
-  const key = normalizeStyleName(styleKey).toLowerCase();
-  const base = normalizeStyleName(splitStyleLabel(styleKey).base || "").toLowerCase();
-  const source = `${base} ${key}`.trim();
-  if (
-    source.includes("milonga") ||
-    base === "m" ||
-    key === "m" ||
-    key.startsWith("m - ")
-  ) {
-    return "milonga";
-  }
-  if (
-    source.includes("vals") ||
-    source.includes("waltz") ||
-    base === "w" ||
-    key === "w" ||
-    key.startsWith("w - ")
-  ) {
-    return "waltz";
-  }
-  if (
-    source.includes("tango") ||
-    base === "t" ||
-    key === "t" ||
-    key.startsWith("t - ")
-  ) {
-    return "tango";
-  }
-  return "other";
-};
-
-const colorForStyleKey = (styleKey: string) => {
-  const group = resolveStyleColorGroup(styleKey);
-  if (group === "milonga") {
-    return "#1fbf75";
-  }
-  if (group === "waltz") {
-    return "#3d7dff";
-  }
-  if (group === "tango") {
-    return "#ff7847";
-  }
-  return "#8f9aad";
-};
-
-const patternForStyleKey = (styleKey: string) => {
-  const group = resolveStyleColorGroup(styleKey);
-  if (group === "milonga") {
-    // Diagonal hatch
-    return "repeating-linear-gradient(45deg, rgba(0,0,0,0.26) 0 2px, rgba(255,255,255,0) 2px 6px)";
-  }
-  if (group === "waltz") {
-    // Opposite diagonal hatch
-    return "repeating-linear-gradient(-45deg, rgba(0,0,0,0.26) 0 2px, rgba(255,255,255,0) 2px 6px)";
-  }
-  if (group === "tango") {
-    // Vertical hatch
-    return "repeating-linear-gradient(90deg, rgba(0,0,0,0.2) 0 2px, rgba(255,255,255,0) 2px 6px)";
-  }
-  // Dot-ish checker for unknown
-  return "repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0 2px, rgba(255,255,255,0) 2px 5px), repeating-linear-gradient(90deg, rgba(0,0,0,0.12) 0 2px, rgba(255,255,255,0) 2px 5px)";
-};
-
-const renderOrchestraChart = (
-  root: HTMLDivElement | null,
-  rows: ReturnType<typeof aggregateOrchestraDurations>,
-  maxBars = Number.POSITIVE_INFINITY,
-  onSelectOrchestra?: (orchestra: string) => void,
-) => {
-  if (!root) {
-    return;
-  }
-  root.innerHTML = "";
-  root.classList.remove("compact");
-  root.classList.add("orchestra");
-  const data = rows.filter((row) => row.totalSeconds > 0).slice(0, maxBars);
-  if (data.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "mini-chart-empty";
-    empty.textContent = t("playlistStatsNoData");
-    root.appendChild(empty);
-    return;
-  }
-  const maxValue = Math.max(...data.map((row) => row.totalSeconds));
-  const ORCHESTRA_LABEL_MAX = "Enrique Rodrigues".length;
-  data.forEach((row, index) => {
-    const item = document.createElement("div");
-    item.className = "mini-chart-item orchestra-item";
-    const upper = document.createElement("div");
-    upper.className = "mini-chart-upper";
-    const count = document.createElement("div");
-    count.className = "mini-chart-top";
-    count.textContent = `${Math.round(row.tandaCount)}`;
-    const barWrap = document.createElement("div");
-    barWrap.className = "mini-chart-stack-wrap";
-    barWrap.style.height = `${computeScaledPercent(row.totalSeconds, maxValue, {
-      minPercent: 4,
-    })}%`;
-    const stack = document.createElement("div");
-    stack.className = "mini-chart-stack";
-    const styleRows = Object.entries(row.styleSeconds)
-      .map(([style, seconds]) => ({ style, seconds }))
-      .filter((entry) => entry.seconds > 0)
-      .sort((a, b) => b.seconds - a.seconds);
-    styleRows.forEach((styleRow) => {
-      const segment = document.createElement("div");
-      segment.className = "mini-chart-segment";
-      const segmentRatio = styleRow.seconds / row.totalSeconds;
-      segment.style.height = `${Math.max(4, Math.round(segmentRatio * 100))}%`;
-      segment.style.backgroundColor = colorForStyleKey(styleRow.style);
-      segment.style.backgroundImage = patternForStyleKey(styleRow.style);
-      stack.appendChild(segment);
-    });
-    barWrap.appendChild(stack);
-    upper.append(count, barWrap);
-    const label = document.createElement("div");
-    label.className = "mini-chart-label";
-    label.textContent =
-      row.label.length > ORCHESTRA_LABEL_MAX
-        ? `${row.label.slice(0, ORCHESTRA_LABEL_MAX - 1)}...`
-        : row.label;
-    const styleDetail = styleRows
-      .map((styleRow) => `${styleRow.style}: ${formatTime(styleRow.seconds)}`)
-      .join(", ");
-    item.title = `${row.label}: ${formatTime(row.totalSeconds)} (${row.tandaCount} tanda)\n${styleDetail}`;
-    if (onSelectOrchestra) {
-      item.classList.add("interactive");
-      item.setAttribute("role", "button");
-      item.setAttribute("tabindex", "0");
-      item.addEventListener("click", () => {
-        onSelectOrchestra(row.label);
-      });
-      item.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelectOrchestra(row.label);
-        }
-      });
-    }
-    item.append(upper, label);
-    root.appendChild(item);
-  });
-};
-
-const renderStyleDistributionChart = (
-  root: HTMLDivElement | null,
-  rows: Array<{ label: string; value: number; styleValues: Record<string, number> }>,
-  options?: {
-    maxBars?: number;
-    includeZero?: boolean;
-    className?: string;
-  },
-) => {
-  if (!root) {
-    return;
-  }
-  root.innerHTML = "";
-  root.style.removeProperty("--mini-chart-columns");
-  root.classList.remove("orchestra", "compact");
-  if (options?.className) {
-    root.classList.add(options.className);
-  }
-  const includeZero = options?.includeZero ?? false;
-  const maxBars = options?.maxBars ?? Number.POSITIVE_INFINITY;
-  const data = rows
-    .filter((row) =>
-      includeZero
-        ? Number.isFinite(row.value) && row.value >= 0
-        : Number.isFinite(row.value) && row.value > 0,
-    )
-    .slice(0, maxBars);
-  if (data.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "mini-chart-empty";
-    empty.textContent = t("playlistStatsNoData");
-    root.appendChild(empty);
-    return;
-  }
-  const maxValue = Math.max(...data.map((row) => row.value), 1);
-  if (options?.className === "compact") {
-    root.style.setProperty("--mini-chart-columns", `${Math.max(1, data.length)}`);
-  }
-  data.forEach((row) => {
-    const item = document.createElement("div");
-    item.className = "mini-chart-item";
-    const upper = document.createElement("div");
-    upper.className = "mini-chart-upper";
-    upper.classList.add("single-bar");
-    const barWrap = document.createElement("div");
-    barWrap.className = "mini-chart-stack-wrap";
-    const stack = document.createElement("div");
-    stack.className = "mini-chart-stack";
-    if (row.value <= 0) {
-      barWrap.style.height = "0";
-      stack.classList.add("is-zero");
-    } else {
-      barWrap.style.height = `${computeScaledPercent(row.value, maxValue, {
-        minPercent: 4,
-      })}%`;
-      const styleRows = Object.entries(row.styleValues)
-        .filter(([, value]) => value > 0)
-        .sort((left, right) => right[1] - left[1]);
-      styleRows.forEach(([style, value]) => {
-        const segment = document.createElement("div");
-        segment.className = "mini-chart-segment";
-        segment.style.flex = `${value} 1 0`;
-        segment.style.backgroundColor = colorForStyleKey(style);
-        segment.style.backgroundImage = patternForStyleKey(style);
-        stack.appendChild(segment);
-      });
-    }
-    barWrap.appendChild(stack);
-    upper.appendChild(barWrap);
-    const label = document.createElement("div");
-    label.className = "mini-chart-label";
-    label.textContent = row.label;
-    const details = Object.entries(row.styleValues)
-      .filter(([, value]) => value > 0)
-      .sort((left, right) => right[1] - left[1])
-      .map(([style, value]) => `${toDisplayStyleLabel(style)}: ${Math.round(value)}`)
-      .join(", ");
-    item.title = details ? `${row.label}: ${Math.round(row.value)} (${details})` : `${row.label}: ${Math.round(row.value)}`;
-    item.append(upper, label);
-    root.appendChild(item);
-  });
-};
-
-const renderSearchDiversityOrchestraTable = (
-  root: HTMLDivElement | null,
-  rows: Array<{
-    artist: string;
-    tandaTotal: number;
-    tandaStyles: Record<string, number>;
-    availableTracks: number;
-    availableStyles: Record<string, number>;
-    availableYearCount: number;
-    availableTempoCount: number;
-  }>,
-  onSearchArtist: (artist: string) => void,
-) => {
-  if (!root) {
-    return;
-  }
-  root.innerHTML = "";
-  if (rows.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "mini-chart-empty";
-    empty.textContent = t("playlistStatsNoData");
-    root.appendChild(empty);
-    return;
-  }
-  const table = document.createElement("table");
-  table.className = "diversity-table";
-  const head = document.createElement("thead");
-  const headRow = document.createElement("tr");
-  const artistTh = document.createElement("th");
-  artistTh.textContent = t("searchDiversityColOrchestra");
-  const tandaTh = document.createElement("th");
-  tandaTh.textContent = t("searchDiversityColTandas");
-  const availableTh = document.createElement("th");
-  availableTh.textContent = t("searchDiversityColAvailableTracks");
-  const stylesTh = document.createElement("th");
-  stylesTh.textContent = t("searchDiversityColStyles");
-  const opportunityTh = document.createElement("th");
-  opportunityTh.textContent = t("searchDiversityColOpportunity");
-  const actionTh = document.createElement("th");
-  actionTh.textContent = t("colActions");
-  headRow.append(artistTh, tandaTh, availableTh, stylesTh, opportunityTh, actionTh);
-  head.appendChild(headRow);
-  const body = document.createElement("tbody");
-  rows.slice(0, 120).forEach((row) => {
-    const tr = document.createElement("tr");
-    const artistTd = document.createElement("td");
-    artistTd.textContent = row.artist;
-    const totalTd = document.createElement("td");
-    totalTd.textContent = `${row.tandaTotal}`;
-    const availableTd = document.createElement("td");
-    availableTd.textContent = `${row.availableTracks}`;
-    const stylesTd = document.createElement("td");
-    stylesTd.textContent = Object.entries(row.tandaStyles)
-      .sort((left, right) => right[1] - left[1])
-      .map(([style, count]) => `${style}: ${count}`)
-      .join(", ");
-    const opportunityTd = document.createElement("td");
-    const missingStyles = Object.entries(row.availableStyles)
-      .filter(([style]) => (row.tandaStyles[style] ?? 0) === 0)
-      .sort((left, right) => right[1] - left[1])
-      .slice(0, 2)
-      .map(([style]) => toDisplayStyleLabel(style));
-    if (row.tandaTotal === 0 && row.availableTracks > 0) {
-      opportunityTd.textContent = t("searchDiversityOpportunityNoTandas");
-    } else if (missingStyles.length > 0) {
-      opportunityTd.textContent = t("searchDiversityOpportunityStyles", {
-        styles: missingStyles.join(", "),
-      });
-    } else if (row.availableYearCount > 4 || row.availableTempoCount > 6) {
-      opportunityTd.textContent = t("searchDiversityOpportunityVariety");
-    } else {
-      opportunityTd.textContent = t("searchDiversityOpportunityLow");
-    }
-    const actionTd = document.createElement("td");
-    const searchBtn = document.createElement("button");
-    searchBtn.type = "button";
-    searchBtn.className = "action-button";
-    searchBtn.textContent = t("actionSearchShort");
-    searchBtn.title = t("searchDiversityActionSearchArtist");
-    searchBtn.setAttribute("aria-label", t("searchDiversityActionSearchArtist"));
-    searchBtn.addEventListener("click", () => {
-      onSearchArtist(row.artist);
-    });
-    actionTd.appendChild(searchBtn);
-    tr.append(artistTd, totalTd, availableTd, stylesTd, opportunityTd, actionTd);
-    body.appendChild(tr);
-  });
-  table.append(head, body);
-  const wrap = document.createElement("div");
-  wrap.className = "diversity-table-wrap";
-  wrap.appendChild(table);
-  root.appendChild(wrap);
-};
-
-const renderSearchDiversityOpportunityTable = (
-  root: HTMLDivElement | null,
-  rows: Array<{
-    artist: string;
-    tandaTotal: number;
-    availableTracks: number;
-    missingStyles: string[];
-  }>,
-  onSearchArtist: (artist: string) => void,
-) => {
-  if (!root) {
-    return;
-  }
-  root.innerHTML = "";
-  if (rows.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "mini-chart-empty";
-    empty.textContent = t("searchDiversityNoOpportunities");
-    root.appendChild(empty);
-    return;
-  }
-  const table = document.createElement("table");
-  table.className = "diversity-table";
-  const head = document.createElement("thead");
-  const headRow = document.createElement("tr");
-  const orchestraTh = document.createElement("th");
-  orchestraTh.textContent = t("searchDiversityColOrchestra");
-  const tracksTh = document.createElement("th");
-  tracksTh.textContent = t("searchDiversityColAvailableTracks");
-  const tandasTh = document.createElement("th");
-  tandasTh.textContent = t("searchDiversityColTandas");
-  const suggestionTh = document.createElement("th");
-  suggestionTh.textContent = t("searchDiversityColSuggestion");
-  const actionTh = document.createElement("th");
-  actionTh.textContent = t("colActions");
-  headRow.append(orchestraTh, tracksTh, tandasTh, suggestionTh, actionTh);
-  head.appendChild(headRow);
-  const body = document.createElement("tbody");
-  rows.slice(0, 40).forEach((row) => {
-    const tr = document.createElement("tr");
-    const orchestraTd = document.createElement("td");
-    orchestraTd.textContent = row.artist;
-    const tracksTd = document.createElement("td");
-    tracksTd.textContent = `${row.availableTracks}`;
-    const tandasTd = document.createElement("td");
-    tandasTd.textContent = `${row.tandaTotal}`;
-    const suggestionTd = document.createElement("td");
-    if (row.tandaTotal === 0) {
-      suggestionTd.textContent = t("searchDiversitySuggestionCreateFirst");
-    } else if (row.missingStyles.length > 0) {
-      suggestionTd.textContent = t("searchDiversitySuggestionStyle", {
-        styles: row.missingStyles.slice(0, 2).join(", "),
-      });
-    } else {
-      suggestionTd.textContent = t("searchDiversitySuggestionExpand");
-    }
-    const actionTd = document.createElement("td");
-    const searchBtn = document.createElement("button");
-    searchBtn.type = "button";
-    searchBtn.className = "action-button";
-    searchBtn.textContent = t("actionSearchShort");
-    searchBtn.title = t("searchDiversityActionSearchArtist");
-    searchBtn.setAttribute("aria-label", t("searchDiversityActionSearchArtist"));
-    searchBtn.addEventListener("click", () => {
-      onSearchArtist(row.artist);
-    });
-    actionTd.appendChild(searchBtn);
-    tr.append(orchestraTd, tracksTd, tandasTd, suggestionTd, actionTd);
-    body.appendChild(tr);
-  });
-  table.append(head, body);
-  const wrap = document.createElement("div");
-  wrap.className = "diversity-table-wrap";
-  wrap.appendChild(table);
-  root.appendChild(wrap);
-};
-
-const renderSearchDiversityStyleGapList = (
-  root: HTMLDivElement | null,
-  rows: Array<{ style: string; tandaCount: number; availableCount: number }>,
-) => {
-  if (!root) {
-    return;
-  }
-  root.innerHTML = "";
-  if (rows.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "mini-chart-empty";
-    empty.textContent = t("searchDiversityNoStyleGaps");
-    root.appendChild(empty);
-    return;
-  }
-  const table = document.createElement("table");
-  table.className = "diversity-table";
-  const head = document.createElement("thead");
-  const headRow = document.createElement("tr");
-  const styleTh = document.createElement("th");
-  styleTh.textContent = t("styleLabel");
-  const availableTh = document.createElement("th");
-  availableTh.textContent = t("searchDiversityColAvailableTracks");
-  const tandasTh = document.createElement("th");
-  tandasTh.textContent = t("searchDiversityColTandas");
-  headRow.append(styleTh, availableTh, tandasTh);
-  head.appendChild(headRow);
-  const body = document.createElement("tbody");
-  rows.slice(0, 20).forEach((row) => {
-    const tr = document.createElement("tr");
-    const styleTd = document.createElement("td");
-    styleTd.textContent = toDisplayStyleLabel(row.style);
-    const availableTd = document.createElement("td");
-    availableTd.textContent = `${row.availableCount}`;
-    const tandasTd = document.createElement("td");
-    tandasTd.textContent = `${row.tandaCount}`;
-    tr.append(styleTd, availableTd, tandasTd);
-    body.appendChild(tr);
-  });
-  table.append(head, body);
-  const wrap = document.createElement("div");
-  wrap.className = "diversity-table-wrap";
-  wrap.appendChild(table);
-  root.appendChild(wrap);
-};
-
-const setSearchDiversityModalVisible = (visible: boolean) => {
-  if (!searchDiversityModal) {
-    return;
-  }
-  searchDiversityModal.classList.toggle("open", visible);
-  searchDiversityModal.setAttribute("aria-hidden", visible ? "false" : "true");
-};
-
-const renderSearchDiversityStats = async () => {
-  const stats = await window.tanda?.getSearchDiversityStats?.();
-  if (!stats) {
-    return;
-  }
-  const tandaByOrchestra = new Map<
-    string,
-    { tandaTotal: number; tandaStyles: Record<string, number> }
-  >();
-  stats.orchestraRows.forEach((row) => {
-    const canonical =
-      resolveCanonicalArtistName(row.artist || "") || row.artist || t("nowPlayingUnknown");
-    const existing = tandaByOrchestra.get(canonical) ?? { tandaTotal: 0, tandaStyles: {} };
-    Object.entries(row.styles).forEach(([style, count]) => {
-      existing.tandaStyles[style] = (existing.tandaStyles[style] ?? 0) + count;
-      existing.tandaTotal += count;
-    });
-    tandaByOrchestra.set(canonical, existing);
-  });
-  const availableByOrchestra = new Map<
-    string,
-    { trackCount: number; styles: Record<string, number>; yearCount: number; tempoCount: number }
-  >();
-  stats.availableOrchestraRows.forEach((row) => {
-    const canonical =
-      resolveCanonicalArtistName(row.artist || "") || row.artist || t("nowPlayingUnknown");
-    availableByOrchestra.set(canonical, {
-      trackCount: row.trackCount,
-      styles: row.styles,
-      yearCount: row.yearCount,
-      tempoCount: row.tempoCount,
-    });
-  });
-  orchestraRegistry.forEach((entry) => {
-    const canonical = entry.canonical.trim();
-    if (!canonical) {
-      return;
-    }
-    if (!tandaByOrchestra.has(canonical)) {
-      tandaByOrchestra.set(canonical, { tandaTotal: 0, tandaStyles: {} });
-    }
-    if (!availableByOrchestra.has(canonical)) {
-      availableByOrchestra.set(canonical, {
-        trackCount: 0,
-        styles: {},
-        yearCount: 0,
-        tempoCount: 0,
-      });
-    }
-  });
-  const orchestraRows = Array.from(
-    new Set([...tandaByOrchestra.keys(), ...availableByOrchestra.keys()]),
-  )
-    .map((artist) => {
-      const tanda = tandaByOrchestra.get(artist) ?? { tandaTotal: 0, tandaStyles: {} };
-      const available = availableByOrchestra.get(artist) ?? {
-        trackCount: 0,
-        styles: {},
-        yearCount: 0,
-        tempoCount: 0,
-      };
-      return {
-        artist,
-        tandaTotal: tanda.tandaTotal,
-        tandaStyles: tanda.tandaStyles,
-        availableTracks: available.trackCount,
-        availableStyles: available.styles,
-        availableYearCount: available.yearCount,
-        availableTempoCount: available.tempoCount,
-      };
-    })
-    .sort((left, right) => {
-      if (right.tandaTotal !== left.tandaTotal) {
-        return right.tandaTotal - left.tandaTotal;
-      }
-      return left.artist.localeCompare(right.artist);
-    });
-  const populatedOrchestraRows = orchestraRows.filter(
-    (row) => row.tandaTotal > 0 || row.availableTracks > 0,
-  );
-  renderSearchDiversityOrchestraTable(
-    searchDiversityOrchestraEl,
-    populatedOrchestraRows,
-    (artist) => {
-      const escapedArtist = artist.replace(/"/g, '\\"');
-      runSearchQuery(`artist: "${escapedArtist}"`, true);
-      setSearchDiversityModalVisible(false);
-      void setSettingsOpen(false);
-    },
-  );
-
-  const opportunityRows = orchestraRows
-    .filter((row) => row.availableTracks > 0)
-    .map((row) => ({
-      artist: row.artist,
-      tandaTotal: row.tandaTotal,
-      availableTracks: row.availableTracks,
-      missingStyles: Object.entries(row.availableStyles)
-        .filter(([style]) => (row.tandaStyles[style] ?? 0) === 0)
-        .sort((left, right) => right[1] - left[1])
-        .map(([style]) => toDisplayStyleLabel(style)),
-      score:
-        (row.tandaTotal === 0 ? 1_000 : 0) +
-        row.availableTracks * 10 +
-        Object.keys(row.availableStyles).length * 5 -
-        row.tandaTotal * 4,
-    }))
-    .sort((left, right) => right.score - left.score);
-  renderSearchDiversityOpportunityTable(searchDiversityOpportunitiesEl, opportunityRows, (artist) => {
-    const escapedArtist = artist.replace(/"/g, '\\"');
-    runSearchQuery(`artist: "${escapedArtist}"`, true);
-    setSearchDiversityModalVisible(false);
-    void setSettingsOpen(false);
-  });
-
-  const yearBuckets = new Map<number, number>(stats.yearBuckets);
-  const yearStyleBuckets = new Map<number, Record<string, number>>(
-    (stats.yearStyleBuckets ?? []).map(([year, stylePairs]) => [
-      year,
-      Object.fromEntries(stylePairs),
-    ]),
-  );
-  const tempoBuckets = new Map<number, number>(stats.tempoBuckets);
-  const tempoStyleBuckets = new Map<number, Record<string, number>>(
-    (stats.tempoStyleBuckets ?? []).map(([tempo, stylePairs]) => [
-      tempo,
-      Object.fromEntries(stylePairs),
-    ]),
-  );
-  const styleCounts = new Map<string, number>(stats.styleBuckets);
-  const availableStyleCounts = new Map<string, number>(stats.availableStyleBuckets);
-  const availableYearBuckets = new Map<number, number>(stats.availableYearBuckets);
-  const availableTempoBuckets = new Map<number, number>(stats.availableTempoBuckets);
-  const yearRows = buildAdaptiveNumericDistribution(yearBuckets, 40, 30);
-  const yearStyleRows = buildAdaptiveStyleNumericDistribution(yearStyleBuckets, 40, 30);
-  const tempoRows = buildAdaptiveNumericDistribution(tempoBuckets, 40, 30);
-  const tempoStyleRows = buildAdaptiveStyleNumericDistribution(tempoStyleBuckets, 40, 30);
-  const styleRows = Array.from(styleCounts.entries())
-    .map(([label, value]) => ({ label: toDisplayStyleLabel(label), value }))
-    .sort((left, right) => right.value - left.value);
-  renderStyleDistributionChart(
-    searchDiversityYearEl,
-    yearStyleRows.length > 0
-      ? yearStyleRows
-      : yearRows.map((row) => ({ label: row.label, value: row.value, styleValues: {} })),
-    {
-      includeZero: true,
-      className: "compact",
-    },
-  );
-  renderStyleDistributionChart(
-    searchDiversityTempoEl,
-    tempoStyleRows.length > 0
-      ? tempoStyleRows
-      : tempoRows.map((row) => ({ label: row.label, value: row.value, styleValues: {} })),
-    {
-      includeZero: true,
-      className: "compact",
-    },
-  );
-  renderMiniChart(searchDiversityStyleEl, styleRows, {
-    includeZero: true,
-  });
-  const styleGapRows = Array.from(availableStyleCounts.entries())
-    .map(([style, availableCount]) => ({
-      style,
-      availableCount,
-      tandaCount: styleCounts.get(style) ?? 0,
-      gap: availableCount - (styleCounts.get(style) ?? 0),
-    }))
-    .filter((row) => row.availableCount > 0 && (row.tandaCount === 0 || row.gap >= 5))
-    .sort((left, right) => right.gap - left.gap);
-  renderSearchDiversityStyleGapList(searchDiversityStyleGapsEl, styleGapRows);
-
-  if (searchDiversitySummaryEl) {
-    const missingOrchestras = orchestraRows.filter(
-      (row) => row.tandaTotal === 0 && row.availableTracks > 0,
-    ).length;
-    const missingStyles = styleGapRows.filter((row) => row.tandaCount === 0).length;
-    searchDiversitySummaryEl.textContent = t("searchDiversitySummaryText", {
-      missingOrchestras,
-      missingStyles,
-      yearRange: `${availableYearBuckets.size}/${yearBuckets.size}`,
-      tempoRange: `${availableTempoBuckets.size}/${tempoBuckets.size}`,
-    });
-  }
-};
-
-const setPlaylistStatsModalVisible = (visible: boolean) => {
-  if (!playlistStatsModal) {
-    return;
-  }
-  playlistStatsModal.classList.toggle("open", visible);
-  playlistStatsModal.setAttribute("aria-hidden", visible ? "false" : "true");
-};
-
-const renderPlaylistStats = () => {
-  const orchestraEntries: {
-    artist: string;
-    seconds: number;
-    style: string;
-    tandaId: string | null;
-  }[] = [];
-  const yearBuckets = new Map<number, number>();
-  const yearStyleBuckets = new Map<number, Record<string, number>>();
-  const tempoBuckets = new Map<number, number>();
-  const tempoStyleBuckets = new Map<number, Record<string, number>>();
-  const purityTandaIds = new Map<TandaPurityIssue, Set<string>>([
-    ["mixedVocal", new Set()],
-    ["multipleArtists", new Set()],
-    ["multipleSingers", new Set()],
-    ["multipleStyles", new Set()],
-  ]);
-  playlistItems.forEach((item) => {
-    if (!item) {
-      return;
-    }
-    const tandaStyleFallback =
-      item.kind === "tanda"
-        ? (() => {
-            const tanda = resolveTandaDraft(item.tandaId);
-            if (!tanda || tanda.styles.length === 0) {
-              return "";
-            }
-            const normalized = tanda.styles
-              .map((style) => normalizeStyleName(style))
-              .filter(Boolean);
-            if (normalized.length === 0) {
-              return "";
-            }
-            return normalized[0] ?? "";
-          })()
-        : "";
-    const tracks = resolvePlaylistTracks(item);
-    if (item.kind === "tanda") {
-      findTandaPurityIssues(tracks.map((track) => ({
-        artist: resolveCanonicalArtistName(track.artist_summary || track.artist || ""),
-        singer: track.singer,
-        instrumental: track.instrumental,
-        style: normalizeStyleName(track.genre ?? ""),
-      }))).forEach((issue) => purityTandaIds.get(issue)?.add(item.tandaId));
-    }
-    tracks.forEach((track) => {
-      const seconds = Math.max(1, Math.round(getEffectiveTrackDurationMs(track) / 1000));
-      const orchestra =
-        resolveCanonicalArtistName(track.artist_summary || track.artist || "") ||
-        t("nowPlayingUnknown");
-      const style =
-        normalizeStyleName(track.genre ?? "") || tandaStyleFallback || "unknown";
-      orchestraEntries.push({
-        artist: orchestra,
-        seconds,
-        style,
-        tandaId: item.kind === "tanda" ? item.tandaId : null,
-      });
-      const year = yearValue(track);
-      if (year !== null) {
-        yearBuckets.set(year, (yearBuckets.get(year) ?? 0) + 1);
-        const yearStyles = yearStyleBuckets.get(year) ?? {};
-        yearStyles[style] = (yearStyles[style] ?? 0) + 1;
-        yearStyleBuckets.set(year, yearStyles);
-      }
-      if (track.bpm !== null && track.bpm !== undefined && Number.isFinite(track.bpm)) {
-        const bpm = Math.round(track.bpm);
-        tempoBuckets.set(bpm, (tempoBuckets.get(bpm) ?? 0) + 1);
-        const tempoStyles = tempoStyleBuckets.get(bpm) ?? {};
-        tempoStyles[style] = (tempoStyles[style] ?? 0) + 1;
-        tempoStyleBuckets.set(bpm, tempoStyles);
-      }
-    });
-  });
-  const orchestraRows = aggregateOrchestraDurations(orchestraEntries);
-  const yearRows = buildAdaptiveNumericDistribution(yearBuckets, 30, 30);
-  const yearStyleRows = buildAdaptiveStyleNumericDistribution(yearStyleBuckets, 30, 30);
-  const tempoRows = buildAdaptiveNumericDistribution(tempoBuckets, 30, 30);
-  const tempoStyleRows = buildAdaptiveStyleNumericDistribution(tempoStyleBuckets, 30, 30);
-  if (playlistStatsPurityEl) {
-    playlistStatsPurityEl.replaceChildren();
-    const allIssueIds = new Set(
-      Array.from(purityTandaIds.values()).flatMap((ids) => Array.from(ids)),
-    );
-    const categories: Array<{ key: string; ids: Set<string> }> = [
-      { key: "playlistStatsPurityAny", ids: allIssueIds },
-      { key: "playlistStatsPurityMixedVocal", ids: purityTandaIds.get("mixedVocal")! },
-      { key: "playlistStatsPurityMultiArtist", ids: purityTandaIds.get("multipleArtists")! },
-      { key: "playlistStatsPurityMultiSinger", ids: purityTandaIds.get("multipleSingers")! },
-      { key: "playlistStatsPurityMultiStyle", ids: purityTandaIds.get("multipleStyles")! },
-    ];
-    categories.forEach(({ key, ids }) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "purity-chart-item";
-      button.disabled = ids.size === 0;
-      button.title = t("playlistStatsPurityFilterHint");
-      const count = document.createElement("strong");
-      count.textContent = ids.size.toString();
-      const label = document.createElement("span");
-      label.textContent = t(key);
-      button.append(count, label);
-      button.addEventListener("click", () => {
-        playlistFilterTandaIds = new Set(ids);
-        playlistFilterOrchestra = null;
-        setPlaylistFilterTextState(t(key));
-        if (playlistFilterInput) playlistFilterInput.value = t(key);
-        activateRightTab("playlist-tab");
-        renderPlaylist();
-        setPlaylistStatsModalVisible(false);
-      });
-      playlistStatsPurityEl.appendChild(button);
-    });
-  }
-  renderOrchestraChart(playlistStatsOrchestraEl, orchestraRows, Number.POSITIVE_INFINITY, (orchestra) => {
-    setPlaylistFilterTextState(orchestra);
-    playlistFilterOrchestra = orchestra;
-    playlistFilterTandaIds = null;
-    if (playlistFilterInput) {
-      playlistFilterInput.value = orchestra;
-    }
-    activateRightTab("playlist-tab");
-    renderPlaylist();
-    setPlaylistStatsModalVisible(false);
-  });
-  renderStyleDistributionChart(
-    playlistStatsYearEl,
-    yearStyleRows.length > 0
-      ? yearStyleRows
-      : yearRows.map((row) => ({ label: row.label, value: row.value, styleValues: {} })),
-    {
-      includeZero: true,
-      className: "compact",
-    },
-  );
-  renderStyleDistributionChart(
-    playlistStatsTempoEl,
-    tempoStyleRows.length > 0
-      ? tempoStyleRows
-      : tempoRows.map((row) => ({ label: row.label, value: row.value, styleValues: {} })),
-    {
-      includeZero: true,
-      className: "compact",
-    },
-  );
-};
-
 const buildActionButton = (
   labelKey: string,
   shortKey: string,
@@ -6022,7 +5108,7 @@ const buildNormalizedTandaKey = (trackIds: string[]) =>
   Array.from(new Set(trackIds.filter(Boolean))).sort().join("|");
 
 const canonicalDuplicateTrackId = (trackId: string) =>
-  [...(similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))].sort()[0] ?? trackId;
+  [...(audioSimilarityController.similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))].sort()[0] ?? trackId;
 
 const buildCanonicalTandaKey = (trackIds: string[]) =>
   buildNormalizedTandaKey(trackIds.map(canonicalDuplicateTrackId));
@@ -6063,7 +5149,7 @@ const handleTandaDetailTrackClick = async (
 };
 
 const findPlaylistDuplicateLocationForTrack = (trackId: string) => {
-  const wanted = similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]);
+  const wanted = audioSimilarityController.similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]);
   for (let index = 0; index < playlistItems.length; index += 1) {
     const item = playlistItems[index];
     if (!item) {
@@ -6250,7 +5336,7 @@ const startPlaylistDuplicateFocus = (trigger: HTMLElement, immediate = false) =>
     : (trigger.dataset.duplicateTandaTrackIds ?? "").split(",").filter(Boolean);
   const targetIds = new Set<string>();
   rawIds.forEach((trackId) =>
-    (similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))
+    (audioSimilarityController.similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))
       .forEach((equivalent) => targetIds.add(equivalent)));
   if (targetIds.size === 0) return;
   const apply = () => {
@@ -6289,7 +5375,7 @@ const buildPlaylistDuplicateIndexFromState = (): PlaylistDuplicateIndex => {
     }
     sources.push({ kind: "tanda", trackIds });
   });
-  return buildPlaylistDuplicateIndex(sources, similarityEquivalentTrackIds);
+  return buildPlaylistDuplicateIndex(sources, audioSimilarityController.similarityEquivalentTrackIds);
 };
 
 type PlaylistDuplicateCounts = {
@@ -6299,7 +5385,7 @@ type PlaylistDuplicateCounts = {
 
 const buildTandaDuplicateKey = (trackIds: string[]) =>
   Array.from(new Set(trackIds.filter(Boolean).map((trackId) =>
-    [...(similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))].sort()[0],
+    [...(audioSimilarityController.similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))].sort()[0],
   ))).sort().join("|");
 
 const buildPlaylistDuplicateCountsFromState = (): PlaylistDuplicateCounts => {
@@ -6310,7 +5396,7 @@ const buildPlaylistDuplicateCountsFromState = (): PlaylistDuplicateCounts => {
       return;
     }
     if (item.kind === "track") {
-      const equivalents = similarityEquivalentTrackIds.get(item.track.id) ?? new Set([item.track.id]);
+      const equivalents = audioSimilarityController.similarityEquivalentTrackIds.get(item.track.id) ?? new Set([item.track.id]);
       equivalents.forEach((trackId) =>
         trackCounts.set(trackId, (trackCounts.get(trackId) ?? 0) + 1));
       return;
@@ -6321,7 +5407,7 @@ const buildPlaylistDuplicateCountsFromState = (): PlaylistDuplicateCounts => {
     }
     const trackIds = tanda.trackSlots.filter(Boolean) as string[];
     trackIds.forEach((trackId) => {
-      const equivalents = similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]);
+      const equivalents = audioSimilarityController.similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]);
       equivalents.forEach((equivalent) =>
         trackCounts.set(equivalent, (trackCounts.get(equivalent) ?? 0) + 1));
     });
@@ -9053,7 +8139,7 @@ const renderPlaylist = () => {
           ? [item.track.id]
           : (resolveTandaDraft(item.tandaId)?.trackSlots.filter(Boolean) as string[] ?? []);
         const matches = trackIds.some((trackId) =>
-          [...(similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))]
+          [...(audioSimilarityController.similarityEquivalentTrackIds.get(trackId) ?? new Set([trackId]))]
             .some((equivalent) => playlistDuplicateFocusTrackIds!.has(equivalent)));
         if (!matches) return;
       } else if (playlistFilterTandaIds) {
@@ -10340,7 +9426,7 @@ const collectUsedTrackTitles = () => {
   const used = new Set<string>();
   const addTrack = (track: TrackRow) => {
     used.add(normalizeTrackTitleForAutofill(track));
-    const equivalents = similarityEquivalentTrackIds.get(track.id) ?? new Set([track.id]);
+    const equivalents = audioSimilarityController.similarityEquivalentTrackIds.get(track.id) ?? new Set([track.id]);
     equivalents.forEach((trackId) => used.add(`@similarity:${trackId}`));
   };
   playlistItems.forEach((item) => {
@@ -10362,7 +9448,7 @@ const collectUsedTrackTitles = () => {
 
 const isAutofillTrackUsed = (track: TrackRow, used: Set<string>) =>
   used.has(normalizeTrackTitleForAutofill(track))
-  || [...(similarityEquivalentTrackIds.get(track.id) ?? new Set([track.id]))]
+  || [...(audioSimilarityController.similarityEquivalentTrackIds.get(track.id) ?? new Set([track.id]))]
     .some((trackId) => used.has(`@similarity:${trackId}`));
 
 const collectSavedAutofillTandas = async () => {
@@ -10387,7 +9473,7 @@ const collectSavedAutofillTandas = async () => {
   });
   const candidates = Array.from(combined.values()).filter((tanda) =>
     !tanda.trackSlots.some((trackId) =>
-      Boolean(trackId && similarityHiddenTrackIds.has(trackId))));
+      Boolean(trackId && audioSimilarityController.similarityHiddenTrackIds.has(trackId))));
   return { candidates, persisted };
 };
 
@@ -10896,7 +9982,7 @@ const registerAutofillUsage = (
   const tracks = getTandaTracks(tanda);
   tracks.forEach((track) => {
     usedTrackTitles.add(normalizeTrackTitleForAutofill(track));
-    const equivalents = similarityEquivalentTrackIds.get(track.id) ?? new Set([track.id]);
+    const equivalents = audioSimilarityController.similarityEquivalentTrackIds.get(track.id) ?? new Set([track.id]);
     equivalents.forEach((trackId) => usedTrackTitles.add(`@similarity:${trackId}`));
     const key = artistKey(track);
     if (key) {
@@ -13032,12 +12118,12 @@ const addTrackToTanda = (
 };
 
 const getConfirmedSimilarCandidates = async (track: TrackRow) => {
-  const equivalentIds = similarityEquivalentTrackIds.get(track.id);
+  const equivalentIds = audioSimilarityController.similarityEquivalentTrackIds.get(track.id);
   if (!equivalentIds || equivalentIds.size < 2 || !window.tanda) return [];
   const allTracks = await window.tanda.listTracks();
   return allTracks
     .filter((candidate) =>
-      equivalentIds.has(candidate.id) && !similarityHiddenTrackIds.has(candidate.id))
+      equivalentIds.has(candidate.id) && !audioSimilarityController.similarityHiddenTrackIds.has(candidate.id))
     .sort((left, right) => left.id.localeCompare(right.id));
 };
 
@@ -13050,7 +12136,7 @@ const appendSimilarityVersionNumber = (row: HTMLTableRowElement, index: number) 
 
 const previewSearchTrackOnHeadphones = async (track: TrackRow) => {
   const candidates = await getConfirmedSimilarCandidates(track);
-  if (similarityRelationshipByTrackId.get(track.id) !== "same-recording"
+  if (audioSimilarityController.similarityRelationshipByTrackId.get(track.id) !== "same-recording"
     || candidates.length < 2) {
     await playOnChannel("headphone", track.full_path, track.id, track, track.gain_db);
     updateHeadphoneButtonIndicators();
@@ -13088,15 +12174,15 @@ const previewSearchTrackOnHeadphones = async (track: TrackRow) => {
 const chooseConfirmedSimilarTrack = async (track: TrackRow): Promise<TrackRow | null> => {
   const candidates = await getConfirmedSimilarCandidates(track);
   if (candidates.length < 2) return track;
-  if (similarityRelationshipByTrackId.get(track.id) === "identical") {
-    const preferredId = similarityPreferredTrackIds.get(track.id);
+  if (audioSimilarityController.similarityRelationshipByTrackId.get(track.id) === "identical") {
+    const preferredId = audioSimilarityController.similarityPreferredTrackIds.get(track.id);
     return candidates.find((candidate) => candidate.id === preferredId) ?? track;
   }
   return await new Promise<TrackRow | null>((resolve) => {
     const body = openAudioSimilarityOverlay(t("audioSimilarityConfirmedGroup", {
-      type: t(similarityRelationshipByTrackId.get(track.id) === "same-orchestra"
+      type: t(audioSimilarityController.similarityRelationshipByTrackId.get(track.id) === "same-orchestra"
         ? "audioSimilaritySameOrchestra"
-        : similarityRelationshipByTrackId.get(track.id) === "same-composition"
+        : audioSimilarityController.similarityRelationshipByTrackId.get(track.id) === "same-composition"
           ? "audioSimilaritySameComposition"
           : "audioSimilaritySameRecording"),
       count: candidates.length,
@@ -14022,364 +13108,6 @@ const renderClipboardCollections = () => {
   });
 };
 
-const getBaseStyles = () => {
-  const bases = sortBaseStyles(styleFamilies.map((family) => family.base).filter(Boolean));
-  if (bases.length > 0) {
-    return bases;
-  }
-  return sortBaseStyles(
-    availableStyles.map((style) => splitStyleLabel(style).base).filter(Boolean),
-  );
-};
-
-const getSelectableStyles = () => {
-  const expanded = Object.values(getPlaylistStyleMap()).flat();
-  if (expanded.length > 0) {
-    return Array.from(new Set(expanded.map((style) => normalizeStyleName(style)).filter(Boolean)));
-  }
-  return availableStyles;
-};
-
-const syncStylesFromFamilies = async () => {
-  if (!window.tanda) {
-    return;
-  }
-  const desired = new Set<string>();
-  styleFamilies.forEach((family) => {
-    const base = normalizeStyleName(family.base);
-    if (!base) {
-      return;
-    }
-    desired.add(base);
-    family.variants.forEach((variant) => {
-      const composed = composeStyleLabel(base, variant);
-      if (composed) {
-        desired.add(composed);
-      }
-    });
-  });
-  for (const style of Array.from(desired)) {
-    await window.tanda.addStyle(style);
-  }
-};
-
-const setStyleFamilies = async (families: StyleFamily[]) => {
-  styleFamilies = families
-    .map((family) => ({
-      code: family.code.trim().toUpperCase(),
-      base: normalizeStyleName(family.base),
-      variants: family.variants
-        .map((variant) => normalizeStyleName(variant))
-        .filter(Boolean),
-    }))
-    .filter((family) => family.code && family.base);
-  localStorage.setItem(STYLE_FAMILIES_KEY, serializeStyleFamilies(styleFamilies));
-  await syncStylesFromFamilies();
-  await loadStyles();
-  await refreshLegacyStyleRows();
-  renderTandaDesigner();
-  refreshSearch();
-};
-
-const renderStyleFamilyList = () => {
-  if (!styleFamilyList) {
-    return;
-  }
-  styleFamilyList.innerHTML = "";
-  if (styleFamilies.length === 0) {
-    styleFamilyList.textContent = t("styleEmpty");
-    return;
-  }
-  styleFamilies.forEach((family) => {
-    const row = document.createElement("div");
-    row.className = "style-family-row";
-
-    const code = document.createElement("span");
-    code.className = "code";
-    code.textContent = family.code;
-
-    const base = document.createElement("span");
-    base.className = "base";
-    base.textContent = family.base;
-
-    const variants = document.createElement("span");
-    variants.className = "variants";
-    variants.textContent =
-      family.variants.length > 0
-        ? family.variants.join(" · ")
-        : family.base;
-
-    const edit = document.createElement("button");
-    edit.type = "button";
-    edit.textContent = t("styleFamilyEdit");
-    edit.addEventListener("click", () => {
-      if (styleFamilyCodeInput) {
-        styleFamilyCodeInput.value = family.code;
-      }
-      if (styleFamilyBaseInput) {
-        styleFamilyBaseInput.value = family.base;
-      }
-      if (styleFamilyVariantsInput) {
-        styleFamilyVariantsInput.value = family.variants.join(", ");
-      }
-      pulseStyleFamilyEditFields([
-        styleFamilyCodeInput,
-        styleFamilyBaseInput,
-        styleFamilyVariantsInput,
-      ]);
-    });
-
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.textContent = t("styleRemove");
-    remove.setAttribute("aria-label", t("styleRemoveLabel", { style: family.base }));
-    remove.addEventListener("click", async () => {
-      const next = styleFamilies.filter((item) => item.code !== family.code);
-      await setStyleFamilies(next);
-    });
-    row.append(code, base, variants, edit, remove);
-    styleFamilyList.appendChild(row);
-  });
-};
-
-const mapLegacyStyleToCanonical = async (
-  legacyStyle: string,
-  canonicalStyle: string,
-) => {
-  if (!window.tanda) {
-    return;
-  }
-  const target = canonicalStyle.trim();
-  if (!target) {
-    return;
-  }
-  const definitions = await window.tanda.listStyleDefinitions();
-  const current = definitions.find((definition) => definition.name === target);
-  const aliases = current?.aliases ?? [];
-  const normalizedLegacy = normalizeStyleName(legacyStyle);
-  const alreadyMapped =
-    normalizeStyleName(target).toLowerCase() === normalizedLegacy.toLowerCase() ||
-    aliases.some(
-      (alias) => normalizeStyleName(alias).toLowerCase() === normalizedLegacy.toLowerCase(),
-    );
-  if (alreadyMapped) {
-    return;
-  }
-  const definition = [target, ...aliases, legacyStyle].join(";");
-  await window.tanda.addStyle(definition);
-};
-
-const saveLegacyStyleMappings = () => {
-  localStorage.setItem(
-    LEGACY_STYLE_MAPPINGS_KEY,
-    JSON.stringify(legacyStyleMappings),
-  );
-};
-
-const rememberLegacyStyleMapping = (legacyStyle: string, canonicalStyle: string) => {
-  if (!legacyImportRootPath) {
-    return;
-  }
-  legacyStyleMappings = setLegacyStyleMapping(
-    legacyStyleMappings,
-    legacyImportRootPath,
-    legacyStyle,
-    canonicalStyle,
-  );
-  saveLegacyStyleMappings();
-};
-
-const resolveStoredLegacyStyleMapping = (legacyStyle: string) => {
-  if (!legacyImportRootPath) {
-    return "";
-  }
-  return getLegacyStyleMapping(
-    legacyStyleMappings,
-    legacyImportRootPath,
-    legacyStyle,
-  );
-};
-
-const refreshLegacyStyleRows = async () => {
-  if (!window.tanda || !legacyImportRootPath) {
-    return;
-  }
-  const result = await window.tanda.listLegacyStyles(legacyImportRootPath);
-  if (!result.ok) {
-    return;
-  }
-  legacyStyleRows = result.styles.map((entry) => {
-    const mappedTo = entry.mappedTo || resolveStoredLegacyStyleMapping(entry.value);
-    if (mappedTo) {
-      rememberLegacyStyleMapping(entry.value, mappedTo);
-    }
-    return {
-      ...entry,
-      mappedTo,
-    };
-  });
-  if (legacyStylesResult) {
-    const mappedCount = legacyStyleRows.filter((entry) => entry.mappedTo).length;
-    legacyStylesResult.textContent = t("legacyStylesSummary", {
-      total: legacyStyleRows.length,
-      mapped: mappedCount,
-      unmapped: Math.max(0, legacyStyleRows.length - mappedCount),
-    });
-  }
-  renderLegacyStyleMappingTable();
-};
-
-const applyStoredLegacyStyleMappingsForImport = async () => {
-  if (!window.tanda || !legacyImportRootPath || legacyStyleRows.length === 0) {
-    return;
-  }
-  let changed = false;
-  for (const row of legacyStyleRows) {
-    if (row.mappedTo) {
-      continue;
-    }
-    const target = resolveStoredLegacyStyleMapping(row.value);
-    if (!target) {
-      continue;
-    }
-    await mapLegacyStyleToCanonical(row.value, target);
-    rememberLegacyStyleMapping(row.value, target);
-    changed = true;
-  }
-  if (changed) {
-    await loadStyles();
-    await refreshLegacyStyleRows();
-  }
-};
-
-const renderLegacyStyleMappingTable = () => {
-  if (!legacyStyleMappingEl || !legacyStyleMappingBody) {
-    return;
-  }
-  legacyStyleMappingBody.innerHTML = "";
-  if (legacyStyleRows.length === 0) {
-    legacyStyleMappingEl.classList.add("hidden");
-    return;
-  }
-  legacyStyleMappingEl.classList.remove("hidden");
-  legacyStyleRows.forEach((entry) => {
-    const row = document.createElement("tr");
-
-    const valueCell = document.createElement("td");
-    valueCell.textContent = entry.value;
-
-    const countCell = document.createElement("td");
-    countCell.textContent = entry.count.toString();
-
-    const mappedCell = document.createElement("td");
-    mappedCell.textContent = entry.mappedTo || t("legacyStylesUnmapped");
-
-    const actionsCell = document.createElement("td");
-    const actions = document.createElement("div");
-    actions.className = "legacy-style-mapping-actions";
-    const primaryActions = document.createElement("div");
-    primaryActions.className = "legacy-style-actions-primary";
-    const secondaryActions = document.createElement("div");
-    secondaryActions.className = "legacy-style-actions-secondary hidden";
-    const select = document.createElement("select");
-    const empty = document.createElement("option");
-    empty.value = "";
-    empty.textContent = t("legacyStylesMapSelect");
-    select.appendChild(empty);
-    getSelectableStyles().forEach((style) => {
-      const option = document.createElement("option");
-      option.value = style;
-      option.textContent = style;
-      select.appendChild(option);
-    });
-    select.value = entry.mappedTo || "";
-    select.addEventListener("change", () => {
-      const selected = select.value;
-      if (!selected) {
-        return;
-      }
-      void mapLegacyStyleToCanonical(entry.value, selected).then(async () => {
-        rememberLegacyStyleMapping(entry.value, selected);
-        await loadStyles();
-        await refreshLegacyStyleRows();
-      });
-    });
-
-    const addCode = document.createElement("input");
-    addCode.type = "text";
-    addCode.maxLength = 3;
-    addCode.value = (entry.value.trim().slice(0, 1).toUpperCase() || "X").replace(
-      /[^A-Z0-9]/g,
-      "",
-    );
-    addCode.title = t("styleFamilyCodePlaceholder");
-    addCode.setAttribute("aria-label", t("styleFamilyCodePlaceholder"));
-
-    const addBase = document.createElement("input");
-    addBase.type = "text";
-    addBase.value = entry.mappedTo || normalizeStyleName(entry.value);
-    addBase.title = t("styleFamilyBasePlaceholder");
-    addBase.setAttribute("aria-label", t("styleFamilyBasePlaceholder"));
-
-    const addAlias = document.createElement("input");
-    addAlias.type = "text";
-    addAlias.value = entry.value;
-    addAlias.title = t("legacyStylesColValue");
-    addAlias.setAttribute("aria-label", t("legacyStylesColValue"));
-
-    const addNewBtn = document.createElement("button");
-    addNewBtn.type = "button";
-    addNewBtn.textContent = t("legacyStylesAddAsNew");
-    const toggleAddNewBtn = document.createElement("button");
-    toggleAddNewBtn.type = "button";
-    toggleAddNewBtn.textContent = t("legacyStylesAddAsNew");
-    toggleAddNewBtn.addEventListener("click", () => {
-      const opening = secondaryActions.classList.contains("hidden");
-      secondaryActions.classList.toggle("hidden", !opening);
-      toggleAddNewBtn.textContent = opening ? t("cancel") : t("legacyStylesAddAsNew");
-    });
-    addNewBtn.addEventListener("click", async () => {
-      const code = addCode.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
-      const base = normalizeStyleName(addBase.value);
-      const alias = addAlias.value.trim();
-      if (!code || !base) {
-        return;
-      }
-      const baseParts = splitStyleLabel(base);
-      const incoming = {
-        code,
-        base: baseParts.base || normalizeStyleName(base),
-        variants: baseParts.variant ? [baseParts.variant] : [],
-      };
-      const existing = styleFamilies.find((family) => family.code === code);
-      const nextFamilies = styleFamilies.filter((family) => family.code !== code);
-      if (existing && existing.base === incoming.base) {
-        nextFamilies.push({
-          code,
-          base: existing.base,
-          variants: Array.from(new Set(existing.variants.concat(incoming.variants))),
-        });
-      } else {
-        nextFamilies.push(incoming);
-      }
-      await setStyleFamilies(nextFamilies);
-      await mapLegacyStyleToCanonical(entry.value, base);
-      rememberLegacyStyleMapping(entry.value, base);
-      if (alias && normalizeStyleName(alias) !== normalizeStyleName(entry.value)) {
-        await mapLegacyStyleToCanonical(alias, base);
-      }
-      await refreshLegacyStyleRows();
-    });
-    primaryActions.append(select, toggleAddNewBtn);
-    secondaryActions.append(addCode, addBase, addAlias, addNewBtn);
-    actions.append(primaryActions, secondaryActions);
-    actionsCell.appendChild(actions);
-
-    row.append(valueCell, countCell, mappedCell, actionsCell);
-    legacyStyleMappingBody.appendChild(row);
-  });
-};
-
 const rebuildOrchestraAliasIndex = () => {
   orchestraAliasIndex = buildOrchestraAliasIndex(orchestraRegistry);
 };
@@ -14560,271 +13288,9 @@ const runAudioOutputProbe = async () => {
   await controller.runAudioOutputProbe(diagnosticsOutputProbeResult);
 };
 
-let diagnosticsReviewAudio: HTMLAudioElement | null = null;
-let diagnosticsReviewStopAtSeconds: number | null = null;
-let diagnosticsReviewPlayhead: HTMLElement | null = null;
-let diagnosticsReviewState: HTMLElement | null = null;
-
-const stopDiagnosticsReviewAudio = () => {
-  diagnosticsReviewAudio?.pause();
-  if (diagnosticsReviewAudio) diagnosticsReviewAudio.src = "";
-  diagnosticsReviewAudio = null;
-  diagnosticsReviewStopAtSeconds = null;
-  if (diagnosticsReviewState) {
-    diagnosticsReviewState.textContent = t("diagnosticsTrackReviewStopped");
-    diagnosticsReviewState.dataset.state = "stopped";
-  }
-};
-
 const stopMainForDiagnosticsAudition = async () => {
   if (!playback.main.active || playback.main.active.paused) return;
   await stopChannelPlayback("main", getStopFadeSeconds() * 1000);
-};
-
-const renderDiagnosticsTrackReview = async (target: HTMLElement) => {
-  if (!window.tanda) return;
-  stopDiagnosticsReviewAudio();
-  const summary = await window.tanda.getDiagnosticsDataReadiness();
-  const deduplicatedTracks = new Map(
-    [...summary.shortDurationTracks, ...summary.aggressivelyTrimmedTracks]
-      .map((track) => [track.id, track] as const),
-  );
-  const tracks = new Map(
-    [...deduplicatedTracks.values()]
-      .sort((left, right) => Number(left.acknowledged) - Number(right.acknowledged))
-      .map((track) => [track.id, track] as const),
-  );
-  target.innerHTML = "";
-  if (tracks.size === 0) {
-    target.textContent = t("diagnosticsTrackLengthNone");
-    return;
-  }
-  const table = document.createElement("table");
-  const head = document.createElement("thead");
-  const headerRow = document.createElement("tr");
-  [t("trackEditorTitle"), t("diagnosticsTrackReviewIssue"), t("audioSimilarityMetaDuration"), t("diagnosticsTrackReviewStatus")]
-    .forEach((label) => {
-      const cell = document.createElement("th");
-      cell.textContent = label;
-      headerRow.appendChild(cell);
-    });
-  head.appendChild(headerRow);
-  table.appendChild(head);
-  const body = document.createElement("tbody");
-  const panel = document.createElement("div");
-  panel.className = "diagnostics-track-review-panel";
-  table.appendChild(body);
-  const tableScroller = document.createElement("div");
-  tableScroller.className = "diagnostics-track-review-table-scroller";
-  tableScroller.appendChild(table);
-  target.append(panel, tableScroller);
-
-  const selectTrack = async (track: typeof summary.shortDurationTracks[number], row: HTMLTableRowElement) => {
-    body.querySelectorAll("tr").forEach((candidate) => candidate.setAttribute("aria-selected", "false"));
-    row.setAttribute("aria-selected", "true");
-    stopDiagnosticsReviewAudio();
-    panel.innerHTML = "";
-    const heading = document.createElement("h4");
-    const formatDuration = (durationMs: number) => {
-      const seconds = Math.max(0, Math.round(durationMs / 1000));
-      return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-    };
-    const issueLabel = track.issueKinds
-      .map((kind) => t(kind === "short" ? "diagnosticsTrackReviewShort" : "diagnosticsTrackReviewTrim"))
-      .join(", ");
-    heading.textContent = `${track.title} — ${t("diagnosticsTrackReviewTitleDetails", {
-      effective: formatDuration(track.effectiveDurationMs),
-      original: formatDuration(track.durationMs),
-      issue: issueLabel,
-    })}`;
-    const sourcePath = document.createElement("div");
-    sourcePath.className = "diagnostics-track-review-path";
-    sourcePath.textContent = track.relativePath;
-    const playbackState = document.createElement("span");
-    playbackState.className = "diagnostics-track-review-state";
-    playbackState.dataset.state = "stopped";
-    playbackState.textContent = t("diagnosticsTrackReviewStopped");
-    diagnosticsReviewState = playbackState;
-    const reviewNotice = document.createElement("div");
-    reviewNotice.className = "diagnostics-track-review-notice hidden";
-    if (track.acknowledged) {
-      reviewNotice.textContent = t("diagnosticsTrackReviewAcknowledged");
-      reviewNotice.classList.remove("hidden");
-    }
-    const waveform = document.createElement("div");
-    waveform.className = "diagnostics-trim-waveform";
-    const leftShade = document.createElement("div");
-    const rightShade = document.createElement("div");
-    const playhead = document.createElement("div");
-    leftShade.className = rightShade.className = "diagnostics-trim-shade";
-    playhead.className = "diagnostics-trim-playhead";
-    leftShade.style.left = "0";
-    rightShade.style.right = "0";
-    playhead.style.left = "0%";
-    waveform.append(leftShade, rightShade, playhead);
-    diagnosticsReviewPlayhead = playhead;
-    const start = document.createElement("input");
-    const end = document.createElement("input");
-    for (const input of [start, end]) {
-      input.type = "range";
-      input.min = "0";
-      input.max = String(track.durationMs);
-      input.step = "10";
-      input.className = "diagnostics-trim-handle";
-    }
-    start.value = String(track.startOffsetMs);
-    end.value = String(track.durationMs - track.endTrimMs);
-    const startLabel = document.createElement("label");
-    const endLabel = document.createElement("label");
-    const redraw = () => {
-      let startMs = Math.max(0, Number(start.value));
-      let endMs = Math.min(track.durationMs, Number(end.value));
-      if (startMs >= endMs) {
-        if (document.activeElement === start) startMs = Math.max(0, endMs - 10);
-        else endMs = Math.min(track.durationMs, startMs + 10);
-        start.value = String(startMs);
-        end.value = String(endMs);
-      }
-      leftShade.style.width = `${(startMs / track.durationMs) * 100}%`;
-      rightShade.style.width = `${((track.durationMs - endMs) / track.durationMs) * 100}%`;
-      startLabel.firstChild!.textContent = `${t("diagnosticsTrackReviewStartTrim")}: ${(startMs / 1000).toFixed(2)}s `;
-      endLabel.firstChild!.textContent = `${t("diagnosticsTrackReviewEndTrim")}: ${((track.durationMs - endMs) / 1000).toFixed(2)}s `;
-    };
-    startLabel.append(document.createTextNode(""), start);
-    endLabel.append(document.createTextNode(""), end);
-    start.addEventListener("input", redraw);
-    end.addEventListener("input", redraw);
-    redraw();
-    void window.tanda?.getWaveform(track.id).then((url) => {
-      if (url && waveform.isConnected) waveform.style.backgroundImage = `url("${url}")`;
-    });
-
-    const actions = document.createElement("div");
-    actions.className = "diagnostics-track-review-actions";
-    const addButton = (label: string, action: () => void | Promise<void>) => {
-      const button = document.createElement("button");
-      button.textContent = label;
-      button.addEventListener("click", () => void action());
-      actions.appendChild(button);
-      return button;
-    };
-    const play = async (fromMs: number, stopAtMs: number | null) => {
-      if (
-        diagnosticsReviewAudio
-        && !diagnosticsReviewAudio.paused
-        && diagnosticsReviewAudio.dataset.trackId === track.id
-      ) {
-        diagnosticsReviewStopAtSeconds = stopAtMs === null ? null : stopAtMs / 1000;
-        diagnosticsReviewAudio.currentTime = Math.max(0, fromMs / 1000);
-        return;
-      }
-      stopDiagnosticsReviewAudio();
-      await stopMainForDiagnosticsAudition();
-      const audio = new Audio(localAudioUrl(track.fullPath));
-      audio.dataset.trackId = track.id;
-      diagnosticsReviewAudio = audio;
-      diagnosticsReviewStopAtSeconds = stopAtMs === null ? null : stopAtMs / 1000;
-      audio.addEventListener("loadedmetadata", () => {
-        audio.currentTime = Math.max(0, fromMs / 1000);
-        void audio.play().catch(stopDiagnosticsReviewAudio);
-      }, { once: true });
-      audio.addEventListener("playing", () => {
-        if (diagnosticsReviewState === playbackState) {
-          playbackState.textContent = t("diagnosticsTrackReviewPlaying");
-          playbackState.dataset.state = "playing";
-        }
-      });
-      audio.addEventListener("pause", () => {
-        if (diagnosticsReviewState === playbackState) {
-          playbackState.textContent = t("diagnosticsTrackReviewStopped");
-          playbackState.dataset.state = "stopped";
-        }
-      });
-      audio.addEventListener("error", stopDiagnosticsReviewAudio, { once: true });
-      audio.addEventListener("timeupdate", () => {
-        if (diagnosticsReviewPlayhead === playhead) {
-          diagnosticsReviewPlayhead.style.left = `${Math.max(0, Math.min(100,
-            (audio.currentTime * 1000 / track.durationMs) * 100))}%`;
-        }
-        if (diagnosticsReviewStopAtSeconds !== null && audio.currentTime >= diagnosticsReviewStopAtSeconds) {
-          stopDiagnosticsReviewAudio();
-        }
-      });
-      audio.addEventListener("ended", stopDiagnosticsReviewAudio, { once: true });
-    };
-    waveform.addEventListener("click", (event) => {
-      const bounds = waveform.getBoundingClientRect();
-      if (bounds.width > 0) void play(((event.clientX - bounds.left) / bounds.width) * track.durationMs, null);
-    });
-    addButton(t("diagnosticsTrackReviewOriginal"), () => play(0, null));
-    addButton(t("diagnosticsTrackReviewTrimmed"), () => play(Number(start.value), Number(end.value)));
-    addButton(t("diagnosticsTrackReviewStart"), () => play(Number(start.value), null));
-    addButton(t("diagnosticsTrackReviewEnding"), () => play(Math.max(Number(start.value), Number(end.value) - 10_000), null));
-    addButton(t("diagnosticsTrackReviewStop"), stopDiagnosticsReviewAudio);
-    addButton(t("diagnosticsTrackReviewSave"), async () => {
-      const result = await window.tanda!.saveDiagnosticsTrackTrim({
-        id: track.id,
-        startOffsetMs: Number(start.value),
-        endTrimMs: track.durationMs - Number(end.value),
-      });
-      if (result.ok) {
-        setStatus(t("diagnosticsTrackReviewSaved"));
-        await renderDiagnosticsDataReadiness();
-      }
-    });
-    addButton(t("diagnosticsTrackReviewReset"), async () => {
-      await window.tanda!.resetDiagnosticsTrackTrim(track.id);
-      await renderDiagnosticsDataReadiness();
-    });
-    const okButton = addButton(t("diagnosticsTrackReviewOk"), async () => {
-      const result = await window.tanda!.acknowledgeDiagnosticsTrack({
-        id: track.id,
-        issueSignature: track.issueSignature,
-      });
-      if (!result.ok) return;
-      const message = t("diagnosticsTrackReviewAcknowledged");
-      reviewNotice.textContent = message;
-      reviewNotice.classList.remove("hidden");
-      okButton.disabled = true;
-      track.acknowledged = true;
-      const statusCell = row.querySelector<HTMLElement>("[data-review-status]");
-      if (statusCell) statusCell.textContent = t("diagnosticsTrackReviewApproved");
-      row.dataset.reviewStatus = "acknowledged";
-      setStatus(message);
-    });
-    okButton.disabled = track.acknowledged;
-    addButton(t("trackEditorDelete"), async () => {
-      const removeFile = await showDeleteTrackModal();
-      if (removeFile === null) return;
-      const result = await window.tanda!.deleteTrack({ id: track.id, removeFile });
-      if (result.ok) await renderDiagnosticsDataReadiness();
-    });
-    panel.append(heading, sourcePath, reviewNotice, playbackState, waveform, startLabel, endLabel, actions);
-  };
-
-  tracks.forEach((track) => {
-    const row = document.createElement("tr");
-    row.tabIndex = 0;
-    const issue = track.issueKinds.map((kind) => t(kind === "short" ? "diagnosticsTrackReviewShort" : "diagnosticsTrackReviewTrim")).join(", ");
-    [
-      track.title,
-      issue,
-      `${Math.round(track.durationMs / 1000)}s / ${Math.round(track.effectiveDurationMs / 1000)}s`,
-      t(track.acknowledged ? "diagnosticsTrackReviewApproved" : "diagnosticsTrackReviewPending"),
-    ].forEach((value, index) => {
-        const cell = document.createElement("td");
-        cell.textContent = value;
-        if (index === 3) cell.dataset.reviewStatus = "true";
-        row.appendChild(cell);
-      });
-    row.dataset.reviewStatus = track.acknowledged ? "acknowledged" : "pending";
-    row.addEventListener("click", () => void selectTrack(track, row));
-    row.addEventListener("keydown", (event) => { if (event.key === "Enter") void selectTrack(track, row); });
-    body.appendChild(row);
-  });
-  const firstRow = body.querySelector("tr");
-  const firstTrack = tracks.values().next().value;
-  if (firstRow && firstTrack) await selectTrack(firstTrack, firstRow);
 };
 
 const renderDiagnosticsDataReadiness = async () => {
@@ -15889,1213 +14355,12 @@ const updateLegacyImport = async (candidatePath?: string | null) => {
   renderLibraryWorkflow();
 };
 
-let similarityReport: AudioSimilarityReport | null = null;
-let similarityGenerationPending = false;
-let similarityGenerationCompleted = false;
-let similarityEquivalentTrackIds = new Map<string, ReadonlySet<string>>();
-let similarityRelationshipByTrackId = new Map<string, AudioSimilarityRelationshipType>();
-let similarityPreferredTrackIds = new Map<string, string>();
-let similarityHiddenTrackIds = new Set<string>();
-let similarityPreview: HTMLAudioElement | null = null;
-let similarityPreviewButton: HTMLButtonElement | null = null;
-let similarityPreviewBounds: { startMs: number; effectiveMs: number } | null = null;
-let similarityPreviewRequestVersion = 0;
-let similarityActiveGroupId: string | null = null;
-let similaritySharedPosition = 0;
-let similarityPollTimer: number | null = null;
-let similarityMetadataUndoStacks = new Map<string, AudioSimilarityMetadataChange[][]>();
-
-const createSimilarityWaveform = (
-  groupId: string,
-  member: AudioSimilarityMember,
-  position: HTMLElement,
-) => {
-  const canvas = document.createElement("canvas");
-  canvas.className = "audio-similarity-waveform";
-  canvas.width = 600;
-  canvas.height = 64;
-  canvas.tabIndex = 0;
-  canvas.setAttribute("role", "slider");
-  canvas.setAttribute("aria-label", t("audioSimilarityWaveformSeek", { track: member.title }));
-  canvas.setAttribute("aria-valuemin", "0");
-  canvas.setAttribute("aria-valuemax", "100");
-  const image = new Image();
-  let available = false;
-  const draw = () => {
-    const context = canvas.getContext("2d");
-    if (!context) return;
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = "#111827";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    if (available) context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    else {
-      context.fillStyle = "#9ca3af";
-      context.font = "14px sans-serif";
-      context.fillText(t("waveformLoading"), 10, 38);
-    }
-    const ratio = similarityActiveGroupId === groupId ? similaritySharedPosition : 0;
-    const x = Math.round(ratio * canvas.width);
-    context.fillStyle = "rgba(56, 189, 248, 0.2)";
-    context.fillRect(0, 0, x, canvas.height);
-    context.strokeStyle = "#38bdf8";
-    context.lineWidth = 3;
-    context.beginPath();
-    context.moveTo(x, 0);
-    context.lineTo(x, canvas.height);
-    context.stroke();
-    canvas.setAttribute("aria-valuenow", String(Math.round(ratio * 100)));
-  };
-  const setRatio = (ratio: number) => {
-    similarityActiveGroupId = groupId;
-    similaritySharedPosition = Math.max(0, Math.min(1, ratio));
-    position.textContent = t("audioSimilaritySharedPosition", {
-      percent: Math.round(similaritySharedPosition * 100),
-    });
-    if (similarityPreview && similarityPreviewBounds) {
-      similarityPreview.currentTime = (
-        similarityPreviewBounds.startMs
-        + similarityPreviewBounds.effectiveMs * similaritySharedPosition
-      ) / 1000;
-    }
-    canvas.closest(".audio-similarity-group")
-      ?.querySelectorAll<HTMLCanvasElement>(".audio-similarity-waveform")
-      .forEach((candidate) => candidate.dispatchEvent(new Event("similarity-position-change")));
-  };
-  canvas.addEventListener("click", (event) => {
-    const bounds = canvas.getBoundingClientRect();
-    if (bounds.width > 0) setRatio((event.clientX - bounds.left) / bounds.width);
-  });
-  canvas.addEventListener("keydown", (event) => {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-    event.preventDefault();
-    const current = similarityActiveGroupId === groupId ? similaritySharedPosition : 0;
-    setRatio(current + (event.key === "ArrowRight" ? 0.05 : -0.05));
-  });
-  canvas.addEventListener("similarity-position-change", draw);
-  draw();
-  void window.tanda?.getWaveform(member.trackId).then((dataUrl) => {
-    if (!dataUrl || !canvas.isConnected) {
-      const context = canvas.getContext("2d");
-      if (context) {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.fillStyle = "#9ca3af";
-        context.font = "14px sans-serif";
-        context.fillText(t("waveformUnavailable"), 10, 38);
-      }
-      return;
-    }
-    image.addEventListener("load", () => { available = true; draw(); }, { once: true });
-    image.src = dataUrl;
-  }).catch(() => {
-    // A missing waveform leaves the labelled canvas unavailable without blocking the report.
-  });
-  return canvas;
-};
-const AUDIO_SIMILARITY_COLLAPSED_KEY = "audio-similarity-collapsed-groups";
-let similarityGroupSelections = new Map<string, Set<string>>();
-let similarityGroupMasterSelections = new Map<string, string>();
-let similarityCollapsedGroupIds = new Set<string>();
-try {
-  const stored = JSON.parse(localStorage.getItem(AUDIO_SIMILARITY_COLLAPSED_KEY) ?? "[]");
-  if (Array.isArray(stored)) {
-    similarityCollapsedGroupIds = new Set(stored.filter((id): id is string => typeof id === "string"));
-  }
-} catch {
-  similarityCollapsedGroupIds = new Set();
-}
-
-const saveSimilarityCollapsedGroups = () => {
-  localStorage.setItem(
-    AUDIO_SIMILARITY_COLLAPSED_KEY,
-    JSON.stringify([...similarityCollapsedGroupIds]),
-  );
-};
-
-const localAudioUrl = (filePath: string) => {
-  const normalized = filePath.replace(/\\/g, "/");
-  const prefix = normalized.startsWith("/") ? "file://" : "file:///";
-  return encodeURI(`${prefix}${normalized}`).replace(/#/g, "%23");
-};
-
-const stopSimilarityPreview = () => {
-  similarityPreviewRequestVersion += 1;
-  if (similarityPreview) {
-    similarityPreview.pause();
-    void releaseAudioDspRuntime(similarityPreview);
-  }
-  similarityPreview = null;
-  similarityPreviewBounds = null;
-  if (similarityPreviewButton) {
-    similarityPreviewButton.textContent = t("audioSimilarityPlay");
-    similarityPreviewButton.setAttribute("aria-pressed", "false");
-  }
-  similarityPreviewButton = null;
-};
-
 const stopMainForSimilarityAudition = async () => {
   if (!playback.main.active || playback.main.active.paused) return;
   await stopChannelPlayback("main", getStopFadeSeconds() * 1000);
 };
 
-const refreshOpenSimilarityMetadataOverlay = () => {
-  const overlay = document.querySelector<HTMLElement>(
-    ".audio-similarity-lazy-modal[data-similarity-metadata-group-id]",
-  );
-  const groupId = overlay?.dataset.similarityMetadataGroupId;
-  if (!overlay || !groupId) return;
-  overlay.remove();
-  audioSimilarityGroups
-    ?.querySelector<HTMLElement>(
-      `[data-similarity-group-id="${CSS.escape(groupId)}"] [data-action="show-similarity-metadata"]`,
-    )
-    ?.click();
-};
-
-const translateAudioSimilarityRelationship = (
-  relationshipType: AudioSimilarityRelationshipType,
-) => t(
-  relationshipType === "identical"
-    ? "audioSimilarityIdentical"
-    : relationshipType === "same-recording"
-      ? "audioSimilaritySameRecording"
-      : relationshipType === "same-orchestra"
-        ? "audioSimilaritySameOrchestra"
-        : "audioSimilaritySameComposition",
-);
-
-const openAudioSimilarityOverlay = (titleText: string) => {
-  const overlay = document.createElement("div");
-  overlay.className = "audio-similarity-lazy-modal";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  const dialog = document.createElement("section");
-  dialog.className = "audio-similarity-lazy-dialog";
-  const header = document.createElement("header");
-  const title = document.createElement("h3");
-  title.textContent = titleText;
-  const close = document.createElement("button");
-  close.textContent = t("close");
-  const dismiss = () => {
-    stopSimilarityPreview();
-    overlay.dispatchEvent(new Event("similarity-overlay-dismiss"));
-    overlay.remove();
-  };
-  close.addEventListener("click", dismiss);
-  header.append(title, close);
-  const body = document.createElement("div");
-  dialog.append(header, body);
-  overlay.appendChild(dialog);
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) dismiss();
-  });
-  document.body.appendChild(overlay);
-  close.focus();
-  return body;
-};
-
-const chooseAudioSimilarityMaster = (
-  members: AudioSimilarityMember[],
-  selectedIds: ReadonlySet<string>,
-  currentTrackId: string | null,
-) => new Promise<string | null>((resolve) => {
-  const body = openAudioSimilarityOverlay(t("audioSimilarityChooseMasterTitle"));
-  const overlay = body.closest<HTMLElement>(".audio-similarity-lazy-modal");
-  let settled = false;
-  let chosenTrackId = currentTrackId && selectedIds.has(currentTrackId)
-    ? currentTrackId : null;
-  const finish = (trackId: string | null) => {
-    if (settled) return;
-    settled = true;
-    overlay?.remove();
-    resolve(trackId);
-  };
-  const help = document.createElement("p");
-  help.textContent = t("audioSimilarityChooseMasterHelp");
-  body.appendChild(help);
-  const choices = document.createElement("div");
-  choices.className = "audio-similarity-master-dialog-choices";
-  for (const member of members.filter((candidate) => selectedIds.has(candidate.trackId))) {
-    const label = document.createElement("label");
-    label.className = "audio-similarity-compact-track";
-    const input = document.createElement("input");
-    input.type = "radio";
-    input.name = "audio-similarity-master-dialog";
-    input.value = member.trackId;
-    input.checked = chosenTrackId === member.trackId;
-    const identity = document.createElement("span");
-    identity.textContent = [member.title, member.artist, member.album, member.fullPath]
-      .filter(Boolean).join(" · ");
-    input.addEventListener("change", () => {
-      if (input.checked) chosenTrackId = member.trackId;
-      apply.disabled = !chosenTrackId;
-    });
-    label.append(input, identity);
-    choices.appendChild(label);
-  }
-  const actions = document.createElement("div");
-  actions.className = "audio-similarity-actions";
-  const cancel = document.createElement("button");
-  cancel.textContent = t("cancel");
-  cancel.addEventListener("click", () => finish(null));
-  const apply = document.createElement("button");
-  apply.textContent = t("audioSimilarityApply");
-  apply.disabled = !chosenTrackId;
-  apply.addEventListener("click", () => finish(chosenTrackId));
-  actions.append(cancel, apply);
-  body.append(choices, actions);
-  overlay?.querySelector("header button")?.addEventListener("click", () => finish(null), { once: true });
-  overlay?.addEventListener("click", (event) => {
-    if (event.target === overlay) finish(null);
-  });
-});
-
-const renderAudioSimilarityReport = () => {
-  if (!audioSimilarityGroups || !audioSimilaritySummary || !similarityReport) return;
-  const report = similarityReport;
-  const query = audioSimilaritySearch?.value.trim().toLocaleLowerCase() ?? "";
-  const running = similarityGenerationPending
-    || report.status.state === "running"
-    || report.status.state === "cancelling";
-  if (audioSimilarityStatus) {
-    audioSimilarityStatus.textContent = running
-      ? report.status.totalTracks > 0
-        && report.status.processedTracks >= report.status.totalTracks
-        ? report.status.comparisonPairsTotal > 0
-          ? t("audioSimilarityComparingProgress", {
-              total: report.status.totalTracks,
-              percent: Math.min(100, Math.floor(
-                report.status.comparisonPairsProcessed
-                  / report.status.comparisonPairsTotal * 100,
-              )),
-            })
-          : t("audioSimilarityComparing", { total: report.status.totalTracks })
-        : t("audioSimilarityRunning", {
-            processed: report.status.processedTracks,
-            total: report.status.totalTracks,
-          })
-      : report.status.state === "failed"
-        ? t("audioSimilarityFailed", { message: report.status.error ?? "" })
-        : similarityGenerationCompleted
-          ? t("audioSimilarityGenerationComplete")
-          : "";
-  }
-  if (generateAudioSimilarityBtn) {
-    generateAudioSimilarityBtn.disabled = running;
-    generateAudioSimilarityBtn.textContent = t(
-      report.hasCompletedReport ? "audioSimilarityRegenerate" : "audioSimilarityGenerate",
-    );
-  }
-  if (cancelAudioSimilarityBtn) cancelAudioSimilarityBtn.disabled = !running;
-  audioSimilaritySummary.textContent = report.hasCompletedReport
-    ? t("audioSimilarityComplete", {
-        groups: report.candidateGroups.length,
-        matches: report.status.matchingPairs,
-        failed: report.status.failedTracks,
-      })
-    : t("audioSimilarityEmpty");
-  if (report.status.staleTracks > 0) {
-    audioSimilaritySummary.textContent += ` · ${t("audioSimilarityStale", {
-      count: report.status.staleTracks,
-    })}`;
-  }
-  audioSimilaritySummary.textContent += ` · ${t("audioSimilarityIntegrity", {
-    version: report.integrity.algorithmVersion,
-    ready: report.integrity.readyTracks,
-    total: report.integrity.activeTracks,
-    orphaned: report.integrity.orphanedFeatures + report.integrity.orphanedConfirmedMembers,
-  })}`;
-  audioSimilarityGroups.innerHTML = "";
-  let hiddenTracksCard: HTMLElement | null = null;
-  const reviewSection = document.createElement("details");
-  reviewSection.className = "audio-similarity-review-section";
-  reviewSection.open = true;
-  const reviewHeading = document.createElement("summary");
-  const reviewContent = document.createElement("div");
-  reviewContent.className = "audio-similarity-review-content";
-  reviewSection.append(reviewHeading, reviewContent);
-  let reviewCount = 0;
-  const reviewedSection = document.createElement("details");
-  reviewedSection.className = "audio-similarity-reviewed-section";
-  const reviewedSummary = document.createElement("summary");
-  const reviewedContent = document.createElement("div");
-  reviewedContent.className = "audio-similarity-reviewed-content";
-  reviewedSection.append(reviewedSummary, reviewedContent);
-  let reviewedCount = 0;
-  const reviewedCards: Array<{ card: HTMLElement; processedAt: string }> = [];
-  for (const confirmedGroup of report.confirmedGroups) {
-    const representedByCandidate = report.candidateGroups.some((candidate) => {
-      const candidateIds = new Set(candidate.members.map((member) => member.trackId));
-      return confirmedGroup.trackIds.filter((trackId) => candidateIds.has(trackId)).length >= 2;
-    });
-    if (representedByCandidate) continue;
-    const confirmedCard = document.createElement("article");
-    confirmedCard.className = "audio-similarity-card";
-    const label = document.createElement("strong");
-    label.textContent = t("audioSimilarityConfirmedGroup", {
-      type: translateAudioSimilarityRelationship(confirmedGroup.relationshipType),
-      count: confirmedGroup.trackIds.length,
-    });
-    const ids = document.createElement("small");
-    ids.textContent = confirmedGroup.trackIds.join(" · ");
-    const withdraw = document.createElement("button");
-    withdraw.textContent = t("audioSimilarityWithdraw");
-    withdraw.addEventListener("click", async () => {
-      if (!(await showConfirmModal(
-        t("audioSimilarityWithdrawConfirm"), t("audioSimilarityWithdraw"),
-      ))) return;
-      await window.tanda?.withdrawConfirmedAudioSimilarityGroup(confirmedGroup.id);
-      await loadAudioSimilarityReport();
-      renderAllLists();
-    });
-    confirmedCard.append(label, ids, withdraw);
-    reviewedCards.push({ card: confirmedCard, processedAt: confirmedGroup.updatedAt });
-    reviewedCount += 1;
-  }
-  for (const failure of report.failures) {
-    const failureRow = document.createElement("div");
-    failureRow.className = "audio-similarity-card";
-    failureRow.textContent = t("audioSimilarityFailureItem", {
-      track: failure.title, message: failure.message,
-    });
-    audioSimilarityGroups.appendChild(failureRow);
-  }
-  if (report.hiddenTracks.length > 0) {
-    const hiddenCard = document.createElement("article");
-    hiddenCard.className = "audio-similarity-card audio-similarity-hidden-tracks";
-    const hiddenHeading = document.createElement("h3");
-    hiddenHeading.textContent = t("audioSimilarityHiddenTracks");
-    hiddenCard.appendChild(hiddenHeading);
-    for (const hiddenTrack of report.hiddenTracks) {
-      const row = document.createElement("div");
-      row.className = "audio-similarity-actions";
-      const label = document.createElement("span");
-      label.textContent = t("audioSimilarityHiddenTrack", {
-        title: hiddenTrack.title, artist: hiddenTrack.artist, path: hiddenTrack.fullPath,
-      });
-      const restore = document.createElement("button");
-      restore.textContent = t("audioSimilarityRestore");
-      restore.addEventListener("click", async () => {
-        await window.tanda?.setTrackHidden(hiddenTrack.trackId, false);
-        await loadAudioSimilarityReport();
-      });
-      row.append(label, restore);
-      hiddenCard.appendChild(row);
-    }
-    hiddenTracksCard = hiddenCard;
-  }
-  const visibleGroups = report.candidateGroups.filter((group) =>
-    !query || group.members.some((member) =>
-      `${member.title} ${member.artist} ${member.album} ${member.fullPath}`
-        .toLocaleLowerCase().includes(query)),
-  );
-  for (const [groupIndex, group] of visibleGroups.entries()) {
-    const memberIds = new Set(group.members.map((member) => member.trackId));
-    const matchingConfirmedGroups = report.confirmedGroups
-      .map((confirmed) => ({
-        confirmed,
-        matchedIds: confirmed.trackIds.filter((trackId) => memberIds.has(trackId)),
-      }))
-      .filter((entry) => entry.matchedIds.length >= 2)
-      .sort((left, right) => right.matchedIds.length - left.matchedIds.length);
-    const confirmedGroup = matchingConfirmedGroups[0] ?? null;
-    let selectedIds = similarityGroupSelections.get(group.id);
-    if (!selectedIds) {
-      selectedIds = new Set(
-        confirmedGroup?.matchedIds ?? group.members.map((member) => member.trackId),
-      );
-      similarityGroupSelections.set(group.id, selectedIds);
-    }
-    const rememberedMasterTrackId = similarityGroupMasterSelections.get(group.id) ?? null;
-    let masterTrackId = confirmedGroup?.confirmed.relationshipType === "identical"
-      ? confirmedGroup.confirmed.preferredTrackId
-      : rememberedMasterTrackId
-          && memberIds.has(rememberedMasterTrackId)
-          && selectedIds.has(rememberedMasterTrackId)
-        ? rememberedMasterTrackId
-        : null;
-    if (masterTrackId) similarityGroupMasterSelections.set(group.id, masterTrackId);
-    else similarityGroupMasterSelections.delete(group.id);
-    const card = document.createElement("article");
-    card.className = `audio-similarity-card audio-similarity-group group-color-${groupIndex % 6}`;
-    card.dataset.similarityGroupId = group.id;
-    const header = document.createElement("header");
-    header.className = "audio-similarity-group-header";
-    const collapse = document.createElement("button");
-    collapse.className = "audio-similarity-collapse";
-    const collapsed = similarityCollapsedGroupIds.has(group.id);
-    collapse.textContent = collapsed ? "▸" : "▾";
-    collapse.title = t(collapsed ? "audioSimilarityExpandGroup" : "audioSimilarityCollapseGroup");
-    collapse.setAttribute("aria-label", collapse.title);
-    collapse.setAttribute("aria-expanded", collapsed ? "false" : "true");
-    const heading = document.createElement("h3");
-    const updateHeading = () => {
-      const count = selectedIds!.size;
-      heading.textContent = confirmedGroup
-        ? t("audioSimilarityMatchedCount", { matched: count, total: group.members.length })
-        : count === group.members.length
-          ? t("audioSimilarityTracks", { count: group.members.length })
-          : t("audioSimilaritySelectedCount", { selected: count, total: group.members.length });
-    };
-    updateHeading();
-    const distinctTitles = [...new Map(group.members.map((member) => {
-      const title = member.title.trim() || member.fullPath.split(/[\\/]/).pop() || member.trackId;
-      return [title.toLocaleLowerCase(), title] as const;
-    })).values()];
-    const titleSummary = document.createElement("span");
-    titleSummary.className = "audio-similarity-title-summary";
-    titleSummary.textContent = `${t("audioSimilarityMetaTitle")}: ${distinctTitles.join(" / ")}`;
-    const confirmedTag = document.createElement("span");
-    confirmedTag.className = "audio-similarity-confirmed-tag";
-    confirmedTag.textContent = t("audioSimilarityConfirmedMatch");
-    confirmedTag.classList.toggle("hidden", !confirmedGroup);
-    const confidence = document.createElement("strong");
-    const exactFile = group.members.some((member, index) =>
-      group.members.slice(index + 1).some((other) => other.fileHash === member.fileHash));
-    confidence.textContent = `${exactFile
-      ? t("audioSimilarityExactFiles")
-      : t("audioSimilarityCandidateEvidence")} · ${group.confidence.toFixed(6)}`;
-    header.append(collapse, heading, titleSummary, confirmedTag, confidence);
-    card.appendChild(header);
-    if (matchingConfirmedGroups.length > 0) {
-      const relationships = document.createElement("div");
-      relationships.className = "audio-similarity-confirmed-relationships";
-      for (const match of matchingConfirmedGroups) {
-        const relationship = document.createElement("span");
-        relationship.textContent = `${translateAudioSimilarityRelationship(
-          match.confirmed.relationshipType,
-        )}: ${match.matchedIds.length}`;
-        relationships.appendChild(relationship);
-      }
-      card.appendChild(relationships);
-    }
-    const position = document.createElement("div");
-    position.dataset.similarityPosition = group.id;
-    position.textContent = t("audioSimilaritySharedPosition", {
-      percent: similarityActiveGroupId === group.id ? Math.round(similaritySharedPosition * 100) : 0,
-    });
-    card.appendChild(position);
-    const members = document.createElement("div");
-    members.className = "audio-similarity-members";
-    for (const member of group.members) {
-      const row = document.createElement("div");
-      row.className = "audio-similarity-member";
-      const selected = document.createElement("input");
-      selected.type = "checkbox";
-      selected.checked = selectedIds.has(member.trackId);
-      selected.value = member.trackId;
-      selected.setAttribute("aria-label", t("audioSimilarityIncludeMatch", {
-        title: member.title, artist: member.artist,
-      }));
-      selected.addEventListener("change", () => {
-        if (selected.checked) selectedIds!.add(member.trackId);
-        else {
-          selectedIds!.delete(member.trackId);
-          if (masterTrackId === member.trackId) {
-            masterTrackId = null;
-            similarityGroupMasterSelections.delete(group.id);
-          }
-        }
-        updateHeading();
-        card.querySelectorAll<HTMLButtonElement>("[data-similarity-confirm]")
-          .forEach((button) => { button.disabled = selectedIds!.size < 2; });
-        card.querySelector<HTMLButtonElement>("[data-similarity-reject]")?.dispatchEvent(
-          new Event("similarity-selection-change"),
-        );
-      });
-      const election = document.createElement("label");
-      election.className = "audio-similarity-election";
-      const electionText = document.createElement("span");
-      electionText.textContent = t("audioSimilarityInclude");
-      election.append(selected, electionText);
-      const master = document.createElement("label");
-      master.className = "audio-similarity-master";
-      const masterChoice = document.createElement("input");
-      masterChoice.type = "radio";
-      masterChoice.name = `similarity-master-${group.id}`;
-      masterChoice.dataset.masterTrackId = member.trackId;
-      masterChoice.checked = masterTrackId === member.trackId;
-      masterChoice.setAttribute("aria-label", t("audioSimilarityElectMaster", {
-        title: member.title, artist: member.artist,
-      }));
-      masterChoice.addEventListener("change", () => {
-        if (!masterChoice.checked) return;
-        masterTrackId = member.trackId;
-        similarityGroupMasterSelections.set(group.id, member.trackId);
-        if (!selected.checked) {
-          selected.checked = true;
-          selected.dispatchEvent(new Event("change"));
-        }
-      });
-      const masterText = document.createElement("span");
-      masterText.textContent = t("audioSimilarityMaster");
-      master.append(masterChoice, masterText);
-      const text = document.createElement("div");
-      const title = document.createElement("strong");
-      title.textContent = member.title || member.fullPath.split(/[\\/]/).pop() || member.trackId;
-      const detail = document.createElement("small");
-      detail.textContent = [member.artist, member.album, member.fullPath].filter(Boolean).join(" · ");
-      const waveform = createSimilarityWaveform(group.id, member, position);
-      const effectiveDuration = document.createElement("small");
-      effectiveDuration.className = "audio-similarity-effective-duration";
-      effectiveDuration.textContent = `${t("colDuration")}: ${formatTime(
-        Math.max(0, member.durationMs - member.startOffsetMs - member.endTrimMs) / 1000,
-      )}`;
-      text.append(title, detail, waveform, effectiveDuration);
-      const format = document.createElement("span");
-      format.className = "audio-similarity-format";
-      format.textContent = member.fullPath.split(".").pop() || "audio";
-      const play = document.createElement("button");
-      play.textContent = t("audioSimilarityPlay");
-      play.addEventListener("click", () => {
-        void playSimilarityMember(group.id, member, position, play);
-      });
-      const hide = document.createElement("button");
-      hide.textContent = t(member.hidden ? "audioSimilarityRestore" : "audioSimilarityHide");
-      hide.addEventListener("click", async () => {
-        await window.tanda?.setTrackHidden(member.trackId, !member.hidden);
-        await loadAudioSimilarityReport();
-      });
-      const memberActions = document.createElement("div");
-      memberActions.className = "audio-similarity-member-actions";
-      memberActions.append(format, play, hide);
-      const memberChoices = document.createElement("div");
-      memberChoices.className = "audio-similarity-member-choices";
-      memberChoices.append(election, master);
-      row.append(memberChoices, text, memberActions);
-      members.appendChild(row);
-    }
-    card.appendChild(members);
-    const metadataButton = document.createElement("button");
-    metadataButton.dataset.action = "show-similarity-metadata";
-    metadataButton.textContent = t("audioSimilarityShowMetadata");
-    metadataButton.addEventListener("click", () => {
-    const tableWrap = openAudioSimilarityOverlay(t("audioSimilarityMetadataTitle"));
-    const metadataOverlay = tableWrap.closest<HTMLElement>(".audio-similarity-lazy-modal");
-    if (metadataOverlay) {
-      metadataOverlay.dataset.similarityMetadataGroupId = group.id;
-      metadataOverlay.addEventListener("similarity-overlay-dismiss", () => {
-        similarityMetadataUndoStacks.delete(group.id);
-      }, { once: true });
-    }
-    const undoStack = similarityMetadataUndoStacks.get(group.id) ?? [];
-    similarityMetadataUndoStacks.set(group.id, undoStack);
-    const metadataActions = document.createElement("div");
-    metadataActions.className = "audio-similarity-actions";
-    const undo = document.createElement("button");
-    undo.textContent = t("audioSimilarityUndo");
-    undo.disabled = undoStack.length === 0;
-    undo.addEventListener("click", async () => {
-      const changes = undoStack.pop();
-      if (!changes) return;
-      const result = await window.tanda?.undoAudioSimilarityMetadata(changes);
-      if (result?.conflicts.length) {
-        const conflicts = new Set(result.conflicts);
-        undoStack.push(changes.filter((change) => conflicts.has(change.trackId)));
-      }
-      await loadAudioSimilarityReport();
-      metadataOverlay?.remove();
-      audioSimilarityGroups
-        ?.querySelector<HTMLElement>(
-          `[data-similarity-group-id="${CSS.escape(group.id)}"] [data-action="show-similarity-metadata"]`,
-        )
-        ?.click();
-    });
-    metadataActions.appendChild(undo);
-    tableWrap.appendChild(metadataActions);
-    tableWrap.style.overflowX = "auto";
-    const table = document.createElement("table");
-    const metadataFields: Array<{
-      label: string;
-      field: keyof AudioSimilarityMember;
-      editable?: "title" | "artist" | "artist_summary" | "singer" | "year" | "genre" | "bpm" | "notes" | "instrumental";
-    }> = [
-      { label: t("audioSimilarityMetaTitle"), field: "title", editable: "title" },
-      { label: t("audioSimilarityMetaArtist"), field: "artist", editable: "artist" },
-      { label: t("audioSimilarityMetaArtistSummary"), field: "artistSummary", editable: "artist_summary" },
-      { label: t("audioSimilarityMetaSinger"), field: "singer", editable: "singer" },
-      { label: t("audioSimilarityMetaAlbum"), field: "album" },
-      { label: t("audioSimilarityMetaYear"), field: "year", editable: "year" },
-      { label: t("audioSimilarityMetaStyle"), field: "genre", editable: "genre" },
-      { label: t("audioSimilarityMetaBpm"), field: "bpm", editable: "bpm" },
-      { label: t("audioSimilarityMetaNotes"), field: "notes", editable: "notes" },
-      { label: t("audioSimilarityMetaInstrumental"), field: "instrumental", editable: "instrumental" },
-      { label: t("audioSimilarityMetaPath"), field: "fullPath" },
-    ];
-    const head = document.createElement("tr");
-    const attributeHeading = document.createElement("th");
-    attributeHeading.textContent = t("audioSimilarityAttribute");
-    head.appendChild(attributeHeading);
-    group.members.forEach((member) => {
-      const th = document.createElement("th");
-      const trackHeading = document.createElement("span");
-      trackHeading.textContent = `${member.title} · ${member.artist}`;
-      const editTrack = document.createElement("button");
-      editTrack.className = "audio-similarity-edit-track";
-      editTrack.textContent = t("audioSimilarityEditTrack");
-      editTrack.setAttribute("aria-label", t("audioSimilarityEditNamedTrack", {
-        title: member.title,
-      }));
-      editTrack.addEventListener("click", async () => {
-        if (!trackCache.has(member.trackId)) {
-          const track = (await window.tanda?.listTracks())
-            ?.find((candidate) => candidate.id === member.trackId);
-          if (track) updateTrackCaches(track);
-        }
-        await openTrackEditor(member.trackId);
-      });
-      th.title = `${member.album}\n${member.fullPath}`;
-      th.append(trackHeading, editTrack);
-      head.appendChild(th);
-    });
-    table.appendChild(head);
-    for (const metadata of metadataFields) {
-      const row = document.createElement("tr");
-      const label = document.createElement("th");
-      label.textContent = metadata.label;
-      row.appendChild(label);
-      const comparisonValues = group.members.map((member) => String(member[metadata.field] ?? ""));
-      const differs = new Set(comparisonValues).size > 1;
-      for (const member of group.members) {
-        const cell = document.createElement("td");
-        const value = member[metadata.field];
-        cell.textContent = value === null || value === "" ? "—" : String(value);
-        cell.classList.add(differs ? "metadata-different" : "metadata-equal");
-        if (metadata.editable) {
-          cell.tabIndex = 0;
-          cell.role = "button";
-          const replicate = async () => {
-            const targets = group.members.filter((candidate) => candidate.trackId !== member.trackId);
-            const result = await window.tanda?.replicateAudioSimilarityMetadata(
-              member.trackId, targets.map((target) => target.trackId), metadata.editable!,
-            );
-            if (result?.changes.length) undoStack.push(result.changes);
-            await loadAudioSimilarityReport();
-            tableWrap.closest(".audio-similarity-lazy-modal")?.remove();
-            audioSimilarityGroups
-              ?.querySelector<HTMLElement>(
-                `[data-similarity-group-id="${CSS.escape(group.id)}"] [data-action="show-similarity-metadata"]`,
-              )
-              ?.click();
-          };
-          cell.addEventListener("click", replicate);
-          cell.addEventListener("keydown", (event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              void replicate();
-            }
-          });
-        }
-        row.appendChild(cell);
-      }
-      table.appendChild(row);
-    }
-    tableWrap.appendChild(table);
-    });
-    const detailActions = document.createElement("div");
-    detailActions.className = "audio-similarity-detail-actions";
-    detailActions.appendChild(metadataButton);
-    const comparedMetadata: Array<{ label: string; field: keyof AudioSimilarityMember }> = [
-      { label: t("audioSimilarityMetaArtist"), field: "artist" },
-      { label: t("audioSimilarityMetaTitle"), field: "title" },
-      { label: t("audioSimilarityMetaSinger"), field: "singer" },
-      { label: t("audioSimilarityMetaBpm"), field: "bpm" },
-      { label: t("audioSimilarityMetaNotes"), field: "notes" },
-      { label: t("audioSimilarityMetaYear"), field: "year" },
-    ];
-    const differingMetadata = comparedMetadata.filter(({ field }) => new Set(group.members.map((member) =>
-      String(member[field] ?? "").trim().toLocaleLowerCase(),
-    )).size > 1);
-    const metadataDifferenceLabel = document.createElement("span");
-    metadataDifferenceLabel.className = "audio-similarity-metadata-differences";
-    metadataDifferenceLabel.textContent = differingMetadata.length
-      ? t("audioSimilarityMetadataDiffers", {
-          fields: differingMetadata.map(({ label }) => label).join(", "),
-        })
-      : t("audioSimilarityMetadataMatches");
-    detailActions.appendChild(metadataDifferenceLabel);
-    const groupedUsages = new Map<string, {
-      tandaName: string;
-      playlistNames: string[];
-      contextTracks: AudioSimilarityAuditionTrack[];
-      matches: Array<{ member: AudioSimilarityMember; position: number }>;
-    }>();
-    for (const member of group.members) {
-      for (const usage of member.usages) {
-        const existing = groupedUsages.get(usage.tandaId) ?? {
-          tandaName: usage.tandaName,
-          playlistNames: usage.playlistNames,
-          contextTracks: usage.contextTracks,
-          matches: [],
-        };
-        existing.matches.push({ member, position: usage.position });
-        groupedUsages.set(usage.tandaId, existing);
-      }
-    }
-    const usageCount = groupedUsages.size;
-    const tandasButton = document.createElement("button");
-    tandasButton.dataset.action = "show-similarity-tandas";
-    tandasButton.textContent = t("audioSimilarityShowTandas", { count: usageCount });
-    tandasButton.disabled = usageCount === 0;
-    tandasButton.addEventListener("click", () => {
-    const usageBody = openAudioSimilarityOverlay(t("audioSimilarityTandasTitle", { count: usageCount }));
-    for (const [tandaId, usage] of groupedUsages) {
-        const usageRow = document.createElement("div");
-        usageRow.className = "audio-similarity-card";
-        const usageText = document.createElement("span");
-        usageText.textContent = t("audioSimilarityTandaUsage", {
-          tanda: usage.tandaName, count: usage.matches.length,
-          playlists: usage.playlistNames.length ? ` · ${usage.playlistNames.join(", ")}` : "",
-        });
-        usageRow.appendChild(usageText);
-        const matchedIds = new Set(usage.matches.map((match) => match.member.trackId));
-        const comparison = document.createElement("div");
-        comparison.className = "audio-similarity-tanda-comparison";
-        for (const match of usage.matches) {
-          const choices = document.createElement("fieldset");
-          choices.className = "audio-similarity-replacement-choices";
-          const legend = document.createElement("legend");
-          legend.textContent = t("audioSimilarityReplacementPosition", {
-            position: match.position + 1,
-          });
-          choices.appendChild(legend);
-          for (const member of group.members) {
-            const compact = document.createElement("label");
-            compact.className = "audio-similarity-compact-track";
-            const isCurrent = match.member.trackId === member.trackId;
-            if (isCurrent) compact.classList.add("current");
-            const selection = document.createElement("input");
-            selection.type = "radio";
-            selection.name = `similarity-replacement-${tandaId}-${match.position}`;
-            selection.value = member.trackId;
-            selection.checked = isCurrent;
-            selection.disabled = member.hidden;
-            selection.setAttribute("aria-label", t("audioSimilarityUseVersion", {
-              track: member.title,
-            }));
-            const identity = document.createElement("span");
-            identity.textContent = [member.artist, member.title, member.album]
-              .filter(Boolean).join(" · ");
-            const preview = document.createElement("button");
-            preview.type = "button";
-            preview.textContent = t("audioSimilarityPlay");
-            preview.addEventListener("click", (event) => {
-              event.preventDefault();
-              void playSimilarityMember(`${group.id}:${tandaId}`, member, position, preview);
-            });
-            compact.append(selection, identity, preview);
-            selection.addEventListener("change", async () => {
-              if (!selection.checked || isCurrent || member.hidden) return;
-              if (!(await showConfirmModal(t("audioSimilarityReplaceConfirm", {
-                tanda: usage.tandaName, oldTrack: match.member.title, newTrack: member.title,
-              }), t("audioSimilarityApply")))) {
-                choices.querySelector<HTMLInputElement>(`input[value="${CSS.escape(match.member.trackId)}"]`)!.checked = true;
-                return;
-              }
-              try {
-                await window.tanda?.replaceAudioSimilarityTandaTrack(
-                  tandaId, match.position, member.trackId,
-                );
-                tandaCache.clear();
-                await loadTandaDrafts();
-                await loadAudioSimilarityReport();
-                renderAllLists();
-                usageBody.closest(".audio-similarity-lazy-modal")?.remove();
-                audioSimilarityGroups
-                  ?.querySelector<HTMLElement>(
-                    `[data-similarity-group-id="${CSS.escape(group.id)}"] [data-action="show-similarity-tandas"]`,
-                  )
-                  ?.click();
-              } catch (error) {
-                choices.querySelector<HTMLInputElement>(`input[value="${CSS.escape(match.member.trackId)}"]`)!.checked = true;
-                setStatus(error instanceof Error ? error.message : String(error));
-              }
-            });
-            choices.appendChild(compact);
-          }
-          comparison.appendChild(choices);
-        }
-        usageRow.appendChild(comparison);
-        const contextActions = document.createElement("div");
-        contextActions.className = "audio-similarity-tanda-tracks";
-        for (const contextTrack of usage.contextTracks) {
-          const context = document.createElement("div");
-          context.className = "tanda-detail-line audio-similarity-tanda-track";
-          context.dataset.trackId = contextTrack.trackId;
-          if (matchedIds.has(contextTrack.trackId)) context.classList.add("audio-similarity-context-match");
-          const identity = document.createElement("span");
-          identity.textContent = [contextTrack.artist, contextTrack.title, contextTrack.album]
-            .filter(Boolean).join(" · ");
-          const actions = document.createElement("div");
-          actions.className = "tanda-detail-actions-right";
-          const preview = document.createElement("button");
-          preview.textContent = t("audioSimilarityPlay");
-          preview.title = t("audioSimilarityPreviewContextTrack", { track: contextTrack.title });
-          preview.addEventListener("click", () => {
-            void playSimilarityMember(
-              `${group.id}:${tandaId}`,
-              contextTrack,
-              position,
-              preview,
-            );
-          });
-          const menuButton = buildDetailMenuButton();
-          menuButton.addEventListener("click", (event) => {
-            event.stopPropagation();
-            const wasOpen = context.classList.contains("detail-menu-open");
-            closeDetailMenus();
-            context.classList.toggle("detail-menu-open", !wasOpen);
-          });
-          const menu = document.createElement("div");
-          menu.className = "tanda-detail-menu";
-          const loadContextTrack = async () => {
-            const cached = trackCache.get(contextTrack.trackId);
-            if (cached) return cached;
-            const [loaded] = await window.tanda!.getTracksByIds([contextTrack.trackId]);
-            if (loaded) updateTrackCaches(loaded);
-            return loaded ?? null;
-          };
-          const edit = buildActionButton(
-            "actionEditTrack",
-            "actionEditTrackShort",
-            "audio-similarity-edit-context-track",
-          );
-          edit.addEventListener("click", async (event) => {
-            event.stopPropagation();
-            await loadContextTrack();
-            closeDetailMenus();
-            await openTrackEditor(contextTrack.trackId);
-          });
-          menu.appendChild(edit);
-          const search = buildActionButton(
-            "actionSearch",
-            "actionSearchShort",
-            "audio-similarity-search-context-track",
-          );
-          search.addEventListener("click", async (event) => {
-            event.stopPropagation();
-            const track = await loadContextTrack();
-            closeDetailMenus();
-            if (track) runSearchForTrack(track);
-          });
-          menu.appendChild(search);
-          actions.append(preview, menuButton, menu);
-          context.append(identity, actions);
-          contextActions.appendChild(context);
-        }
-        usageRow.appendChild(contextActions);
-        usageBody.appendChild(usageRow);
-    }
-    });
-    detailActions.appendChild(tandasButton);
-    card.appendChild(detailActions);
-    const actions = document.createElement("div");
-    actions.className = "audio-similarity-actions";
-    const reviewHelp = document.createElement("p");
-    reviewHelp.textContent = t("audioSimilarityReviewHelp");
-    card.appendChild(reviewHelp);
-    const confirm = (relationshipType: AudioSimilarityRelationshipType) => async () => {
-      const accepted = group.members
-        .map((member) => member.trackId)
-        .filter((trackId) => selectedIds!.has(trackId));
-      if (accepted.length < 2) return;
-      if (relationshipType === "identical" && (!masterTrackId || !accepted.includes(masterTrackId))) {
-        masterTrackId = await chooseAudioSimilarityMaster(group.members, selectedIds!, masterTrackId);
-        if (!masterTrackId) return;
-        card.querySelector<HTMLInputElement>(
-          `input[data-master-track-id="${CSS.escape(masterTrackId)}"]`,
-        )?.click();
-      }
-      if (!(await showConfirmModal(
-        t("audioSimilarityLinkSelectedConfirm", {
-          count: accepted.length,
-          type: relationshipType === "identical"
-            ? t("audioSimilarityIdentical")
-            : relationshipType === "same-recording"
-              ? t("audioSimilaritySameRecording")
-            : relationshipType === "same-orchestra"
-              ? t("audioSimilaritySameOrchestra") : t("audioSimilaritySameComposition"),
-        }),
-        t("audioSimilarityApply"),
-      ))) return;
-      await window.tanda?.confirmAudioSimilarityGroup(
-        group.members.map((member) => member.trackId), accepted, relationshipType,
-        relationshipType === "identical" ? masterTrackId : null,
-      );
-      if (relationshipType !== "identical") {
-        similarityGroupMasterSelections.delete(group.id);
-      }
-      await loadAudioSimilarityReport();
-      renderAllLists();
-    };
-    const recording = document.createElement("button");
-    recording.dataset.similarityConfirm = "recording";
-    recording.textContent = t("audioSimilarityConfirmRecording");
-    recording.disabled = selectedIds.size < 2;
-    recording.addEventListener("click", confirm("same-recording"));
-    const identical = document.createElement("button");
-    identical.dataset.similarityConfirm = "identical";
-    identical.textContent = t("audioSimilarityConfirmIdentical");
-    identical.disabled = selectedIds.size < 2;
-    identical.addEventListener("click", confirm("identical"));
-    const orchestra = document.createElement("button");
-    orchestra.dataset.similarityConfirm = "orchestra";
-    orchestra.textContent = t("audioSimilarityConfirmOrchestra");
-    orchestra.disabled = selectedIds.size < 2;
-    orchestra.addEventListener("click", confirm("same-orchestra"));
-    const composition = document.createElement("button");
-    composition.dataset.similarityConfirm = "composition";
-    composition.textContent = t("audioSimilarityConfirmComposition");
-    composition.disabled = selectedIds.size < 2;
-    composition.addEventListener("click", confirm("same-composition"));
-    actions.append(identical, recording, orchestra, composition);
-    if (confirmedGroup) {
-      const withdraw = document.createElement("button");
-      withdraw.textContent = t("audioSimilarityWithdraw");
-      withdraw.addEventListener("click", async () => {
-        if (!(await showConfirmModal(
-          t("audioSimilarityWithdrawConfirm"), t("audioSimilarityApply"),
-        ))) return;
-        await window.tanda?.withdrawConfirmedAudioSimilarityGroup(
-          confirmedGroup.confirmed.id,
-        );
-        similarityGroupSelections.delete(group.id);
-        similarityGroupMasterSelections.delete(group.id);
-        await loadAudioSimilarityReport();
-        renderAllLists();
-      });
-      actions.appendChild(withdraw);
-    }
-    const reject = document.createElement("button");
-    reject.dataset.similarityReject = "selected";
-    const updateReject = () => {
-      const selected = [...selectedIds!];
-      const edge = selected.length === 2
-        ? group.edges.find((candidate) => selected.includes(candidate.leftTrackId)
-          && selected.includes(candidate.rightTrackId)) : undefined;
-      const left = edge && group.members.find((member) => member.trackId === edge.leftTrackId);
-      const right = edge && group.members.find((member) => member.trackId === edge.rightTrackId);
-      reject.disabled = !edge;
-      reject.textContent = edge?.decision === "rejected"
-        ? t("audioSimilarityRestorePair", { left: left?.title ?? "", right: right?.title ?? "" })
-        : t("audioSimilarityRejectNamedPair");
-    };
-    reject.addEventListener("click", async () => {
-      const selected = [...selectedIds!];
-      const edge = group.edges.find((candidate) => selected.includes(candidate.leftTrackId)
-        && selected.includes(candidate.rightTrackId));
-      if (!edge) return;
-      const left = group.members.find((member) => member.trackId === edge.leftTrackId);
-      const right = group.members.find((member) => member.trackId === edge.rightTrackId);
-      if (edge.decision === "rejected") {
-        await window.tanda?.reconsiderAudioSimilarityPair(edge.leftTrackId, edge.rightTrackId);
-      } else {
-        if (!(await showConfirmModal(t("audioSimilarityRejectConfirm", {
-          left: left?.title ?? "", right: right?.title ?? "",
-        }), t("audioSimilarityApply")))) return;
-        await window.tanda?.rejectAudioSimilarityPair(edge.leftTrackId, edge.rightTrackId);
-      }
-      await loadAudioSimilarityReport();
-      renderAllLists();
-    });
-    reject.addEventListener("similarity-selection-change", updateReject);
-    actions.appendChild(reject);
-    updateReject();
-    card.appendChild(actions);
-    const body = document.createElement("div");
-    body.className = "audio-similarity-group-body";
-    Array.from(card.children).slice(1).forEach((child) => body.appendChild(child));
-    body.hidden = collapsed;
-    card.appendChild(body);
-    collapse.addEventListener("click", () => {
-      const nextCollapsed = !body.hidden;
-      body.hidden = nextCollapsed;
-      collapse.textContent = nextCollapsed ? "▸" : "▾";
-      collapse.title = t(nextCollapsed
-        ? "audioSimilarityExpandGroup" : "audioSimilarityCollapseGroup");
-      collapse.setAttribute("aria-label", collapse.title);
-      collapse.setAttribute("aria-expanded", nextCollapsed ? "false" : "true");
-      if (nextCollapsed) similarityCollapsedGroupIds.add(group.id);
-      else similarityCollapsedGroupIds.delete(group.id);
-      saveSimilarityCollapsedGroups();
-    });
-    const dealtWith = confirmedGroup?.matchedIds.length === group.members.length
-      || (group.edges.length > 0 && group.edges.every((edge) => edge.decision !== "pending"));
-    if (dealtWith) {
-      const decisionTimes = [
-        ...matchingConfirmedGroups.map((entry) => entry.confirmed.updatedAt),
-        ...group.edges
-          .filter((edge) => edge.decision !== "pending")
-          .map((edge) => edge.updatedAt),
-      ].filter((value): value is string => Boolean(value));
-      reviewedCards.push({
-        card,
-        processedAt: decisionTimes.sort((left, right) => right.localeCompare(left))[0] ?? "",
-      });
-      reviewedCount += 1;
-    } else {
-      reviewContent.appendChild(card);
-      reviewCount += 1;
-    }
-  }
-  reviewHeading.textContent = t("audioSimilarityToReview", { count: reviewCount });
-  audioSimilarityGroups.appendChild(reviewSection);
-  if (reviewedCount > 0) {
-    reviewedCards
-      .sort((left, right) => right.processedAt.localeCompare(left.processedAt))
-      .forEach(({ card }) => reviewedContent.appendChild(card));
-    reviewedSummary.textContent = t("audioSimilarityReviewed", { count: reviewedCount });
-    audioSimilarityGroups.appendChild(reviewedSection);
-  }
-  if (hiddenTracksCard) audioSimilarityGroups.appendChild(hiddenTracksCard);
-};
-
-const playSimilarityMember = async (
-  groupId: string,
-  member: AudioSimilarityMember | AudioSimilarityAuditionTrack,
-  position: HTMLElement,
-  button: HTMLButtonElement,
-) => {
-  if (similarityPreview && !similarityPreview.paused && similarityActiveGroupId === groupId
-      && similarityPreview.dataset.trackId === member.trackId) {
-    stopSimilarityPreview();
-    button.textContent = t("audioSimilarityPlay");
-    return;
-  }
-  stopSimilarityPreview();
-  const requestVersion = similarityPreviewRequestVersion;
-  await stopMainForSimilarityAudition();
-  if (requestVersion !== similarityPreviewRequestVersion) return;
-  if (similarityActiveGroupId !== groupId) similaritySharedPosition = 0;
-  similarityActiveGroupId = groupId;
-  const audio = new Audio();
-  audio.dataset.trackId = member.trackId;
-  const requestedOutputDeviceId = resolveOutputDeviceIdForChannel("headphone");
-  if (shouldUseAudioDspForOutput("headphone", requestedOutputDeviceId)) {
-    ensureAudioDspRuntime(audio);
-  }
-  const normalization = resolvePlaybackNormalization(member.gainDb, member.loudnessDb);
-  setAudioLevel(audio, gainForTrack(normalization.gainDb));
-  const outputRouting = await applyOutputDevice(audio, requestedOutputDeviceId);
-  if (requestVersion !== similarityPreviewRequestVersion) {
-    await releaseAudioDspRuntime(audio);
-    return;
-  }
-  if (requestedOutputDeviceId && !outputRouting.appliedDeviceId) {
-    await releaseAudioDspRuntime(audio);
-    return;
-  }
-  audio.src = localAudioUrl(member.fullPath);
-  similarityPreview = audio;
-  similarityPreviewButton = button;
-  similarityPreviewBounds = {
-    startMs: member.startOffsetMs,
-    effectiveMs: Math.max(0, member.durationMs - member.startOffsetMs - member.endTrimMs),
-  };
-  audio.addEventListener("loadedmetadata", () => {
-    const effectiveMs = Math.max(0, member.durationMs - member.startOffsetMs - member.endTrimMs);
-    audio.currentTime = (member.startOffsetMs + effectiveMs * similaritySharedPosition) / 1000;
-    void audio.play().catch(() => stopSimilarityPreview());
-  }, { once: true });
-  audio.addEventListener("seeked", () => {
-    const effectiveMs = Math.max(1, member.durationMs - member.startOffsetMs - member.endTrimMs);
-    similaritySharedPosition = Math.max(0, Math.min(1,
-      (audio.currentTime * 1000 - member.startOffsetMs) / effectiveMs));
-    position.textContent = t("audioSimilaritySharedPosition", {
-      percent: Math.round(similaritySharedPosition * 100),
-    });
-    position.closest(".audio-similarity-group")
-      ?.querySelectorAll<HTMLCanvasElement>(".audio-similarity-waveform")
-      .forEach((candidate) => candidate.dispatchEvent(new Event("similarity-position-change")));
-  });
-  audio.addEventListener("timeupdate", () => {
-    const endMs = Math.max(member.startOffsetMs, member.durationMs - member.endTrimMs);
-    if (audio.currentTime * 1000 >= endMs) stopSimilarityPreview();
-  });
-  audio.addEventListener("ended", stopSimilarityPreview, { once: true });
-  audio.addEventListener("error", stopSimilarityPreview, { once: true });
-  button.textContent = t("audioSimilarityStop");
-  button.setAttribute("aria-pressed", "true");
-};
-
-const loadAudioSimilarityReport = async () => {
-  if (!window.tanda) return;
-  similarityReport = await window.tanda.getAudioSimilarityReport();
-  similarityHiddenTrackIds = new Set(similarityReport.hiddenTrackIds);
-  similarityEquivalentTrackIds = new Map();
-  similarityRelationshipByTrackId = new Map();
-  similarityPreferredTrackIds = new Map();
-  const relationshipBreadth: Record<AudioSimilarityRelationshipType, number> = {
-    identical: 0, "same-recording": 1, "same-orchestra": 2, "same-composition": 3,
-  };
-  for (const group of [...similarityReport.confirmedGroups].sort((left, right) =>
-    left.trackIds.length - right.trackIds.length
-      || relationshipBreadth[left.relationshipType] - relationshipBreadth[right.relationshipType])) {
-    const members = new Set(group.trackIds);
-    for (const trackId of members) {
-      similarityEquivalentTrackIds.set(trackId, members);
-      similarityRelationshipByTrackId.set(trackId, group.relationshipType);
-      if (group.preferredTrackId) similarityPreferredTrackIds.set(trackId, group.preferredTrackId);
-    }
-  }
-  invalidateTrackTandaUsage();
-  renderAudioSimilarityReport();
-  const running = similarityGenerationPending
-    || similarityReport.status.state === "running"
-    || similarityReport.status.state === "cancelling";
-  if (similarityPollTimer !== null) window.clearTimeout(similarityPollTimer);
-  similarityPollTimer = running
-    ? window.setTimeout(() => { void loadAudioSimilarityReport(); }, 750)
-    : null;
-};
-
-const initAudioSimilarityInteractions = () => {
-  openAudioSimilarityBtn?.addEventListener("click", async () => {
-    audioSimilarityPage?.classList.add("open");
-    audioSimilarityPage?.setAttribute("aria-hidden", "false");
-    similarityActiveGroupId = null;
-    similaritySharedPosition = 0;
-    similarityGroupSelections = new Map();
-    similarityGroupMasterSelections = new Map();
-    await loadAudioSimilarityReport();
-  });
-  closeAudioSimilarityBtn?.addEventListener("click", () => {
-    stopSimilarityPreview();
-    similarityMetadataUndoStacks.clear();
-    audioSimilarityPage?.classList.remove("open");
-    audioSimilarityPage?.setAttribute("aria-hidden", "true");
-    if (similarityPollTimer !== null) window.clearTimeout(similarityPollTimer);
-    similarityPollTimer = null;
-  });
-  audioSimilaritySearch?.addEventListener("input", renderAudioSimilarityReport);
-  generateAudioSimilarityBtn?.addEventListener("click", async () => {
-    const regenerating = Boolean(similarityReport?.hasCompletedReport);
-    if (regenerating && !(await showConfirmModal(
-      t("audioSimilarityRegenerateConfirm"), t("audioSimilarityTitle"),
-    ))) return;
-    similarityGenerationCompleted = false;
-    similarityGenerationPending = true;
-    renderAudioSimilarityReport();
-    const generation = window.tanda!.generateAudioSimilarityReport({ fullRebuild: false });
-    await loadAudioSimilarityReport();
-    try {
-      const result = await generation;
-      similarityGenerationCompleted = result.state === "completed";
-    } catch (error) {
-      if (audioSimilarityStatus) {
-        audioSimilarityStatus.textContent = t("audioSimilarityFailed", {
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-    } finally {
-      similarityGenerationPending = false;
-      await loadAudioSimilarityReport();
-    }
-  });
-  cancelAudioSimilarityBtn?.addEventListener("click", async () => {
-    similarityGenerationCompleted = false;
-    await window.tanda!.cancelAudioSimilarityAnalysis();
-    await loadAudioSimilarityReport();
-  });
+const initDuplicateFocusInteractions = () => {
   document.addEventListener("pointerdown", (event) => {
     const target = event.target as HTMLElement | null;
     const trigger = target?.closest<HTMLElement>(".duplicate-jump")
@@ -17133,6 +14398,7 @@ const init = async () => {
     return;
   }
   initAudioSimilarityInteractions();
+  initDuplicateFocusInteractions();
 
   try {
     const version = await window.tanda.getAppVersion();
@@ -19203,6 +16469,136 @@ const init = async () => {
   window.setInterval(updateNowPlayingDisplay, 200);
   window.setInterval(maybeAutoCenterPlaylist, 5000);
 };
+
+const audioSimilarityController = createAudioSimilarityController({
+  t,
+  releaseAudioDspRuntime,
+  audioSimilarityGroups,
+  audioSimilaritySummary,
+  audioSimilaritySearch,
+  audioSimilarityStatus,
+  generateAudioSimilarityBtn,
+  cancelAudioSimilarityBtn,
+  showConfirmModal,
+  renderAllLists,
+  formatTime,
+  trackCache,
+  updateTrackCaches,
+  openTrackEditor,
+  tandaCache,
+  loadTandaDrafts,
+  setStatus,
+  buildDetailMenuButton,
+  closeDetailMenus,
+  buildActionButton,
+  runSearchForTrack,
+  stopMainForSimilarityAudition,
+  resolveOutputDeviceIdForChannel,
+  shouldUseAudioDspForOutput,
+  ensureAudioDspRuntime,
+  setAudioLevel,
+  gainForTrack,
+  applyOutputDevice,
+  invalidateTrackTandaUsage,
+  openAudioSimilarityBtn,
+  audioSimilarityPage,
+  closeAudioSimilarityBtn,
+});
+const {
+  openAudioSimilarityOverlay,
+  initAudioSimilarityInteractions,
+  loadAudioSimilarityReport,
+  refreshOpenSimilarityMetadataOverlay,
+} = audioSimilarityController;
+
+const diagnosticsTrackReview = createDiagnosticsTrackReview({
+  t,
+  stopMainForDiagnosticsAudition,
+  setStatus,
+  renderDiagnosticsDataReadiness,
+  showDeleteTrackModal,
+});
+const {
+  renderDiagnosticsTrackReview,
+} = diagnosticsTrackReview;
+
+const statisticsController = createStatisticsController({
+  t,
+  formatTime,
+  searchDiversityModal,
+  resolveCanonicalArtistName,
+  get orchestraRegistry() { return orchestraRegistry; },
+  set orchestraRegistry(value) { orchestraRegistry = value; },
+  searchDiversityOrchestraEl,
+  runSearchQuery,
+  setSettingsOpen,
+  searchDiversityOpportunitiesEl,
+  searchDiversityYearEl,
+  searchDiversityTempoEl,
+  searchDiversityStyleEl,
+  searchDiversityStyleGapsEl,
+  searchDiversitySummaryEl,
+  playlistStatsModal,
+  get playlistItems() { return playlistItems; },
+  set playlistItems(value) { playlistItems = value; },
+  resolveTandaDraft,
+  resolvePlaylistTracks,
+  getEffectiveTrackDurationMs,
+  yearValue,
+  playlistStatsPurityEl,
+  get playlistFilterTandaIds() { return playlistFilterTandaIds; },
+  set playlistFilterTandaIds(value) { playlistFilterTandaIds = value; },
+  get playlistFilterOrchestra() { return playlistFilterOrchestra; },
+  set playlistFilterOrchestra(value) { playlistFilterOrchestra = value; },
+  setPlaylistFilterTextState,
+  playlistFilterInput,
+  activateRightTab,
+  renderPlaylist,
+  playlistStatsOrchestraEl,
+  playlistStatsYearEl,
+  playlistStatsTempoEl,
+});
+const {
+  renderPlaylistStats,
+  setPlaylistStatsModalVisible,
+  setSearchDiversityModalVisible,
+  renderSearchDiversityStats,
+} = statisticsController;
+
+const styleSettingsController = createStyleSettingsController({
+  get styleFamilies() { return styleFamilies; },
+  set styleFamilies(value) { styleFamilies = value; },
+  get availableStyles() { return availableStyles; },
+  set availableStyles(value) { availableStyles = value; },
+  getPlaylistStyleMap,
+  STYLE_FAMILIES_KEY,
+  loadStyles,
+  renderTandaDesigner,
+  refreshSearch,
+  styleFamilyList,
+  t,
+  styleFamilyCodeInput,
+  styleFamilyBaseInput,
+  styleFamilyVariantsInput,
+  LEGACY_STYLE_MAPPINGS_KEY,
+  get legacyStyleMappings() { return legacyStyleMappings; },
+  set legacyStyleMappings(value) { legacyStyleMappings = value; },
+  get legacyImportRootPath() { return legacyImportRootPath; },
+  set legacyImportRootPath(value) { legacyImportRootPath = value; },
+  get legacyStyleRows() { return legacyStyleRows; },
+  set legacyStyleRows(value) { legacyStyleRows = value; },
+  legacyStylesResult,
+  legacyStyleMappingEl,
+  legacyStyleMappingBody,
+});
+const {
+  getBaseStyles,
+  renderStyleFamilyList,
+  renderLegacyStyleMappingTable,
+  refreshLegacyStyleRows,
+  setStyleFamilies,
+  applyStoredLegacyStyleMappingsForImport,
+} = styleSettingsController;
 
 init().catch((error) => {
   setStatus(error instanceof Error ? error.message : t("statusUnknownError"));

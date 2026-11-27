@@ -83,7 +83,9 @@ Remove obsolete operational details rather than continually appending history.
 
 ### Dialogue and Decision History
 
-`docs/dialogue.md` records significant user requirements, decisions and engineering rationale.
+`docs/dialogue.md` is the searchable index for significant requirements, decisions
+and engineering rationale. New records live in `docs/decisions/`; the original
+dialogue is preserved in `docs/archive/dialogue-through-2026-11-26.md`.
 
 Record:
 - New or materially changed requirements.
@@ -94,9 +96,15 @@ Record:
 
 Do not record routine prompts, intermediate responses, command output, test logs or repetitive debugging conversations.
 
-Preserve existing history. Append concise, searchable records with dates, affected requirement identifiers and relevant file references.
+Preserve existing history. At the applicable checkpoint, add a concise dated
+decision file and an index row using the format in `docs/dialogue.md`. Include
+topic tags, affected requirement identifiers, rationale, relevant file references
+and explicit supersession links. Do not append new entries to the legacy archive.
 
-Consult historical records when necessary to understand a decision; do not read the entire history by default.
+Consult history only when rationale is needed. Search the index first, then read
+only matching records. For legacy history, use `rg -n -C 5` with requirement IDs
+or specific domain terms and expand only relevant line ranges; do not read the
+entire archive by default. Current requirements take precedence over history.
 
 ### Documentation Authority
 

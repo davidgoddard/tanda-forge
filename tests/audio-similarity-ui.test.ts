@@ -3,6 +3,7 @@ import path from "path";
 import { describe, expect, it } from "vitest";
 
 const renderer = fs.readFileSync(path.join(process.cwd(), "app/src/renderer/renderer.ts"), "utf8");
+const similarity = fs.readFileSync(path.join(process.cwd(), "app/src/renderer/controllers/audio-similarity-controller.ts"), "utf8");
 const styles = fs.readFileSync(path.join(process.cwd(), "app/src/renderer/styles.css"), "utf8");
 const html = fs.readFileSync(path.join(process.cwd(), "app/src/renderer/index.html"), "utf8");
 
@@ -11,9 +12,9 @@ describe("audio similarity report UI", () => {
     expect(renderer).not.toContain(
       "applyTranslations();\n  await loadAudioSimilarityReport();",
     );
-    const openHandler = renderer.slice(
-      renderer.indexOf('openAudioSimilarityBtn?.addEventListener("click"'),
-      renderer.indexOf('closeAudioSimilarityBtn?.addEventListener("click"'),
+    const openHandler = similarity.slice(
+      similarity.indexOf('openAudioSimilarityBtn?.addEventListener("click"'),
+      similarity.indexOf('closeAudioSimilarityBtn?.addEventListener("click"'),
     );
     expect(openHandler).toContain('audioSimilarityPage?.classList.add("open")');
     expect(openHandler).toContain("await loadAudioSimilarityReport()");
@@ -29,59 +30,59 @@ describe("audio similarity report UI", () => {
   });
 
   it("starts incremental regeneration immediately and keeps polling past a stale report snapshot", () => {
-    expect(renderer).toContain("let similarityGenerationPending = false");
-    expect(renderer).toContain("const running = similarityGenerationPending");
-    expect(renderer).toContain("similarityGenerationPending = true");
-    expect(renderer).toContain("generateAudioSimilarityReport({ fullRebuild: false })");
-    expect(renderer).toContain("similarityGenerationPending = false");
-    expect(renderer).toContain('report.hasCompletedReport ? "audioSimilarityRegenerate"');
-    expect(renderer).toContain("Boolean(similarityReport?.hasCompletedReport)");
-    expect(renderer).toContain('t("audioSimilarityComparing", { total: report.status.totalTracks })');
-    expect(renderer).toContain('t("audioSimilarityComparingProgress"');
-    expect(renderer).toContain("report.status.comparisonPairsProcessed");
-    expect(renderer).toContain('t("audioSimilarityGenerationComplete")');
-    expect(renderer).toContain('similarityGenerationCompleted = result.state === "completed"');
+    expect(similarity).toContain("let similarityGenerationPending = false");
+    expect(similarity).toContain("const running = similarityGenerationPending");
+    expect(similarity).toContain("similarityGenerationPending = true");
+    expect(similarity).toContain("generateAudioSimilarityReport({ fullRebuild: false })");
+    expect(similarity).toContain("similarityGenerationPending = false");
+    expect(similarity).toContain('report.hasCompletedReport ? "audioSimilarityRegenerate"');
+    expect(similarity).toContain("Boolean(similarityReport?.hasCompletedReport)");
+    expect(similarity).toContain('t("audioSimilarityComparing", { total: report.status.totalTracks })');
+    expect(similarity).toContain('t("audioSimilarityComparingProgress"');
+    expect(similarity).toContain("report.status.comparisonPairsProcessed");
+    expect(similarity).toContain('t("audioSimilarityGenerationComplete")');
+    expect(similarity).toContain('similarityGenerationCompleted = result.state === "completed"');
   });
 
   it("uses member match checkboxes and lazy metadata/tanda overlays", () => {
-    expect(renderer).toContain('selected.type = "checkbox"');
-    expect(renderer).toContain("audioSimilarityIncludeMatch");
-    expect(renderer).toContain("metadataButton.addEventListener");
-    expect(renderer).toContain("tandasButton.addEventListener");
-    expect(renderer).toContain("openAudioSimilarityOverlay");
+    expect(similarity).toContain('selected.type = "checkbox"');
+    expect(similarity).toContain("audioSimilarityIncludeMatch");
+    expect(similarity).toContain("metadataButton.addEventListener");
+    expect(similarity).toContain("tandasButton.addEventListener");
+    expect(similarity).toContain("openAudioSimilarityOverlay");
     expect(renderer).not.toContain('input[data-similarity-usage="true"]');
   });
 
   it("persists collapsed groups and marks confirmed candidate cards", () => {
-    expect(renderer).toContain("AUDIO_SIMILARITY_COLLAPSED_KEY");
-    expect(renderer).toContain("saveSimilarityCollapsedGroups");
-    expect(renderer).toContain("audioSimilarityConfirmedMatch");
-    expect(renderer).toContain("audioSimilarityMatchedCount");
+    expect(similarity).toContain("AUDIO_SIMILARITY_COLLAPSED_KEY");
+    expect(similarity).toContain("saveSimilarityCollapsedGroups");
+    expect(similarity).toContain("audioSimilarityConfirmedMatch");
+    expect(similarity).toContain("audioSimilarityMatchedCount");
     expect(styles).toContain(".audio-similarity-confirmed-tag");
     expect(styles).toContain(".group-color-5");
-    expect(renderer).toContain("audio-similarity-title-summary");
-    expect(renderer).toContain('distinctTitles.join(" / ")');
+    expect(similarity).toContain("audio-similarity-title-summary");
+    expect(similarity).toContain('distinctTitles.join(" / ")');
   });
 
   it("uses collapsible unresolved and newest-first reviewed panels", () => {
-    expect(renderer).toContain('const reviewSection = document.createElement("details")');
-    expect(renderer).toContain("reviewSection.open = true");
-    expect(renderer).toContain('reviewedSection.className = "audio-similarity-reviewed-section"');
+    expect(similarity).toContain('const reviewSection = document.createElement("details")');
+    expect(similarity).toContain("reviewSection.open = true");
+    expect(similarity).toContain('reviewedSection.className = "audio-similarity-reviewed-section"');
     expect(renderer).not.toContain("reviewedSection.open = true");
-    expect(renderer).toContain('group.edges.every((edge) => edge.decision !== "pending")');
-    expect(renderer).toContain('t("audioSimilarityToReview", { count: reviewCount })');
-    expect(renderer).toContain('t("audioSimilarityReviewed", { count: reviewedCount })');
-    expect(renderer).toContain("right.processedAt.localeCompare(left.processedAt)");
-    expect(renderer).toContain("confirmedGroup.updatedAt");
-    expect(renderer).toContain("edge.updatedAt");
+    expect(similarity).toContain('group.edges.every((edge) => edge.decision !== "pending")');
+    expect(similarity).toContain('t("audioSimilarityToReview", { count: reviewCount })');
+    expect(similarity).toContain('t("audioSimilarityReviewed", { count: reviewedCount })');
+    expect(similarity).toContain("right.processedAt.localeCompare(left.processedAt)");
+    expect(similarity).toContain("confirmedGroup.updatedAt");
+    expect(similarity).toContain("edge.updatedAt");
     expect(styles).toContain(".audio-similarity-review-section > summary");
     expect(styles).toContain(".audio-similarity-reviewed-section > summary");
   });
 
   it("uses radio choices for each affected-tanda replacement position", () => {
-    expect(renderer).toContain('selection.type = "radio"');
-    expect(renderer).toContain("audioSimilarityReplacementPosition");
-    expect(renderer).toContain("audio-similarity-replacement-choices");
+    expect(similarity).toContain('selection.type = "radio"');
+    expect(similarity).toContain("audioSimilarityReplacementPosition");
+    expect(similarity).toContain("audio-similarity-replacement-choices");
   });
 
   it("uses the normal headphone path and an Apply/Cancel radio table for tanda assignment", () => {
@@ -91,49 +92,49 @@ describe("audio similarity report UI", () => {
     expect(renderer).toContain('similarityRelationshipByTrackId.get(track.id) !== "same-recording"');
     expect(renderer).toContain("const headphone = buildHeadphoneButton(candidate.id)");
     expect(renderer).toContain('"headphone", candidate.full_path, candidate.id');
-    expect(renderer).toContain("selection.type = \"radio\"");
+    expect(similarity).toContain("selection.type = \"radio\"");
     expect(styles).toContain(".audio-similarity-picker-footer");
   });
 
   it("renders cached comparison waveforms that control the shared audition position", () => {
-    expect(renderer).toContain("createSimilarityWaveform");
-    expect(renderer).toContain('canvas.className = "audio-similarity-waveform"');
-    expect(renderer).toContain("window.tanda?.getWaveform(member.trackId)");
-    expect(renderer).toContain("similaritySharedPosition = Math.max(0, Math.min(1, ratio))");
-    expect(renderer).toContain('event.key !== "ArrowLeft" && event.key !== "ArrowRight"');
+    expect(similarity).toContain("createSimilarityWaveform");
+    expect(similarity).toContain('canvas.className = "audio-similarity-waveform"');
+    expect(similarity).toContain("window.tanda?.getWaveform(member.trackId)");
+    expect(similarity).toContain("similaritySharedPosition = Math.max(0, Math.min(1, ratio))");
+    expect(similarity).toContain('event.key !== "ArrowLeft" && event.key !== "ArrowRight"');
     expect(styles).toContain(".audio-similarity-waveform");
-    expect(renderer).toContain('effectiveDuration.className = "audio-similarity-effective-duration"');
-    expect(renderer).toContain("member.durationMs - member.startOffsetMs - member.endTrimMs");
-    expect(renderer).toContain('`${t("colDuration")}: ${formatTime(');
+    expect(similarity).toContain('effectiveDuration.className = "audio-similarity-effective-duration"');
+    expect(similarity).toContain("member.durationMs - member.startOffsetMs - member.endTrimMs");
+    expect(similarity).toContain('`${t("colDuration")}: ${formatTime(');
     expect(styles).toContain(".audio-similarity-effective-duration");
   });
 
   it("reopens metadata from the refreshed report after copying values", () => {
-    expect(renderer).toContain('metadataButton.dataset.action = "show-similarity-metadata"');
-    expect(renderer).toContain('[data-action="show-similarity-metadata"]');
+    expect(similarity).toContain('metadataButton.dataset.action = "show-similarity-metadata"');
+    expect(similarity).toContain('[data-action="show-similarity-metadata"]');
   });
 
   it("keeps detail actions compact and summarizes relevant metadata differences", () => {
-    expect(renderer).toContain("audio-similarity-detail-actions");
-    expect(renderer).toContain("audioSimilarityMetadataDiffers");
-    expect(renderer).toContain('{ label: t("audioSimilarityMetaSinger"), field: "singer" }');
+    expect(similarity).toContain("audio-similarity-detail-actions");
+    expect(similarity).toContain("audioSimilarityMetadataDiffers");
+    expect(similarity).toContain('{ label: t("audioSimilarityMetaSinger"), field: "singer" }');
     expect(styles).toContain(".audio-similarity-detail-actions > button { width: auto");
   });
 
   it("distinguishes DJ-confirmed identical versions, alternate recordings, orchestra versions, and compositions", () => {
-    expect(renderer).toContain('orchestra.addEventListener("click", confirm("same-orchestra"))');
-    expect(renderer).toContain('identical.addEventListener("click", confirm("identical"))');
-    expect(renderer).toContain("similarityPreferredTrackIds");
+    expect(similarity).toContain('orchestra.addEventListener("click", confirm("same-orchestra"))');
+    expect(similarity).toContain('identical.addEventListener("click", confirm("identical"))');
+    expect(similarity).toContain("similarityPreferredTrackIds");
     expect(renderer).toContain('similarityRelationshipByTrackId.get(track.id) === "identical"');
-    expect(renderer).toContain("chooseAudioSimilarityMaster");
-    expect(renderer).toContain("audioSimilarityChooseMasterHelp");
-    expect(renderer).toContain("similarityRelationshipByTrackId");
+    expect(similarity).toContain("chooseAudioSimilarityMaster");
+    expect(similarity).toContain("audioSimilarityChooseMasterHelp");
+    expect(similarity).toContain("similarityRelationshipByTrackId");
   });
 
   it("shows album and path read-only while omitting measured fields", () => {
-    expect(renderer).toContain('{ label: t("audioSimilarityMetaAlbum"), field: "album" }');
+    expect(similarity).toContain('{ label: t("audioSimilarityMetaAlbum"), field: "album" }');
     expect(renderer).not.toContain('field: "album", editable: "album"');
-    expect(renderer).toContain('{ label: t("audioSimilarityMetaPath"), field: "fullPath" }');
+    expect(similarity).toContain('{ label: t("audioSimilarityMetaPath"), field: "fullPath" }');
     expect(renderer).not.toContain('{ label: t("audioSimilarityMetaDuration"), field: "durationMs" }');
     expect(renderer).not.toContain('{ label: t("audioSimilarityMetaGain"), field: "gainDb" }');
   });
@@ -141,57 +142,58 @@ describe("audio similarity report UI", () => {
   it("keeps confirmation dialogs above the full-page report", () => {
     expect(styles).toMatch(/\.confirm-modal[\s\S]*?z-index:\s*140/);
     expect(styles).toMatch(/\.audio-similarity-page[\s\S]*?z-index:\s*90/);
-    expect(renderer).toContain('t("audioSimilarityApply")');
+    expect(similarity).toContain('t("audioSimilarityApply")');
   });
 
   it("places hidden tracks after candidate groups", () => {
-    expect(renderer).toContain("let hiddenTracksCard: HTMLElement | null = null");
-    expect(renderer.indexOf("if (hiddenTracksCard) audioSimilarityGroups.appendChild(hiddenTracksCard)"))
-      .toBeGreaterThan(renderer.indexOf("for (const [groupIndex, group] of visibleGroups.entries())"));
+    expect(similarity).toContain("let hiddenTracksCard: HTMLElement | null = null");
+    expect(similarity.indexOf("if (hiddenTracksCard) audioSimilarityGroups.appendChild(hiddenTracksCard)"))
+      .toBeGreaterThan(similarity.indexOf("for (const [groupIndex, group] of visibleGroups.entries())"));
   });
 
   it("stops main output before every similarity audition path", () => {
     expect(renderer).toContain("const stopMainForSimilarityAudition = async () =>");
-    expect(renderer.match(/await stopMainForSimilarityAudition\(\);/g)).toHaveLength(2);
+    expect(renderer.match(/await stopMainForSimilarityAudition\(\);/g)).toHaveLength(1);
+    expect(similarity.match(/await stopMainForSimilarityAudition\(\);/g)).toHaveLength(1);
   });
 
   it("normalizes similarity auditions and uses the configured headphone output", () => {
-    expect(renderer).toContain(
+    expect(similarity).toContain(
       "resolvePlaybackNormalization(member.gainDb, member.loudnessDb)",
     );
-    expect(renderer).toContain('resolveOutputDeviceIdForChannel("headphone")');
-    expect(renderer).toContain("setAudioLevel(audio, gainForTrack(normalization.gainDb))");
-    expect(renderer).toContain("audio.currentTime * 1000 >= endMs");
-    expect(renderer).toContain("requestVersion !== similarityPreviewRequestVersion");
+    expect(similarity).toContain('resolveOutputDeviceIdForChannel("headphone")');
+    expect(similarity).toContain("setAudioLevel(audio, gainForTrack(normalization.gainDb))");
+    expect(similarity).toContain("audio.currentTime * 1000 >= endMs");
+    expect(similarity).toContain("requestVersion !== similarityPreviewRequestVersion");
   });
 
   it("uses compact localized rejection labels and translated relationships", () => {
-    expect(renderer).toContain('t("audioSimilarityRejectNamedPair")');
-    expect(renderer).not.toContain('t("audioSimilarityRejectNamedPair",');
-    expect(renderer).toContain("translateAudioSimilarityRelationship(confirmedGroup.relationshipType)");
-    expect(renderer).toContain('reject.dataset.similarityReject = "selected"');
+    expect(similarity).toContain('t("audioSimilarityRejectNamedPair")');
+    expect(similarity).not.toContain('t("audioSimilarityRejectNamedPair",');
+    expect(similarity).toContain("translateAudioSimilarityRelationship(confirmedGroup.relationshipType)");
+    expect(similarity).toContain('reject.dataset.similarityReject = "selected"');
   });
 
   it("keeps metadata undo inside the comparison window as a session stack", () => {
-    expect(renderer).toContain("similarityMetadataUndoStacks");
-    expect(renderer).toContain("undoStack.push(result.changes)");
-    expect(renderer).not.toContain("audioSimilarityUndoAvailable");
+    expect(similarity).toContain("similarityMetadataUndoStacks");
+    expect(similarity).toContain("undoStack.push(result.changes)");
+    expect(similarity).not.toContain("audioSimilarityUndoAvailable");
   });
 
   it("opens the normal track editor from each metadata comparison column", () => {
-    expect(renderer).toContain('editTrack.className = "audio-similarity-edit-track"');
-    expect(renderer).toContain("await openTrackEditor(member.trackId)");
-    expect(renderer).toContain("metadataOverlay.dataset.similarityMetadataGroupId = group.id");
+    expect(similarity).toContain('editTrack.className = "audio-similarity-edit-track"');
+    expect(similarity).toContain("await openTrackEditor(member.trackId)");
+    expect(similarity).toContain("metadataOverlay.dataset.similarityMetadataGroupId = group.id");
     expect(renderer).toContain("refreshOpenSimilarityMetadataOverlay()");
     expect(styles).toContain("body:has(.audio-similarity-page.open) #track-editor.open");
   });
 
   it("preserves a provisional master election while metadata refreshes the report", () => {
-    expect(renderer).toContain("let similarityGroupMasterSelections = new Map<string, string>()");
-    expect(renderer).toContain("similarityGroupMasterSelections.get(group.id)");
-    expect(renderer).toContain("similarityGroupMasterSelections.set(group.id, member.trackId)");
-    expect(renderer).toContain("similarityGroupMasterSelections.delete(group.id)");
-    expect(renderer).toContain("similarityGroupMasterSelections = new Map()");
+    expect(similarity).toContain("let similarityGroupMasterSelections = new Map<string, string>()");
+    expect(similarity).toContain("similarityGroupMasterSelections.get(group.id)");
+    expect(similarity).toContain("similarityGroupMasterSelections.set(group.id, member.trackId)");
+    expect(similarity).toContain("similarityGroupMasterSelections.delete(group.id)");
+    expect(similarity).toContain("similarityGroupMasterSelections = new Map()");
   });
 
   it("uses relaxed spacing in affected-tanda and metadata controls", () => {
@@ -212,7 +214,7 @@ describe("audio similarity report UI", () => {
     expect(renderer).toContain('firstMatch.scrollIntoView({ block: "center", behavior: "smooth" })');
     expect(renderer).toContain('playlistDuplicateFocusStatus?.classList.remove("hidden")');
     expect(renderer).toContain('playlistDuplicateFocusClear?.addEventListener("click", (event) =>');
-    expect(renderer).toContain("event.stopPropagation()");
+    expect(similarity).toContain("event.stopPropagation()");
     expect(renderer).toContain('document.addEventListener("pointerup", cancelPlaylistDuplicateFocusTimer)');
     expect(html).toContain('data-i18n="playlistDuplicateFocusClear"');
     expect(styles).toContain(".playlist-duplicate-focus-status");
@@ -273,9 +275,9 @@ describe("audio similarity report UI", () => {
   });
 
   it("offers edit and Search Similar menus for tracks in tanda usage overlays", () => {
-    expect(renderer).toContain('context.dataset.trackId = contextTrack.trackId');
-    expect(renderer).toContain('"audio-similarity-edit-context-track"');
-    expect(renderer).toContain('"audio-similarity-search-context-track"');
-    expect(renderer).toContain('if (track) runSearchForTrack(track)');
+    expect(similarity).toContain('context.dataset.trackId = contextTrack.trackId');
+    expect(similarity).toContain('"audio-similarity-edit-context-track"');
+    expect(similarity).toContain('"audio-similarity-search-context-track"');
+    expect(similarity).toContain('if (track) runSearchForTrack(track)');
   });
 });
