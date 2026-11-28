@@ -1,6 +1,6 @@
 # Metadata Research user guide
 
-Tanda Forge has no built in connection to services that can identify your music.  This page describes a feature to possibly help.  You can use an AI agent such as ChatGPT to do the hard work for you by providing it with a CSV file of some of your tracks' details and then grab the prompt to give the agent by clicking a button to copy it so you can just paste it in to the agent.  Once the agent is done it should return you a CSV file with metadata it found the for the tracks along with a measure of how sure it was of the match.  Tanda Forge provides a screen (see below) through which you can review the new information on offer and incorporate into your library.
+Tanda Forge has no built in connection to services that can identify your music.  This page describes a feature to possibly help.  You can use an AI agent such as ChatGPT to do the hard work for you by providing it with a CSV file of some of your tracks' details and then grab the prompt to give the agent by clicking a button to copy it so you can just paste it in to the agent.  Once the agent is done it should return you a CSV file with metadata it found for the tracks along with a measure of how sure it was of the match.  Tanda Forge provides a screen (see below) through which you can review the new information on offer and incorporate into your library.
 
 Open **Settings → Library** and scroll to **AI Metadata Research**. From this
 card you can export tracks, copy the research prompt, import results, and open
