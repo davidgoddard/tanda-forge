@@ -3,6 +3,7 @@ import { execFileSync } from "child_process";
 import path from "path";
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { launchSeededApp, relaunchSeededApp } from "./support/electron-app";
+import { encodeResearchCsv, parseResearchCsv, researchBaseColumns, researchResultColumns } from "../../app/src/main/library/metadata-research-csv";
 
 type LibraryWorkflowStepKey =
   | "roots"
@@ -1786,6 +1787,101 @@ const clickPlaylistTrackUntilNowPlaying = async (page: Page, track: Locator, exp
 };
 
 test.describe("Electron app end-to-end workflows", () => {
+  for (const suggestedGenre of ["Vals", "Jazz manouche"]) test(`metadata research exports, stages, applies and undoes a batch (${suggestedGenre})`, async () => {
+    const launched = await launchSeededApp("full", ({ tracks }) => {
+      const music = tracks.filter((track) => track.root_id === "root-music");
+      music.forEach((track) => { track.bpm = 63; });
+      music[0].genre = "";
+      Object.assign(music[1], { year: "", genre: "Waltz - Traditional" });
+      Object.assign(music[2], { genre: "Tango", year: "1940", singer: "" });
+    });
+    const { page, tempRoot } = launched;
+    try {
+      await openSettings(page);
+      const panel = page.locator("#metadata-research");
+      await setOpenDialogResponses(page, [tempRoot]);
+      await panel.getByLabel("Track selection").selectOption("new");
+      await panel.getByRole("button", { name: "Export Tracks for Research" }).click();
+      await expect(panel.getByRole("status")).toContainText(/Exported [1-9]/);
+      const dir = fs.readdirSync(tempRoot).find((name) => name.startsWith("metadata_research_"))!;
+      const exportedFile = fs.readdirSync(path.join(tempRoot, dir))[0];
+      const csv = fs.readFileSync(path.join(tempRoot, dir, exportedFile), "utf8");
+      const exported = parseResearchCsv(csv).slice(1);
+      expect(exported.length).toBeGreaterThanOrEqual(2);
+      expect(exported.every(({ fields }) => ["", "?"].includes(fields[5].trim()) ||
+        ["", "?"].includes(fields[6].trim()))).toBe(true);
+      const track = (await getTracksViaApi(page)).find(({ id, genre }) => csv.includes(id) && genre === "Waltz - Traditional")!;
+      expect(track).toBeDefined();
+      const file = path.join(tempRoot, "enriched.csv");
+      fs.writeFileSync(file, encodeResearchCsv([...researchBaseColumns, ...researchResultColumns], [{
+        ...track, duration: track.duration_ms, suggested_title: "Researched title", confidence: "High",
+        notes: "Check the alternate recording.", suggested_genre: suggestedGenre, suggested_style: "traditional",
+        review_status: suggestedGenre === "Vals" ? "matched" : "unresolved",
+      }]));
+      await setOpenDialogResponses(page, [file]);
+      await panel.getByRole("button", { name: "Import Research Results" }).click();
+      const review = page.locator("#metadata-research-review");
+      await expect(panel.getByRole("status")).toContainText("1 matched");
+      await expect(review).toBeHidden();
+      await panel.getByRole("button", { name: "Open Review Page" }).click();
+      await expect(review).toBeVisible();
+      await expect(page.locator('button[data-tab="metadata-research"]')).toHaveCount(0);
+      await expect(review.getByLabel("Sort by")).toHaveValue("title");
+      expect((await getTracksViaApi(page)).find(({ id }) => id === track.id)?.title).toBe(track.title);
+      await review.locator("summary").click();
+      await expect(review.getByRole("heading", { name: "Research notes and sources" })).toBeVisible();
+      await expect(review.getByRole("textbox", { name: "Genre / style", exact: true })).toHaveValue("Waltz - Traditional");
+      await expect(review.getByText(/Invalid genre/)).toHaveCount(0);
+      await expect(review.getByText(/research genre has no matching library style/)).toHaveCount(suggestedGenre === "Vals" ? 0 : 1);
+      await expect(review.getByRole("textbox", { name: "BPM", exact: true })).toHaveValue("63");
+      await expect(review.getByRole("combobox", { name: "Instrumental", exact: true }).locator("option")).toHaveText(["—", "Yes", "No"]);
+      await expect(review.getByRole("button", { name: "Preview in headphones" })).toBeVisible();
+      await expect(review.getByRole("slider", { name: "Seek within track preview" })).toBeDisabled();
+      if (suggestedGenre !== "Vals") {
+        await review.getByRole("button", { name: "Apply field selections" }).click();
+        await expect(review.getByRole("alert")).toContainText("confirm the recording match");
+        await review.getByRole("checkbox", { name: "I checked the evidence and resolved the recording match" }).check();
+      }
+      await review.getByRole("button", { name: "Apply field selections" }).click();
+      await expect(review.locator("summary")).toContainText("Reviewed — no changes");
+      await expect(review.getByRole("button", { name: "Apply Approved Changes to Database" })).toBeDisabled();
+      expect((await getTracksViaApi(page)).find(({ id }) => id === track.id)).toEqual(track);
+      await review.locator("summary").click();
+      await review.getByRole("button", { name: "Reset to pending" }).last().click();
+      await expect(review.locator("summary")).toContainText("Pending");
+      await review.locator("summary").click();
+      const currentTitle = review.getByRole("button", { name: /^Title · Current ·/ });
+      const suggestedTitle = review.getByRole("button", { name: "Title · Suggested · Researched title" });
+      await expect(currentTitle).toHaveAttribute("aria-pressed", "true");
+      await suggestedTitle.click();
+      await expect(suggestedTitle).toHaveAttribute("aria-pressed", "true");
+      await currentTitle.click();
+      await expect(suggestedTitle).toHaveAttribute("aria-pressed", "false");
+      await suggestedTitle.click();
+      if (suggestedGenre !== "Vals") {
+        await review.getByRole("checkbox", { name: "I checked the evidence and resolved the recording match" }).check();
+      }
+      await review.getByRole("button", { name: "Apply field selections" }).click();
+      await review.getByRole("button", { name: "Apply Approved Changes to Database" }).click();
+      await page.locator(".confirm-modal:not(.hidden) .confirm-ok").first().click();
+      await expect(review.getByRole("status")).toContainText("Updated 1 tracks");
+      expect((await getTracksViaApi(page)).find(({ id }) => id === track.id)?.title).toBe("Researched title");
+      expect((await getTracksViaApi(page)).find(({ id }) => id === track.id)?.genre).toBe("Waltz - Traditional");
+      await review.locator("summary").click();
+      await expect(review.getByRole("button", { name: /^Title · Current ·/ })).toHaveCount(0);
+      await expect(review.getByText("These changes have been applied.")).toBeVisible();
+      await review.getByRole("button", { name: "Undo track" }).click();
+      await page.locator(".confirm-modal:not(.hidden) .confirm-ok").first().click();
+      await expect(review.getByRole("status")).toContainText("Restored 1 tracks");
+      await review.getByRole("button", { name: "Back to Library" }).click();
+      await expect(review).toBeHidden();
+      await expect(panel.getByRole("button", { name: "Open Review Page" })).toBeFocused();
+      expect((await getTracksViaApi(page)).find(({ id }) => id === track.id)?.title).toBe(track.title);
+    } finally {
+      await launched.close();
+    }
+  });
+
   test("01 - shows empty-library banner on first run setup", async () => {
     const launched = await launchSeededApp("empty");
     const { page } = launched;

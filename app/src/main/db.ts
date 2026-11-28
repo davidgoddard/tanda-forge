@@ -1,4 +1,5 @@
 import { ensureBpmSchema } from "./bpm/store";
+import { ensureResearchSchema } from "./library/metadata-research-store";
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
@@ -276,6 +277,7 @@ export const initDb = (dataRoot?: string) => {
   if ("error" in searchMigration) {
     console.warn(`Search index migration failed; using compatibility search: ${searchMigration.error}`);
   }
+  ensureResearchSchema(db);
   return db;
 };
 

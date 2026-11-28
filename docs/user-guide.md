@@ -870,6 +870,17 @@ deleted or missing. This cannot recover an audio file that was deleted from disk
 
 <img src="../images/user-guide/16-editor.png" width="400px">
 
+## AI metadata research
+
+Use **Settings → Library → AI Metadata Research** to export tracks missing a
+style or recording year for external research. Import the returned CSV, then
+choose **Open Review Page** to compare the evidence and decide which metadata
+to keep or change. The app stages your decisions for review before any
+approved corrections are written to the library.
+
+See the [Metadata Research user guide](metadata-research.md) for the full
+export, import, review, and apply workflow.
+
 ## Automatic BPM measurement
 
 Automatic BPM analysis is optional and off by default. It estimates a tempo for

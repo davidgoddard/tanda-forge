@@ -1,6 +1,8 @@
 import type { TranslationMap } from "./types.js";
+import { metadataResearchTranslations } from "./metadata-research.js";
 
 export const de: TranslationMap = {
+  ...metadataResearchTranslations("de"),
   systemGroupBpm: "BPM",
   bpmTitle: "Automatische BPM-Analyse",
   bpmEnable: "Automatische BPM-Analyse aktivieren",

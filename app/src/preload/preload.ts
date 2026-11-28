@@ -2,6 +2,16 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { AppApi } from "../shared/types";
 
 const api: AppApi = {
+  metadataResearch: {
+    state: () => ipcRenderer.invoke("library:researchState"),
+    export: (scope, ids, size, repeat) => ipcRenderer.invoke("library:researchExport", scope, ids, size, repeat),
+    import: () => ipcRenderer.invoke("library:researchImport"),
+    review: (edits) => ipcRenderer.invoke("library:researchReview", edits),
+    apply: () => ipcRenderer.invoke("library:researchApply"),
+    undo: (batch, line) => ipcRenderer.invoke("library:researchUndo", batch, line),
+    prompt: () => ipcRenderer.invoke("library:researchPrompt"),
+    evidence: (url) => ipcRenderer.invoke("library:researchEvidence", url),
+  },
   getBpmStatus: () => ipcRenderer.invoke("bpm:status"),
   configureBpm: (config) => ipcRenderer.invoke("bpm:configure", config),
   getTrackBpm: (id) => ipcRenderer.invoke("bpm:track", id),

@@ -6,6 +6,7 @@ import type { RatingFilter } from "../shared/rating-filter";
 import { getRatingSnapshot } from "./library/rating-filter";
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, session, shell } from "electron";
 import { createDomainIpcRegistrar } from "./ipc/domain-registrar";
+import { registerMetadataResearch } from "./library/metadata-research-ipc";
 
 if (process.platform === "darwin" && process.arch === "x64") {
   app.disableHardwareAcceleration();
@@ -894,6 +895,12 @@ const registerIpc = () => {
     handle: (channel, handler) => ipcMain.handle(channel, (event, ...args) =>
       maintenance.request(channel, () => handler(event, ...args))),
   });
+  registerMetadataResearch(ipc, () => {
+    bpmService.revision++;
+    invalidateTrackSearchCache(getDb());
+  }, () => {
+    if (scanInProgress || systemBackupPromise) throw Error("Wait for library maintenance to finish.");
+  }, consumeE2EOpenDialogResult);
   const maintain = <T>(
     event: Electron.IpcMainInvokeEvent,
     request: Record<string, unknown> | (() => Record<string, unknown>),

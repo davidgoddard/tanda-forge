@@ -262,6 +262,7 @@ export type E2ESeedPayload = {
 };
 
 export type AppApi = {
+  metadataResearch: import("./metadata-research").ResearchApi;
   getBpmStatus: () => Promise<import("./bpm").BpmStatus>;
   configureBpm: (config: import("./bpm").BpmConfig) => Promise<import("./bpm").BpmStatus>;
   getTrackBpm: (id: string) => Promise<import("./bpm").BpmTrack | null>;

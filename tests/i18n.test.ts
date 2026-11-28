@@ -7,6 +7,15 @@ import {
 } from "../app/src/renderer/i18n";
 
 describe("renderer i18n", () => {
+  it("maps every metadata research label in all supported languages", () => {
+    const keys = Object.keys(translations.en).filter((key) => key.startsWith("research_"));
+    expect(keys.length).toBeGreaterThan(0);
+    for (const language of SUPPORTED_LANGUAGES) {
+      for (const key of [...keys, "headphonePreview"]) {
+        expect(translations[language][key], `${language}: ${key}`).toBeTruthy();
+      }
+    }
+  });
   const shortActionMenus = [
     [
       "actionEditTrackShort",

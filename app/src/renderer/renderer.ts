@@ -1,4 +1,5 @@
 import { createTandaPresentation } from "./modules/tanda-presentation.js";
+import { initializeMetadataResearch } from "./modules/metadata-research-view.js";
 import {
   ensureAudioDspRuntime,
   releaseAudioDspRuntime,
@@ -12972,6 +12973,121 @@ const getSearchParams = () => {
   };
 };
 
+const researchPanel = document.querySelector<HTMLElement>("#metadata-research");
+const researchReview = document.querySelector<HTMLElement>("#metadata-research-review");
+const researchApp = window.tanda;
+let refreshMetadataResearch: (() => void) | undefined;
+let researchEditorTrackId: string | undefined;
+let researchPreviewVersion: number | undefined;
+let researchPreviewAudio: HTMLAudioElement | undefined;
+let researchPreviewLookup = 0;
+const stopResearchPreview = () => {
+  researchPreviewLookup++;
+  if (researchPreviewVersion !== playRequestVersion.headphone) return;
+  researchPreviewVersion = undefined;
+  playRequestVersion.headphone++;
+  if (researchPreviewAudio && playback.headphone.active === researchPreviewAudio) {
+    void stopChannelPlayback("headphone", 0);
+  }
+  researchPreviewAudio = undefined;
+};
+
+const buildResearchPreview = (trackId: string) => {
+  const preview = document.createElement("div");
+  preview.className = "metadata-research-preview";
+  const play = buildHeadphoneButton(trackId);
+  play.type = "button";
+  const seek = document.createElement("input");
+  seek.type = "range";
+  seek.max = "1000";
+  seek.value = "0";
+  seek.disabled = true;
+  seek.setAttribute("aria-label", t("research_previewSeek"));
+  const status = document.createElement("span");
+  status.setAttribute("aria-live", "polite");
+  preview.append(play, seek, status);
+  play.disabled = !headphoneAvailable || appMode === "live";
+  if (play.disabled) status.textContent = t("research_previewUnavailable");
+  void researchApp?.getWaveform(trackId).then((url) => {
+    if (url) seek.style.backgroundImage = `url("${url}")`;
+  }).catch(() => {});
+
+  let audio: HTMLAudioElement | undefined;
+  play.addEventListener("click", async () => {
+    const lookup = ++researchPreviewLookup;
+    play.disabled = true;
+    status.textContent = "";
+    try {
+      const [track] = await researchApp?.getTracksByIds([trackId]) ?? [];
+      if (lookup !== researchPreviewLookup) return;
+      if (!track || !headphoneAvailable || appMode === "live") {
+        status.textContent = t("research_previewUnavailable");
+        return;
+      }
+      const playing = playOnChannel("headphone", track.full_path, track.id, track, track.gain_db);
+      researchPreviewVersion = playRequestVersion.headphone;
+      if (!await playing || lookup !== researchPreviewLookup ||
+        researchPreviewVersion !== playRequestVersion.headphone) return;
+      audio = playback.headphone.active;
+      if (!audio || playback.headphone.currentTrackId !== trackId) return;
+      const source = audio;
+      researchPreviewAudio = source;
+      const sync = () => {
+        seek.disabled = source.paused || !Number.isFinite(source.duration) || source.duration <= 0;
+        if (source.duration > 0) seek.value = String(Math.round(1000 * source.currentTime / source.duration));
+      };
+      source.addEventListener("timeupdate", sync);
+      source.addEventListener("pause", () => {
+        source.removeEventListener("timeupdate", sync);
+        seek.disabled = true;
+      }, { once: true });
+      sync();
+    } catch {
+      status.textContent = t("research_previewUnavailable");
+    } finally {
+      play.disabled = !headphoneAvailable || appMode === "live";
+    }
+  });
+  seek.addEventListener("input", () => {
+    const state = playback.headphone;
+    if (!audio || state.active !== audio || !Number.isFinite(audio.duration)) return;
+    audio.currentTime = audio.duration * Number(seek.value) / 1000;
+    if (state.compressedActive) state.compressedActive.currentTime = audio.currentTime;
+  });
+  return preview;
+};
+if (researchPanel && researchReview && researchApp?.metadataResearch) {
+  refreshMetadataResearch = initializeMetadataResearch(researchPanel, researchReview, {
+    api: researchApp.metadataResearch,
+    t,
+    canWrite: () => appMode !== "live" && !isMainPlaybackActive(),
+    buildPreview: buildResearchPreview,
+    stopPreview: stopResearchPreview,
+    confirm: (message) => showConfirmModal(message),
+    selected: () => {
+      return [...new Set([researchEditorTrackId, selectedClipboardTrackId].filter((id): id is string => !!id))];
+    },
+    filtered: async () => {
+      const ids: string[] = [];
+      const filters = getSearchParams();
+      for (let offset = 0; ; offset += 250) {
+        const tracks = await researchApp.searchTracks({
+          ...filters, sortBy: searchState.sortBy, sortDir: searchState.sortDir, limit: 250, offset,
+        });
+        ids.push(...tracks.map((track) => track.id));
+        if (tracks.length < 250) return ids;
+      }
+    },
+    changed: async () => {
+      const tracks = await researchApp.getTracksByIds(Array.from(trackCache.keys()));
+      tracks.forEach(updateTrackCaches);
+      await refreshUnstyledCollection();
+      await refreshSearch();
+      renderAllLists();
+    },
+  });
+}
+
 const updateSearchSortDefaults = () => {
   const query = searchInput?.value?.trim() ?? "";
   setSearchState({
@@ -13256,11 +13372,13 @@ const getTrackDataFromRow = (row: HTMLElement) => {
 const setSettingsOpen = async (open: boolean) => {
   if (!open) {
     closeAvLagCalibration();
+    researchEditorTrackId = undefined;
   }
   if (open && isTrackEditorOpen()) {
     if (!(await confirmTrackEditorDiscardIfDirty())) {
       return;
     }
+    researchEditorTrackId = trackEditorDraft.track?.id;
     setTrackEditorOpen(false);
     clearTrackEditorState();
   }
@@ -13277,6 +13395,7 @@ const setSettingsOpen = async (open: boolean) => {
   settingsPanel.setAttribute("aria-hidden", open ? "false" : "true");
   if (open) {
     renderLibraryWorkflow();
+    refreshMetadataResearch?.();
   }
 };
 
